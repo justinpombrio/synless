@@ -1,0 +1,11 @@
+[package]
+
+name = "tree_editor"
+version = "0.0.1"
+authors = ["justinpombrio <zallambo@gmail.com>"]
+
+[dependencies]
+regex = "*"
+rustbox = "*"
+#rustbox = "0.7.2"
+lazy_static = "*"

@@ -1,0 +1,208 @@
+↑←→↓
+
+global state: last-command
+
+notation:
+  {...}: literal keys
+  [...]: quotation
+  C-k: control-k
+  S-k: shift-k
+
+built-in commands:
+  [...] loop: Run the command sequence as long as it succeeds. Always succeeds.
+  [...] atomic: Run the command sequence, but if any of it fails restore the original state.
+
+Questions:
+  - clipboard stack ok?
+  - variations on delete: should they cut? Just use space to mark?
+  - selection: what does [mark parent] do?
+
+
+CHANGE MODE:
+- text mode (go from parent node to remembered child char)
+- tree node (go from between chars to parent node)
+
+
+DELETE
+
+  primitive:
+    delete - Delete a node, replacing it with ?.
+    clear  - Delete a node's children, but leave the node intact.
+    unwrap - Delete a node, but try to place its children in its parent node.
+    remove - Remove current stretchy node.
+
+  bindings:
+    backspace = delete
+
+
+CREATE:
+- create (swap out the selected node with a new node of a given type; preserve children)
+
+INSERT:
+(two letters & shift)
+- insert left sibling (as ?, goto it)
+- insert right sibling (as ?, goto it)
+- insert child (as ?, goto it)
+- insert parent, a.k.a. wrap (insert parent as gap)
+
+
+NAVIGATION
+
+  primitive:
+    left   - move cursor to left sibling
+    right  - move cursor to right sibling
+    child  - move cursor to remembered child
+    parent - move cursor to parent
+
+  compound:
+    leftmost   = [left] loop
+    rightmost  = [right] loop
+    bottommost = [child] loop
+    topmost    = [parent] loop
+    first      = [child leftmost] loop
+    last       = [child rightmost] loop
+
+  bindings:
+    h = ←   = left
+    l = →   = right
+    j = ↓   = child
+    k = ↑   = parent
+    H = S-← = leftmost
+    L = S-→ = rightmost
+    J = S-↓ = bottommost
+    K = S-↑ = topmost
+
+
+RESHAPE
+
+  compound:
+    swap-left   = x ← v →
+    swap-right  = x → v ←
+    reassociate = 1X ↑ 2X ↑ 3X 2V ↓ 3V ↓ 1V
+    split = select-to-left 1X select-to-right 2X ↑ 3C
+            1 past-children insert-right 3V 2 paste-children ← ↓
+    merge = ↑ → cut-children remove ← paste-chilren ↓
+    ...
+      paste-rightmost-child = [↓ rightmost v] silent
+      slurp = [mark ↑ → x remove jump rightmost v jump unmark] atomic
+      barf  = [mark rightmost x ↑ insert-right ...]
+      barf-me = ...
+
+VARIABLES:
+- goto declaration
+- goto next reference
+
+SELECTION:
+- select all
+- SEE KAKOUNE
+- put cursor on all selections
+- put cursor on remembered (first) selection
+- goto next selection
+- goto prev selection
+
+SEARCH:
+- search (produces a selection)
+
+MISCELLANY:
+- repeat last modification command
+- (bookmarks)
+
+
+UNDO
+
+  state:
+    Stack of top-level commands, with info required to undo them.
+    Position within stack, i.
+    (If a top-level command occurs, and i>0, clear the stack above i and set i=0.)
+
+  primitive:
+    undo - Undo i'th command, increment i.
+    redo - Decrement i, redo i'th command.
+
+  bindings:
+    z = undo
+    Z = redo
+
+
+FILE:
+- open
+- save
+- save as
+- rename
+- export
+- import
+
+BUFFERS:
+- fuck all
+
+TEXT NAVIGATION:
+- goto next tree
+- goto prev tree
+
+
+MACRO
+
+  state:
+    macro_k for each key k
+
+  primitive:
+    k get-macro - Push the k'th macro's definition onto the stack.
+    k x set-macro - Set the k'th macro's definition to x.
+    read-keys - Read a sequence of key presses until "Esc". Produces [{keys}].
+    {keys} - Simulates pressing <keys>.
+
+  compound:
+    k define-macro = k read-keys set-macro
+    k run-macro    = k get-macro eval
+
+  bindings:
+    M = define-macro
+    m = run-macro
+
+
+COPYING
+
+  state:
+    clipboard & clipboard[0-9]
+    Each clipboard is a stack. Pasting pops the stack.
+  
+  primitive:
+    n copy - Copy to n'th clipboard.
+    n paste - Paste from n'th clipboard, popping it.
+              When pasting multiple values, splice them if possible.
+  
+  compound:
+    n cut = n copy delete
+  
+  bindings:
+    c = 0 copy
+    C = copy
+    x = 0 cut
+    X = cut
+    v = 0 paste
+    v (where last-command = "v"): keep a counter i; paste the i'th deep item from the 0'th clipboard
+    V (where last-command = "V"): likewise
+  
+  combos:
+    vc - paste (keeping in clipboard)
+
+
+SCROLL MODE
+
+
+
+~~~~~~~~~ TEXT MODE ~~~~~~~~~~
+
+NAVIGATION
+
+  primitive:
+    text-left   - Move cursor one to the left (may jump over a tree)
+    text-right  - Move cursor one to the right (may jump over a tree)
+    text-child  - Move cursor into the text of the child it is just before
+    text-parent - Move cursor into the parent's text, just before the child whose text it is in
+
+  bindings:
+    ← = text-left
+    → = text-right
+    ↓ = text-child
+    ↑ = text-parent
