@@ -3,7 +3,6 @@
 use rustbox;
 use rustbox::{RB_NORMAL, RB_BOLD, RB_UNDERLINE};
 use self::Color::*;
-use self::Emph::*;
 
 
 /// The overall style to render text to the terminal.
@@ -16,13 +15,12 @@ pub struct Style {
     pub reversed: bool
 }
 
-/// Normal, bold, or underlined. Your terminal may not support
-/// underlining.
+/// Bold, underlined, or both?
+/// I do not know how widespread terminal support for underlining is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Emph {
-    Normal,
-    Bold,
-    Underline
+pub struct Emph {
+    pub bold: bool,
+    pub underline: bool
 }
 
 /// The foreground color (or if reversed the background color).
@@ -44,20 +42,38 @@ pub enum Color {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Shade(pub usize);
 
+impl Emph {
+    /// Neither bold nor underlined.
+    pub fn plain() -> Emph {
+        Emph{
+            underline: false,
+            bold: false
+        }
+    }
+
+    /// Just underlined.
+    pub fn underlined() -> Emph {
+        Emph{
+            underline: true,
+            bold: false
+        }
+    }
+}
+
 impl Style {
     /// Ordinary white on black.
     pub fn plain() -> Style {
-        Style::new(White, Normal, Shade::black(), false)
+        Style::new(White, Emph::plain(), Shade::black(), false)
     }
 
     /// Ordinary colored text.
     pub fn color(color: Color) -> Style {
-        Style::new(color, Normal, Shade(0), false)
+        Style::new(color, Emph::plain(), Shade(0), false)
     }
 
     /// Color the background. Visually very strong!
     pub fn reverse_color(color: Color) -> Style {
-        Style::new(color, Normal, Shade::black(), true)
+        Style::new(color, Emph::plain(), Shade::black(), true)
     }
 
     /// Fully customized style.
@@ -99,11 +115,9 @@ impl Shade {
 
 impl From<Emph> for rustbox::Style {
     fn from(emph: Emph) -> rustbox::Style {
-        match emph {
-            Normal    => RB_NORMAL,
-            Bold      => RB_BOLD,
-            Underline => RB_UNDERLINE
-        }
+        let ul = if emph.underline { RB_UNDERLINE } else { RB_NORMAL };
+        let bd = if emph.bold { RB_BOLD } else { RB_NORMAL };
+        ul | bd
     }
 }
 

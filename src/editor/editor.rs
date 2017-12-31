@@ -10,8 +10,8 @@ use render::render;
 use language::Language;
 use editor::keymap::KeyMap;
 use editor::keymap::Action;
-use editor::Command;
-use editor::Command::*;
+use editor::command::Command;
+use editor::command::Command::*;
 
 
 const CENTERLINE: f32 = 0.3;

@@ -3,6 +3,7 @@ use std::fmt;
 use self::Command::*;
 
 
+/// An editor command that can be performed by the Cursor.
 #[derive(Clone)]
 pub enum Command {
     // Tree Navigation

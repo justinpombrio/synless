@@ -1,9 +1,9 @@
-extern crate tree_editor;
+extern crate synless;
 
-use tree_editor::Tree;
-use tree_editor::Language;
-use tree_editor::KeyMap;
-use tree_editor::Editor;
+use synless::Tree;
+use synless::Language;
+use synless::KeyMap;
+use synless::Editor;
 
 fn main() {
     let language = Language::example_language();

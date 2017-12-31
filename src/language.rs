@@ -27,7 +27,7 @@ fn word(s: &str) -> Syntax {
 }
 
 fn txt() -> Syntax {
-    text(Style::new(Color::Blue, Emph::Underline, Shade::black(), false))
+    text(Style::new(Color::Blue, Emph::underlined(), Shade::black(), false))
 }
 
 impl Language {

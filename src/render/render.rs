@@ -7,7 +7,7 @@ use tree::{Path, extend_path, match_end_of_path};
 use doc::{TreeRef};
 use syntax::LayoutRegion;
 use syntax::Layout::*;
-use style::{Style, Emph, Shade};
+use style::{Style, Shade};
 use terminal::{Terminal};
 
 
@@ -97,7 +97,7 @@ impl<'a> Renderer<'a> {
             }
         }
         if style.shade == Shade(0) {
-            style.emph = Emph::Bold
+            style.emph.bold = true;
         }
         self.terminal.print_char(ch, pos, style);
     }

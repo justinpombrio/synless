@@ -1,4 +1,5 @@
 //! This module defines coordinates used by the rest of the editor.
+//! 
 //! `Pos` represents points, `Range` represents lines, and `Rect` represents rectangles.
 
 use std::ops::Add;

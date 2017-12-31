@@ -75,7 +75,7 @@ impl Terminal {
     pub fn shade_region(&mut self, region: Region, shade: Shade) {
         let fg = shade.into();
         let bg = shade.into();
-        let emph = Emph::Normal.into();
+        let emph = Emph::plain().into();
 
         let init_col   = region.pos.col as usize;
         let indent_col = (region.pos.col + region.indent()) as usize;

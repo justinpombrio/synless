@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
 use terminal::Key;
-use editor::Command;
+use editor::command::Command;
 use doc::Mode::{self, TreeMode, TextMode};
 use language::Language;
 
 
-/// A full set of keyboard bindings.
+/// A set of keyboard bindings.
 pub struct KeyMap {
     tree_map: HashMap<Key, Action>,
     text_map: HashMap<Key, Action>,
@@ -15,7 +15,7 @@ pub struct KeyMap {
 
 /// A group of keyboard bindings: several key bindings that can be
 /// accessed by first pressing a shared common key.
-pub struct KeyGroup {
+struct KeyGroup {
     keymap: KeyMap
 }
 
