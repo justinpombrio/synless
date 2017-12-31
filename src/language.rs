@@ -14,7 +14,8 @@ use doc::Tree;
 /// should be separated from the notation that describes how to
 /// display it.
 pub struct Language {
-    pub(crate) keymap: HashMap<char, Construct>
+    pub(crate) constructs: HashMap<String, Construct>,
+    pub(crate) keymap: HashMap<char, String>
 }
 
 fn punct(s: &str) -> Syntax {
@@ -31,90 +32,110 @@ fn txt() -> Syntax {
 
 impl Language {
 
+    fn new() -> Language {
+        Language{
+            constructs: HashMap::new(),
+            keymap:     HashMap::new()
+        }
+    }
+
+    fn add(&mut self, key: char, construct: Construct) {
+        self.keymap.insert(key, construct.name.clone());
+        self.constructs.insert(construct.name.clone(), construct);
+    }
+
+    pub fn lookup(&self, key: char) -> Option<&Construct> {
+        match self.keymap.get(&key) {
+            Some(name) => Some(self.lookup_name(name)),
+            None => None
+        }
+    }
+
+    pub fn lookup_name(&self, construct: &str) -> &Construct {
+        match self.constructs.get(construct) {
+            Some(con) => con,
+            None => panic!("Could not find construct named {} in language.",
+                           construct)
+        }
+    }
+
     /// An example language for testing.
     pub fn example_language() -> Language {
-        let mut keymap = HashMap::new();
-        keymap.insert('p', {
-            let syn =
-                child(0) + punct(" + ") + child(1)
-                | flush(child(0)) + punct("+ ") + child(1);
-            Construct::new("plus", Arity::fixed(2), syn)
+        let mut lang = Language::new();
+
+        let syn =
+            child(0) + punct(" + ") + child(1)
+            | flush(child(0)) + punct("+ ") + child(1);
+        lang.add('p', Construct::new("plus", Arity::fixed(2), syn));
+
+        let syn = repeat(Repeat{
+            empty:  empty(),
+            lone:   star(),
+            first:  star() + punct(", "),
+            middle: star() + punct(", "),
+            last:   star()
+        }) | repeat(Repeat{
+            empty:  empty(),
+            lone:   star(),
+            first:  flush(star() + punct(",")),
+            middle: flush(star() + punct(",")),
+            last:   star()
         });
-        keymap.insert('a', {
-            let syn = repeat(Repeat{
-                empty:  empty(),
-                lone:   star(),
-                first:  star() + punct(", "),
-                middle: star() + punct(", "),
-                last:   star()
-            })| repeat(Repeat{
-                empty:  empty(),
-                lone:   star(),
-                first:  flush(star() + punct(",")),
-                middle: flush(star() + punct(",")),
-                last:   star()
-            });
-            Construct::new("args", Arity::extendable(0), syn)
+        lang.add('a', Construct::new("args", Arity::extendable(0), syn));
+
+        let syn = repeat(Repeat{
+            empty:  punct("[]"),
+            lone:   punct("[") + star() + punct("]"),
+            first:  punct("[") + star() + punct(", "),
+            middle: star() + punct(", "),
+            last:   star() + punct("]")
+        })| repeat(Repeat{
+            empty:  punct("[]"),
+            lone:   punct("[") + star() + punct("]"),
+            first:  flush(star() + punct(",")),
+            middle: flush(star() + punct(",")),
+            last:   star() + punct("]")
+        })| repeat(Repeat{
+            empty:  punct("[]"),
+            lone:   punct("[") + star() + punct("]"),
+            first:  punct("[")
+                + (star() + punct(", ") | flush(star() + punct(","))),
+            middle: star() + punct(", ") | flush(star() + punct(",")),
+            last:   star() + punct("]")
         });
-        keymap.insert('l', {
-            let syn = repeat(Repeat{
-                empty:  punct("[]"),
-                lone:   punct("[") + star() + punct("]"),
-                first:  punct("[") + star() + punct(", "),
-                middle: star() + punct(", "),
-                last:   star() + punct("]")
-            })| repeat(Repeat{
-                empty:  punct("[]"),
-                lone:   punct("[") + star() + punct("]"),
-                first:  flush(star() + punct(",")),
-                middle: flush(star() + punct(",")),
-                last:   star() + punct("]")
-            })| repeat(Repeat{
-                empty:  punct("[]"),
-                lone:   punct("[") + star() + punct("]"),
-                first:  punct("[")
-                    + (star() + punct(", ") | flush(star() + punct(","))),
-                middle: star() + punct(", ") | flush(star() + punct(",")),
-                last:   star() + punct("]")
-            });
-            Construct::new("list", Arity::extendable(0), syn)
-        });
-        keymap.insert('f', {
-            let syn =
-                word("func ") + child(0)
-                + punct("(") + child(1) + punct(") { ") + child(2) + punct(" }")
-              | flush(word("func ") + child(0) + punct("(") + child(1) + punct(") {"))
-                + flush(word("  ") + child(2))
-                + punct("}")
-              | flush(word("func ") + child(0) + punct("("))
-                + flush(word("  ") + child(1) + punct(")"))
-                + flush(punct("{"))
-                + flush(word("  ") + child(2))
-                + punct("}");
-            Construct::new("func", Arity::fixed(3), syn)
-        });
-        keymap.insert('i', {
-            let syn = if_empty_text(txt() + punct("·"), txt());
-            Construct::new("id", Arity::text(), syn)
-        });
-        keymap.insert('s', {
-            let syn = punct("'") + txt() + punct("'");
-            Construct::new("string", Arity::text(), syn)
-        });
-        Language{
-            keymap: keymap
-        }
+        lang.add('l', Construct::new("list", Arity::extendable(0), syn));
+
+        let syn =
+            word("func ") + child(0)
+            + punct("(") + child(1) + punct(") { ") + child(2) + punct(" }")
+            | flush(word("func ") + child(0) + punct("(") + child(1) + punct(") {"))
+            + flush(word("  ") + child(2))
+            + punct("}")
+            | flush(word("func ") + child(0) + punct("("))
+            + flush(word("  ") + child(1) + punct(")"))
+            + flush(punct("{"))
+            + flush(word("  ") + child(2))
+            + punct("}");
+        lang.add('f', Construct::new("func", Arity::fixed(3), syn));
+
+        let syn = if_empty_text(txt() + punct("·"), txt());
+        lang.add('i', Construct::new("iden", Arity::text(), syn));
+
+        let syn = punct("'") + txt() + punct("'");
+        lang.add('s', Construct::new("strn", Arity::text(), syn));
+
+        lang
     }
 }
 
 
 #[cfg(test)]
 pub(crate) fn make_example_tree<'l>(lang: &'l Language, tweak: bool) -> Tree<'l> {
-    let con_func = &lang.keymap[&'f'];
-    let con_id   = &lang.keymap[&'i'];
-    let con_str  = &lang.keymap[&'s'];
-    let con_arg  = &lang.keymap[&'a'];
-    let con_plus = &lang.keymap[&'p'];
+    let con_func = lang.lookup_name("func");
+    let con_id   = lang.lookup_name("iden");
+    let con_str  = lang.lookup_name("strn");
+    let con_arg  = lang.lookup_name("args");
+    let con_plus = lang.lookup_name("plus");
 
     let foo = Tree::new_text(con_id, "foo");
     let abc = Tree::new_text(con_id, "abc");

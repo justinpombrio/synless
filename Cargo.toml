@@ -7,5 +7,4 @@ authors = ["justinpombrio <zallambo@gmail.com>"]
 [dependencies]
 regex = "*"
 rustbox = "*"
-#rustbox = "0.7.2"
 lazy_static = "*"

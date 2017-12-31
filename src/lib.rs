@@ -38,4 +38,5 @@ pub mod editor;    // dep: tree, doc, terminal, render
 // API:
 pub use language::Language;
 pub use tree::Tree;
+pub use editor::KeyMap;
 pub use editor::Editor;

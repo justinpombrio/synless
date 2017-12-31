@@ -3,12 +3,15 @@
 use coord::*;
 use tree::Tree;
 use doc::Cursor;
-use doc::Mode::*;
 use style::{Color, Style};
 use terminal::{Terminal, Key};
 use terminal::Event::{MouseEvent, KeyEvent};
 use render::render;
 use language::Language;
+use editor::keymap::KeyMap;
+use editor::keymap::Action;
+use editor::Command;
+use editor::Command::*;
 
 
 const CENTERLINE: f32 = 0.3;
@@ -17,16 +20,24 @@ const CENTERLINE: f32 = 0.3;
 pub struct Editor<'t, 'l : 't> {
     terminal: Terminal,
     language: &'l Language,
-    cursor:   Cursor<'t, 'l>
+    keymap:   KeyMap,
+    cursor:   Cursor<'t, 'l>,
+    keygroup: Option<String>
 }
 
 impl<'t, 'l> Editor<'t, 'l> {
     /// Construct a new Synless tree editor.
-    pub fn new(language: &'l Language, tree: &'t mut Tree<'l>) -> Editor<'t, 'l> {
+    pub fn new(language: &'l Language,
+               keymap: KeyMap,
+               tree: &'t mut Tree<'l>)
+               -> Editor<'t, 'l>
+    {
         Editor{
             terminal: Terminal::new(),
             language: language,
-            cursor:   Cursor::new(tree)
+            keymap:   keymap,
+            cursor:   Cursor::new(tree),
+            keygroup: None
         }
     }
 
@@ -96,73 +107,54 @@ impl<'t, 'l> Editor<'t, 'l> {
                                    Pos{ row: 40, col: 1 });
     }
 
-    fn press_key(&mut self, key: Key) {
-        match self.cursor.mode() {
-            TreeMode => {
-                match key {
-                    Key::Up => {
-                        debug!("UP");
-                        self.cursor.up();
-                    }
-                    Key::Down => {
-                        debug!("DOWN");
-                        self.cursor.down();
-                    }
-                    Key::Left => {
-                        debug!("LEFT");
-                        self.cursor.left();
-                    }
-                    Key::Right => {
-                        debug!("RIGHT");
-                        self.cursor.right();
-                    }
-                    Key::Char('j') => {
-                        debug!("ADD CHILD");
-                        self.cursor.add_child();
-                    }
-                    Key::Backspace => {
-                        debug!("DELETE TREE");
-                        self.cursor.delete_tree();
-                    }
-                    Key::Enter => {
-                        debug!("ENTER TEXT");
-                        self.cursor.enter_text();
-                    }
-                    Key::Char(c) => {
-                        match self.language.keymap.get(&c) {
-                            None => (),
-                            Some(construct) => {
-                                debug!("INSERT {}", c);
-                                self.cursor.replace_tree(construct);
-                            }
-                        }
-                    }
-                    _ => ()
-                }
+    fn perform(&mut self, command: &Command) {
+        debug!("Command: {}", command);
+        match command {
+            // Tree Navigation
+            &Right => { self.cursor.right(); },
+            &Left  => { self.cursor.left(); },
+            &Up    => { self.cursor.up(); },
+            &Down  => { self.cursor.down(); },
+            // Text Navigation
+            &RightChar => { self.cursor.right_char(); },
+            &LeftChar  => { self.cursor.left_char(); },
+            // Modes
+            &EnterText => { self.cursor.enter_text(); },
+            &ExitText  => { self.cursor.exit_text(); },
+            // Tree Editing
+            &AddChild => { self.cursor.add_child(); },
+            &DeleteTree => { self.cursor.delete_tree(); },
+            &ReplaceTree(ref name) => {
+                let con = self.language.lookup_name(name);
+                self.cursor.replace_tree(con);
             }
-            TextMode => {
-                match key {
-                    Key::Enter => {
-                        debug!("EXIT TEXT");
-                        self.cursor.exit_text();
-                    }
-                    Key::Backspace => {
-                        debug!("DELETE CHAR");
-                        self.cursor.delete_char();
-                    }
-                    Key::Left => {
-                        debug!("LEFT");
-                        self.cursor.left_char();
-                    }
-                    Key::Right => {
-                        debug!("RIGHT");
-                        self.cursor.right_char();
-                    }
-                    Key::Char(c) => {
-                        self.cursor.insert_char(c);
-                    }
-                    _ => ()
-                }                
+            // Text Editing
+            &InsertChar(ch) => { self.cursor.insert_char(ch); },
+            &DeleteChar => { self.cursor.delete_char(); }
+        }
+    }
+
+    fn get_keymap(&self) -> &KeyMap {
+        match self.keygroup {
+            None => &self.keymap,
+            Some(ref group) => self.keymap.lookup_keygroup(group)
+        }
+    }
+
+    fn lookup_key(&self, key: Key) -> Option<Action> {
+        let keymap = self.get_keymap();
+        keymap.lookup(key, self.cursor.mode())
+    }
+
+    fn press_key(&mut self, key: Key) {
+        if let Some(action) = self.lookup_key(key) {
+            self.keygroup = None;
+            match action {
+                Action::Command(cmd) => self.perform(&cmd),
+                Action::KeyGroup(group) => {
+                    debug!("Entering key group {}", group);
+                    self.keygroup = Some(group);
+                }
             }
         }
         self.terminal.simple_print(&format!("{:?}", key),
@@ -171,6 +163,10 @@ impl<'t, 'l> Editor<'t, 'l> {
                                    Pos{ row: 40, col: 20 });
         self.terminal.simple_print(&format!("{}", self.cursor.mode()),
                                    Pos{ row: 40, col: 40});
+        if let &Some(ref group) = &self.keygroup {
+            self.terminal.simple_print(group,
+                                       Pos{ row: 40, col: 50});
+        }
     }
 }
 
