@@ -20,18 +20,22 @@ pub enum Event {
 /// Implemented using [Rustbox](https://github.com/gchp/rustbox).
 /// Make only one.
 pub struct Terminal {
-    rust_box: RustBox
+    rust_box: RustBox,
+    color_theme: ColorTheme
 }
 
 impl Terminal {
-    pub fn new() -> Terminal {
+    pub fn new(theme: ColorTheme) -> Terminal {
         let settings = InitOptions{
             input_mode: InputMode::EscMouse,
             output_mode: OutputMode::EightBit,
             buffer_stderr: true
         };
         match RustBox::init(settings) {
-            Result::Ok(v) => Terminal{ rust_box: v },
+            Result::Ok(rb) => Terminal{
+                rust_box: rb,
+                color_theme: theme
+            },
             Result::Err(e) => panic!("Failed to initialize Rustbox!\n{}", e),
         }
     }
@@ -51,9 +55,9 @@ impl Terminal {
     /// Render a string with the given style at the given position.
     /// No newlines allowed.
     pub fn print_str(&mut self, text: &str, pos: Pos, style: Style) {
-        let fg = style.foreground();
-        let bg = style.background();
-        let emph = style.emphasis();
+        let fg = self.color_theme.foreground(style);
+        let bg = self.color_theme.background(style);
+        let emph = self.color_theme.emph(style);
         for (i, ch) in text.chars().enumerate() {
             let (row, col) = (pos.row as usize, pos.col as usize + i);
             self.rust_box.print_char(col, row, emph, fg, bg, ch);
@@ -63,9 +67,9 @@ impl Terminal {
     /// Render a character with the given style at the given position.
     /// No newlines allowed.
     pub fn print_char(&mut self, ch: char, pos: Pos, style: Style) {
-        let fg = style.foreground();
-        let bg = style.background();
-        let emph = style.emphasis();
+        let fg = self.color_theme.foreground(style);
+        let bg = self.color_theme.background(style);
+        let emph = self.color_theme.emph(style);
         let (row, col) = (pos.row as usize, pos.col as usize);
         self.rust_box.print_char(col, row, emph, fg, bg, ch);
     }
@@ -73,9 +77,9 @@ impl Terminal {
     /// Fill in a Region of the screen with the given
     /// background shade (and empty forground).
     pub fn shade_region(&mut self, region: Region, shade: Shade) {
-        let fg = shade.into();
-        let bg = shade.into();
-        let emph = Emph::plain().into();
+        let fg = self.color_theme.shade(shade);
+        let bg = self.color_theme.shade(shade);
+        let emph = self.color_theme.emph(Style::plain());
 
         let init_col   = region.pos.col as usize;
         let indent_col = (region.pos.col + region.indent()) as usize;
@@ -109,6 +113,20 @@ impl Terminal {
 
     /// Poll for keyboard and mouse events. `None` means no event.
     pub fn poll_event(&self) -> Option<Event> {
+        /*
+        match self.rust_box.poll_event(true) {
+            Ok(rustbox::Event::KeyEventRaw(a, b, c)) =>
+                debug!("{} {} {}", a, b, c),
+            _ => ()
+        };
+        unsafe {
+            N += 1;
+            if N == 10 {
+                panic!("done now");
+            }
+        }
+        None
+         */
         match self.rust_box.poll_event(false) {
             Ok(rustbox::Event::MouseEvent(Mouse::Left, x, y)) =>
                 Some(MouseEvent(x, y)),
@@ -121,3 +139,5 @@ impl Terminal {
         }
     }
 }
+
+// static mut N : usize = 0;

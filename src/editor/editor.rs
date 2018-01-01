@@ -3,7 +3,7 @@
 use coord::*;
 use tree::Tree;
 use doc::Cursor;
-use style::{Color, Style};
+use style::{Color, Style, ColorTheme};
 use terminal::{Terminal, Key};
 use terminal::Event::{MouseEvent, KeyEvent};
 use render::render;
@@ -29,11 +29,12 @@ impl<'t, 'l> Editor<'t, 'l> {
     /// Construct a new Synless tree editor.
     pub fn new(language: &'l Language,
                keymap: KeyMap,
+               theme: ColorTheme,
                tree: &'t mut Tree<'l>)
                -> Editor<'t, 'l>
     {
         Editor{
-            terminal: Terminal::new(),
+            terminal: Terminal::new(theme),
             language: language,
             keymap:   keymap,
             cursor:   Cursor::new(tree),

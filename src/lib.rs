@@ -40,3 +40,4 @@ pub use language::Language;
 pub use tree::Tree;
 pub use editor::KeyMap;
 pub use editor::Editor;
+pub use style::ColorTheme;
