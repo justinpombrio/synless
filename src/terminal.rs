@@ -106,27 +106,17 @@ impl Terminal {
     pub fn size(&self) -> Pos {
         Pos{
             col: 20,
+            row: 10
 //            col: self.rust_box.width() as Col,
-            row: self.rust_box.height() as Row
+//            row: self.rust_box.height() as Row
         }
     }
 
     /// Poll for keyboard and mouse events. `None` means no event.
     pub fn poll_event(&self) -> Option<Event> {
-        /*
-        match self.rust_box.poll_event(true) {
-            Ok(rustbox::Event::KeyEventRaw(a, b, c)) =>
-                debug!("{} {} {}", a, b, c),
-            _ => ()
-        };
-        unsafe {
-            N += 1;
-            if N == 10 {
-                panic!("done now");
-            }
-        }
-        None
-         */
+        // Ctrl-n = Enter
+        // Ctrl-r = Return?
+        // Ctrl-m = Tab
         match self.rust_box.poll_event(false) {
             Ok(rustbox::Event::MouseEvent(Mouse::Left, x, y)) =>
                 Some(MouseEvent(x, y)),
