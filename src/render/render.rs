@@ -3,8 +3,7 @@ extern crate rustbox;
 use std::iter::Iterator;
 
 use coord::*;
-use tree::{Path, extend_path, match_end_of_path};
-use doc::{TreeRef};
+use tree::{Path, extend_path, match_end_of_path, TreeRef};
 use syntax::LayoutRegion;
 use syntax::Layout::*;
 use style::{Style, Shade};

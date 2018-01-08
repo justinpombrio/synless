@@ -297,7 +297,7 @@ impl<'t, 'l : 't> Cursor<'t, 'l> {
 mod test {
     use super::*;
     use syntax::{TEST_TEXT, TEST_FOREST};
-    use doc::Tree;
+    use tree::Tree;
 
     fn t(children: Vec<Tree<'static>>) -> Tree<'static> {
         Tree::new_forest(&TEST_FOREST, children)

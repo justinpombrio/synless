@@ -1,5 +1,6 @@
 //! Render the tree onto the screen.
 
+mod write;
 mod locate_cursor;
 mod position_screen;
 mod render;

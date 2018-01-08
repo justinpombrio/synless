@@ -1,8 +1,7 @@
 //! The Synless tree editor itself (the terminal application).
 
 use coord::*;
-use tree::Tree;
-use doc::Cursor;
+use tree::{Tree, Cursor};
 use style::{Color, Style, ColorTheme};
 use terminal::{Terminal, Key};
 use terminal::Event::{MouseEvent, KeyEvent};
@@ -16,6 +15,9 @@ use editor::command::Command::*;
 
 const CENTERLINE: f32 = 0.3;
 
+const RAINBOW: [Color; 6] = [
+    Color::Red, Color::Yellow, Color::Green,
+    Color::Cyan, Color::Blue, Color::Magenta];
 
 pub struct Editor<'t, 'l : 't> {
     terminal: Terminal,
@@ -69,29 +71,14 @@ impl<'t, 'l> Editor<'t, 'l> {
         self.terminal.clear();
     }
 
-    fn splat_color(&mut self, pos: Pos, color: Color) {
-        self.terminal.print_str("Color", pos, Style::color(color));
-    }
-
-    fn splat_color_rev(&mut self, pos: Pos, color: Color) {
-        self.terminal.print_str("Color", pos, Style::reverse_color(color));
-    }
-
     fn rainbow(&mut self) {
-        self.splat_color_rev(Pos{ row: 41, col: 0  }, Color::Red);
-        self.splat_color_rev(Pos{ row: 41, col: 5  }, Color::Yellow);
-        self.splat_color_rev(Pos{ row: 41, col: 10 }, Color::Green);
-        self.splat_color_rev(Pos{ row: 41, col: 15 }, Color::Cyan);
-        self.splat_color_rev(Pos{ row: 41, col: 20 }, Color::Blue);
-        self.splat_color_rev(Pos{ row: 41, col: 25 }, Color::Magenta);
-        self.splat_color_rev(Pos{ row: 41, col: 30 }, Color::Red);
-        self.splat_color(Pos{ row: 42, col: 0  }, Color::Red);
-        self.splat_color(Pos{ row: 42, col: 5  }, Color::Yellow);
-        self.splat_color(Pos{ row: 42, col: 10 }, Color::Green);
-        self.splat_color(Pos{ row: 42, col: 15 }, Color::Cyan);
-        self.splat_color(Pos{ row: 42, col: 20 }, Color::Blue);
-        self.splat_color(Pos{ row: 42, col: 25 }, Color::Magenta);
-        self.splat_color(Pos{ row: 42, col: 30  }, Color::Red);
+        for i in 0..7 {
+            let color = RAINBOW[i % 6];
+            let pos = Pos{ row: 41 as Row, col: 5 * i as Col };
+            self.terminal.print_str("Color", pos, Style::color(color));
+            let pos = Pos{ row: 42 as Row, col: 5 * i as Col };
+            self.terminal.print_str("Color", pos, Style::reverse_color(color));
+        }
     }
     
     fn display(&mut self) {
@@ -99,6 +86,7 @@ impl<'t, 'l> Editor<'t, 'l> {
                self.cursor.char_index(),
                &mut self.terminal,
                CENTERLINE);
+//        self.background();
         self.rainbow();
         self.terminal.present();
     }

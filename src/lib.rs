@@ -29,11 +29,8 @@ pub mod terminal;  // dep:
 pub mod syntax;    // dep:
 pub mod language;  // dep: syntax
 pub mod tree;      // dep: syntax
-pub mod doc;       // dep: tree, syntax
-mod write;         // dep: doc, syntax
 pub mod render;    // dep: syntax, doc, terminal
-pub mod editor;    // dep: tree, doc, terminal, render
-
+pub mod editor;    // dep: language, tree, doc, terminal, render
 
 // API:
 pub use language::Language;

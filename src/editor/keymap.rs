@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use terminal::Key;
 use editor::command::Command;
-use doc::Mode::{self, TreeMode, TextMode};
+use tree::Mode::{self, TreeMode, TextMode};
 use language::Language;
 
 

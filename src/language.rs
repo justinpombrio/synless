@@ -6,7 +6,7 @@ use style::{Style, Color, Emph, Shade};
 use syntax::{Syntax, Repeat, Construct, Arity};
 use syntax::{empty, literal, text, child, flush, if_empty_text, repeat, star};
 #[cfg(test)]
-use doc::Tree;
+use tree::Tree;
 
 /// The syntax and whatnot for a language.
 /// Right now it just has a mapping from key to syntactic construct.
