@@ -14,14 +14,18 @@ Synless is a code editor that is not a text editor[1].
 Code is normally saved as, and edited as, text. Why is that?
 
 Text is a _wildly_ successful format. If you look at any domain in
-computing you'll see text everywhere. Data representation? CSV, JSON,
-and XML are all built on top of text. The internet? Html, urls, and
-email. Operating systems? The Unix philosophy says proclaims: "Write
-programs to handle text streams, because that is a universal
-interface (Doug McIlroy)." And so it's no surprise that programming
-languages too almost always have a textual syntax.
+computing you'll see text everywhere:
 
-You will notice something in common with all of these examples: they
+- Data representation? CSV, JSON, and XML are all built on top of text.
+- The internet? Html, urls, and email.
+- Operating systems? The Unix Philosophy proclaims: "Write
+programs to handle text streams, because that is a universal interface
+(Doug McIlroy)."
+
+And so it's no surprise that programming languages almost always have
+a textual syntax.
+
+You will notice something in common with all of these examples, though: they
 are not _plain_ text. Instead, each of them (and the syntax of almost
 every programming language) is a specific format built _on top of_
 text. In fact, it often makes sense to talk about a language
@@ -41,7 +45,7 @@ defined like this:
 Notice that this is _not_ the [JSON standard](http://json.org/). The
 JSON standard mentions square brackets, and this does not. Instead,
 this is another standard _implicitly_ defined by the JSON standard.
-We now have two ways to talk about JSON: as text, or as a `Value`.
+We now have two ways to talk about JSON: as text, and as a `Value`.
 Likewise, editors have a choice: they can treat JSON more like text,
 or they can treat it more like a `Value`. In practice, editors tend to
 treat documents as text:
@@ -53,11 +57,27 @@ treat documents as text:
    a line and column, and you can insert or delete a character at any
    position.
 
-This has a clear advantage: it lets you edit a document even if your
-editor has no idea what it is. Sure, you won't get syntax
-highlighting, or code completion, or jump-to-defintion, or sugar or
-spice or anything nice. But at least you can _open_ the thing, and
-carefully make a few changes.
+This has advantages and disadvantages.
+
+### Advantages of Text
+
+Essentially all of the advantages of text stem from the fact that it
+is, as Doug McIlroy says, a "universal interface".
+
+When a document is represented as text, you can edit it even if your
+editor has no idea what kind of document it is. Sure, you won't get
+syntax highlighting, or code completion, or jump-to-defintion, or any
+of those other nice features. But at least you can _open_ the thing,
+and carefully make a few changes.
+
+Furthermore, you know exactly what the editing interface is going to
+be like. You're going to have a cursor at a line and a column, and
+you're going to be able to insert or delete any character where your
+cursor is. This is the same kind of interface as a word editor; it is
+comfortable and familiar.
+
+
+### Disadvantages of Text
 
 There's a downside, though. Since your editor represents documents as
 text, when you _do_ have features like syntax highlighting or code
@@ -66,19 +86,64 @@ completion, they must be hacked together with regexps and hope. But
 writing emacs regexps to match perl regexps and you're not sure how
 [all the backslashes got there but you think they're multiplying](https://github.com/jrockway/cperl-mode/blob/master/cperl-mode.el#L8224).
 
-The point I'm trying to make is that _if syntax highlighting, code
+The point I'm trying to make is that if syntax highlighting, code
 completion, jump-to-definition, etc. are slow or buggy, it's probably
 because they have to deal with the editor representing the document as
-text_. I feel confident making this assetion because these problems
+text. I feel confident making this assertion because these problems
 become easy if you have a fully structured representation of the
 document.
 
-[FILL]
+But maybe you don't care about that. Writing these tools is a hurdle,
+but lots of software that we use everyday was a nightmare to write and
+maintain. Regardless of [what it looks like underneath](FILL), it's
+the interface that matters, right?
+
+I'm tired of textual interfaces. I'm tired of writing backslashes.
+`\n` is **not a newline**. It's two characters that get magically
+interpreted as a newline, and if you want your string to actually
+contain those two characters, you need to write three characters
+instead. Why can't a string contain a newline? Some languages allow
+this, but now the 
+
+The thing is, in a tree editor, this is _trivial_. There aren't even
+any questions that come up.
+
+I'm tired of formatting wars. I don't care how code that I work on is
+formatted, as long as it's consistent. Others agree, and now we have
+tools like `gofmt` and `rustfmt` and dozens of others [CHECK]. But if
+you're using `gofmt`, then there is a period of time in which you are
+editing your code, and it might not be in standard style.
+
+Why not go one step further? In a tree editor, there are no formatting
+choices to begin with. You can't choose whether to put a curly brace
+on the same line or on its own line, _because you never type a curly
+brace_.
+
+I'm tired of making syntax errors. I type a regex, and don't know
+whether to escape a character or not, or I write code and make a silly
+mistake. That thing I entered was a not a regex; it was not code. It
+was nonsense. Why does my editor let me enter it? It's not like it's
+_completely_ unaware of the structure of the language; it has syntax
+highlighting after all.
+
+In a tree editor, you cannot make a syntax error. There is no sequence
+of commands you can type to ever get something syntactically invalid.
+It's not like I can't deal with syntax errors; it's just that I'd
+rather have my full attention elsewhere. If I'm devoting 5% of my
+attention to closing delimeters, let's make that 0% instead.
+
+<!-- I'm tired of searching for a variable name, and getting results that
+are in a comment. Those are completely different kinds of things; it
+doesn't make semantic sense to mix them up. -->
 
 <!-- and hope quickly leaves after you
 somehow get Paredit into a state where your lisp has an odd number of
 parens, and now Paredit is dutifully enforcing that your parens never
 again be balanced. -->
+
+## Enter Synless
+
+[FILL]
 
 [1] I stole this phrase. Here's the original: [https://www.facebook.com/notes/kent-beck/prune-a-code-editor-that-is-not-a-text-editor/1012061842160013](Prune: A code editor that is not a text editor).
 

@@ -1,4 +1,4 @@
-#![feature(slice_patterns, advanced_slice_patterns)]
+#![feature(slice_patterns)]
 #![feature(box_patterns)]
 extern crate rustbox;
 #[macro_use]
