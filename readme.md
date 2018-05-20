@@ -149,6 +149,56 @@ again be balanced. -->
 
 ------
 
+# Thesis
+
+> I propose to design and construct an editor that (i) represents
+> documents as an AST rather than as text, and (ii) has declarative
+> knowledge of the well-formedness structure of the AST (such as which
+> nodes can be children of which other nodes). This has a number of
+> advantages over text editors:
+>
+> - **Multiple Views:** Since the document is represented as an AST,
+> it can be viewed in a variety of ways, and the user can choose the
+> most appropriate view for them.
+>
+> - **Discoverability:** Since the editor has exhaustive knowledge of
+> valid document structure, it can share this knowledge with the user
+> to aid discoverability in its interface.
+>
+> - **Safety:** Since the editor has exhaustive knowledge of valid
+> document structure, it can prevent the construction of an
+> ill-formed document.
+>
+> The thesis of the Synless project is that these advantages can
+> be---but have not yet been---used to solve a number of concrete
+> problems:
+>
+> - **Accessibility:** For editors, the fundamental accessibility
+> issue is that no single way of viewing and interacting with a
+> document is appropriate for all people. Synless aims to solve this
+> problem by allowing a great variety of different ways to "view" the
+> same document, allowing customization of the syntax, column width,
+> color (or lack thereof), and modality (visual vs. screen reader).
+> This is possible because a tree editor inherently separates the
+> content of a document from its presentation.
+>
+> - **Configuration Files:** The Safety and Discoverability properties
+> are well-suited to help with editing configuration files. These
+> files tend to be rarely modified, so that the user may not know the
+> correct formatting or which options are valid. Synless will be able
+> to ensure that: (i) all possible options are presented on screen
+> when editing, partly removing the need to look up documentation
+> online when editing a configuration file, and (ii) only valid
+> modifications may be made (at least insofar as the validity can be
+> captured by a tree grammar).
+>
+> - **Embedded Languages:** A single document should be able to
+> mix multiple languages, such as html, javascript, and css. I suspect
+> this problem becomes much easier when the document is stored as an
+> AST. [TODO: I think. Cite and find out.] (This is helped by Structure.)
+
+------
+
 # Scratch Notes
 
     {"Question": "Is JSON text?", "Answer": [true, false]}
