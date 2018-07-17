@@ -7,6 +7,9 @@
 
 Synless is a code editor that is not a text editor[1].
 
+**This whole project is in a pre-alpha stage. Even the design
+  documents are under construction at best.***
+
 [TODO: The important thing to convey here is my perspective, and my
 frustration of seeing ASTs but editing text.]
 
