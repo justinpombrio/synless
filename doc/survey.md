@@ -7,6 +7,11 @@ Or projectional editor. Or tree editor.
 We have too many names for this thing.
 How about we call it an AST editor instead?
 
+## TODO
+
+- [Deuce](https://news.ycombinator.com/item?id=17398705)
+- [Reddit list of structure editors](https://www.reddit.com/r/nosyntax/wiki/projects).
+
 ## Motivation
 
 Eventually I'll write up my motivation for writing a tree editor, but
@@ -27,6 +32,8 @@ in the meantime, here are other people's similar reasoning:
 
 
 ## Survey
+
+See also the [Reddit list of structure editors](https://www.reddit.com/r/nosyntax/wiki/projects).
 
 ### Audacious Projects to Reinvent all of Programming
 
