@@ -23,33 +23,8 @@ Questions:
   - selection: what does [mark parent] do?
 
 
-CHANGE MODE:
-- text mode (go from parent node to remembered child char)
-- tree node (go from between chars to parent node)
 
-
-DELETE
-
-  primitive:
-    delete - Delete a node, replacing it with ?.
-    clear  - Delete a node's children, but leave the node intact.
-    unwrap - Delete a node, but try to place its children in its parent node.
-    remove - Remove current stretchy node.
-
-  bindings:
-    backspace = delete
-
-
-CREATE:
-- create (swap out the selected node with a new node of a given type; preserve children)
-
-INSERT:
-(two letters & shift)
-- insert left sibling (as ?, goto it)
-- insert right sibling (as ?, goto it)
-- insert child (as ?, goto it)
-- insert parent, a.k.a. wrap (insert parent as gap)
-
+~~~~~~~~~ TREE MODE ~~~~~~~~~~
 
 NAVIGATION
 
@@ -78,6 +53,53 @@ NAVIGATION
     K = S-↑ = topmost
 
 
+SELECTION (see Kakoune)
+
+  primitive:
+    space - select
+
+  thoughts:
+    - select node
+    - select all = topmost select
+    - put cursor on all selections
+    - put cursor on remembered (first) selection
+    - goto next selection
+    - goto prev selection
+
+
+SEARCH
+  - search (produces a selection)
+
+
+CHANGE MODE:
+  - text mode (go from parent node to remembered child char)
+  - tree node (go from between chars to parent node)
+
+
+DELETE
+
+  primitive:
+    delete - Delete a node, replacing it with ?.
+    clear  - Delete a node's children, but leave the node intact.
+    unwrap - Delete a node, but try to place its children in its parent node.
+    remove - Remove current stretchy node.
+
+  bindings:
+    backspace = delete
+
+
+CREATE:
+- create (swap out the selected node with a new node of a given type; preserve children)
+
+INSERT:
+(two letters & shift)
+- insert left sibling (as ?, goto it)
+- insert right sibling (as ?, goto it)
+- insert child (as ?, goto it)
+- insert parent, a.k.a. wrap (insert parent as gap)
+
+
+
 RESHAPE
 
   compound:
@@ -96,17 +118,6 @@ RESHAPE
 VARIABLES:
 - goto declaration
 - goto next reference
-
-SELECTION:
-- select all
-- SEE KAKOUNE
-- put cursor on all selections
-- put cursor on remembered (first) selection
-- goto next selection
-- goto prev selection
-
-SEARCH:
-- search (produces a selection)
 
 MISCELLANY:
 - repeat last modification command

@@ -2,7 +2,8 @@ use std::cell::UnsafeCell;
 use std::borrow::Borrow;
 use std::sync::Mutex;
 
-/// 
+/// Like a HashMap, but it can only get bigger.
+/// It is (hopefully) safe to extend
 pub struct GrowOnlyMap<K, V> {
     // The Mutex is to make sure that two different threads aren't
     // mucking around with the UnsafeCell at once. (I want to ensure
@@ -15,12 +16,12 @@ pub struct GrowOnlyMap<K, V> {
     // to within this mutable vector.
 
     // I'm using a vector of pairs instead of a HashMap because
-    // I bet that HashMaps do tricky things that I don't know about.
+    // HashMaps might do tricksy things that I don't know about.
 
     // The values are Boxed because as the vector grows, it might
     // re-allocate. The extra level of indirection will ensure that
     // even though the Box moves, the value V inside it doesn't, thus
-    // keeping references to it intact.
+    // keeping references to it valid.
     mutex: Mutex<UnsafeCell<Vec<(K, Box<V>)>>>
 }
 
