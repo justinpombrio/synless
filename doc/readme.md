@@ -85,12 +85,13 @@ comfortable and familiar.
 
 ### Disadvantages of Text
 
-There's a downside, though. Since your editor represents documents as
-text, when you _do_ have features like syntax highlighting or code
-completion, they must be hacked together with regexps and hope. But
-[regexps aren't parsers](FILL), and hope quickly leaves when you're
-writing emacs regexps to match perl regexps and you're not sure how
-[all the backslashes got there but you think they're multiplying](https://github.com/jrockway/cperl-mode/blob/master/cperl-mode.el#L8224).
+There's a downside, though. Since your editor represents documents as text, when
+you _do_ have features like syntax highlighting or code completion, they must be
+hacked together with regexps and hope. But [regexps aren't
+parsers](https://stackoverflow.com/questions/1732348/regex-match-open-tags-except-xhtml-self-contained-tags#1732454),
+and hope quickly leaves when you're writing emacs regexps to match perl regexps
+and you're not sure how [all the backslashes got there but you think they're
+multiplying](https://github.com/jrockway/cperl-mode/blob/master/cperl-mode.el#L8224).
 
 The point I'm trying to make is that if syntax highlighting, code
 completion, jump-to-definition, etc. are slow or buggy, it's probably
