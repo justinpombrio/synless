@@ -13,6 +13,26 @@ Synless is a code editor that is not a text editor[1].
 [TODO: The important thing to convey here is my perspective, and my
 frustration of seeing ASTs but editing text.]
 
+## TODO: More coherent rationale
+
+- Easy discoverability while editing: e.g., you don't need to remember
+  your language's unique regex syntax quirks.
+- Proper accessibility support by default.
+- Learn that thing that Lisps try to teach you, where you ignore the
+  syntax, except that you don't need to drown in parenthetical soup as
+  you do so.
+- End formatting wars: everyone can have their own format for the same
+  code.
+- Avoid exposing weird encoding details, like double and quadruple
+  backslashes, "string escapes", supporting multiple syntaxes for
+  strings solely for their different escape behaviors.
+- No more syntax errors. Of course you rarely made those, but now you
+  don't even need to think about it in the back of your mind.
+- Everything about the editor becomes easier. Syntax highlighting
+  becomes trivial. Composing languages (e.g., css and JS in HTML)
+  becomes easier. Plugins no longer need to poorly parse incomplete
+  programs; they'll work straight on the AST.
+
 ------
 
 ## The Status Quo
@@ -51,7 +71,7 @@ defined like this:
 Notice that this is _not_ the [JSON standard](http://json.org/). The
 JSON standard mentions square brackets, and this does not. Instead,
 this is another standard _implicitly_ defined by the JSON standard.
-We now have two ways to talk about JSON: as text, and as a `Value`.
+With this, we have two ways to talk about JSON: as text, and as a `Value`.
 Likewise, editors have a choice: they can treat JSON more like text,
 or they can treat it more like a `Value`. In practice, editors tend to
 treat documents as text:
@@ -81,6 +101,14 @@ be like. You're going to have a cursor at a line and a column, and
 you're going to be able to insert or delete any character where your
 cursor is. This is the same kind of interface as a word editor; it is
 comfortable and familiar.
+
+Also:
+
+- tree diffs are harder to compute than text diffs (tree diffs are n^4)
+- you become dependent on the exact form of the ast
+- the big one: there's an extraordinary amount of infrastructure is already built around text
+
+
 
 
 ### Disadvantages of Text
@@ -229,6 +257,13 @@ Cons of text:
 - share files between languages and applications easily
 - read, debug, and edit with common tools
 - easier to port
+
+- it becomes easier to support tooling that depends on knowledge about the language: e.g., accessibility, auto-complete for variables, discoverable syntax
+- composing languages (js and css in html) becomes much easier
+- syntax highlighting becomes trivial
+- escape codes become unnecessary; strings can contain quotes
+- there are no syntax errors; no one has to write a parser with good error messages
+- no more formatting wars
 
 TODO: List aspects of editor: trees, layouts, etc.
 TODO: Mention exceptions: sexprs, Forth, paredit
