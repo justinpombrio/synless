@@ -1,4 +1,3 @@
-
 # Synless
 
 Synless will be a general purpose
@@ -7,15 +6,15 @@ Or projectional editor. Or tree editor.
 We have too many names for this thing.
 How about we call it an AST editor instead?
 
-## TODO
-
-- [Deuce](https://news.ycombinator.com/item?id=17398705)
-- [Reddit list of structure editors](https://www.reddit.com/r/nosyntax/wiki/projects).
+This page is my partial categorization of tree editors. I made it
+before discovering the
+[Reddit list of projectional editors](https://www.reddit.com/r/nosyntax/wiki/projects),
+however, which is a much more complete list. You should probably go
+there instead.
 
 ## Motivation
 
-Eventually I'll write up my motivation for writing a tree editor, but
-in the meantime, here are other people's similar reasoning:
+Here are some other people's motivation for writing a tree editor:
 
 - [An Experiment in Structured Code Editing - Isomorf](https://blog.isomorf.io/an-experiment-in-structured-code-editing-68b917a9157c)
   ([lobste.rs](https://lobste.rs/s/ofx5mf/experiment_structured_code_editing))
@@ -33,7 +32,7 @@ in the meantime, here are other people's similar reasoning:
 
 ## Survey
 
-See also the [Reddit list of structure editors](https://www.reddit.com/r/nosyntax/wiki/projects).
+See also the [Reddit list of projectional editors](https://www.reddit.com/r/nosyntax/wiki/projects).
 
 ### Audacious Projects to Reinvent all of Programming
 
@@ -145,3 +144,7 @@ No talk of undo, though!
 [parinfer]:https://github.com/shaunlebron/parinfer
 [prettier]:https://github.com/prettier/prettier
 [bricks]:http://www.pawfal.org/dave/index.cgi?Projects/Scheme%20Bricks
+
+## TODO
+
+- [Deuce](https://news.ycombinator.com/item?id=17398705)
