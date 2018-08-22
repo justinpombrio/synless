@@ -174,7 +174,6 @@ impl<D, L> Forest<D, L> { // I wish there was a `private impl`
                 children.into_iter().for_each(|child| self.delete_tree(child));
             }
         };
-        mem::forget(self)
     }
 
     // Private //
