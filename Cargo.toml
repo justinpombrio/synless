@@ -8,3 +8,4 @@ authors = ["justinpombrio <zallambo@gmail.com>"]
 regex = "*"
 rustbox = "*"
 lazy_static = "*"
+uuid = { version = "*", features = ["v4"] }

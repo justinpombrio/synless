@@ -3,6 +3,7 @@
 extern crate rustbox;
 #[macro_use]
 extern crate lazy_static;
+extern crate uuid;
 
 #[allow(unused_macros)]
 macro_rules! debug {
@@ -20,6 +21,8 @@ macro_rules! debug {
 // TODO: Audit uses of pub
 // TODO: Test render::render
 
+
+pub mod experiment;
 
 #[macro_use]
 pub mod coord;     // commonly used; not listed as dep
