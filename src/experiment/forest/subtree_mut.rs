@@ -1,5 +1,8 @@
+use std::mem;
+
 use super::forest::{Id, Forest};
 use super::tree::{Tree, Bookmark};
+use super::subtree_ref::SubtreeRef;
 
 
 pub struct SubtreeMut<'a> {
@@ -8,7 +11,7 @@ pub struct SubtreeMut<'a> {
 }
 
 impl Tree {
-    pub fn as_mut<D, L>(&mut self) -> SubtreeMut {
+    pub fn as_mut<D, L>(&mut self, _f: &mut Forest<D, L>) -> SubtreeMut {
         SubtreeMut {
             id: self.id,
             root: self
@@ -17,6 +20,15 @@ impl Tree {
 }
 
 impl<'a> SubtreeMut<'a> {
+
+    // Conversion //
+
+    pub fn as_ref<D, L>(&self, _f: &Forest<D, L>) -> SubtreeRef {
+        SubtreeRef {
+            root: &self.root,
+            id: self.id
+        }
+    }
     
     // Data Access //
 
@@ -40,26 +52,29 @@ impl<'a> SubtreeMut<'a> {
 
     // Data Mutation //
 
-    pub fn data_mut<D, L>(&mut self, f: &'a mut Forest<D, L>) -> &'a mut D {
+    pub fn data_mut<'b, D, L>(&'b mut self, f: &'b mut Forest<D, L>) -> &'b mut D {
         f.data_mut(self.id)
     }
 
     // panics if this is not a leaf node
-    pub fn leaf_mut<D, L>(&mut self, f: &'a mut Forest<D, L>) -> &'a L {
+    pub fn leaf_mut<'b, D, L>(&'b mut self, f: &'b mut Forest<D, L>) -> &'b mut L {
         f.leaf_mut(self.id)
     }
 
-    pub fn replace_child<D, L>(&mut self, f: &'a mut Forest<D, L>, i: usize, tree: Tree) -> Tree {
-        Tree {
+    pub fn replace_child<D, L>(&mut self, f: &mut Forest<D, L>, i: usize, tree: Tree) -> Tree {
+        let new_tree = Tree {
             id: f.replace_child(self.id, i, tree.id)
-        }
+        };
+        mem::forget(tree);
+        new_tree
     }
 
-    pub fn insert_child<D, L>(&mut self, f: &'a mut Forest<D, L>, i: usize, tree: Tree) {
-        f.insert_child(self.id, i, tree.id)
+    pub fn insert_child<D, L>(&mut self, f: &mut Forest<D, L>, i: usize, tree: Tree) {
+        f.insert_child(self.id, i, tree.id);
+        mem::forget(tree);
     }
 
-    pub fn remove_child<D, L>(&mut self, f: &'a mut Forest<D, L>, i: usize) -> Tree {
+    pub fn remove_child<D, L>(&mut self, f: &mut Forest<D, L>, i: usize) -> Tree {
         Tree {
             id: f.remove_child(self.id, i)
         }

@@ -5,12 +5,12 @@ use super::tree::{Tree, Bookmark};
 
 
 pub struct SubtreeRef<'a> {
-    root: &'a Tree,
-    id: Id
+    pub (super) root: &'a Tree,
+    pub (super) id: Id
 }
 
 impl Tree {
-    pub fn as_ref<D, L>(&self) -> SubtreeRef {
+    pub fn as_ref<D, L>(&self, _f: &Forest<D, L>) -> SubtreeRef {
         SubtreeRef {
             id: self.id,
             root: self
@@ -72,7 +72,7 @@ impl<'a> SubtreeRef<'a> {
         }
     }
 
-    // panics if size is out of bounds, or if this isn't a leaf
+    // panics if size is out of bounds, or if this is a leaf
     pub fn child<D, L>(&self, f: &Forest<D, L>, i: usize) -> SubtreeRef<'a> {
         let child = f.child(self.id, i);
         SubtreeRef {

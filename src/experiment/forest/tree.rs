@@ -1,4 +1,5 @@
 use std::mem;
+use std::thread;
 
 use super::forest::{Id, Forest};
 
@@ -7,6 +8,7 @@ pub struct Tree {
     pub id: Id
 }
 
+#[derive(Clone, Copy)]
 pub struct Bookmark {
     pub id: Id
 }
@@ -19,7 +21,11 @@ impl Tree {
     }
     
     pub fn new_branch<D, L>(f: &mut Forest<D, L>, data: D, children: Vec<Tree>) -> Tree {
-        let children = children.into_iter().map(|tree| tree.id).collect();
+        let children = children.into_iter().map(|tree| {
+            let id = tree.id;
+            mem::forget(tree);
+            id
+        }).collect();
         Tree {
             id: f.create_branch(data, children)
         }
@@ -33,6 +39,10 @@ impl Tree {
 
 impl Drop for Tree {
     fn drop(&mut self) {
-        panic!("Forest - a tree was not recycled! id:{}", self.id);
+        // If the thread is _already_ panicking, that's probably why
+        // this tree didn't get recycled, so it's fine.
+        if !thread::panicking() {
+            panic!("Forest - a tree was not recycled! id:{}", self.id);
+        }
     }
 }

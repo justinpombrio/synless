@@ -14,7 +14,9 @@ fn fresh() -> Uuid {
 }
 
 pub struct Forest<Data, Leaf>{
-    map: HashMap<Id, Node<Data, Leaf>>
+    map: HashMap<Id, Node<Data, Leaf>>,
+    #[cfg(test)]
+    refcount: usize
 }
 
 struct Node<Data, Leaf> {
@@ -33,7 +35,9 @@ impl<D, L> Forest<D, L> { // I wish there was a `private impl`
     
     pub fn new() -> Forest<D, L> {
         Forest {
-            map: HashMap::new()
+            map: HashMap::new(),
+            #[cfg(test)]
+            refcount: 0
         }
     }
     
@@ -118,6 +122,10 @@ impl<D, L> Forest<D, L> { // I wish there was a `private impl`
 
     pub (super) fn create_branch(&mut self, data: D, children: Vec<Id>) -> Id {
         let id = fresh();
+        #[cfg(test)] (self.refcount += 1);
+        for child in &children {
+            self.get_mut(*child).parent = Some(id);
+        }
         let node = Node {
             parent: None,
             contents: Branch(data, children)
@@ -128,6 +136,7 @@ impl<D, L> Forest<D, L> { // I wish there was a `private impl`
 
     pub (super) fn create_leaf(&mut self, leaf: L) -> Id {
         let id = fresh();
+        #[cfg(test)] (self.refcount += 1);
         let node = Node {
             parent: None,
             contents: Leaf(leaf)
@@ -137,34 +146,43 @@ impl<D, L> Forest<D, L> { // I wish there was a `private impl`
     }
     
     pub (super) fn replace_child(&mut self, parent: Id, index: usize, new_child: Id) -> Id {
-        match self.children_mut(parent).get_mut(index) {
-            None => panic!("Forest::replace - index out of bounds. id={}, i={}", parent, index),
+        self.get_mut(new_child).parent = Some(parent);
+        let old_child = match self.children_mut(parent).get_mut(index) {
+            None => panic!("Forest::replace - child index out of bounds. id={}, i={}", parent, index),
             Some(child) => {
                 let old_child = *child;
                 *child = new_child;
                 old_child
             }
-        }
+        };
+        self.get_mut(old_child).parent = None;
+        old_child
     }
 
     pub (super) fn insert_child(&mut self, parent: Id, index: usize, new_child: Id) {
+        self.get_mut(new_child).parent = Some(parent);
         let children = self.children_mut(parent);
         if index > children.len() {
-            panic!("Forest::insert - index out of bounds. id={}, i={}", parent, index);
+            panic!("Forest::insert - child index out of bounds. id={}, i={}", parent, index);
         }
         children.insert(index, new_child);
     }
 
     pub (super) fn remove_child(&mut self, parent: Id, index: usize) -> Id {
-        let children = self.children_mut(parent);
-        if index >= children.len() {
-            panic!("Forest::remove - index out of bounds. id={}, i={}", parent, index);
-        }
-        children.remove(index)
+        let child = {
+            let children = self.children_mut(parent);
+            if index >= children.len() {
+                panic!("Forest::remove - child index out of bounds. id={}, i={}", parent, index);
+            }
+            children.remove(index)
+        };
+        self.get_mut(child).parent = None;
+        child
     }
 
     pub (super) fn delete_tree(&mut self, id: Id) {
         let node = self.remove(id);
+        #[cfg(test)] (self.refcount -= 1);
         match node.contents {
             Leaf(leaf) => {
                 mem::drop(leaf);
@@ -197,5 +215,16 @@ impl<D, L> Forest<D, L> { // I wish there was a `private impl`
             Some(node) => node,
             None => panic!("Forest - id {} not found!", id)
         }
+    }
+
+    // Testing //
+
+    #[cfg(test)]
+    pub fn tree_count(&self) -> usize {
+        if self.refcount != self.map.len() {
+            panic!("Forest - lost track of trees! Refcount: {}, Hashcount: {}",
+                   self.refcount, self.map.len());
+        }
+        self.refcount
     }
 }
