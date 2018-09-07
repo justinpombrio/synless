@@ -4,12 +4,20 @@ use super::forest::{Id, Forest};
 use super::tree::{Tree, Bookmark};
 
 
+/// An immutable reference to a Tree.
+///
+/// This reference will begin pointing at the root of the Tree, but
+/// can move to subtrees after being created.
+///
+/// Essentially all operations require a reference to the Forest that
+/// created the Tree as their first argument.
 pub struct SubtreeRef<'a> {
     pub (super) root: &'a Tree,
     pub (super) id: Id
 }
 
 impl Tree {
+    /// Obtain an immutable reference to this Tree.
     pub fn as_ref<D, L>(&self, _f: &Forest<D, L>) -> SubtreeRef {
         SubtreeRef {
             id: self.id,
@@ -20,35 +28,52 @@ impl Tree {
 
 impl<'a> SubtreeRef<'a> {
 
-    // Data Access //
-
+    /// Returns `true` if this is a leaf node, and `false` if this is
+    /// a branch node.
     pub fn is_leaf<D, L>(&self, f: &Forest<D, L>) -> bool {
         f.is_leaf(self.id)
     }
-    
-    // panics if this is not a branch node
+
+    /// Obtain a reference to the data at this node.
+    ///
+    /// # Panics
+    ///
+    /// Panics if this is not a branch node. (Leaves do not have data.)
     pub fn data<D, L>(&self, f: &'a Forest<D, L>) -> &'a D {
         f.data(self.id)
     }
 
-    // panics if this is not a leaf node
+    /// Obtain a reference to the leaf value at this node.
+    ///
+    /// # Panics
+    ///
+    /// Panics if this is not a leaf node.
     pub fn leaf<D, L>(&self, f: &'a Forest<D, L>) -> &'a L {
         f.leaf(self.id)
     }
 
-    // panics if this is not a branch node
+    /// Returns the number of children this node has.
+    ///
+    /// # Panics
+    ///
+    /// Panics if this is not a branch node.
     pub fn num_children<D, L>(&self, f: &Forest<D, L>) -> usize {
         f.children(self.id).len()
     }
 
-    // Bookmarks //
-
+    /// Save a bookmark to return to later.
     pub fn bookmark<D, L>(&self, _f: &Forest<D, L>) -> Bookmark {
         Bookmark {
             id: self.id
         }
     }
 
+    /// Return to a previously saved bookmark, as long as that
+    /// bookmark's node is present somewhere in this tree. This will
+    /// work even if the Tree has been modified since the bookmark was
+    /// created. However, it will return `None` if the bookmark's node
+    /// has since been deleted, or if it is currently located in a
+    /// different tree.
     pub fn lookup_bookmark<D, L>(&self, f: &Forest<D, L>, mark: Bookmark) -> Option<SubtreeRef<'a>> {
         if f.root(mark.id) == self.root.id {
             Some(SubtreeRef {

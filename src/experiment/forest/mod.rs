@@ -3,10 +3,13 @@ mod tree;
 mod subtree_ref;
 mod subtree_mut;
 
+///! Synless is a tree editor. Here are the trees.
+
 pub use self::forest::Forest;
 pub use self::tree::Tree;
 pub use self::subtree_ref::SubtreeRef;
 pub use self::subtree_mut::SubtreeMut;
+
 
 #[cfg(test)]
 mod test {
@@ -167,6 +170,17 @@ mod test {
         // Cleanup
         tree.delete(&mut f);
         other_tree.delete(&mut f);
+    }
+
+    #[test]
+    fn test_bookmark_deleted() {
+        let mut f: Forest<&'static str, &'static str> = Forest::new();
+        let mut tree = family(&mut f);
+        let bookmark = tree.as_ref(&f).child(&f, 1).bookmark(&f);
+        let child = tree.as_mut(&mut f).remove_child(&mut f, 1);
+        child.delete(&mut f);
+        assert!(tree.as_ref(&f).lookup_bookmark(&f, bookmark).is_none());
+        tree.delete(&mut f);
     }
 
     #[test]

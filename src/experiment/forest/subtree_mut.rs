@@ -5,12 +5,20 @@ use super::tree::{Tree, Bookmark};
 use super::subtree_ref::SubtreeRef;
 
 
+/// A mutable reference to a Tree.
+///
+/// This reference will begin pointing at the root of the Tree, but
+/// can move to subtrees after being created.
+///
+/// Essentially all operations require a reference to the Forest that
+/// created the Tree as their first argument.
 pub struct SubtreeMut<'a> {
     root: &'a mut Tree,
     id: Id
 }
 
 impl Tree {
+    /// Obtain a mutable reference to this Tree.
     pub fn as_mut<D, L>(&mut self, _f: &mut Forest<D, L>) -> SubtreeMut {
         SubtreeMut {
             id: self.id,

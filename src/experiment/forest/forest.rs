@@ -8,11 +8,20 @@ use self::NodeContents::*;
 // TODO: Note that it's up to the user to make sure that Trees are
 // kept with the Forest they came from.
 
+// INVARIANTS:
+// - children and parents agree
+
 pub (super) type Id = Uuid;
 fn fresh() -> Uuid {
     Uuid::new_v4()
 }
 
+/// All [Trees](struct.Tree.html) belong to a Forest.
+///
+/// It is your responsibility to ensure that Trees are kept with the
+/// Forest they came from. The methods on Trees will panic if you use
+/// them on a different Forest. In practice this is easy because you
+/// should really only ever have one Forest.
 pub struct Forest<Data, Leaf>{
     map: HashMap<Id, Node<Data, Leaf>>,
     #[cfg(test)]
@@ -33,6 +42,8 @@ impl<D, L> Forest<D, L> { // I wish there was a `private impl`
 
     // Public //
     
+    /// Constructs an empty Forest.
+    /// Populate it with `Tree::new_leaf` and `Tree::new_branch`.
     pub fn new() -> Forest<D, L> {
         Forest {
             map: HashMap::new(),
@@ -217,7 +228,7 @@ impl<D, L> Forest<D, L> { // I wish there was a `private impl`
         }
     }
 
-    // Testing //
+    // For Testing //
 
     #[cfg(test)]
     pub fn tree_count(&self) -> usize {
