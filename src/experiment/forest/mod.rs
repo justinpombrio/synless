@@ -180,6 +180,7 @@ mod test {
         let child = tree.as_mut(&mut f).remove_child(&mut f, 1);
         child.delete(&mut f);
         assert!(tree.as_ref(&f).lookup_bookmark(&f, bookmark).is_none());
+        assert!(!tree.as_mut(&mut f).goto_bookmark(&mut f, bookmark));
         tree.delete(&mut f);
     }
 

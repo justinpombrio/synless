@@ -7,7 +7,7 @@ use super::tree::{Tree, Bookmark};
 /// An immutable reference to a Tree.
 ///
 /// This reference will begin pointing at the root of the Tree, but
-/// can move to subtrees after being created.
+/// from there you can get references to other parts of the tree.
 ///
 /// Essentially all operations require a reference to the Forest that
 /// created the Tree as their first argument.
@@ -34,7 +34,7 @@ impl<'a> SubtreeRef<'a> {
         f.is_leaf(self.id)
     }
 
-    /// Obtain a reference to the data at this node.
+    /// Obtain a reference to the data value at this node.
     ///
     /// # Panics
     ///
@@ -47,7 +47,7 @@ impl<'a> SubtreeRef<'a> {
     ///
     /// # Panics
     ///
-    /// Panics if this is not a leaf node.
+    /// Panics if this is a branch node.
     pub fn leaf<D, L>(&self, f: &'a Forest<D, L>) -> &'a L {
         f.leaf(self.id)
     }
@@ -75,7 +75,7 @@ impl<'a> SubtreeRef<'a> {
     /// has since been deleted, or if it is currently located in a
     /// different tree.
     pub fn lookup_bookmark<D, L>(&self, f: &Forest<D, L>, mark: Bookmark) -> Option<SubtreeRef<'a>> {
-        if f.root(mark.id) == self.root.id {
+        if f.is_valid(mark.id) && f.root(mark.id) == self.root.id {
             Some(SubtreeRef {
                 root: self.root,
                 id: mark.id
@@ -85,8 +85,8 @@ impl<'a> SubtreeRef<'a> {
         }
     }
 
-    // Navigation //
-    
+    /// Get the parent node. Returns `None` if we're already at the
+    /// root of the tree.
     pub fn parent<D, L>(&self, f: &Forest<D, L>) -> Option<SubtreeRef<'a>> {
         match f.parent(self.id) {
             None => None,
@@ -97,7 +97,11 @@ impl<'a> SubtreeRef<'a> {
         }
     }
 
-    // panics if size is out of bounds, or if this is a leaf
+    /// Get the `i`th child, assuming that we're on a branch node.
+    ///
+    /// # Panics
+    ///
+    /// Panics if this is a leaf node, or if `i` is out of bounds.
     pub fn child<D, L>(&self, f: &Forest<D, L>, i: usize) -> SubtreeRef<'a> {
         let child = f.child(self.id, i);
         SubtreeRef {
@@ -106,11 +110,12 @@ impl<'a> SubtreeRef<'a> {
         }
     }
 
+    /// Obtain an iterator over all of the (direct) children of this node.
     pub fn children<D, L>(&self, f: &Forest<D, L>) -> RefChildrenIter {
         let children = f.children(self.id).clone(); // TODO: avoid clone?
         RefChildrenIter {
             root: self.root,
-            children: children.clone(),
+            children: children,
             index: 0
         }
     }

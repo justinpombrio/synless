@@ -83,6 +83,10 @@ impl<D, L> Forest<D, L> { // I wish there was a `private impl`
         }
     }
 
+    pub (super) fn is_valid(&self, id: Id) -> bool {
+        self.map.get(&id).is_some()
+    }
+
     // Data Access //
 
     pub (super) fn is_leaf(&self, id: Id) -> bool {
