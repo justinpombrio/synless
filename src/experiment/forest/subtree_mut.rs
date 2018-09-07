@@ -12,14 +12,14 @@ use super::subtree_ref::SubtreeRef;
 ///
 /// Essentially all operations require a reference to the Forest that
 /// created the Tree as their first argument.
-pub struct SubtreeMut<'a> {
-    root: &'a mut Tree, // INVARIANT: This root remains valid despite edits
+pub struct SubtreeMut<'a, D: 'a, L: 'a> {
+    root: &'a mut Tree<D, L>, // INVARIANT: This root remains valid despite edits
     id: Id
 }
 
-impl Tree {
+impl<D, L> Tree<D, L> {
     /// Obtain a mutable reference to this Tree.
-    pub fn as_mut<D, L>(&mut self, _f: &mut Forest<D, L>) -> SubtreeMut {
+    pub fn as_mut(&mut self) -> SubtreeMut<D, L> {
         SubtreeMut {
             id: self.id,
             root: self
@@ -27,12 +27,12 @@ impl Tree {
     }
 }
 
-impl<'a> SubtreeMut<'a> {
+impl<'a, D, L> SubtreeMut<'a, D, L> {
 
     // Conversion //
 
     /// Get an _immutable_ reference at this location in the tree.
-    pub fn as_ref<D, L>(&self, _f: &Forest<D, L>) -> SubtreeRef {
+    pub fn as_ref(&self) -> SubtreeRef<D, L> {
         SubtreeRef {
             root: self.root,
             id: self.id
@@ -41,7 +41,7 @@ impl<'a> SubtreeMut<'a> {
     
     /// Returns `true` if this is a leaf node, and `false` if this is
     /// a branch node.
-    pub fn is_leaf<D, L>(&self, f: &Forest<D, L>) -> bool {
+    pub fn is_leaf(&self, f: &Forest<D, L>) -> bool {
         f.is_leaf(self.id)
     }
 
@@ -50,7 +50,7 @@ impl<'a> SubtreeMut<'a> {
     /// # Panics
     ///
     /// Panics if this is not a branch node. (Leaves do not have data.)
-    pub fn data<D, L>(&self, f: &'a Forest<D, L>) -> &'a D {
+    pub fn data(&self, f: &'a Forest<D, L>) -> &'a D {
         f.data(self.id)
     }
 
@@ -59,7 +59,7 @@ impl<'a> SubtreeMut<'a> {
     /// # Panics
     ///
     /// Panics if this is a branch node.
-    pub fn leaf<D, L>(&self, f: &'a Forest<D, L>) -> &'a L {
+    pub fn leaf(&self, f: &'a Forest<D, L>) -> &'a L {
         f.leaf(self.id)
     }
 
@@ -68,7 +68,7 @@ impl<'a> SubtreeMut<'a> {
     /// # Panics
     ///
     /// Panics if this is a leaf node.
-    pub fn num_children<D, L>(&self, f: &Forest<D, L>) -> usize {
+    pub fn num_children(&self, f: &Forest<D, L>) -> usize {
         f.children(self.id).len()
     }
 
@@ -77,7 +77,7 @@ impl<'a> SubtreeMut<'a> {
     /// # Panics
     ///
     /// Panics if this is not a branch node. (Leaves do not have data.)
-    pub fn data_mut<'b, D, L>(&'b mut self, f: &'b mut Forest<D, L>) -> &'b mut D {
+    pub fn data_mut<'b>(&'b mut self, f: &'b mut Forest<D, L>) -> &'b mut D {
         f.data_mut(self.id)
     }
 
@@ -86,7 +86,7 @@ impl<'a> SubtreeMut<'a> {
     /// # Panics
     ///
     /// Panics if this is a branch node.
-    pub fn leaf_mut<'b, D, L>(&'b mut self, f: &'b mut Forest<D, L>) -> &'b mut L {
+    pub fn leaf_mut<'b>(&'b mut self, f: &'b mut Forest<D, L>) -> &'b mut L {
         f.leaf_mut(self.id)
     }
 
@@ -96,10 +96,9 @@ impl<'a> SubtreeMut<'a> {
     /// # Panics
     ///
     /// Panics if this is a leaf node, or if `i` is out of bounds.
-    pub fn replace_child<D, L>(&mut self, f: &mut Forest<D, L>, i: usize, tree: Tree) -> Tree {
-        let new_tree = Tree {
-            id: f.replace_child(self.id, i, tree.id)
-        };
+    pub fn replace_child(&mut self, f: &mut Forest<D, L>, i: usize, tree: Tree<D, L>)
+                               -> Tree<D, L> {
+        let new_tree = Tree::new(f.replace_child(self.id, i, tree.id));
         mem::forget(tree);
         new_tree
     }
@@ -109,7 +108,7 @@ impl<'a> SubtreeMut<'a> {
     /// # Panics
     ///
     /// Panics if this is a leaf node, or if `i` is out of bounds.
-    pub fn insert_child<D, L>(&mut self, f: &mut Forest<D, L>, i: usize, tree: Tree) {
+    pub fn insert_child(&mut self, f: &mut Forest<D, L>, i: usize, tree: Tree<D, L>) {
         f.insert_child(self.id, i, tree.id);
         mem::forget(tree);
     }
@@ -119,14 +118,12 @@ impl<'a> SubtreeMut<'a> {
     /// # Panics
     ///
     /// Panics if this is a leaf node, or if `i` is out of bounds.
-    pub fn remove_child<D, L>(&mut self, f: &mut Forest<D, L>, i: usize) -> Tree {
-        Tree {
-            id: f.remove_child(self.id, i)
-        }
+    pub fn remove_child(&mut self, f: &mut Forest<D, L>, i: usize) -> Tree<D, L> {
+        Tree::new(f.remove_child(self.id, i))
     }
 
     /// Save a bookmark to return to later.
-    pub fn bookmark<D, L>(&mut self, _f: &mut Forest<D, L>) -> Bookmark {
+    pub fn bookmark(&mut self, _f: &mut Forest<D, L>) -> Bookmark {
         Bookmark {
             id: self.id
         }
@@ -138,7 +135,7 @@ impl<'a> SubtreeMut<'a> {
     /// created. However, it will return `None` if the bookmark's node
     /// has since been deleted, or if it is currently located in a
     /// different tree.
-    pub fn goto_bookmark<D, L>(&mut self, f: &mut Forest<D, L>, mark: Bookmark) -> bool {
+    pub fn goto_bookmark(&mut self, f: &mut Forest<D, L>, mark: Bookmark) -> bool {
         if f.is_valid(mark.id) && f.root(mark.id) == self.root.id {
             self.id = mark.id;
             true
@@ -148,7 +145,7 @@ impl<'a> SubtreeMut<'a> {
     }
 
     // TODO: panic if there is no parent, instead
-    pub fn goto_parent<D, L>(&mut self, f: &mut Forest<D, L>) -> bool {
+    pub fn goto_parent(&mut self, f: &mut Forest<D, L>) -> bool {
         match f.parent(self.id) {
             None => false,
             Some(parent) => {
@@ -163,7 +160,7 @@ impl<'a> SubtreeMut<'a> {
     /// # Panics
     ///
     /// Panics if this is a leaf node, or if `i` is out of bounds.
-    pub fn goto_child<D, L>(&mut self, f: &mut Forest<D, L>, i: usize) {
+    pub fn goto_child(&mut self, f: &mut Forest<D, L>, i: usize) {
         self.id = f.child(self.id, i);
     }
 }
