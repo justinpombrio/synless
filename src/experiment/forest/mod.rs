@@ -107,6 +107,20 @@ mod test {
     }
 
     #[test]
+    fn test_at_root_mut() {
+        let mut f: Forest<&'static str, &'static str> = Forest::new();
+        let mut tree = family(&mut f);
+        {
+            let mut cursor = tree.as_mut();
+            assert!(cursor.at_root(&f));
+            cursor.goto_child(&mut f, 1);
+            assert!(!cursor.at_root(&f));
+        }
+        // Cleanup
+        tree.delete(&mut f);
+    }
+
+    #[test]
     fn test_navigation_mut() {
         let mut f: Forest<&'static str, &'static str> = Forest::new();
         let mut tree = family(&mut f);
@@ -114,8 +128,7 @@ mod test {
             let mut cursor = tree.as_mut();
             cursor.goto_child(&mut f, 1);
             assert_eq!(*cursor.leaf(&f), "younger");
-            assert!(cursor.goto_parent(&mut f));
-            assert!(!cursor.goto_parent(&mut f));
+            cursor.goto_parent(&mut f);
             assert_eq!(*cursor.data(&f), "parent");
             cursor.goto_child(&mut f, 0);
             assert_eq!(*cursor.leaf(&f), "elder");
@@ -328,10 +341,11 @@ mod test {
             assert_eq!(*cursor.data(&f), 22);
             assert_eq!(cursor.num_children(&f), 1);
             // Navigate
-            assert!(cursor.goto_parent(&mut f));
+            assert!(!cursor.at_root(&f));
+            cursor.goto_parent(&mut f);
             let mark0 = cursor.bookmark(&mut f);
-            assert!(!cursor.goto_parent(&mut f));
-            
+            assert!(cursor.at_root(&f));
+
             // Cut
             let mut snip = cursor.remove_child(&mut f, 1);
             //  tree: 0+
@@ -370,7 +384,8 @@ mod test {
             let mark3767 = cursor.bookmark(&mut f);
             *cursor.leaf_mut(&mut f) = 376;
             assert_eq!(*cursor.leaf(&f), 376);
-            assert!(cursor.goto_parent(&mut f));
+            assert!(!cursor.at_root(&f));
+            cursor.goto_parent(&mut f);
             assert!(!cursor.is_leaf(&f));
             //  tree: 0+
             //       /  \
@@ -523,5 +538,13 @@ mod test {
         let mut tree = family(&mut f);
         let leaf = Tree::new_leaf(&mut f, "");
         tree.as_mut().replace_child(&mut f, 2, leaf);
+    }
+
+    #[test]
+    #[should_panic(expected="root node has no parent")]
+    fn test_parent_of_root_panic() {
+        let mut f: Forest<&'static str, &'static str> = Forest::new();
+        let mut tree = family(&mut f);
+        tree.as_mut().goto_parent(&mut f);
     }
 }

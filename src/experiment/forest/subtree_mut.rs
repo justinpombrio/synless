@@ -144,15 +144,22 @@ impl<'a, D, L> SubtreeMut<'a, D, L> {
         }
     }
 
-    // TODO: panic if there is no parent, instead
-    pub fn goto_parent(&mut self, f: &mut Forest<D, L>) -> bool {
+    /// Returns `true` if this is the root of the tree, and `false` if
+    /// it isn't (and thus this node has a parent).
+    pub fn at_root(&self, f: &Forest<D, L>) -> bool {
         match f.parent(self.id) {
-            None => false,
-            Some(parent) => {
-                self.id = parent;
-                true
-            }
+            None => true,
+            Some(_) => false
         }
+    }
+
+    /// Go to the parent of this node.
+    ///
+    /// # Panics
+    ///
+    /// Panics if this is the root of the tree, and there is no parent.
+    pub fn goto_parent(&mut self, f: &mut Forest<D, L>) {
+        self.id = f.parent(self.id).expect("Forest - root node has no parent!");
     }
 
     /// Go to the `i`th child of this branch node.
