@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 use std::mem;
 use std::thread;
 
-use super::forest::{Id, Forest};
+use super::{Id, Forest};
 
 
 /// Every Tree is either a leaf or a branch.

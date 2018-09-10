@@ -1,6 +1,6 @@
 use std::iter::Iterator;
 
-use super::forest::{Id, Forest};
+use super::{Id, Forest};
 use super::tree::{Tree, Bookmark};
 
 
