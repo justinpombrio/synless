@@ -1,7 +1,7 @@
 use std::cmp;
 use std::fmt;
 
-use coord::*;
+use geometry::*;
 use syntax::syntax::Syntax;
 use syntax::syntax::Syntax::*;
 use syntax::syntax::MAX_WIDTH;

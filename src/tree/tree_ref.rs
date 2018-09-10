@@ -1,4 +1,4 @@
-use coord::*;
+use geometry::*;
 use syntax::{BoundSet, LayoutRegion};
 use tree::path::{Path, extend_path};
 use tree::node::Node;

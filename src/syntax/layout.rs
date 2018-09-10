@@ -1,6 +1,6 @@
 use std::fmt;
 
-use coord::*;
+use geometry::*;
 use style::Style;
 use syntax::syntax::Syntax;
 use syntax::BoundSet;

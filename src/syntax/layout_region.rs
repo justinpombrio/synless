@@ -1,4 +1,4 @@
-use coord::*;
+use geometry::*;
 use style::Style;
 use syntax::layout::BasicLayout;
 use syntax::layout::BasicLayout::*;

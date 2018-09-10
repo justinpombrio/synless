@@ -1,6 +1,6 @@
 //! Render to and poll events from the terminal emulator.
 
-use coord::*;
+use geometry::*;
 use style::*;
 use rustbox;
 use rustbox::RustBox;

@@ -1,6 +1,6 @@
 use std::ops::{Add, BitOr};
 
-use coord::*;
+use geometry::*;
 use style::Style;
 use self::Syntax::*;
 

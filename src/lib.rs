@@ -25,7 +25,7 @@ macro_rules! debug {
 pub mod experiment;
 
 #[macro_use]
-pub mod coord;     // commonly used; not listed as dep
+pub mod geometry;  // commonly used; not listed as dep
 pub mod style;     // commonly used; not listed as dep
 
 pub mod terminal;  // dep:

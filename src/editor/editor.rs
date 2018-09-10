@@ -1,6 +1,6 @@
 //! The Synless tree editor itself (the terminal application).
 
-use coord::*;
+use geometry::*;
 use tree::{Tree, Cursor};
 use style::{Color, Style, ColorTheme};
 use terminal::{Terminal, Key};

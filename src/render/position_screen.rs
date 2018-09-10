@@ -1,4 +1,4 @@
-use coord::*;
+use geometry::*;
 
 // Step 2: determine where the screen should be in doc coords
 

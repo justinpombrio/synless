@@ -1,4 +1,4 @@
-use coord::*;
+use geometry::*;
 use tree::{Path, TreeRef, match_end_of_path};
 use syntax::LayoutRegion;
 use syntax::Layout::*;

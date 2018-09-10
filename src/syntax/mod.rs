@@ -9,7 +9,7 @@ mod construct;
 pub use syntax::syntax::{Syntax, Repeat};
 pub use syntax::syntax::{ empty, literal, text, repeat, flush, no_wrap,
                           child, star, concat, choice, if_empty_text };
-pub use coord::Bound;
+pub use geometry::Bound;
 pub use syntax::bounds::BoundSet;
 pub use syntax::layout_region::{Layout, LayoutRegion};
 pub use syntax::construct::{Construct, Arity, HOLE};

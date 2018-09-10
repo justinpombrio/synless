@@ -1,7 +1,7 @@
 use std::fmt;
 use std::fmt::Write;
 
-use coord::*;
+use geometry::*;
 use tree::TreeRef;
 use syntax::{Bound, LayoutRegion};
 use syntax::Layout::*;

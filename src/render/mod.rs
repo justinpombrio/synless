@@ -5,7 +5,7 @@ mod locate_cursor;
 mod position_screen;
 mod render;
 
-use coord::*;
+use geometry::*;
 use render::locate_cursor::CursorLocator;
 use render::position_screen::position_screen;
 use render::render::Renderer;
