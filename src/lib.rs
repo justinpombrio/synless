@@ -30,6 +30,7 @@ pub mod style;     // commonly used; not listed as dep
 
 pub mod terminal;  // dep:
 pub mod syntax;    // dep:
+pub mod forest;    // dep:
 pub mod language;  // dep: syntax
 pub mod tree;      // dep: syntax
 pub mod render;    // dep: syntax, doc, terminal
