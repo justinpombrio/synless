@@ -50,10 +50,6 @@ enum NodeContents<Data, Leaf> {
 
 impl<D, L> Forest<D, L> {
 
-    fn private(&self) -> usize {
-        666
-    }
-
     // Public //
     
     /// Constructs an empty Forest.
@@ -793,11 +789,5 @@ mod test {
         let mut f: Forest<&'static str, &'static str> = Forest::new();
         let mut tree = family(&mut f);
         tree.as_mut().goto_parent(&mut f);
-    }
-
-    #[test]
-    fn test_private() {
-        let mut f: Forest<&'static str, &'static str> = Forest::new();
-        assert_eq!(f.private(), 666);
     }
 }
