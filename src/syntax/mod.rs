@@ -4,7 +4,6 @@ mod bounds;
 mod syntax;
 mod layout;
 mod layout_region;
-mod construct;
 
 pub use syntax::syntax::{Syntax, Repeat};
 pub use syntax::syntax::{ empty, literal, text, repeat, flush, no_wrap,
@@ -12,9 +11,6 @@ pub use syntax::syntax::{ empty, literal, text, repeat, flush, no_wrap,
 pub use geometry::Bound;
 pub use syntax::bounds::BoundSet;
 pub use syntax::layout_region::{Layout, LayoutRegion};
-pub use syntax::construct::{Construct, Arity, HOLE};
-#[cfg(test)]
-pub use syntax::construct::{TEST_FOREST, TEST_TEXT};
 
 // Notation-related words:
 // script, phrase, syntax, representation, format, diction

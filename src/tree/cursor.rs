@@ -1,6 +1,6 @@
 use std::fmt;
 
-use syntax::Construct;
+use construct::Construct;
 use tree::{Path, Tree, TreeRef, TreeMut};
 
 use self::Mode::*;
@@ -296,7 +296,7 @@ impl<'t, 'l : 't> Cursor<'t, 'l> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use syntax::{TEST_TEXT, TEST_FOREST};
+    use construct::{TEST_TEXT, TEST_FOREST};
     use tree::Tree;
 
     fn t(children: Vec<Tree<'static>>) -> Tree<'static> {

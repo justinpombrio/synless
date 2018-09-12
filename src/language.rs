@@ -3,8 +3,10 @@
 use std::collections::HashMap;
 
 use style::{Style, Color, Emph, Shade};
-use syntax::{Syntax, Repeat, Construct, Arity};
-use syntax::{empty, literal, text, child, flush, if_empty_text, repeat, star};
+use syntax::{Syntax, Repeat,
+             empty, literal, text, child, flush,
+             if_empty_text, repeat, star};
+use construct::{Construct, Arity};
 #[cfg(test)]
 use tree::Tree;
 

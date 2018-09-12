@@ -1,5 +1,6 @@
-use syntax::{Construct, BoundSet, HOLE};
-use syntax::Arity::*;
+use syntax::BoundSet;
+use construct::{Construct, HOLE};
+use construct::Arity::*;
 
 /// A node of a tree.
 #[derive(Debug)]

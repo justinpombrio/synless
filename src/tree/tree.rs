@@ -1,10 +1,10 @@
 use std::ops::{Index, IndexMut};
 
-use syntax::Construct;
+use construct::Construct;
 use tree::node::Node;
 use tree::path::Path;
 #[cfg(test)]
-use syntax::{TEST_FOREST, TEST_TEXT};
+use construct::{TEST_FOREST, TEST_TEXT};
 
 use self::Children::{ForestChildren, TextChildren};
 
