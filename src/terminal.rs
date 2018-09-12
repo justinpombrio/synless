@@ -9,11 +9,13 @@ pub use self::Event::*;
 pub use rustbox::Key;
 
 
-/// Keyboard or mouse input
+/// An input event.
 pub enum Event {
+    /// A key was pressed down.
     KeyEvent(rustbox::keyboard::Key),
-    /// (x, y) in window coordinates: (0, 0) is the upper-left.
-    MouseEvent(i32, i32)
+    /// The left mouse button was pressed at the given character
+    /// position (relative to the terminal window).
+    MouseEvent(Pos)
 }
 
 /// Used to render to and poll events from the terminal emulator.
@@ -105,10 +107,8 @@ impl Terminal {
     /// Return the current size of the terminal in characters.
     pub fn size(&self) -> Pos {
         Pos{
-            col: 20,
-            row: 10
-//            col: self.rust_box.width() as Col,
-//            row: self.rust_box.height() as Row
+            col: self.rust_box.width() as Col,
+            row: self.rust_box.height() as Row
         }
     }
 
@@ -119,7 +119,7 @@ impl Terminal {
         // Ctrl-m = Tab
         match self.rust_box.poll_event(false) {
             Ok(rustbox::Event::MouseEvent(Mouse::Left, x, y)) =>
-                Some(MouseEvent(x, y)),
+                Some(MouseEvent(Pos{ col: x as Col, row: y as Row })),
             Ok(rustbox::Event::KeyEvent(key)) =>
                 Some(KeyEvent(key)),
             Ok(_) =>

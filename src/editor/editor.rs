@@ -50,9 +50,9 @@ impl<'t, 'l> Editor<'t, 'l> {
         loop {
             match (&self).terminal.poll_event() {
                 None => (),
-                Some(MouseEvent(x, y)) => {
+                Some(MouseEvent(pos)) => {
                     self.clear();
-                    self.press_mouse(x, y);
+                    self.press_mouse(pos);
                     self.display();
                 }
                 Some(KeyEvent(Key::Esc)) => {
@@ -91,8 +91,8 @@ impl<'t, 'l> Editor<'t, 'l> {
         self.terminal.present();
     }
 
-    fn press_mouse(&mut self, x: i32, y: i32) {
-        self.terminal.simple_print(&format!("{:?} {:?}", x, y),
+    fn press_mouse(&mut self, pos: Pos) {
+        self.terminal.simple_print(&format!("{:?} {:?}", pos.col, pos.row),
                                    Pos{ row: 40, col: 1 });
     }
 

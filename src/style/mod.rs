@@ -1,3 +1,5 @@
+//! Style choices, such as color, bolding, and underlining.
+
 mod style;
 mod color_theme;
 

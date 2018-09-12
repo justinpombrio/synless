@@ -1,8 +1,8 @@
+//! A very general represenation of trees.
+
 mod tree;
 mod subtree_ref;
 mod subtree_mut;
-
-///! Synless is a tree editor. Here are the trees.
 
 pub use self::tree::Tree;
 pub use self::subtree_ref::SubtreeRef;

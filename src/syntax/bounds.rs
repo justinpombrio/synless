@@ -85,8 +85,8 @@ impl fmt::Debug for Bound {
 }
 
 
-/// A set of Bounds. If one Bound is purely stricter than another,
-/// only the stricter one will be kept.
+/// A set of Bounds. If one Bound is strictly smaller than another,
+/// only the smaller one will be kept.
 #[derive(Clone, Debug)]
 pub struct BoundSet {
     pub bound: Vec<Bound>

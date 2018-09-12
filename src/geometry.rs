@@ -1,19 +1,18 @@
-//! This module defines coordinates used by the rest of the editor.
-//! 
-//! `Pos` represents points, `Range` represents lines, and `Rect` represents rectangles.
+//! This module defines coordinates and shapes used by the rest of the editor.
 
 use std::ops::Add;
 use std::ops::Sub;
 use std::fmt;
 
 
-/// Used to represent heights and row coordinates.
+/// Height, as measured in terminal characters.
 pub type Row = u32;
-/// Used to represent widths and column coordinates.
+/// Width, as measured in terminal characters.
 pub type Col = u16;
 
-/// 0-indexed positions, relative either to the screen or the document.
-/// These are also sometimes used to represent offsets.
+/// A character position, typically relative to the screen or the document.
+///
+/// The origin is in the upper left, and is `(0, 0)`. I.e., this is 0-indexed.
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub struct Pos {
     pub col: Col,
@@ -21,7 +20,7 @@ pub struct Pos {
 }
 
 impl Pos {
-    /// The upper-left.
+    /// The upper-left corner.
     pub fn zero() -> Pos {
         Pos{ col: 0, row: 0 }
     }
@@ -61,19 +60,22 @@ impl fmt::Debug for Pos {
     }
 }
 
-/// A paragraph shape within which a node in the document fits.  Every
-/// node fits within some Bound: it is a rectangle, except that the
-/// last line may not extend all the way to the end.
+/// A "paragraph" shape: it is like a rectangle, except that the last
+/// line may be shorter than the rest.
+///
+/// Every node in the document fits within some Bound.
 ///
 /// <pre>
-///    width
-/// |<-------->|
-/// +----------+  -
-/// |          |  ^
-/// |          |  | height
-/// |          |  ∨
-/// |      +---+  -
+///       width
+/// |<-------------->|
+///
+/// +----------------+   -
+/// |                |   ^
+/// |                |   | height
+/// |                |   ∨
+/// |      +---------+   -
 /// +------+
+///
 /// |<---->|
 ///  indent
 /// </pre>
@@ -86,7 +88,11 @@ pub struct Bound {
 
 impl Bound {
     /// Find the sub-bound that is within this bound, but below and
-    /// to the right of `pos`. Pos must be contained in this bound.
+    /// to the right of `pos`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `pos` is not contained within this bound.
     pub fn subbound_from(&self, pos: Pos) -> Bound {
         if self.indent >= pos.col {
             Bound{
@@ -104,7 +110,10 @@ impl Bound {
     }
 
     /// Find the sub-bound that is within this bound, but ends at `pos`.
-    /// Pos must be contained in this bound.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `pos` is not contained within this bound.
     pub fn subbound_to(&self, pos: Pos) -> Bound {
         Bound{
             width:  self.width,
@@ -211,7 +220,7 @@ impl fmt::Display for Rect {
 /// but is positioned on the screen.
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub struct Region {
-    /// Upper left
+    /// The position of the upper left corner
     pub pos: Pos,
     pub bound: Bound
 }
@@ -263,12 +272,14 @@ impl Region {
             && !self.negative_space().overlaps(other.last_line())
     }
 
-    /// Does the Pos lie on this region?
+    /// Does `pos` lie on this region?
     pub fn contains(&self, pos: Pos) -> bool {
         self.body().contains(pos) || self.last_line().contains(pos)
     }
 
     /// Transform a point to the coordinate system given by this region.
+    /// 
+    /// Returns `None` if the point is not contained in this region.
     pub fn transform(&self, pos: Pos) -> Option<Pos> {
         match self.body().transform(pos) {
             Some(pos) => Some(pos),
@@ -284,7 +295,11 @@ impl Region {
 
     // TODO: untested
     /// Find the subregion that is within this region, but below and
-    /// to the right of `pos`. Pos must be contained in this region.
+    /// to the right of `pos`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `pos` is not contained in this region.
     pub fn subregion_from(&self, pos: Pos) -> Region {
         let delta = pos - self.beginning();
         let bound = self.bound.subbound_from(delta);
@@ -311,8 +326,10 @@ impl Region {
         self.pos
     }
 
-    /// The character position just past the end of the region
-    /// (just past right character of last line).
+    /// The character position just past the end of the region.
+    ///
+    /// (That is: the character position just to the right of the last
+    /// character of the last line of this region.)
     pub fn end(&self) -> Pos {
         self.pos + Pos{ row: self.bound.height, col: self.bound.indent }
     }

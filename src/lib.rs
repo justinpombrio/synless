@@ -1,5 +1,7 @@
 #![feature(slice_patterns)]
 #![feature(box_patterns)]
+// TODO: This is silencing errors in the dependencies
+#![allow(intra_doc_link_resolution_failure)]
 extern crate rustbox;
 #[macro_use]
 extern crate lazy_static;
@@ -21,8 +23,6 @@ macro_rules! debug {
 // TODO: Audit uses of pub
 // TODO: Test render::render
 
-
-pub mod experiment;
 
 #[macro_use]
 pub mod geometry;  // commonly used; not listed as dep

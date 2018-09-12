@@ -13,17 +13,15 @@ pub struct Style {
     pub reversed: bool
 }
 
+// TODO: I do not know how widespread terminal support for underlining is.
 /// Bold, underlined, or both?
-/// I do not know how widespread terminal support for underlining is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Emph {
     pub bold: bool,
-    pub underline: bool
+    pub underlined: bool
 }
 
-/// The foreground color (or if reversed the background color).
-/// These are terminal colors. To change them, edit your terminal
-/// color scheme.
+/// The foreground color of some text (or if reversed the background color).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Color {
     White,
@@ -36,7 +34,9 @@ pub enum Color {
 }
 
 /// How dark the background is, or if reversed how dark the foreground is.
+///
 /// Only 0, 1, and 2+ are distinguished (subject to change).
+/// 0 is brightest (most highlighted), and 2+ is black (least highlighted).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Shade(pub usize);
 
@@ -44,7 +44,7 @@ impl Emph {
     /// Neither bold nor underlined.
     pub fn plain() -> Emph {
         Emph{
-            underline: false,
+            underlined: false,
             bold: false
         }
     }
@@ -52,7 +52,7 @@ impl Emph {
     /// Just underlined.
     pub fn underlined() -> Emph {
         Emph{
-            underline: true,
+            underlined: true,
             bold: false
         }
     }
@@ -86,6 +86,7 @@ impl Style {
 }
 
 impl Shade {
+    /// Pure black, the most ordinary shade.
     pub fn black() -> Shade {
         Shade(5)
     }

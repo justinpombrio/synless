@@ -10,12 +10,14 @@ use style::style::Color::*;
 /// The colors are nominally the six standard terminal colors (plus
 /// white), but just like terminal colors they don't actually need to
 /// match their name. (For example, all colors could be shades of
-/// green or blue, though this could cause readability to suffer.)
+/// green or blue.)
 ///
 /// The shades are used to shade the background of ancestors of the
-/// selected node (by default in dark gray).
+/// selected node (by default in dark gray). `shade0` is the strongest
+/// (i.e., lightest) shade, and `shade3` is the weakest (i.e.,
+/// darkest) shade, which is used for most of the background.
 ///
-/// `cursor` is the color 
+/// `cursor` is the color of the cursor.
 ///
 /// All colors are given as [terminal 256 colors](https://en.wikipedia.org/wiki/ANSI_escape_code).
 pub struct ColorTheme {
@@ -92,7 +94,7 @@ impl ColorTheme {
     }
 
     pub(crate) fn emph(&self, style: Style) -> rustbox::Style {
-        let ul = if style.emph.underline { RB_UNDERLINE } else { RB_NORMAL };
+        let ul = if style.emph.underlined { RB_UNDERLINE } else { RB_NORMAL };
         let bd = if style.emph.bold { RB_BOLD } else { RB_NORMAL };
         ul | bd
     }
