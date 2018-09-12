@@ -166,7 +166,7 @@ impl LayoutSet {
 
     fn child(child: usize, set: &BoundSet) -> LayoutSet {
         LayoutSet{
-            layouts: set.bound.iter().map(|&bound| {
+            layouts: set.into_iter().map(|bound| {
                 BoundedLayout::child(child, bound)
             }).collect()
         }
@@ -174,7 +174,7 @@ impl LayoutSet {
 
     fn text(style: Style, set: &BoundSet) -> LayoutSet {
         LayoutSet{
-            layouts: set.bound.iter().map(|&bound| {
+            layouts: set.into_iter().map(|bound| {
                 BoundedLayout::text(style, bound)
             }).collect()
         }

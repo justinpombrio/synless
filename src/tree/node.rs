@@ -98,7 +98,8 @@ mod tests {
 
         let lang = Language::example_language();
         let tree = make_example_tree(&lang, false);
-        assert_eq!(tree.node.bounds.bound, vec!(
+        let bounds: Vec<Bound> = tree.node.bounds.into_iter().collect();
+        assert_eq!(bounds, vec!(
             Bound{ width: 42, height: 0, indent: 42 },
             Bound{ width: 33, height: 1, indent: 33 },
             Bound{ width: 21, height: 2, indent: 1 },

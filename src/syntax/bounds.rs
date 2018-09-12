@@ -1,5 +1,4 @@
-use std::cmp;
-use std::fmt;
+use std::{cmp, fmt, iter};
 
 use geometry::*;
 use syntax::syntax::Syntax;
@@ -63,8 +62,8 @@ impl Bound {
         }
     }
 
-    pub fn debug_print(&self, f: &mut fmt::Formatter, ch: char, indent: Col)
-                -> fmt::Result
+    pub(crate) fn debug_print(&self, f: &mut fmt::Formatter, ch: char, indent: Col)
+                              -> fmt::Result
     {
         if self.height > 30 {
             return write!(f, "[very large bound]")
@@ -89,25 +88,25 @@ impl fmt::Debug for Bound {
 /// only the smaller one will be kept.
 #[derive(Clone, Debug)]
 pub struct BoundSet {
-    pub bound: Vec<Bound>
+    set: Vec<Bound>
 }
 
 impl BoundSet {
     /// Construct an empty BoundSet.
     pub fn new() -> BoundSet {
         BoundSet{
-            bound: vec!()
+            set: vec!()
         }
     }
 
     /// Filter out Bounds that don't fit within the given Bound.
     /// Panics if none are left.
     pub fn fit_bound(&self, space: Bound) -> Bound {
-        let bound = self.bound.iter().filter(|bound| {
+        let bound = self.into_iter().filter(|bound| {
             bound.dominates(space)
         }).nth(0);
         match bound {
-            Some(bound) => *bound,
+            Some(bound) => bound,
             None         => panic!("No bound fits within given width {}",
                                    space.width)
         }
@@ -125,13 +124,13 @@ impl BoundSet {
         if bound.too_wide() {
             return;
         }
-        for &b in &self.bound {
+        for &b in &self.set {
             if b.dominates(bound) {
                 return;
             }
         }
-        self.bound.retain(|&b| !bound.dominates(b));
-        self.bound.push(bound);
+        self.set.retain(|&b| !bound.dominates(b));
+        self.set.push(bound);
     }
 
     // TODO: Why is this public?
@@ -140,17 +139,13 @@ impl BoundSet {
     }
 
     fn flush(&self) -> BoundSet {
-        let mut flush_set = BoundSet::new();
-        for &bound in &self.bound {
-            flush_set.insert(bound.flush());
-        }
-        flush_set
+        self.into_iter().map(|bound| bound.flush()).collect()
     }
 
     fn concat(&self, other: &BoundSet) -> BoundSet {
         let mut set = BoundSet::new();
-        for &bound1 in &self.bound {
-            for &bound2 in &other.bound {
+        for bound1 in self {
+            for bound2 in other {
                 set.insert(bound1.concat(bound2))
             }
         }
@@ -158,11 +153,45 @@ impl BoundSet {
     }
 
     fn choice(&self, other: &BoundSet) -> BoundSet {
-        let mut set = BoundSet::new();
-        for &bound in &self.bound {
-            set.insert(bound);
+        self.into_iter().chain(other.into_iter()).collect()
+    }
+}
+
+/// Iterator over Bounds in a BoundSet.
+pub struct BoundIter<'a> {
+    set: &'a Vec<Bound>,
+    i: usize
+}
+
+impl<'a> Iterator for BoundIter<'a> {
+    type Item = Bound;
+    fn next(&mut self) -> Option<Bound> {
+        if self.i >= self.set.len() {
+            None
+        } else {
+            self.i += 1;
+            Some(self.set[self.i - 1])
         }
-        for &bound in &other.bound {
+    }
+}
+
+impl<'a> iter::IntoIterator for &'a BoundSet {
+    type Item = Bound;
+    type IntoIter = BoundIter<'a>;
+    fn into_iter(self) -> Self::IntoIter {
+        BoundIter {
+            set: &self.set,
+            i: 0
+        }
+    }
+}
+
+impl iter::FromIterator<Bound> for BoundSet {
+    fn from_iter<T>(iter: T) -> BoundSet
+        where T: iter::IntoIterator<Item = Bound>
+    {
+        let mut set = BoundSet::new();
+        for bound in iter.into_iter() {
             set.insert(bound);
         }
         set
@@ -205,7 +234,7 @@ impl Syntax {
             }
             &NoWrap(ref syn) => {
                 let mut set = syn.bound_rec(child_bounds);
-                set.bound.retain(|bound| {
+                set.set.retain(|bound| {
                     bound.height == 0
                 });
                 set
@@ -306,7 +335,7 @@ mod tests {
 
     #[test]
     fn test_bound() {
-        let actual = example_syntax().bound(0, vec!(), false).bound[0];
+        let actual = example_syntax().bound(0, vec!(), false).set[0];
         let expected = Bound{
             width:  12,
             indent: 3,
@@ -318,7 +347,7 @@ mod tests {
     #[test]
     fn test_bound_2() {
         let actual = (flush(lit("abc")) + lit("de"))
-            .bound(0, vec!(), false).bound[0];
+            .bound(0, vec!(), false).set[0];
         let expected = Bound{
             width:  3,
             indent: 2,
@@ -331,7 +360,7 @@ mod tests {
     #[test]
     fn test_bound_3() {
         let actual = if_empty_text(lit("a"), lit("bc"))
-            .bound(0, vec!(), true).bound[0];
+            .bound(0, vec!(), true).set[0];
         let expected = Bound{
             width: 1,
             indent: 1,
@@ -343,7 +372,7 @@ mod tests {
     #[test]
     fn test_bound_4() {
         let actual = if_empty_text(lit("a"), lit("bc"))
-            .bound(0, vec!(), false).bound[0];
+            .bound(0, vec!(), false).set[0];
         let expected = Bound{
             width: 2,
             indent: 2,
