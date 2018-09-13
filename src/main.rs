@@ -1,5 +1,9 @@
 extern crate synless;
 
+fn main() {
+    println!("ok");
+}
+/*
 use synless::ColorTheme;
 use synless::Tree;
 use synless::Language;
@@ -14,3 +18,4 @@ fn main() {
     let mut editor = Editor::new(&language, keymap, theme, &mut tree);
     editor.run();
 }
+*/

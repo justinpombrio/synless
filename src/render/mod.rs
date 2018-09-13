@@ -6,6 +6,7 @@ mod position_screen;
 mod render;
 
 use geometry::*;
+use syntax::Bound;
 use render::locate_cursor::CursorLocator;
 use render::position_screen::position_screen;
 use render::render::Renderer;

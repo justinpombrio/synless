@@ -1,10 +1,12 @@
 //! Render to and poll events from the terminal emulator.
 
-use geometry::*;
-use style::*;
 use rustbox;
 use rustbox::RustBox;
 use rustbox::{InitOptions, InputMode, OutputMode, Mouse};
+
+use common::*;
+use style::*;
+
 pub use self::Event::*;
 pub use rustbox::Key;
 
@@ -60,6 +62,7 @@ impl Terminal {
         let fg = self.color_theme.foreground(style);
         let bg = self.color_theme.background(style);
         let emph = self.color_theme.emph(style);
+
         for (i, ch) in text.chars().enumerate() {
             let (row, col) = (pos.row as usize, pos.col as usize + i);
             self.rust_box.print_char(col, row, emph, fg, bg, ch);
@@ -72,10 +75,12 @@ impl Terminal {
         let fg = self.color_theme.foreground(style);
         let bg = self.color_theme.background(style);
         let emph = self.color_theme.emph(style);
+
         let (row, col) = (pos.row as usize, pos.col as usize);
         self.rust_box.print_char(col, row, emph, fg, bg, ch);
     }
 
+    /*
     /// Fill in a Region of the screen with the given
     /// background shade (and empty forground).
     pub fn shade_region(&mut self, region: Region, shade: Shade) {
@@ -98,6 +103,7 @@ impl Terminal {
             self.rust_box.print_char(col, end_row, emph, fg, bg, ' ');
         }
     }
+     */
 
     /// Clear the whole screen to black.
     pub fn clear(&mut self) {

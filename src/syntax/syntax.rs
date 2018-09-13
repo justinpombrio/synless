@@ -1,11 +1,8 @@
 use std::ops::{Add, BitOr};
 
-use geometry::*;
 use style::Style;
 use self::Syntax::*;
 
-
-pub const MAX_WIDTH : Col = 100;
 
 /// Describes how to display a syntactic construct.
 #[derive(Clone, Debug)]
@@ -196,61 +193,5 @@ impl Syntax {
             &Star => Child(child),
             &Rep(_) => panic!("Invalid notation: nested repeats not allowed")
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn lit(s: &str) -> Syntax {
-        literal(s, Style::plain())
-    }
-
-    fn example_repeat_syntax() -> Syntax {
-        child(0) +
-            repeat(Repeat{
-                empty:  lit("[]"),
-                lone:   lit("[") + star() + lit("]"),
-                first:  lit("[") + flush(star() + lit(",")),
-                middle: flush(star() + lit(",")),
-                last:   star() + lit("]")
-            })
-    }
-
-    #[test]
-    fn test_show_layout() {
-        let syn = lit("abc") + (flush(lit("def")) + lit("g"));
-        let lay = &syn.lay_out(0, &vec!(), false).fit_width(80);
-        assert_eq!(format!("{:?}", lay), "abcdef\n   g");
-    }
-
-    #[test]
-    fn test_expand_syntax() {
-        let r = (flush(lit("abc")) + lit("de")).bound(0, vec!(), false);
-        let syn = example_repeat_syntax();
-        let zero = &syn
-            .lay_out(1, &vec!(r.clone()), false)
-            .fit_width(80);
-        let one = &syn
-            .lay_out(1, &vec!(r.clone(), r.clone()), false)
-            .fit_width(80);
-        let two = &syn
-            .lay_out(1, &vec!(r.clone(), r.clone(), r.clone()), false)
-            .fit_width(80);
-        let three = &syn
-            .lay_out(1, &vec!(r.clone(), r.clone(), r.clone(), r.clone()), false)
-            .fit_width(80);
-        let four = &syn
-            .lay_out(1, &vec!(r.clone(), r.clone(), r.clone(), r.clone(), r.clone()), false)
-            .fit_width(80);
-        assert_eq!(format!("{:?}", zero), "000\n00[]");
-        assert_eq!(format!("{:?}", one), "000\n00[111\n   11]");
-        assert_eq!(format!("{:?}", two),
-                   "000\n00[111\n   11,\n   222\n   22]");
-        assert_eq!(format!("{:?}", three),
-                   "000\n00[111\n   11,\n   222\n   22,\n   333\n   33]");
-        assert_eq!(format!("{:?}", four),
-                   "000\n00[111\n   11,\n   222\n   22,\n   333\n   33,\n   444\n   44]");
     }
 }

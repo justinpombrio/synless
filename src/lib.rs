@@ -3,8 +3,8 @@
 // TODO: This is silencing errors in the dependencies
 #![allow(intra_doc_link_resolution_failure)]
 extern crate rustbox;
-#[macro_use]
-extern crate lazy_static;
+//#[macro_use]
+//extern crate lazy_static;
 extern crate uuid;
 
 #[allow(unused_macros)]
@@ -24,12 +24,12 @@ macro_rules! debug {
 // TODO: Test render::render
 
 
-#[macro_use]
-pub mod geometry;  // commonly used; not listed as dep
+pub mod common;    // commonly used; not listed as dep
 pub mod style;     // commonly used; not listed as dep
 
 pub mod terminal;  // dep:
 pub mod syntax;    // dep:
+/*
 pub mod construct; // dep:
 pub mod forest;    // dep:
 pub mod language;  // dep: syntax
@@ -43,3 +43,4 @@ pub use tree::Tree;
 pub use editor::KeyMap;
 pub use editor::Editor;
 pub use style::ColorTheme;
+*/
