@@ -66,6 +66,21 @@ impl fmt::Debug for Pos {
 
 
 /*
+// Stolen from rust-mustache
+macro_rules! bug {
+    ($msg:expr) => {
+        bug!("{}", $msg);
+    };
+    ($fmt:expr, $($arg:tt)+) => {
+        panic!(
+            concat!("Bug: ",
+                    $fmt,
+                    " Please report this issue on Github."),
+            $($arg)*);
+    };
+}
+
+
 // Utility
 
 // TODO: Move this elsewhere

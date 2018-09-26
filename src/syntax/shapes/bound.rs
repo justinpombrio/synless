@@ -91,8 +91,8 @@ impl Bound {
         }
     }
 
-    fn debug_print(&self, f: &mut fmt::Formatter, ch: char, indent: Col)
-                              -> fmt::Result
+    pub(crate) fn debug_print(&self, f: &mut fmt::Formatter, ch: char, indent: Col)
+                   -> fmt::Result
     {
         if self.height > 30 {
             return write!(f, "[very large bound]")

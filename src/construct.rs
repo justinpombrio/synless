@@ -51,7 +51,7 @@ lazy_static! {
 pub enum Arity {
     ForestArity{
         arity: usize,
-        extendable: bool
+        extendable: bool // TODO: standard terminology is 'flexible'
     },
     TextArity
 }

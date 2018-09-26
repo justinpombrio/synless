@@ -1,85 +1,96 @@
 use std::iter;
 
-use super::bound::Bound;
+#[cfg(test)]
+use common::Col;
+use super::super::Bound;
 
 
 /// A set of Bounds. If one Bound is strictly smaller than another,
 /// only the smaller one will be kept.
+/// Each Bound may have some related data T.
 #[derive(Clone, Debug)]
-pub struct BoundSet {
-    set: Vec<Bound>
+pub struct BoundSet<T> where T: Clone {
+    set: Vec<(Bound, T)>
 }
 
-impl BoundSet {
+impl<T> BoundSet<T> where T: Clone {
     /// Construct an empty BoundSet.
-    pub fn new() -> BoundSet {
-        BoundSet{
+    pub fn new() -> BoundSet<T> {
+        BoundSet {
             set: vec!()
         }
     }
 
-    /// Filter out Bounds that don't fit within the given Bound.
-    /// Panics if none are left.
-    pub fn fit_bound(&self, space: Bound) -> Bound {
-        let bound = self.into_iter().filter(|bound| {
+    /// Pick the best (i.e., smallest) Bound that fits within the
+    /// given Bound. Panics if none fit.
+    pub fn fit_bound(&self, space: Bound) -> (Bound, T) {
+        let bound = self.into_iter().filter(|(bound, _)| {
             bound.dominates(space)
         }).nth(0);
         match bound {
             Some(bound) => bound,
-            None         => panic!("No bound fits within given width {}",
-                                   space.width)
+            None        => panic!("No bound fits within given width {}",
+                                  space.width)
         }
     }
 
-    pub fn singleton(bound: Bound) -> BoundSet {
+    /// Pick the best (i.e., smallest) Bound that fits within the
+    /// given width. Panics if none fit.
+    #[cfg(test)]
+    pub(crate) fn fit_width(&self, width: Col) -> (Bound, T) {
+        let bound = Bound::infinite_scroll(width);
+        self.fit_bound(bound)
+    }
+
+    pub fn singleton(bound: Bound, val: T) -> BoundSet<T> {
         let mut set = BoundSet::new();
-        set.insert(bound);
+        set.insert(bound, val);
         set
     }
 
     // TODO: efficiency (can go from O(n) to O(sqrt(n)))
     // MUST FILTER IDENTICALLY TO LayoutSet::insert
-    pub fn insert(&mut self, bound: Bound) {
+    pub fn insert(&mut self, bound: Bound, val: T) {
         if bound.too_wide() {
             return;
         }
-        for &b in &self.set {
+        for (b, _) in &self.set {
             if b.dominates(bound) {
                 return;
             }
         }
-        self.set.retain(|&b| !bound.dominates(b));
-        self.set.push(bound);
+        self.set.retain(|&(b, _)| !bound.dominates(b));
+        self.set.push((bound, val));
     }
 
     #[cfg(test)]
-    pub(crate) fn first(&self) -> Bound {
-        self.set[0]
+    pub(crate) fn first(&self) -> (Bound, T) {
+        self.set[0].clone()
     }
 }
 
 
 /// Iterator over Bounds in a BoundSet.
-pub struct BoundIter<'a> {
-    set: &'a Vec<Bound>,
+pub struct BoundIter<'a, T: 'a> where T: Clone {
+    set: &'a Vec<(Bound, T)>,
     i: usize
 }
 
-impl<'a> Iterator for BoundIter<'a> {
-    type Item = Bound;
-    fn next(&mut self) -> Option<Bound> {
+impl<'a, T> Iterator for BoundIter<'a, T> where T: Clone {
+    type Item = (Bound, T);
+    fn next(&mut self) -> Option<(Bound, T)> {
         if self.i >= self.set.len() {
             None
         } else {
             self.i += 1;
-            Some(self.set[self.i - 1])
+            Some(self.set[self.i - 1].clone())
         }
     }
 }
 
-impl<'a> iter::IntoIterator for &'a BoundSet {
-    type Item = Bound;
-    type IntoIter = BoundIter<'a>;
+impl<'a, T> iter::IntoIterator for &'a BoundSet<T> where T: Clone {
+    type Item = (Bound, T);
+    type IntoIter = BoundIter<'a, T>;
     fn into_iter(self) -> Self::IntoIter {
         BoundIter {
             set: &self.set,
@@ -88,13 +99,15 @@ impl<'a> iter::IntoIterator for &'a BoundSet {
     }
 }
 
-impl iter::FromIterator<Bound> for BoundSet {
-    fn from_iter<T>(iter: T) -> BoundSet
-        where T: iter::IntoIterator<Item = Bound>
+impl<T> iter::FromIterator<(Bound, T)> for BoundSet<T>
+    where T: Clone
+{
+    fn from_iter<I>(iter: I) -> BoundSet<T>
+        where I: iter::IntoIterator<Item = (Bound, T)>
     {
         let mut set = BoundSet::new();
-        for bound in iter.into_iter() {
-            set.insert(bound);
+        for (bound, val) in iter.into_iter() {
+            set.insert(bound, val);
         }
         set
     }
