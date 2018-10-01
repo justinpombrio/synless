@@ -47,6 +47,17 @@ mod tests {
             + lit("end")
     }
 
+    fn example_repeat_syntax() -> Syntax {
+        child(0) +
+            repeat(Repeat{
+                empty:  lit("[]"),
+                lone:   lit("[") + star() + lit("]"),
+                first:  lit("[") + flush(star() + lit(",")),
+                middle: flush(star() + lit(",")),
+                last:   star() + lit("]")
+            })
+    }
+
     #[test]
     fn test_bound() {
         let actual = example_syntax()
@@ -94,21 +105,6 @@ mod tests {
             height: 0
         };
         assert_eq!(actual, expected);
-    }
-
-    fn lit(s: &str) -> Syntax {
-        literal(s, Style::plain())
-    }
-
-    fn example_repeat_syntax() -> Syntax {
-        child(0) +
-            repeat(Repeat{
-                empty:  lit("[]"),
-                lone:   lit("[") + star() + lit("]"),
-                first:  lit("[") + flush(star() + lit(",")),
-                middle: flush(star() + lit(",")),
-                last:   star() + lit("]")
-            })
     }
 
     #[test]

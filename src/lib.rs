@@ -3,8 +3,8 @@
 // TODO: This is silencing errors in the dependencies
 #![allow(intra_doc_link_resolution_failure)]
 extern crate rustbox;
-//#[macro_use]
-//extern crate lazy_static;
+#[macro_use]
+extern crate lazy_static;
 extern crate uuid;
 
 #[allow(unused_macros)]
@@ -30,10 +30,8 @@ pub mod style;     // commonly used; not listed as dep
 pub mod frontends; // dep: rustbox
 pub mod syntax;    // dep:
 pub mod forest;    // dep:
+pub mod language;  // dep:
 /*
-pub mod construct; // dep:
-pub mod forest;    // dep:
-pub mod language;  // dep: syntax
 pub mod tree;      // dep: syntax
 pub mod render;    // dep: syntax, doc, terminal
 pub mod editor;    // dep: language, tree, doc, terminal, render

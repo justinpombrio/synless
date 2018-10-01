@@ -1,14 +1,9 @@
+// TODO: use or remove commented code
+
 //! An editable language.
 
 use std::collections::HashMap;
-
-use style::{Style, Color, Emph, Shade};
-use syntax::{Syntax, Repeat,
-             empty, literal, text, child, flush,
-             if_empty_text, repeat, star};
-use construct::{Construct, Arity};
-#[cfg(test)]
-use tree::Tree;
+use super::construct::{ConstructName, TypeName, Construct};
 
 /// The syntax and whatnot for a language.
 /// Right now it just has a mapping from key to syntactic construct.
@@ -16,33 +11,27 @@ use tree::Tree;
 /// should be separated from the notation that describes how to
 /// display it.
 pub struct Language {
-    pub(crate) constructs: HashMap<String, Construct>,
-    pub(crate) keymap: HashMap<char, String>
-}
-
-fn punct(s: &str) -> Syntax {
-    literal(s, Style::color(Color::Yellow))
-}
-
-fn word(s: &str) -> Syntax {
-    literal(s, Style::color(Color::Green))
-}
-
-fn txt() -> Syntax {
-    text(Style::new(Color::Blue, Emph::underlined(), Shade::black(), false))
+    pub(crate) constructs: HashMap<ConstructName, Construct>,
+    pub(crate) types:      HashMap<TypeName, Vec<ConstructName>>,
+    pub(crate) keymap:     HashMap<char, ConstructName>
 }
 
 impl Language {
 
-    fn new() -> Language {
-        Language{
+    pub fn new() -> Language {
+        Language {
             constructs: HashMap::new(),
+            types:      HashMap::new(),
             keymap:     HashMap::new()
         }
     }
 
-    fn add(&mut self, key: char, construct: Construct) {
+    pub fn add(&mut self, key: char, construct: Construct) {
         self.keymap.insert(key, construct.name.clone());
+        if !self.types.contains_key(&construct.typ) {
+            self.types.insert(construct.typ.clone(), vec!());
+        }
+        self.types.get_mut(&construct.typ).unwrap().push(construct.name.clone());
         self.constructs.insert(construct.name.clone(), construct);
     }
 
@@ -60,6 +49,20 @@ impl Language {
                            construct)
         }
     }
+}
+
+/*
+fn punct(s: &str) -> Syntax {
+    literal(s, Style::color(Color::Yellow))
+}
+
+fn word(s: &str) -> Syntax {
+    literal(s, Style::color(Color::Green))
+}
+
+fn txt() -> Syntax {
+    text(Style::new(Color::Blue, Emph::underlined(), Shade::black(), false))
+}
 
     /// An example language for testing.
     pub fn example_language() -> Language {
@@ -130,7 +133,6 @@ impl Language {
     }
 }
 
-
 #[cfg(test)]
 pub(crate) fn make_example_tree<'l>(lang: &'l Language, tweak: bool) -> Tree<'l> {
     let con_func = lang.lookup_name("func");
@@ -152,3 +154,4 @@ pub(crate) fn make_example_tree<'l>(lang: &'l Language, tweak: bool) -> Tree<'l>
     let body = Tree::new_forest(con_plus, vec!(abcdef1, abcdef2));
     Tree::new_forest(con_func, vec!(foo, args, body))
 }
+*/
