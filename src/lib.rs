@@ -29,6 +29,7 @@ pub mod style;     // commonly used; not listed as dep
 
 pub mod frontends; // dep: rustbox
 pub mod syntax;    // dep:
+pub mod forest;    // dep:
 /*
 pub mod construct; // dep:
 pub mod forest;    // dep:

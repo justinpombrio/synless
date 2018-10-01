@@ -84,38 +84,6 @@ impl Region {
         }
     }
 
-    // TODO: untested
-    /// Find the subregion that is within this region, but below and
-    /// to the right of `pos`.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `pos` is not contained in this region.
-    pub fn subregion_from(&self, pos: Pos) -> Region {
-        let delta = pos - self.beginning();
-        let bound = self.bound.subbound_from(delta);
-        Region{
-            pos:   pos,
-            bound: bound
-        }
-    }
-
-    // TODO: untested
-    /// Find the subregion that is within this region, but ending
-    /// before `pos`.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `pos` is not contained in this region.
-    pub fn subregion_to(&self, pos: Pos) -> Region {
-        let delta = pos - self.beginning();
-        let bound = self.bound.subbound_to(delta);
-        Region {
-            pos:   self.pos,
-            bound: bound
-        }
-    }
-
     pub fn width(&self) -> Col {
         self.bound.width
     }

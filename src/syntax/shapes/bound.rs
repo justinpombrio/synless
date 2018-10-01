@@ -1,6 +1,6 @@
 use std::fmt;
 
-use common::{Row, Col, Pos, MAX_WIDTH};
+use common::{Row, Col, MAX_WIDTH};
 
 
 
@@ -31,41 +31,6 @@ pub struct Bound {
 }
 
 impl Bound {
-    /// Find the sub-bound that is within this bound, but below and
-    /// to the right of `pos`.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `pos` is not contained within this bound.
-    pub fn subbound_from(&self, pos: Pos) -> Bound {
-        if self.indent >= pos.col {
-            Bound{
-                width:  self.width  - pos.col,
-                height: self.height - pos.row,
-                indent: self.indent - pos.col
-            }
-        } else {
-            Bound{
-                width:  self.width  - pos.col,
-                height: self.height - pos.row - 1,
-                indent: self.width  - pos.col
-            }
-        }
-    }
-
-    /// Find the sub-bound that is within this bound, but ends at `pos`.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `pos` is not contained within this bound.
-    pub fn subbound_to(&self, pos: Pos) -> Bound {
-        Bound{
-            width:  self.width,
-            height: pos.row,
-            indent: pos.col
-        }
-    }
-
     /// One Bound dominates another if it is at least as small in all
     /// dimensions.
     pub fn dominates(&self, other: Bound) -> bool {
