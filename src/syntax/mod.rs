@@ -13,7 +13,7 @@ pub use self::syntax::*;
 
 
 #[cfg(test)]
-mod tests1 {
+mod tests {
     use super::*;
     use super::layout::Layable;
     use style::Style;
@@ -95,13 +95,6 @@ mod tests1 {
         };
         assert_eq!(actual, expected);
     }
-}
-
-
-#[cfg(test)]
-mod tests2 {
-    use style::Style;
-    use super::*;
 
     fn lit(s: &str) -> Syntax {
         literal(s, Style::plain())
