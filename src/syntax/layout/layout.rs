@@ -9,6 +9,7 @@ use self::Layout::*;
 
 
 pub trait Layable where Self: Clone {
+    fn empty() -> Self;
     fn literal(s: &str, style: Style) -> Self;
     fn flush(&self) -> Self;
     fn concat(&self, other: Self) -> Self;
@@ -18,6 +19,7 @@ pub trait Layable where Self: Clone {
 
 
 impl Layable for () {
+    fn empty()                            {}
     fn literal(_s: &str, _style: Style)   {}
     fn flush(&self)                       {}
     fn concat(&self, _other: ())          {}
@@ -27,6 +29,14 @@ impl Layable for () {
 
 
 impl Layable for Bound {
+    fn empty() -> Bound {
+        Bound {
+            width: 0,
+            height: 0,
+            indent: 0
+        }
+    }
+
     fn literal(s: &str, _style: Style) -> Bound {
         let width = s.chars().count() as Col;
         Bound {
@@ -77,6 +87,8 @@ pub struct LayoutRegion {
 /// The enum for a LayoutRegion.
 #[derive(Clone, PartialEq, Eq)]
 pub enum Layout {
+    /// Display nothing.
+    Empty,
     /// Display a literal string with the given style.
     Literal(String, Style),
     /// Display a text node's text with the given style.
@@ -101,6 +113,7 @@ impl LayoutRegion {
 impl Layout {
     fn shift_to(&mut self, pos: Pos) {
         match self {
+            Empty         => (),
             Literal(_, _) => (),
             Text(_)       => (),
             Flush(box lay) => lay.shift_to(pos),
@@ -119,6 +132,9 @@ impl fmt::Debug for LayoutRegion {
         let indent = self.region.pos.col;
         let bound = &self.region.bound;
         match &self.layout {
+            Empty => {
+                Ok(())
+            }
             Literal(ref s, _) => {
                 write!(f, "{}", s)
             }
@@ -141,6 +157,16 @@ impl fmt::Debug for LayoutRegion {
 }
 
 impl Layable for LayoutRegion {
+    fn empty() -> LayoutRegion {
+        LayoutRegion {
+            region: Region {
+                pos:   Pos::zero(),
+                bound: Bound::empty()
+            },
+            layout: Layout::Empty
+        }
+    }
+
     fn literal(s: &str, style: Style) -> LayoutRegion {
         LayoutRegion {
             region: Region {
@@ -206,6 +232,10 @@ impl<'a> LayOuter<'a> {
         where L: Layable
     {
         match syntax {
+            Syntax::Empty => {
+                BoundSet::singleton(Bound::empty(),
+                                    L::empty())
+            }
             Syntax::Literal(s, style) => {
                 BoundSet::singleton(Bound::literal(s, *style),
                                     L::literal(s, *style))

@@ -7,6 +7,8 @@ use self::Syntax::*;
 /// Describes how to display a syntactic construct.
 #[derive(Clone, Debug)]
 pub enum Syntax {
+    /// Display Nothing
+    Empty,
     /// Display a literal string.
     Literal(String, Style),
     /// Display a piece of text. Must be used on a texty node.
@@ -135,6 +137,7 @@ struct SyntaxExpander {
 impl SyntaxExpander {
     fn expand(&self, syntax: &Syntax) -> Syntax {
         match syntax {
+            &Empty         => syntax.clone(),
             &Literal(ref s, style) => Literal(s.clone(), style),
             &Text(_)       => syntax.clone(),
             &Child(_)      => syntax.clone(),
@@ -181,6 +184,7 @@ impl Syntax {
 
     fn replace_star(&self, child: usize) -> Syntax {
         match self {
+            &Empty => Empty,
             &Literal(_, _) | &Text(_) | &Child(_) => self.clone(),
             &Flush(ref s)  => flush(s.replace_star(child)),
             &NoWrap(ref s) => no_wrap(s.replace_star(child)),
