@@ -1,78 +1,56 @@
-// TODO: use or remove commented code
-
-//! An editable language.
-
 use std::collections::HashMap;
-use std::iter::Iterator;
-use super::construct::{ConstructName, Sort, Construct};
 
-pub type LanguageName = String;
+use syntax::Syntax;
+use language::{ConstructName, Language, LanguageName};
 
-/// The syntax and whatnot for a language.
-pub struct Language {
-    name:       LanguageName,
-    constructs: HashMap<ConstructName, Construct>,
-    sorts:      HashMap<Sort, Vec<ConstructName>>,
-    keymap:     HashMap<char, ConstructName>
+
+pub struct LanguageSyntax {
+    name: LanguageName,
+    syntax: HashMap<ConstructName, Syntax>
 }
 
-impl Language {
+impl LanguageSyntax {
 
-    pub fn new(name: &str) -> Language {
-        Language {
-            name:       name.to_string(),
-            sorts:      HashMap::new(),
-            constructs: HashMap::new(),
-            keymap:     HashMap::new()
+    // TODO: validate against language
+    pub fn new(language: &Language, syntaxes: Vec<(ConstructName, Syntax)>)
+               -> LanguageSyntax
+    {
+        let mut map = HashMap::new();
+        for (construct, syntax) in syntaxes {
+            map.insert(construct, syntax);
         }
-    }
-
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    pub fn add(&mut self, construct: Construct) {
-        // Insert sort
-        if !self.sorts.contains_key(&construct.sort) {
-            self.sorts.insert(construct.sort.clone(), vec!());
+        LanguageSyntax {
+            name: language.name().to_string(),
+            syntax: map
         }
-        self.sorts.get_mut(&construct.sort).unwrap().push(construct.name.clone());
-        // Insert key
-        self.keymap.insert(construct.key, construct.name.clone());
-        // Insert construct
-        self.constructs.insert(construct.name.clone(), construct);
-    }
-
-    pub fn lookup_key(&self, key: char) -> Option<&Construct> {
-        match self.keymap.get(&key) {
-            Some(name) => Some(self.lookup_construct(name)),
-            None => None
-        }
-    }
-
-    pub fn lookup_construct(&self, construct_name: &str) -> &Construct {
-        match self.constructs.get(construct_name) {
-            Some(con) => con,
-            None => panic!("Could not find construct named {} in language.",
-                           construct_name)
-        }
-    }
-
-    pub fn constructs(&self) -> impl Iterator<Item=&Construct> {
-        self.constructs.values()
     }
 }
+
 
 #[cfg(test)]
 use self::example::*;
 
 #[cfg(test)]
 mod example {
-    use language::construct::Arity;
     use super::*;
+    use style::*;
+    use syntax::*;
+    use language::{Language, Construct, Arity};
+
+    fn punct(s: &str) -> Syntax {
+        literal(s, Style::color(Color::Yellow))
+    }
+
+    fn word(s: &str) -> Syntax {
+        literal(s, Style::color(Color::Green))
+    }
+
+    fn txt() -> Syntax {
+        text(Style::new(Color::Blue, Emph::underlined(), Shade::black(), false))
+    }
 
     /// An example language for testing.
-    pub fn example_language() -> Language {
+    pub fn example_language() -> (Language, LanguageSyntax) {
         let mut language = Language::new("TestLang");
 
         let arity = Arity::Forest(vec!("Expr".to_string(),
@@ -80,6 +58,14 @@ mod example {
                                   None);
         let construct = Construct::new("plus", "Expr", arity, 'p');
         language.add(construct);
+        let plus_syntax =
+            child(0) + punct(" + ") + child(1)
+            | flush(child(0)) + punct("+ ") + child(1);
+
+        let notation = LanguageSyntax::new(
+            &language,
+            vec!(("plus".to_string(), plus_syntax)));
+        (language, notation)
 /*
         let syn = repeat(Repeat{
             empty:  empty(),
@@ -137,8 +123,28 @@ mod example {
         let syn = punct("'") + txt() + punct("'");
         lang.add('s', Construct::new("strn", Arity::text(), syn));
          */
-
-        language
     }
 
+/*
+    pub fn example_tree<'l>(lang: &'l Language, tweak: bool) -> Tree<'l> {
+        let con_func = lang.lookup_name("func");
+        let con_id   = lang.lookup_name("iden");
+        let con_str  = lang.lookup_name("strn");
+        let con_arg  = lang.lookup_name("args");
+        let con_plus = lang.lookup_name("plus");
+
+        let foo = Tree::new_text(con_id, "foo");
+        let abc = Tree::new_text(con_id, "abc");
+        let def = Tree::new_text(con_id, "def");
+        let args = Tree::new_forest(con_arg, vec!(abc, def));
+        let abcdef1 = Tree::new_text(con_str, "abcdef");
+        let abcdef2 = if tweak {
+            Tree::new_text(con_str, "abc")
+        } else {
+            Tree::new_text(con_str, "abcdef")
+        };
+        let body = Tree::new_forest(con_plus, vec!(abcdef1, abcdef2));
+        Tree::new_forest(con_func, vec!(foo, args, body))
+    }
+*/
 }

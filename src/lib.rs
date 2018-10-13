@@ -31,6 +31,7 @@ pub mod frontends; // dep: rustbox
 pub mod syntax;    // dep:
 pub mod forest;    // dep:
 pub mod language;  // dep:
+pub mod notation;  // dep: syntax, language
 /*
 pub mod tree;      // dep: syntax
 pub mod render;    // dep: syntax, doc, terminal

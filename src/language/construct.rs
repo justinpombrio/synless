@@ -2,7 +2,7 @@
 // TODO: use or remove commented code
 
 pub type ConstructName = String;
-pub type TypeName = String;
+pub type Sort = String; // "Any" is special
 
 /// A syntactic construct.
 ///
@@ -11,32 +11,34 @@ pub type TypeName = String;
 /// might represent binary addition.
 #[derive(Debug)]
 pub struct Construct {
-    pub name: ConstructName,
-    pub typ:  TypeName,
-    pub sig:  Signature
+    pub name:  ConstructName,
+    pub sort:  Sort,
+    pub arity: Arity,
+    pub key:   char
 }
 
 impl Construct {
-    pub fn new(name: &str, typ: &str, sig: Signature) -> Construct {
+    pub fn new(name: &str, sort: &str, arity: Arity, key: char) -> Construct {
         Construct{
             name: name.to_string(),
-            typ:  typ.to_string(),
-            sig:  sig
+            sort: sort.to_string(),
+            arity: arity,
+            key: key
         }
     }
 }
 
 #[derive(Debug)]
-pub enum Signature {
+pub enum Arity {
     Text,
-    Mixed(TypeName),
-    Forest(Vec<TypeName>, Option<TypeName>)
+    Mixed(Sort),
+    Forest(Vec<Sort>, Option<Sort>) // if Some, rest of children have this sort
 }
 
 lazy_static! {
     /// A hole in the document, for when your program is incomplete.
     pub static ref HOLE: Construct =
-        Construct::new("?", "Any", Signature::Forest(vec!(), None));
+        Construct::new("?", "Any", Arity::Forest(vec!(), None), '?');
 }
 
 /*
