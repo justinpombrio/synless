@@ -1,22 +1,21 @@
-//! A very general represenation of trees.
+//! A general represenation of trees.
 
 mod tree;
 mod subtree_ref;
 mod subtree_mut;
 
-pub use self::tree::Tree;
+pub use self::tree::{Tree, Forest};
 pub use self::subtree_ref::SubtreeRef;
 pub use self::subtree_mut::SubtreeMut;
 
 use std::collections::HashMap;
 use std::mem;
+use std::ops::{Deref, DerefMut};
+use std::sync::{RwLockReadGuard, RwLockWriteGuard};
 use uuid::Uuid;
 
 use self::NodeContents::*;
 
-
-// TODO: Note that it's up to the user to make sure that Trees are
-// kept with the Forest they came from.
 
 // INVARIANTS:
 // - children and parents agree
@@ -26,13 +25,7 @@ fn fresh() -> Uuid {
     Uuid::new_v4()
 }
 
-/// All [Trees](struct.Tree.html) belong to a Forest.
-///
-/// It is your responsibility to ensure that Trees are kept with the
-/// Forest they came from. The methods on Trees will panic if you use
-/// them on a different Forest. In practice this is easy because you
-/// should only ever have one Forest.
-pub struct Forest<Data, Leaf>{
+pub struct RawForest<Data, Leaf>{
     map: HashMap<Id, Node<Data, Leaf>>,
     #[cfg(test)]
     refcount: usize
@@ -48,14 +41,14 @@ enum NodeContents<Data, Leaf> {
     Branch(Data, Vec<Id>)
 }
 
-impl<D, L> Forest<D, L> {
+impl<D, L> RawForest<D, L> {
 
     // Public //
     
     /// Constructs an empty Forest.
     /// Populate it with `Tree::new_leaf` and `Tree::new_branch`.
-    pub fn new() -> Forest<D, L> {
-        Forest {
+    pub fn new() -> RawForest<D, L> {
+        RawForest {
             map: HashMap::new(),
             #[cfg(test)]
             refcount: 0
@@ -245,7 +238,7 @@ impl<D, L> Forest<D, L> {
     // For Testing //
 
     #[cfg(test)]
-    pub fn tree_count(&self) -> usize {
+    fn tree_count(&self) -> usize {
         if self.refcount != self.map.len() {
             panic!("Forest - lost track of trees! Refcount: {}, Hashcount: {}",
                    self.refcount, self.map.len());
@@ -254,38 +247,103 @@ impl<D, L> Forest<D, L> {
     }
 }
 
+
+// Derefs //
+
+pub struct ReadData<'f, D, L> {
+    guard: RwLockReadGuard<'f, RawForest<D, L>>,
+    id: Id
+}
+
+pub struct ReadLeaf<'f, D, L> {
+    guard: RwLockReadGuard<'f, RawForest<D, L>>,
+    id: Id
+}
+
+pub struct WriteData<'f, D, L> {
+    guard: RwLockWriteGuard<'f, RawForest<D, L>>,
+    id: Id
+}
+
+pub struct WriteLeaf<'f, D, L> {
+    guard: RwLockWriteGuard<'f, RawForest<D, L>>,
+    id: Id
+}
+
+impl<'f, D, L> Deref for ReadData<'f, D, L> {
+    type Target = D;
+    fn deref(&self) -> &D {
+        self.guard.data(self.id)
+    }
+}
+
+impl<'f, D, L> Deref for ReadLeaf<'f, D, L> {
+    type Target = L;
+    fn deref(&self) -> &L {
+        self.guard.leaf(self.id)
+    }
+}
+
+impl<'f, D, L> Deref for WriteData<'f, D, L> {
+    type Target = D;
+    fn deref(&self) -> &D {
+        self.guard.data(self.id)
+    }
+}
+
+impl<'f, D, L> DerefMut for WriteData<'f, D, L> {
+    fn deref_mut(&mut self) -> &mut D {
+        self.guard.data_mut(self.id)
+    }
+}
+
+impl<'f, D, L> Deref for WriteLeaf<'f, D, L> {
+    type Target = L;
+    fn deref(&self) -> &L {
+        self.guard.leaf(self.id)
+    }
+}
+
+impl<'f, D, L> DerefMut for WriteLeaf<'f, D, L> {
+    fn deref_mut(&mut self) -> &mut L {
+        self.guard.leaf_mut(self.id)
+    }
+}
+
+
+
 #[cfg(test)]
 mod test {
     use super::*;
 
-    fn family(f: &mut Forest<&'static str, &'static str>)
-              -> Tree<&'static str, &'static str>
+    fn family<'f>(forest: &'f Forest<&'static str, &'static str>)
+                  -> Tree<'f, &'static str, &'static str>
     {
-        let leaves = vec!(Tree::new_leaf(f, "elder"),
-                          Tree::new_leaf(f, "younger"));
-        Tree::new_branch(f, "parent", leaves)
+        let leaves = vec!(forest.new_leaf("elder"),
+                          forest.new_leaf("younger"));
+        forest.new_branch("parent", leaves)
     }
-    
-    fn mirror(f: &mut Forest<u32, u32>, height: u32, id: u32) -> Tree<u32, u32> {
+
+    fn mirror<'f>(forest: &Forest<u32, u32>, height: u32, id: u32) -> Tree<u32, u32> {
         if height == 0 {
-            Tree::new_leaf(f, id)
+            forest.new_leaf(id)
         } else {
             let mut children = vec!();
             for i in 0..height {
-                children.push(mirror(f, i, id + 2_u32.pow(i)));
+                children.push(mirror(forest, i, id + 2_u32.pow(i)));
             }
-            Tree::new_branch(f, id, children)
+            forest.new_branch(id, children)
         }
     }
 
-    impl<'a> SubtreeRef<'a, u32, u32> {
-        fn sum(&self, f: &Forest<u32, u32>) -> u32 {
-            if self.is_leaf(f) {
-                *self.leaf(f)
+    impl<'f> SubtreeRef<'f, u32, u32> {
+        fn sum(&self) -> u32 {
+            if self.is_leaf() {
+                *self.leaf()
             } else {
-                let mut sum = *self.data(f);
-                for child in self.children(f) {
-                    sum += child.sum(f);
+                let mut sum = *self.data();
+                for child in self.children() {
+                    sum += child.sum();
                 }
                 sum
             }
@@ -294,275 +352,253 @@ mod test {
 
     #[test]
     fn test_leaves() {
-        let mut f: Forest<(), u32> = Forest::new();
+        let mut forest: Forest<(), u32> = Forest::new();
         // Begin with a leaf of 2
-        let mut tree = Tree::new_leaf(&mut f, 2);
-        assert!(tree.as_mut().is_leaf(&f)); // check SubtreeMut
-        assert_eq!(*tree.as_mut().leaf(&f), 2);
+        let mut tree = forest.new_leaf(2);
+        assert!(tree.as_mut().is_leaf()); // check SubtreeMut
+        assert_eq!(*tree.as_mut().leaf(), 2);
         // Mutate it to be 3
-        *tree.as_mut().leaf_mut(&mut f) = 3;
-        assert!(tree.as_ref().is_leaf(&f)); // check SubtreeRef
-        assert_eq!(*tree.as_ref().leaf(&f), 3);
-        tree.delete(&mut f);
+        *tree.as_mut().leaf_mut() = 3;
+        assert!(tree.as_ref().is_leaf()); // check SubtreeRef
+        assert_eq!(*tree.as_ref().leaf(), 3);
     }
 
     #[test]
     fn test_data() {
-        let mut f: Forest<u32, ()> = Forest::new();
+        let mut forest: Forest<u32, ()> = Forest::new();
         // Begin with data of 2
-        let mut tree = Tree::new_branch(&mut f, 2, vec!());
-        assert!(!tree.as_ref().is_leaf(&f)); // check SubtreeRef
-        assert_eq!(*tree.as_ref().data(&f), 2);
+        let mut tree = forest.new_branch(2, vec!());
+        assert!(!tree.as_ref().is_leaf()); // check SubtreeRef
+        assert_eq!(*tree.as_ref().data(), 2);
         // Mutate it to be 3
-        *tree.as_mut().data_mut(&mut f) = 3;
-        assert!(!tree.as_mut().is_leaf(&f)); // check SubtreeMut
-        assert_eq!(*tree.as_mut().data(&f), 3);
-        tree.delete(&mut f);
+        *tree.as_mut().data_mut() = 3;
+        assert!(!tree.as_mut().is_leaf()); // check SubtreeMut
+        assert_eq!(*tree.as_mut().data(), 3);
     }
 
     #[test]
     fn test_num_children() {
-        let mut f: Forest<(), ()> = Forest::new();
-        let leaves = vec!(Tree::new_leaf(&mut f, ()),
-                          Tree::new_leaf(&mut f, ()),
-                          Tree::new_leaf(&mut f, ()));
-        let mut tree = Tree::new_branch(&mut f, (), leaves);
-        assert_eq!(tree.as_ref().num_children(&f), 3);
-        assert_eq!(tree.as_mut().num_children(&f), 3);
-        tree.delete(&mut f);
+        let mut forest: Forest<(), ()> = Forest::new();
+        let leaves = vec!(forest.new_leaf(()),
+                          forest.new_leaf(()),
+                          forest.new_leaf(()));
+        println!("before");
+        let mut tree = forest.new_branch((), leaves);
+        println!("after");
+        assert_eq!(tree.as_ref().num_children(), 3);
+        assert_eq!(tree.as_mut().num_children(), 3);
     }
 
     #[test]
     fn test_navigation_ref() {
-        let mut f: Forest<&'static str, &'static str> = Forest::new();
-        let tree = family(&mut f);
-        assert_eq!(*tree.as_ref().child(&f, 0).leaf(&f), "elder");
-        assert_eq!(*tree.as_ref().child(&f, 1).leaf(&f), "younger");
-        assert_eq!(*tree.as_ref().child(&f, 0).parent(&f).unwrap().data(&f), "parent");
-        assert!(tree.as_ref().child(&f, 0).parent(&f).unwrap().parent(&f).is_none());
+        let mut forest: Forest<&'static str, &'static str> = Forest::new();
+        let tree = family(&forest);
+        assert_eq!(*tree.as_ref().child(0).leaf(), "elder");
+        assert_eq!(*tree.as_ref().child(1).leaf(), "younger");
+        assert_eq!(*tree.as_ref().child(0).parent().unwrap().data(), "parent");
+        assert!(tree.as_ref().child(0).parent().unwrap().parent().is_none());
         let children: Vec<&'static str> = tree.as_ref()
-            .children(&f)
-            .map(|child| *child.leaf(&f))
+            .children()
+            .map(|child| *child.leaf())
             .collect();
         assert_eq!(children, vec!("elder", "younger"));
-        // Cleanup
-        tree.delete(&mut f);
     }
 
     #[test]
     fn test_at_root_mut() {
-        let mut f: Forest<&'static str, &'static str> = Forest::new();
-        let mut tree = family(&mut f);
+        let mut forest: Forest<&'static str, &'static str> = Forest::new();
+        let mut tree = family(&forest);
         {
             let mut cursor = tree.as_mut();
-            assert!(cursor.at_root(&f));
-            cursor.goto_child(&mut f, 1);
-            assert!(!cursor.at_root(&f));
+            assert!(cursor.at_root());
+            cursor.goto_child(1);
+            assert!(!cursor.at_root());
         }
-        // Cleanup
-        tree.delete(&mut f);
     }
 
     #[test]
     fn test_navigation_mut() {
-        let mut f: Forest<&'static str, &'static str> = Forest::new();
-        let mut tree = family(&mut f);
+        let mut forest: Forest<&'static str, &'static str> = Forest::new();
+        let mut tree = family(&forest);
         {
             let mut cursor = tree.as_mut();
-            cursor.goto_child(&mut f, 1);
-            assert_eq!(*cursor.leaf(&f), "younger");
-            cursor.goto_parent(&mut f);
-            assert_eq!(*cursor.data(&f), "parent");
-            cursor.goto_child(&mut f, 0);
-            assert_eq!(*cursor.leaf(&f), "elder");
+            cursor.goto_child(1);
+            assert_eq!(*cursor.leaf(), "younger");
+            cursor.goto_parent();
+            assert_eq!(*cursor.data(), "parent");
+            cursor.goto_child(0);
+            assert_eq!(*cursor.leaf(), "elder");
         }
-        // Cleanup
-        tree.delete(&mut f);
     }
 
     #[test]
     fn test_bookmark_ref() {
-        let mut f: Forest<&'static str, &'static str> = Forest::new();
-        let mut tree = family(&mut f);
-        let mut other_tree = Tree::new_leaf(&mut f, "stranger");
-        let bookmark = tree.as_ref().child(&f, 1).bookmark(&f);
-        assert!(other_tree.as_ref().lookup_bookmark(&f, bookmark).is_none());
-        assert!(!other_tree.as_mut().goto_bookmark(&mut f, bookmark));
+        let mut forest: Forest<&'static str, &'static str> = Forest::new();
+        let mut tree = family(&forest);
+        let mut other_tree = forest.new_leaf("stranger");
+        let bookmark = tree.as_ref().child(1).bookmark();
+        assert!(other_tree.as_ref().lookup_bookmark(bookmark).is_none());
+        assert!(!other_tree.as_mut().goto_bookmark(bookmark));
         assert_eq!(*tree.as_ref()
-                   .lookup_bookmark(&f, bookmark).unwrap()
-                   .leaf(&f),
+                   .lookup_bookmark(bookmark).unwrap()
+                   .leaf(),
                    "younger");
         {
             let mut cursor = tree.as_mut();
-            cursor.goto_child(&mut f, 0);
-            assert!(cursor.goto_bookmark(&mut f, bookmark));
-            assert_eq!(*cursor.leaf(&f), "younger");
+            cursor.goto_child(0);
+            assert!(cursor.goto_bookmark(bookmark));
+            assert_eq!(*cursor.leaf(), "younger");
         }
-        // Cleanup
-        tree.delete(&mut f);
-        other_tree.delete(&mut f);
     }
 
     #[test]
     fn test_bookmark_mut() {
-        let mut f: Forest<&'static str, &'static str> = Forest::new();
-        let mut tree = family(&mut f);
-        let mut other_tree = Tree::new_leaf(&mut f, "stranger");
+        let mut forest: Forest<&'static str, &'static str> = Forest::new();
+        let mut tree = family(&forest);
+        let mut other_tree = forest.new_leaf("stranger");
         let bookmark = {
             let mut cursor = tree.as_mut();
-            cursor.goto_child(&mut f, 1);
-            cursor.bookmark(&mut f)
+            cursor.goto_child(1);
+            cursor.bookmark()
         };
-        assert!(other_tree.as_ref().lookup_bookmark(&f, bookmark).is_none());
-        assert!(!other_tree.as_mut().goto_bookmark(&mut f, bookmark));
+        assert!(other_tree.as_ref().lookup_bookmark(bookmark).is_none());
+        assert!(!other_tree.as_mut().goto_bookmark(bookmark));
         assert_eq!(*tree.as_ref()
-                   .lookup_bookmark(&f, bookmark).unwrap()
-                   .leaf(&f),
+                   .lookup_bookmark(bookmark).unwrap()
+                   .leaf(),
                    "younger");
         {
             let mut cursor = tree.as_mut();
-            cursor.goto_child(&mut f, 0);
-            assert!(cursor.goto_bookmark(&mut f, bookmark));
-            assert_eq!(*cursor.leaf(&f), "younger");
+            cursor.goto_child(0);
+            assert!(cursor.goto_bookmark(bookmark));
+            assert_eq!(*cursor.leaf(), "younger");
         }
-        // Cleanup
-        tree.delete(&mut f);
-        other_tree.delete(&mut f);
     }
 
     #[test]
     fn test_bookmark_deleted() {
-        let mut f: Forest<&'static str, &'static str> = Forest::new();
-        let mut tree = family(&mut f);
-        let bookmark = tree.as_ref().child(&f, 1).bookmark(&f);
-        let child = tree.as_mut().remove_child(&mut f, 1);
-        child.delete(&mut f);
-        assert!(tree.as_ref().lookup_bookmark(&f, bookmark).is_none());
-        assert!(!tree.as_mut().goto_bookmark(&mut f, bookmark));
-        tree.delete(&mut f);
+        let mut forest: Forest<&'static str, &'static str> = Forest::new();
+        let mut tree = family(&forest);
+        let bookmark = tree.as_ref().child(1).bookmark();
+        let child = tree.as_mut().remove_child(1);
+        assert!(tree.as_ref().lookup_bookmark(bookmark).is_none());
+        assert!(!tree.as_mut().goto_bookmark(bookmark));
     }
 
     #[test]
     fn test_replace_child() {
-        let mut f: Forest<&'static str, &'static str> = Forest::new();
-        let mut tree = family(&mut f);
-        let old_imposter = Tree::new_leaf(&mut f, "oldImposter");
-        let young_imposter = Tree::new_leaf(&mut f, "youngImposter");
-        let elder = tree.as_mut().replace_child(&mut f, 0, old_imposter);
-        let younger = tree.as_mut().replace_child(&mut f, 1, young_imposter);
-        assert_eq!(*elder.as_ref().leaf(&f), "elder");
-        assert_eq!(*younger.as_ref().leaf(&f), "younger");
-        assert_eq!(tree.as_ref().num_children(&f), 2);
-        assert_eq!(*tree.as_ref().child(&f, 0).leaf(&f), "oldImposter");
-        assert_eq!(*tree.as_ref().child(&f, 1).leaf(&f), "youngImposter");
-        tree.delete(&mut f);
-        elder.delete(&mut f);
-        younger.delete(&mut f);
+        let mut forest: Forest<&'static str, &'static str> = Forest::new();
+        let mut tree = family(&forest);
+        let old_imposter = forest.new_leaf("oldImposter");
+        let young_imposter = forest.new_leaf("youngImposter");
+        let elder = tree.as_mut().replace_child(0, old_imposter);
+        let younger = tree.as_mut().replace_child(1, young_imposter);
+        assert_eq!(*elder.as_ref().leaf(), "elder");
+        assert_eq!(*younger.as_ref().leaf(), "younger");
+        assert_eq!(tree.as_ref().num_children(), 2);
+        assert_eq!(*tree.as_ref().child(0).leaf(), "oldImposter");
+        assert_eq!(*tree.as_ref().child(1).leaf(), "youngImposter");
     }
 
     #[test]
     fn test_remove_child() {
-        let mut f: Forest<&'static str, &'static str> = Forest::new();
-        let mut tree = family(&mut f);
+        let mut forest: Forest<&'static str, &'static str> = Forest::new();
+        let mut tree = family(&forest);
         // Remove elder child from the family
-        let elder = tree.as_mut().remove_child(&mut f, 0);
-        assert_eq!(*elder.as_ref().leaf(&f), "elder");
-        assert!(elder.as_ref().parent(&f).is_none());
-        assert_eq!(tree.as_ref().num_children(&f), 1);
-        assert_eq!(*tree.as_ref().child(&f, 0).leaf(&f), "younger");
-        assert_eq!(*tree.as_ref().child(&f, 0).parent(&f).unwrap().data(&f), "parent");
+        let elder = tree.as_mut().remove_child(0);
+        assert_eq!(*elder.as_ref().leaf(), "elder");
+        assert!(elder.as_ref().parent().is_none());
+        assert_eq!(tree.as_ref().num_children(), 1);
+        assert_eq!(*tree.as_ref().child(0).leaf(), "younger");
+        assert_eq!(*tree.as_ref().child(0).parent().unwrap().data(), "parent");
         // Remove younger child from the family
-        let younger = tree.as_mut().remove_child(&mut f, 0);
-        assert_eq!(*younger.as_ref().leaf(&f), "younger");
-        assert!(younger.as_ref().parent(&f).is_none());
-        assert_eq!(tree.as_ref().num_children(&f), 0);
-        // Cleanup
-        tree.delete(&mut f);
-        elder.delete(&mut f);
-        younger.delete(&mut f);
+        let younger = tree.as_mut().remove_child(0);
+        assert_eq!(*younger.as_ref().leaf(), "younger");
+        assert!(younger.as_ref().parent().is_none());
+        assert_eq!(tree.as_ref().num_children(), 0);
     }
 
     #[test]
     fn test_insert_child() {
-        let mut f: Forest<&'static str, &'static str> = Forest::new();
-        let mut tree = family(&mut f);
-        let malcolm = Tree::new_leaf(&mut f, "Malcolm");
-        let reese = Tree::new_leaf(&mut f, "Reese");
-        let dewey = Tree::new_leaf(&mut f, "Dewey");
-        tree.as_mut().insert_child(&mut f, 1, malcolm); // Malcolm is in the middle
-        tree.as_mut().insert_child(&mut f, 0, reese);
-        tree.as_mut().insert_child(&mut f, 4, dewey);
+        let mut forest: Forest<&'static str, &'static str> = Forest::new();
+        let mut tree = family(&forest);
+        let malcolm = forest.new_leaf("Malcolm");
+        let reese = forest.new_leaf("Reese");
+        let dewey = forest.new_leaf("Dewey");
+        tree.as_mut().insert_child(1, malcolm); // Malcolm is in the middle
+        tree.as_mut().insert_child(0, reese);
+        tree.as_mut().insert_child(4, dewey);
         let children: Vec<&'static str> = tree.as_ref()
-            .children(&f)
-            .map(|child| *child.leaf(&f))
+            .children()
+            .map(|child| *child.leaf())
             .collect();
         assert_eq!(children, vec!("Reese", "elder", "Malcolm", "younger", "Dewey"));
-        assert_eq!(*tree.as_ref().child(&f, 0).parent(&f).unwrap().data(&f), "parent");
-        assert_eq!(*tree.as_ref().child(&f, 1).parent(&f).unwrap().data(&f), "parent");
-        tree.delete(&mut f);
+        assert_eq!(*tree.as_ref().child(0).parent().unwrap().data(), "parent");
+        assert_eq!(*tree.as_ref().child(1).parent().unwrap().data(), "parent");
     }
 
     #[test]
     fn comprehensive_exam() {
-        let mut f: Forest<u32, u32> = Forest::new();
-        let mut tree = mirror(&mut f, 3, 0);
-        let mut canada = Tree::new_branch(&mut f, 721, vec!());
-        let mut mexico = Tree::new_leaf(&mut f, 3767);
-        assert_eq!(f.tree_count(), 8+1+1);
-        // tree:
-        //       0
-        //     / |  \
-        //    1  2    4
-        //       |   / \
-        //       3  5   6
-        //              |
-        //              7
-
-        // Test SubtreeRef
-        let (mark2, mark4) = {
-            // Data Access
-            assert_eq!(tree.as_ref().sum(&f), 28);
-            assert_eq!(tree.as_ref().num_children(&f), 3);
-
-            // Navigation, Data Access
-            let node5 = tree.as_ref().child(&f, 2).child(&f, 0);
-            assert!(node5.is_leaf(&f));
-            assert_eq!(*node5.leaf(&f), 5);
-            let node4 = node5.parent(&f).unwrap();
-            assert_eq!(*node4.data(&f), 4);
-            assert!(node5
-                    .parent(&f).unwrap()
-                    .parent(&f).unwrap()
-                    .parent(&f)
-                    .is_none());
-
-            // Bookmarks: successful lookup
-            let subtree = tree.as_ref().child(&f, 1);
-            let mark5 = node5.bookmark(&f);
-            assert_eq!(*subtree
-                       .lookup_bookmark(&f, mark5).unwrap()
-                       .parent(&f).unwrap()
-                       .data(&f), 4);
-            let mark4 = node4.bookmark(&f);
-            assert_eq!(*node5
-                       .lookup_bookmark(&f, mark4).unwrap()
-                       .parent(&f).unwrap()
-                       .child(&f, 1)
-                       .data(&f), 2);
-            
-            // Bookmarks: failing lookup
-            assert!(canada.as_ref().lookup_bookmark(&f, mark5).is_none());
-            let mark_mexico = mexico.as_ref().bookmark(&f);
-            assert!(node4.lookup_bookmark(&f, mark_mexico).is_none());
-            
-            // Save some bookmarks for later testing
-            let mark2 = tree.as_ref().child(&f, 1).bookmark(&f);
-            let mark4 = node4.bookmark(&f);
-            (mark2, mark4)
-        };
-        
-        // Test SubtreeMut
+        let mut forest: Forest<u32, u32> = Forest::new();
         {
+            let mut tree = mirror(&forest, 3, 0);
+            let mut canada = forest.new_branch(721, vec!());
+            let mut mexico = forest.new_leaf(3767);
+            assert_eq!(forest.read_lock().tree_count(), 8+1+1);
+            // tree:
+            //       0
+            //     / |  \
+            //    1  2    4
+            //       |   / \
+            //       3  5   6
+            //              |
+            //              7
+
+            // Test SubtreeRef
+            let (mark2, mark4) = {
+                // Data Access
+                assert_eq!(tree.as_ref().sum(), 28);
+                assert_eq!(tree.as_ref().num_children(), 3);
+
+                // Navigation, Data Access
+                let node5 = tree.as_ref().child(2).child(0);
+                assert!(node5.is_leaf());
+                assert_eq!(*node5.leaf(), 5);
+                let node4 = node5.parent().unwrap();
+                assert_eq!(*node4.data(), 4);
+                assert!(node5
+                        .parent().unwrap()
+                        .parent().unwrap()
+                        .parent()
+                        .is_none());
+
+                // Bookmarks: successful lookup
+                let subtree = tree.as_ref().child(1);
+                let mark5 = node5.bookmark();
+                assert_eq!(*subtree
+                           .lookup_bookmark(mark5).unwrap()
+                           .parent().unwrap()
+                           .data(), 4);
+                let mark4 = node4.bookmark();
+                assert_eq!(*node5
+                           .lookup_bookmark(mark4).unwrap()
+                           .parent().unwrap()
+                           .child(1)
+                           .data(), 2);
+                
+                // Bookmarks: failing lookup
+                assert!(canada.as_ref().lookup_bookmark(mark5).is_none());
+                let mark_mexico = mexico.as_ref().bookmark();
+                assert!(node4.lookup_bookmark(mark_mexico).is_none());
+                
+                // Save some bookmarks for later testing
+                let mark2 = tree.as_ref().child(1).bookmark();
+                let mark4 = node4.bookmark();
+                (mark2, mark4)
+            };
+
+            // Test SubtreeMut
+            
             // To start
             let mut cursor = tree.as_mut();
             //  tree: 0
@@ -576,21 +612,21 @@ mod test {
             //  mexico: 3767
 
             // Navigate
-            assert!(!cursor.is_leaf(&f));
-            cursor.goto_child(&mut f, 1);
-            assert_eq!(*cursor.data(&f), 2);
+            assert!(!cursor.is_leaf());
+            cursor.goto_child(1);
+            assert_eq!(*cursor.data(), 2);
             // Data Mutation
-            *cursor.data_mut(&mut f) = 22;
-            assert_eq!(*cursor.data(&f), 22);
-            assert_eq!(cursor.num_children(&f), 1);
+            *cursor.data_mut() = 22;
+            assert_eq!(*cursor.data(), 22);
+            assert_eq!(cursor.num_children(), 1);
             // Navigate
-            assert!(!cursor.at_root(&f));
-            cursor.goto_parent(&mut f);
-            let mark0 = cursor.bookmark(&mut f);
-            assert!(cursor.at_root(&f));
-
+            assert!(!cursor.at_root());
+            cursor.goto_parent();
+            let mark0 = cursor.bookmark();
+            assert!(cursor.at_root());
+            
             // Cut
-            let mut snip = cursor.remove_child(&mut f, 1);
+            let mut snip = cursor.remove_child(1);
             //  tree: 0+
             //       / \
             //      1    4*
@@ -603,14 +639,15 @@ mod test {
             //        3
             //  canada: 721
             //  mexico: 3767
-            assert_eq!(*snip.as_ref().data(&f), 22);
-            assert_eq!(cursor.as_ref().sum(&f), 23);
-            assert_eq!(f.tree_count(), 10);
+
+            assert_eq!(*snip.as_ref().data(), 22);
+            assert_eq!(cursor.as_ref().sum(), 23);
+            assert_eq!(forest.read_lock().tree_count(), 10);
             
             // Paste
-            cursor.goto_child(&mut f, 1);
-            cursor.insert_child(&mut f, 1, snip);
-            cursor.insert_child(&mut f, 3, mexico);
+            cursor.goto_child(1);
+            cursor.insert_child(1, snip);
+            cursor.insert_child(3, mexico);
             //  tree: 0+
             //       /  \
             //      1     4* _
@@ -619,17 +656,17 @@ mod test {
             //            |  |
             //            3  7
             //  canada: 721
-            
+
             // Leaf Mutation
-            cursor.goto_child(&mut f, 3);
-            assert!(cursor.is_leaf(&f));
-            assert_eq!(*cursor.leaf(&f), 3767);
-            let mark3767 = cursor.bookmark(&mut f);
-            *cursor.leaf_mut(&mut f) = 376;
-            assert_eq!(*cursor.leaf(&f), 376);
-            assert!(!cursor.at_root(&f));
-            cursor.goto_parent(&mut f);
-            assert!(!cursor.is_leaf(&f));
+            cursor.goto_child(3);
+            assert!(cursor.is_leaf());
+            assert_eq!(*cursor.leaf(), 3767);
+            let mark3767 = cursor.bookmark();
+            *cursor.leaf_mut() = 376;
+            assert_eq!(*cursor.leaf(), 376);
+            assert!(!cursor.at_root());
+            cursor.goto_parent();
+            assert!(!cursor.is_leaf());
             //  tree: 0+
             //       /  \
             //      1     4* _
@@ -640,18 +677,18 @@ mod test {
             //  canada: 721
 
             // Replace
-            snip = cursor.replace_child(&mut f, 1, canada);
-            assert!(snip.as_ref().parent(&f).is_none());
-            cursor.goto_child(&mut f, 1);
-            assert_eq!(*cursor.data(&f), 721);
-            cursor.goto_parent(&mut f);
-            assert_eq!(*cursor.data(&f), 4);
+            snip = cursor.replace_child(1, canada);
+            assert!(snip.as_ref().parent().is_none());
+            cursor.goto_child(1);
+            assert_eq!(*cursor.data(), 721);
+            cursor.goto_parent();
+            assert_eq!(*cursor.data(), 4);
             // Further mucking
-            mexico = cursor.remove_child(&mut f, 3);
-            assert!(mexico.as_ref().parent(&f).is_none());
-            snip.as_mut().insert_child(&mut f, 0, mexico);
+            mexico = cursor.remove_child(3);
+            assert!(mexico.as_ref().parent().is_none());
+            snip.as_mut().insert_child(0, mexico);
             canada = snip;
-            cursor.goto_child(&mut f, 2);
+            cursor.goto_child(2);
             //  tree: 0+
             //       / \
             //      1   4*
@@ -664,130 +701,121 @@ mod test {
             //       3  376+
 
             // Bookmarks after mutation
-            assert!( ! cursor.goto_bookmark(&mut f, mark2));
-            assert_eq!(*cursor.data(&f), 6);
-            assert!(cursor.goto_bookmark(&mut f, mark4));
-            assert_eq!(*cursor.data(&f), 4);
+            assert!( ! cursor.goto_bookmark(mark2));
+            assert_eq!(*cursor.data(), 6);
+            assert!(cursor.goto_bookmark(mark4));
+            assert_eq!(*cursor.data(), 4);
             assert_eq!(*canada.as_ref()
-                       .lookup_bookmark(&f, mark3767).unwrap()
-                       .leaf(&f),
+                       .lookup_bookmark(mark3767).unwrap()
+                       .leaf(),
                        376);
-            assert!( ! canada.as_mut().goto_bookmark(&mut f, mark0));
-        }
-        // Some final bookmark checks
-        assert!(tree.as_ref().child(&f, 0).lookup_bookmark(&f, mark2).is_none());
-        assert_eq!(tree.as_ref()
-                   .child(&f, 0)
-                   .lookup_bookmark(&f, mark4).unwrap()
-                   .sum(&f),
-                   743);
-        // Summation checks
-        assert_eq!(tree.as_ref().sum(&f), 744);
-        assert_eq!(canada.as_ref().sum(&f), 401);
+            assert!( ! canada.as_mut().goto_bookmark(mark0));
 
-        // Cleanup
-        canada.delete(&mut f);
-        tree.delete(&mut f);
-        assert_eq!(f.tree_count(), 0);
+            // Some final bookmark checks
+            assert!(tree.as_ref().child(0).lookup_bookmark(mark2).is_none());
+            assert_eq!(tree.as_ref()
+                       .child(0)
+                       .lookup_bookmark(mark4).unwrap()
+                       .sum(),
+                       743);
+            // Summation checks
+            assert_eq!(tree.as_ref().sum(), 744);
+            assert_eq!(canada.as_ref().sum(), 401);
+        }
+
+        // Check for leaks
+        assert_eq!(forest.read_lock().tree_count(), 0);
     }
 
     // Error Testing //
-
-    #[test]
-    #[should_panic(expected="a tree was not recycled")]
-    fn test_recycling_panic() {
-        let mut f: Forest<(), ()> = Forest::new();
-        Tree::new_leaf(&mut f, ());
-        // Oops I dropped it.
-    }
     
     #[test]
     #[should_panic(expected="leaf node has no children")]
     fn test_num_chilren_panic() {
-        let mut f: Forest<(), ()> = Forest::new();
-        let tree = Tree::new_leaf(&mut f, ());
-        tree.as_ref().num_children(&f);
+        let mut forest: Forest<(), ()> = Forest::new();
+        let tree = forest.new_leaf(());
+        tree.as_ref().num_children();
     }
 
     #[test]
     #[should_panic(expected="leaf node has no data")]
     fn test_data_panic() {
-        let mut f: Forest<(), ()> = Forest::new();
-        let tree = Tree::new_leaf(&mut f, ());
-        tree.as_ref().data(&f);
+        let mut forest: Forest<(), ()> = Forest::new();
+        let tree = forest.new_leaf(());
+        *tree.as_ref().data();
     }
 
     #[test]
     #[should_panic(expected="branch node has no leaf")]
     fn test_leaf_panic() {
-        let mut f: Forest<(), ()> = Forest::new();
-        let mut tree = Tree::new_branch(&mut f, (), vec!());
-        tree.as_mut().leaf_mut(&mut f);
+        let mut forest: Forest<(), ()> = Forest::new();
+        let mut tree = forest.new_branch((), vec!());
+        *tree.as_mut().leaf_mut();
     }
 
     #[test]
     #[should_panic(expected="leaf node has no children")]
     fn test_navigation_panic_leaf_ref() {
-        let mut f: Forest<(), ()> = Forest::new();
-        let tree = Tree::new_leaf(&mut f, ());
-        tree.as_ref().child(&f, 0);
+        let mut forest: Forest<(), ()> = Forest::new();
+        let tree = forest.new_leaf(());
+        tree.as_ref().child(0);
     }
 
     #[test]
     #[should_panic(expected="leaf node has no children")]
     fn test_navigation_panic_leaf_mut() {
-        let mut f: Forest<(), ()> = Forest::new();
-        let mut tree = Tree::new_leaf(&mut f, ());
-        tree.as_mut().goto_child(&mut f, 0);
+        let mut forest: Forest<(), ()> = Forest::new();
+        let mut tree = forest.new_leaf(());
+        tree.as_mut().goto_child(0);
     }
 
     #[test]
     #[should_panic(expected="child index out of bounds")]
     fn test_navigation_panic_oob_ref() {
-        let mut f: Forest<(), ()> = Forest::new();
-        let tree = Tree::new_branch(&mut f, (), vec!());
-        tree.as_ref().child(&f, 0);
+        let mut forest: Forest<(), ()> = Forest::new();
+        let tree = forest.new_branch((), vec!());
+        tree.as_ref().child(0);
     }
 
     #[test]
     #[should_panic(expected="child index out of bounds")]
     fn test_navigation_panic_oob_mut() {
-        let mut f: Forest<(), ()> = Forest::new();
-        let mut tree = Tree::new_branch(&mut f, (), vec!());
-        tree.as_mut().goto_child(&mut f, 0);
+        let mut forest: Forest<(), ()> = Forest::new();
+        let mut tree = forest.new_branch((), vec!());
+        tree.as_mut().goto_child(0);
     }
 
     #[test]
     #[should_panic(expected="child index out of bounds")]
     fn test_insert_panic_oob() {
-        let mut f: Forest<&'static str, &'static str> = Forest::new();
-        let mut tree = family(&mut f);
-        let leaf = Tree::new_leaf(&mut f, "");
-        tree.as_mut().insert_child(&mut f, 3, leaf);
+        let mut forest: Forest<&'static str, &'static str> = Forest::new();
+        let mut tree = family(&forest);
+        let leaf = forest.new_leaf("");
+        tree.as_mut().insert_child(3, leaf);
     }
 
     #[test]
     #[should_panic(expected="child index out of bounds")]
     fn test_remove_panic_oob() {
-        let mut f: Forest<&'static str, &'static str> = Forest::new();
-        let mut tree = family(&mut f);
-        tree.as_mut().remove_child(&mut f, 2);
+        let mut forest: Forest<&'static str, &'static str> = Forest::new();
+        let mut tree = family(&forest);
+        tree.as_mut().remove_child(2);
     }
 
     #[test]
     #[should_panic(expected="child index out of bounds")]
     fn test_replace_panic_oob() {
-        let mut f: Forest<&'static str, &'static str> = Forest::new();
-        let mut tree = family(&mut f);
-        let leaf = Tree::new_leaf(&mut f, "");
-        tree.as_mut().replace_child(&mut f, 2, leaf);
+        let mut forest: Forest<&'static str, &'static str> = Forest::new();
+        let mut tree = family(&forest);
+        let leaf = forest.new_leaf("");
+        tree.as_mut().replace_child(2, leaf);
     }
 
     #[test]
     #[should_panic(expected="root node has no parent")]
     fn test_parent_of_root_panic() {
-        let mut f: Forest<&'static str, &'static str> = Forest::new();
-        let mut tree = family(&mut f);
-        tree.as_mut().goto_parent(&mut f);
+        let mut forest: Forest<&'static str, &'static str> = Forest::new();
+        let mut tree = family(&forest);
+        tree.as_mut().goto_parent();
     }
 }

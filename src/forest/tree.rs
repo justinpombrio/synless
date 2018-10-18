@@ -1,9 +1,19 @@
-use std::marker::PhantomData;
 use std::mem;
+use std::sync::{RwLock, RwLockWriteGuard, RwLockReadGuard};
 use std::thread;
 
-use super::{Id, Forest};
+use super::{Id, RawForest};
 
+
+/// All [Trees](struct.Tree.html) belong to a Forest.
+///
+/// It is your responsibility to ensure that Trees are kept with the
+/// Forest they came from. The methods on Trees will panic if you use
+/// them on a different Forest. In practice this is easy because you
+/// should only ever have one Forest.
+pub struct Forest<D, L> {
+    pub (super) lock: RwLock<RawForest<D, L>>
+}
 
 /// Every Tree is either a leaf or a branch.
 /// A branch contains an ordered list of child Trees, and a data value
@@ -13,16 +23,15 @@ use super::{Id, Forest};
 /// To view or modify a Tree, you should either take an immutable
 /// reference to it using [`as_ref`](#method.as_ref), or a mutable
 /// reference to it using [`as_mut`](#method.as_mut). From there, all
-/// operations will require a reference to the Forest that created the
+/// operations will require a reference to the RawForest that created the
 /// Tree.
 ///
 /// **Trees must be explicitly deleted by the
 /// [`delete`](#method.delete) method. Any tree not deleted this way
 /// will leak memory. Recycle your trees!**
-pub struct Tree<D, L> {
-    pub (super) id: Id,
-    phantom_data: PhantomData<D>,
-    phantom_leaf: PhantomData<L>
+pub struct Tree<'f, D, L> {
+    pub (super) forest: &'f Forest<D, L>,
+    pub (super) id: Id
 }
 
 #[derive(Clone, Copy)]
@@ -30,49 +39,56 @@ pub struct Bookmark {
     pub (super) id: Id
 }
 
-impl<D, L> Tree<D, L> {
-    /// Constructs a new leaf.
-    pub fn new_leaf(f: &mut Forest<D, L>, leaf: L) -> Tree<D, L> {
-        Tree::new(f.create_leaf(leaf))
+impl<D, L> Forest<D, L> {
+    /// Construct a new forest. All trees grow in a forest.
+    pub fn new() -> Forest<D, L> {
+        Forest {
+            lock: RwLock::new(RawForest::new())
+        }
     }
-    
-    /// Constructs a new branch.
-    pub fn new_branch(f: &mut Forest<D, L>, data: D, children: Vec<Tree<D, L>>)
-                      -> Tree<D, L>
-    {
-        let children = children.into_iter().map(|tree| {
+
+    // TODO: &self?
+    /// Construct a new leaf.
+    pub fn new_leaf(&self, leaf: L) -> Tree<D, L> {
+        let leaf_id = self.write_lock().create_leaf(leaf);
+        Tree::new(self, leaf_id)
+    }
+
+    // TODO: &self?
+    /// Construct a new branch.
+    pub fn new_branch(&self, data: D, children: Vec<Tree<D, L>>) -> Tree<D, L> {
+        let child_ids = children.into_iter().map(|tree| {
             let id = tree.id;
             mem::forget(tree);
             id
         }).collect();
-        Tree::new(f.create_branch(data, children))
+        let branch_id = self.write_lock().create_branch(data, child_ids);
+        Tree::new(self, branch_id)
     }
 
-    pub (super) fn new(id: Id) -> Tree<D, L> {
-        Tree {
-            id: id,
-            phantom_data: PhantomData,
-            phantom_leaf: PhantomData
-        }
+    pub (super) fn write_lock(&self) -> RwLockWriteGuard<RawForest<D, L>> {
+        self.lock.try_write().expect("Failed to obtain write lock for forest.")
     }
 
-    /// Trees must be `deleted`, or else they will leak memory.
-    /// Call this method on all Trees that you do not surrender
-    /// ownership of.
-    pub fn delete(self, f: &mut Forest<D, L>) {
-        f.delete_tree(self.id);
-        mem::forget(self)
+    pub (super) fn read_lock(&self) -> RwLockReadGuard<RawForest<D, L>> {
+        self.lock.try_read().expect("Failed to obtain read lock for forest.")
     }
 }
 
-/// To attempt to guard against memory leaks, `drop` panics.
-/// Do not drop your trees: `delete` them instead.
-impl<D, L> Drop for Tree<D, L> {
+impl<'f, D, L> Tree<'f, D, L> {
+    pub (super) fn new(forest: &'f Forest<D, L>, id: Id) -> Tree<'f, D, L> {
+        Tree {
+            forest: forest,
+            id: id
+        }
+    }
+}
+
+impl<'f, D, L> Drop for Tree<'f, D, L> {
     fn drop(&mut self) {
-        // If the thread is _already_ panicking, that's probably why
-        // this tree didn't get recycled, so it's fine.
         if !thread::panicking() {
-            panic!("Forest - a tree was not recycled! id:{}", self.id);
+            // If it's already panicking, let's not worry too much about cleanup up the hashmap.
+            self.forest.write_lock().delete_tree(self.id);
         }
     }
 }
