@@ -4,14 +4,12 @@ mod tree;
 mod subtree_ref;
 mod subtree_mut;
 
-pub use self::tree::{Tree, Forest};
+pub use self::tree::{Tree, Forest, ReadLeaf, WriteLeaf, ReadData, WriteData};
 pub use self::subtree_ref::SubtreeRef;
 pub use self::subtree_mut::SubtreeMut;
 
 use std::collections::HashMap;
 use std::mem;
-use std::ops::{Deref, DerefMut};
-use std::sync::{RwLockReadGuard, RwLockWriteGuard};
 use uuid::Uuid;
 
 use self::NodeContents::*;
@@ -25,7 +23,7 @@ fn fresh() -> Uuid {
     Uuid::new_v4()
 }
 
-pub struct RawForest<Data, Leaf>{
+struct RawForest<Data, Leaf>{
     map: HashMap<Id, Node<Data, Leaf>>,
     #[cfg(test)]
     refcount: usize
@@ -43,11 +41,7 @@ enum NodeContents<Data, Leaf> {
 
 impl<D, L> RawForest<D, L> {
 
-    // Public //
-    
-    /// Constructs an empty Forest.
-    /// Populate it with `Tree::new_leaf` and `Tree::new_branch`.
-    pub fn new() -> RawForest<D, L> {
+    fn new() -> RawForest<D, L> {
         RawForest {
             map: HashMap::new(),
             #[cfg(test)]
@@ -248,69 +242,6 @@ impl<D, L> RawForest<D, L> {
 }
 
 
-// Derefs //
-
-pub struct ReadData<'f, D, L> {
-    guard: RwLockReadGuard<'f, RawForest<D, L>>,
-    id: Id
-}
-
-pub struct ReadLeaf<'f, D, L> {
-    guard: RwLockReadGuard<'f, RawForest<D, L>>,
-    id: Id
-}
-
-pub struct WriteData<'f, D, L> {
-    guard: RwLockWriteGuard<'f, RawForest<D, L>>,
-    id: Id
-}
-
-pub struct WriteLeaf<'f, D, L> {
-    guard: RwLockWriteGuard<'f, RawForest<D, L>>,
-    id: Id
-}
-
-impl<'f, D, L> Deref for ReadData<'f, D, L> {
-    type Target = D;
-    fn deref(&self) -> &D {
-        self.guard.data(self.id)
-    }
-}
-
-impl<'f, D, L> Deref for ReadLeaf<'f, D, L> {
-    type Target = L;
-    fn deref(&self) -> &L {
-        self.guard.leaf(self.id)
-    }
-}
-
-impl<'f, D, L> Deref for WriteData<'f, D, L> {
-    type Target = D;
-    fn deref(&self) -> &D {
-        self.guard.data(self.id)
-    }
-}
-
-impl<'f, D, L> DerefMut for WriteData<'f, D, L> {
-    fn deref_mut(&mut self) -> &mut D {
-        self.guard.data_mut(self.id)
-    }
-}
-
-impl<'f, D, L> Deref for WriteLeaf<'f, D, L> {
-    type Target = L;
-    fn deref(&self) -> &L {
-        self.guard.leaf(self.id)
-    }
-}
-
-impl<'f, D, L> DerefMut for WriteLeaf<'f, D, L> {
-    fn deref_mut(&mut self) -> &mut L {
-        self.guard.leaf_mut(self.id)
-    }
-}
-
-
 
 #[cfg(test)]
 mod test {
@@ -352,7 +283,7 @@ mod test {
 
     #[test]
     fn test_leaves() {
-        let mut forest: Forest<(), u32> = Forest::new();
+        let forest: Forest<(), u32> = Forest::new();
         // Begin with a leaf of 2
         let mut tree = forest.new_leaf(2);
         assert!(tree.as_mut().is_leaf()); // check SubtreeMut
@@ -365,7 +296,7 @@ mod test {
 
     #[test]
     fn test_data() {
-        let mut forest: Forest<u32, ()> = Forest::new();
+        let forest: Forest<u32, ()> = Forest::new();
         // Begin with data of 2
         let mut tree = forest.new_branch(2, vec!());
         assert!(!tree.as_ref().is_leaf()); // check SubtreeRef
@@ -378,7 +309,7 @@ mod test {
 
     #[test]
     fn test_num_children() {
-        let mut forest: Forest<(), ()> = Forest::new();
+        let forest: Forest<(), ()> = Forest::new();
         let leaves = vec!(forest.new_leaf(()),
                           forest.new_leaf(()),
                           forest.new_leaf(()));
@@ -391,7 +322,7 @@ mod test {
 
     #[test]
     fn test_navigation_ref() {
-        let mut forest: Forest<&'static str, &'static str> = Forest::new();
+        let forest: Forest<&'static str, &'static str> = Forest::new();
         let tree = family(&forest);
         assert_eq!(*tree.as_ref().child(0).leaf(), "elder");
         assert_eq!(*tree.as_ref().child(1).leaf(), "younger");
@@ -406,7 +337,7 @@ mod test {
 
     #[test]
     fn test_at_root_mut() {
-        let mut forest: Forest<&'static str, &'static str> = Forest::new();
+        let forest: Forest<&'static str, &'static str> = Forest::new();
         let mut tree = family(&forest);
         {
             let mut cursor = tree.as_mut();
@@ -418,7 +349,7 @@ mod test {
 
     #[test]
     fn test_navigation_mut() {
-        let mut forest: Forest<&'static str, &'static str> = Forest::new();
+        let forest: Forest<&'static str, &'static str> = Forest::new();
         let mut tree = family(&forest);
         {
             let mut cursor = tree.as_mut();
@@ -433,7 +364,7 @@ mod test {
 
     #[test]
     fn test_bookmark_ref() {
-        let mut forest: Forest<&'static str, &'static str> = Forest::new();
+        let forest: Forest<&'static str, &'static str> = Forest::new();
         let mut tree = family(&forest);
         let mut other_tree = forest.new_leaf("stranger");
         let bookmark = tree.as_ref().child(1).bookmark();
@@ -453,7 +384,7 @@ mod test {
 
     #[test]
     fn test_bookmark_mut() {
-        let mut forest: Forest<&'static str, &'static str> = Forest::new();
+        let forest: Forest<&'static str, &'static str> = Forest::new();
         let mut tree = family(&forest);
         let mut other_tree = forest.new_leaf("stranger");
         let bookmark = {
@@ -477,17 +408,17 @@ mod test {
 
     #[test]
     fn test_bookmark_deleted() {
-        let mut forest: Forest<&'static str, &'static str> = Forest::new();
+        let forest: Forest<&'static str, &'static str> = Forest::new();
         let mut tree = family(&forest);
         let bookmark = tree.as_ref().child(1).bookmark();
-        let child = tree.as_mut().remove_child(1);
+        let _ = tree.as_mut().remove_child(1);
         assert!(tree.as_ref().lookup_bookmark(bookmark).is_none());
         assert!(!tree.as_mut().goto_bookmark(bookmark));
     }
 
     #[test]
     fn test_replace_child() {
-        let mut forest: Forest<&'static str, &'static str> = Forest::new();
+        let forest: Forest<&'static str, &'static str> = Forest::new();
         let mut tree = family(&forest);
         let old_imposter = forest.new_leaf("oldImposter");
         let young_imposter = forest.new_leaf("youngImposter");
@@ -502,7 +433,7 @@ mod test {
 
     #[test]
     fn test_remove_child() {
-        let mut forest: Forest<&'static str, &'static str> = Forest::new();
+        let forest: Forest<&'static str, &'static str> = Forest::new();
         let mut tree = family(&forest);
         // Remove elder child from the family
         let elder = tree.as_mut().remove_child(0);
@@ -520,7 +451,7 @@ mod test {
 
     #[test]
     fn test_insert_child() {
-        let mut forest: Forest<&'static str, &'static str> = Forest::new();
+        let forest: Forest<&'static str, &'static str> = Forest::new();
         let mut tree = family(&forest);
         let malcolm = forest.new_leaf("Malcolm");
         let reese = forest.new_leaf("Reese");
@@ -539,7 +470,7 @@ mod test {
 
     #[test]
     fn comprehensive_exam() {
-        let mut forest: Forest<u32, u32> = Forest::new();
+        let forest: Forest<u32, u32> = Forest::new();
         {
             let mut tree = mirror(&forest, 3, 0);
             let mut canada = forest.new_branch(721, vec!());
@@ -732,7 +663,7 @@ mod test {
     #[test]
     #[should_panic(expected="leaf node has no children")]
     fn test_num_chilren_panic() {
-        let mut forest: Forest<(), ()> = Forest::new();
+        let forest: Forest<(), ()> = Forest::new();
         let tree = forest.new_leaf(());
         tree.as_ref().num_children();
     }
@@ -740,7 +671,7 @@ mod test {
     #[test]
     #[should_panic(expected="leaf node has no data")]
     fn test_data_panic() {
-        let mut forest: Forest<(), ()> = Forest::new();
+        let forest: Forest<(), ()> = Forest::new();
         let tree = forest.new_leaf(());
         *tree.as_ref().data();
     }
@@ -748,7 +679,7 @@ mod test {
     #[test]
     #[should_panic(expected="branch node has no leaf")]
     fn test_leaf_panic() {
-        let mut forest: Forest<(), ()> = Forest::new();
+        let forest: Forest<(), ()> = Forest::new();
         let mut tree = forest.new_branch((), vec!());
         *tree.as_mut().leaf_mut();
     }
@@ -756,7 +687,7 @@ mod test {
     #[test]
     #[should_panic(expected="leaf node has no children")]
     fn test_navigation_panic_leaf_ref() {
-        let mut forest: Forest<(), ()> = Forest::new();
+        let forest: Forest<(), ()> = Forest::new();
         let tree = forest.new_leaf(());
         tree.as_ref().child(0);
     }
@@ -764,7 +695,7 @@ mod test {
     #[test]
     #[should_panic(expected="leaf node has no children")]
     fn test_navigation_panic_leaf_mut() {
-        let mut forest: Forest<(), ()> = Forest::new();
+        let forest: Forest<(), ()> = Forest::new();
         let mut tree = forest.new_leaf(());
         tree.as_mut().goto_child(0);
     }
@@ -772,7 +703,7 @@ mod test {
     #[test]
     #[should_panic(expected="child index out of bounds")]
     fn test_navigation_panic_oob_ref() {
-        let mut forest: Forest<(), ()> = Forest::new();
+        let forest: Forest<(), ()> = Forest::new();
         let tree = forest.new_branch((), vec!());
         tree.as_ref().child(0);
     }
@@ -780,7 +711,7 @@ mod test {
     #[test]
     #[should_panic(expected="child index out of bounds")]
     fn test_navigation_panic_oob_mut() {
-        let mut forest: Forest<(), ()> = Forest::new();
+        let forest: Forest<(), ()> = Forest::new();
         let mut tree = forest.new_branch((), vec!());
         tree.as_mut().goto_child(0);
     }
@@ -788,7 +719,7 @@ mod test {
     #[test]
     #[should_panic(expected="child index out of bounds")]
     fn test_insert_panic_oob() {
-        let mut forest: Forest<&'static str, &'static str> = Forest::new();
+        let forest: Forest<&'static str, &'static str> = Forest::new();
         let mut tree = family(&forest);
         let leaf = forest.new_leaf("");
         tree.as_mut().insert_child(3, leaf);
@@ -797,7 +728,7 @@ mod test {
     #[test]
     #[should_panic(expected="child index out of bounds")]
     fn test_remove_panic_oob() {
-        let mut forest: Forest<&'static str, &'static str> = Forest::new();
+        let forest: Forest<&'static str, &'static str> = Forest::new();
         let mut tree = family(&forest);
         tree.as_mut().remove_child(2);
     }
@@ -805,7 +736,7 @@ mod test {
     #[test]
     #[should_panic(expected="child index out of bounds")]
     fn test_replace_panic_oob() {
-        let mut forest: Forest<&'static str, &'static str> = Forest::new();
+        let forest: Forest<&'static str, &'static str> = Forest::new();
         let mut tree = family(&forest);
         let leaf = forest.new_leaf("");
         tree.as_mut().replace_child(2, leaf);
@@ -814,7 +745,7 @@ mod test {
     #[test]
     #[should_panic(expected="root node has no parent")]
     fn test_parent_of_root_panic() {
-        let mut forest: Forest<&'static str, &'static str> = Forest::new();
+        let forest: Forest<&'static str, &'static str> = Forest::new();
         let mut tree = family(&forest);
         tree.as_mut().goto_parent();
     }

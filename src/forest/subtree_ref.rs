@@ -1,10 +1,9 @@
 use std::iter::Iterator;
-use std::sync::RwLockReadGuard;
-use std::rc::Rc;
+use std::cell::Ref;
 
 
-use super::{Id, RawForest, ReadData, ReadLeaf};
-use super::tree::{Tree, Bookmark, Forest};
+use super::{Id, RawForest};
+use super::tree::{Tree, Bookmark, Forest, ReadData, ReadLeaf};
 
 
 /// An immutable reference to a Tree.
@@ -19,6 +18,9 @@ pub struct SubtreeRef<'f, D: 'f, L: 'f> {
 
 impl<'f, D, L> Tree<'f, D, L> {
     /// Obtain an immutable reference to this Tree.
+    ///
+    /// An Operation on the borrowed tree will **panic** if it happens
+    /// concurrently with a mutable operation on any other tree in the forest.
     pub fn as_ref(&self) -> SubtreeRef<'f, D, L> {
         SubtreeRef {
             forest: self.forest,
@@ -36,7 +38,7 @@ impl<'f, D, L> SubtreeRef<'f, D, L> {
         self.forest().is_leaf(self.id)
     }
 
-    /// Obtain a reference to the data value at this node.
+    /// Obtain a shared reference to the data value at this node.
     ///
     /// # Panics
     ///
@@ -48,7 +50,7 @@ impl<'f, D, L> SubtreeRef<'f, D, L> {
         }
     }
 
-    /// Obtain a reference to the leaf value at this node.
+    /// Obtain a shared reference to the leaf value at this node.
     ///
     /// # Panics
     ///
@@ -134,11 +136,12 @@ impl<'f, D, L> SubtreeRef<'f, D, L> {
 
     // Private //
 
-    fn forest(&self) -> RwLockReadGuard<'f, RawForest<D, L>> {
+    fn forest(&self) -> Ref<'f, RawForest<D, L>> {
         self.forest.read_lock()
     }
 }
 
+/// An iterator over a tree's children.
 pub struct RefChildrenIter<'f, D: 'f, L: 'f> {
     forest: &'f Forest<D, L>,
     root: Id,

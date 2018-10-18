@@ -1,19 +1,15 @@
 use std::mem;
-use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
-use std::rc::Rc;
+use std::cell::{Ref, RefMut};
 
-use super::{Id, RawForest, ReadData, ReadLeaf, WriteData, WriteLeaf};
-use super::tree::{Tree, Bookmark, Forest};
+use super::{Id, RawForest};
+use super::tree::{Tree, Bookmark, Forest, ReadData, ReadLeaf, WriteData, WriteLeaf};
 use super::subtree_ref::SubtreeRef;
 
 
-/// A mutable reference to a Tree.
+/// A mutable reference to a [`Tree`](struct.Tree.html).
 ///
 /// This reference will begin pointing at the root of the Tree, but
 /// can move to subtrees after being created.
-///
-/// Essentially all operations require a reference to the Forest that
-/// created the Tree as their first argument.
 pub struct SubtreeMut<'f, D: 'f, L: 'f> {
     forest: &'f Forest<D, L>,
     root: Id, // INVARIANT: This root remains valid despite edits
@@ -22,6 +18,9 @@ pub struct SubtreeMut<'f, D: 'f, L: 'f> {
 
 impl<'f, D, L> Tree<'f, D, L> {
     /// Obtain a mutable reference to this Tree.
+    ///
+    /// An Operation on the borrowed tree will **panic** if it happens
+    /// concurrently with any other operation on a tree in the same forest.
     pub fn as_mut(&mut self) -> SubtreeMut<'f, D, L> {
         SubtreeMut {
             forest: self.forest,
@@ -50,7 +49,7 @@ impl<'f, D, L> SubtreeMut<'f, D, L> {
         self.forest().is_leaf(self.id)
     }
 
-    /// Obtain a reference to the data value at this node.
+    /// Obtain a shared reference to the data value at this node.
     ///
     /// # Panics
     ///
@@ -62,7 +61,7 @@ impl<'f, D, L> SubtreeMut<'f, D, L> {
         }
     }
 
-    /// Obtain a reference to the leaf value at this node.
+    /// Obtain a shared reference to the leaf value at this node.
     ///
     /// # Panics
     ///
@@ -193,11 +192,11 @@ impl<'f, D, L> SubtreeMut<'f, D, L> {
 
     // Private //
 
-    fn forest(&self) -> RwLockReadGuard<'f, RawForest<D, L>> {
+    fn forest(&self) -> Ref<'f, RawForest<D, L>> {
         self.forest.read_lock()
     }
 
-    fn forest_mut(&self) -> RwLockWriteGuard<'f, RawForest<D, L>> {
+    fn forest_mut(&self) -> RefMut<'f, RawForest<D, L>> {
         self.forest.write_lock()
     }
 }
