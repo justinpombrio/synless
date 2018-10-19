@@ -6,31 +6,28 @@ use super::{Id, RawForest};
 use super::tree::{Tree, Bookmark, Forest, ReadData, ReadLeaf};
 
 
-/// An immutable reference to a Tree.
-///
-/// This reference will begin pointing at the root of the Tree, but
-/// from there you can get references to other parts of the tree.
-pub struct SubtreeRef<'f, D: 'f, L: 'f> {
+/// An immutable reference to a node in a tree.
+pub struct TreeRef<'f, D, L> {
     pub (super) forest: &'f Forest<D, L>,
     pub (super) root: Id,
     pub (super) id: Id
 }
 
-impl<'f, D, L> Tree<'f, D, L> {
-    /// Obtain an immutable reference to this Tree.
+impl<D, L> Tree<D, L> {
+    /// Obtain an _immutable_ reference to this Tree.
     ///
     /// An Operation on the borrowed tree will **panic** if it happens
     /// concurrently with a mutable operation on any other tree in the forest.
-    pub fn as_ref(&self) -> SubtreeRef<'f, D, L> {
-        SubtreeRef {
-            forest: self.forest,
-            root: self.id,
+    pub fn borrow(&self) -> TreeRef<D, L> {
+        TreeRef {
+            forest: &self.forest,
+            root: self.root,
             id: self.id
         }
     }
 }
 
-impl<'f, D, L> SubtreeRef<'f, D, L> {
+impl<'f, D, L> TreeRef<'f, D, L> {
 
     /// Returns `true` if this is a leaf node, and `false` if this is
     /// a branch node.
@@ -84,9 +81,9 @@ impl<'f, D, L> SubtreeRef<'f, D, L> {
     /// created. However, it will return `None` if the bookmark's node
     /// has since been deleted, or if it is currently located in a
     /// different tree.
-    pub fn lookup_bookmark(&self, mark: Bookmark) -> Option<SubtreeRef<'f, D, L>> {
+    pub fn lookup_bookmark(&self, mark: Bookmark) -> Option<TreeRef<'f, D, L>> {
         if self.forest().is_valid(mark.id) && self.forest().root(mark.id) == self.root {
-            Some(SubtreeRef {
+            Some(TreeRef {
                 forest: self.forest,
                 root: self.root,
                 id: mark.id
@@ -98,10 +95,10 @@ impl<'f, D, L> SubtreeRef<'f, D, L> {
 
     /// Get the parent node. Returns `None` if we're already at the
     /// root of the tree.
-    pub fn parent(&self) -> Option<SubtreeRef<'f, D, L>> {
+    pub fn parent(&self) -> Option<TreeRef<'f, D, L>> {
         match self.forest().parent(self.id) {
             None => None,
-            Some(parent) => Some(SubtreeRef {
+            Some(parent) => Some(TreeRef {
                 forest: self.forest,
                 root: self.root,
                 id: parent
@@ -114,9 +111,9 @@ impl<'f, D, L> SubtreeRef<'f, D, L> {
     /// # Panics
     ///
     /// Panics if this is a leaf node, or if `i` is out of bounds.
-    pub fn child(&self, i: usize) -> SubtreeRef<'f, D, L> {
+    pub fn child(&self, i: usize) -> TreeRef<'f, D, L> {
         let child = self.forest().child(self.id, i);
-        SubtreeRef {
+        TreeRef {
             forest: self.forest,
             root: self.root,
             id: child
@@ -150,12 +147,12 @@ pub struct RefChildrenIter<'f, D: 'f, L: 'f> {
 }
 
 impl<'f, D, L> Iterator for RefChildrenIter<'f, D, L> {
-    type Item = SubtreeRef<'f, D, L>;
-    fn next(&mut self) -> Option<SubtreeRef<'f, D, L>> {
+    type Item = TreeRef<'f, D, L>;
+    fn next(&mut self) -> Option<TreeRef<'f, D, L>> {
         if self.index >= self.children.len() {
             None
         } else {
-            let subtree = SubtreeRef {
+            let subtree = TreeRef {
                 forest: self.forest,
                 root: self.root,
                 id: self.children[self.index]
