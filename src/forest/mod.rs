@@ -244,7 +244,6 @@ impl<D, L> RawForest<D, L> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::ops::Deref;
 
     fn family(forest: &Forest<&'static str, &'static str>)
                   -> Tree<&'static str, &'static str>
@@ -313,7 +312,7 @@ mod test {
                           forest.new_leaf(()),
                           forest.new_leaf(()));
         println!("before");
-        let mut tree = forest.new_branch((), leaves);
+        let tree = forest.new_branch((), leaves);
         println!("after");
         assert_eq!(tree.borrow().num_children(), 3);
         assert_eq!(tree.num_children(), 3);
@@ -322,7 +321,7 @@ mod test {
     #[test]
     fn test_navigation_ref() {
         let forest: Forest<&'static str, &'static str> = Forest::new();
-        let mut tree = family(&forest);
+        let tree = family(&forest);
         assert_eq!(*tree.borrow().child(0).leaf(), "elder");
         assert_eq!(*tree.borrow().child(1).leaf(), "younger");
         assert_eq!(*tree.borrow().child(0).parent().unwrap().data(), "parent");
@@ -650,7 +649,7 @@ mod test {
     #[should_panic(expected="leaf node has no children")]
     fn test_num_chilren_panic() {
         let forest: Forest<(), ()> = Forest::new();
-        let mut tree = forest.new_leaf(());
+        let tree = forest.new_leaf(());
         tree.borrow().num_children();
     }
 
@@ -658,7 +657,7 @@ mod test {
     #[should_panic(expected="leaf node has no data")]
     fn test_data_panic() {
         let forest: Forest<(), ()> = Forest::new();
-        let mut tree = forest.new_leaf(());
+        let tree = forest.new_leaf(());
         *tree.borrow().data();
     }
 
@@ -674,7 +673,7 @@ mod test {
     #[should_panic(expected="leaf node has no children")]
     fn test_navigation_panic_leaf_ref() {
         let forest: Forest<(), ()> = Forest::new();
-        let mut tree = forest.new_leaf(());
+        let tree = forest.new_leaf(());
         tree.borrow().child(0);
     }
 
@@ -690,7 +689,7 @@ mod test {
     #[should_panic(expected="child index out of bounds")]
     fn test_navigation_panic_oob_ref() {
         let forest: Forest<(), ()> = Forest::new();
-        let mut tree = forest.new_branch((), vec!());
+        let tree = forest.new_branch((), vec!());
         tree.borrow().child(0);
     }
 

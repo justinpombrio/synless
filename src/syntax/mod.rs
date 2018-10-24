@@ -1,5 +1,6 @@
 //! Syntax describes how to display a language.
 
+mod style;
 mod shapes;
 mod syntax;
 mod layout;
@@ -8,16 +9,17 @@ mod transcribe;
 // TODO: put language tests (below) somewhere!
 // TODO: clean up these tests. Should be more local.
 
+pub use self::style::{Style, ColorTheme};
 pub use self::shapes::{Bound, Region};
 pub use self::syntax::Syntax;
 pub use self::syntax::*;
+pub use self::transcribe::*;
 
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use super::layout::Lay;
-    use style::Style;
 
     #[test]
     fn test_bound_construction() {

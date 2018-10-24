@@ -1,5 +1,5 @@
 use common::*;
-use style::*;
+use syntax::{Style, ColorTheme};
 
 pub use rustbox::Key;
 

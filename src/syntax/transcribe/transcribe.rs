@@ -1,6 +1,6 @@
 use std::fmt;
 
-use style::Style;
+use syntax::style::Style;
 use common::{Pos, Col};
 use super::super::{Syntax, Bound};
 use super::super::layout::{LayoutRegion, Layout, BoundSet, Lay, lay_out};

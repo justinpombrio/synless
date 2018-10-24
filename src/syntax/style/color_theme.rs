@@ -1,8 +1,8 @@
 use rustbox;
 use rustbox::{RB_NORMAL, RB_BOLD, RB_UNDERLINE};
 
-use style::style::*;
-use style::style::Color::*;
+use syntax::style::style::*;
+use syntax::style::style::Color::*;
 
 
 /// A color theme.

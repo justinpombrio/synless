@@ -2,7 +2,7 @@ use std::cmp;
 use std::fmt;
 
 use common::{Col, Pos};
-use style::Style;
+use syntax::style::Style;
 use super::super::{Bound, Region, Syntax};
 use super::BoundSet;
 use self::Layout::*;

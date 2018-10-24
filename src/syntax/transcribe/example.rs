@@ -1,5 +1,4 @@
 use std::ops::Index;
-use std::iter;
 
 use super::super::syntax::Syntax;
 use super::super::layout::BoundSet;
@@ -7,7 +6,6 @@ use super::transcribe::Document;
 
 
 struct ExampleTree {
-    contents: String,
     arity: usize,
     node: ExampleNode,
     syntax: Syntax,
@@ -70,9 +68,10 @@ impl<'t> Document for ExampleTreeRef<'t> {
         }
     }
 
+    // TODO: panic if index out of bounds
     fn child(&self, i: usize) -> ExampleTreeRef<'t> {
         match &self.tree().node {
-            ExampleNode::Branch(children) => {
+            ExampleNode::Branch(_) => {
                 ExampleTreeRef {
                     root: self.root,
                     path: extend_path(self.path.clone(), i)
@@ -85,7 +84,7 @@ impl<'t> Document for ExampleTreeRef<'t> {
     fn children(&self) -> Vec<ExampleTreeRef<'t>> {
         match &self.tree().node {
             ExampleNode::Branch(children) => {
-                children.iter().enumerate().map(|(i, child)| {
+                children.iter().enumerate().map(|(i, _)| {
                     ExampleTreeRef {
                         root: self.root,
                         path: extend_path(self.path.clone(), i)

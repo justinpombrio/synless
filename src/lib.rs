@@ -30,7 +30,6 @@ macro_rules! debug {
 
 
 pub mod common;    // commonly used; not listed as dep
-pub mod style;     // commonly used; not listed as dep
 
 pub mod frontends; // dep: rustbox
 pub mod syntax;    // dep:
