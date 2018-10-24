@@ -1,6 +1,8 @@
 // TODO: fix example
 // TODO: use or remove commented code
 
+use lazy_static::lazy_static;
+
 pub type ConstructName = String;
 pub type Sort = String; // "Any" is special
 

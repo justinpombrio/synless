@@ -1,9 +1,10 @@
 use std::fmt;
 
-use syntax::style::Style;
-use syntax::pos::{Pos, Col};
-use super::super::{Syntax, Bound};
-use super::super::layout::{LayoutRegion, Layout, BoundSet, Lay, lay_out};
+use crate::style::Style;
+use crate::geometry::{Pos, Col, Bound};
+use crate::syntax::Syntax;
+use crate::layout::{LayoutRegion, Layout, BoundSet, Lay, lay_out};
+
 use self::Layout::*;
 
 

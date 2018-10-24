@@ -4,7 +4,7 @@ use std::cell::{RefCell, Ref, RefMut};
 use std::ops::{Deref, DerefMut};
 use std::thread;
 
-use super::{Id, RawForest};
+use crate::forest::{Id, RawForest};
 
 
 /// All [Trees](struct.Tree.html) belong to a Forest.

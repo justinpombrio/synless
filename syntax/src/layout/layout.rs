@@ -1,10 +1,11 @@
 use std::cmp;
 use std::fmt;
 
-use syntax::pos::{Col, Pos};
-use syntax::style::Style;
-use super::super::{Bound, Region, Syntax};
+use crate::geometry::{Col, Pos, Bound, Region};
+use crate::style::Style;
+use crate::syntax::Syntax;
 use super::BoundSet;
+
 use self::Layout::*;
 
 

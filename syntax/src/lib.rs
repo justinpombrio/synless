@@ -1,8 +1,10 @@
 //! Syntax describes how to display a language.
 
-mod pos;
+#![feature(slice_patterns)]
+#![feature(box_patterns)]
+
 mod style;
-mod shapes;
+mod geometry;
 mod syntax;
 mod layout;
 mod transcribe;
@@ -10,16 +12,15 @@ mod transcribe;
 // TODO: put language tests (below) somewhere!
 // TODO: clean up these tests. Should be more local.
 
-pub use self::pos::*;
 pub use self::style::{Style, ColorTheme};
-pub use self::shapes::{Bound, Region};
+pub use self::geometry::{Row, Col, Pos, Bound, Region, MAX_WIDTH};
 pub use self::syntax::Syntax;
 pub use self::syntax::*;
 pub use self::transcribe::*;
 
 
 #[cfg(test)]
-mod tests {
+mod syntax_tests {
     use super::*;
     use super::layout::Lay;
 

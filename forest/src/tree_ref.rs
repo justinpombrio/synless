@@ -1,9 +1,8 @@
 use std::iter::Iterator;
 use std::cell::Ref;
 
-
-use super::{Id, RawForest};
-use super::tree::{Tree, Bookmark, Forest, ReadData, ReadLeaf};
+use crate::forest::{Id, RawForest};
+use crate::tree::{Tree, Bookmark, Forest, ReadData, ReadLeaf};
 
 
 /// An immutable reference to a node in a tree.

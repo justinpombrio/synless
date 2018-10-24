@@ -4,7 +4,8 @@
 
 use std::collections::HashMap;
 use std::iter::Iterator;
-use super::construct::{ConstructName, Sort, Construct};
+
+use crate::construct::{ConstructName, Sort, Construct};
 
 pub type LanguageName = String;
 
@@ -68,7 +69,7 @@ impl Language {
 
 #[cfg(test)]
 mod example {
-    use language::construct::Arity;
+    use crate::Arity;
     use super::*;
 
     /// An example language for testing.

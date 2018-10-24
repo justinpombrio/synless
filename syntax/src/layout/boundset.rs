@@ -1,8 +1,6 @@
 use std::iter;
 
-#[cfg(test)]
-use syntax::pos::Col;
-use super::super::Bound;
+use crate::geometry::{Col, Bound};
 
 
 /// A set of Bounds. If one Bound is strictly smaller than another,

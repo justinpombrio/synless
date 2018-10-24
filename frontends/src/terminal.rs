@@ -2,11 +2,13 @@
 
 use rustbox;
 use rustbox::RustBox;
-use rustbox::{InitOptions, InputMode, OutputMode, Mouse};
+use rustbox::{InitOptions, InputMode, OutputMode, Mouse, Color};
+use rustbox::{RB_UNDERLINE, RB_NORMAL, RB_BOLD};
 
 use syntax::{Pos, Col, Row};
 use syntax::{Style, ColorTheme};
-use super::frontend::{Event, Frontend};
+use crate::frontend::{Event, Frontend};
+
 use self::Event::{MouseEvent, KeyEvent};
 
 
@@ -43,9 +45,11 @@ impl Frontend for Terminal {
     }
 
     fn print_char(&mut self, ch: char, pos: Pos, style: Style) {
-        let fg = self.color_theme.foreground(style);
-        let bg = self.color_theme.background(style);
-        let emph = self.color_theme.emph(style);
+        let fg = Color::Byte(self.color_theme.foreground(style));
+        let bg = Color::Byte(self.color_theme.background(style));
+        let ul = if style.emph.underlined { RB_UNDERLINE } else { RB_NORMAL };
+        let bd = if style.emph.bold { RB_BOLD } else { RB_NORMAL };
+        let emph = ul | bd;
 
         let (row, col) = (pos.row as usize, pos.col as usize);
         self.rust_box.print_char(col, row, emph, fg, bg, ch);

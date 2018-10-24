@@ -1,6 +1,6 @@
 use std::fmt;
 
-use syntax::pos::{Row, Col, MAX_WIDTH};
+use super::pos::{Row, Col, MAX_WIDTH};
 
 
 

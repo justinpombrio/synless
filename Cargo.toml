@@ -1,11 +1,16 @@
 [package]
-
 name = "synless"
 version = "0.0.1"
 authors = ["justinpombrio <zallambo@gmail.com>"]
 
-[dependencies]
-regex = "*"
-rustbox = "*"
-lazy_static = "*"
-uuid = { version = "*", features = ["v4"] }
+[workspace]
+members = [
+  "forest",
+  "syntax",
+  "language",
+  "frontends"]
+default-members = [
+  "forest",
+  "syntax",
+  "language",
+  "frontends"]

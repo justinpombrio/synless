@@ -1,6 +1,7 @@
 use std::ops::{Add, BitOr};
 
-use syntax::style::Style;
+use crate::style::Style;
+
 use self::Syntax::*;
 
 

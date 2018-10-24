@@ -1,7 +1,7 @@
 use std::fmt;
 use std::ops::Add;
 
-use syntax::pos::{Row, Col, Pos};
+use super::pos::{Row, Col, Pos};
 use super::range::Range;
 use super::rect::Rect;
 use super::bound::Bound;

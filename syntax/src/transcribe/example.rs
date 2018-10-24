@@ -1,7 +1,7 @@
 use std::ops::Index;
 
-use super::super::syntax::Syntax;
-use super::super::layout::BoundSet;
+use crate::syntax::Syntax;
+use crate::layout::BoundSet;
 use super::transcribe::Document;
 
 

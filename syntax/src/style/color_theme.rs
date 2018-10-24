@@ -1,8 +1,5 @@
-use rustbox;
-use rustbox::{RB_NORMAL, RB_BOLD, RB_UNDERLINE};
-
-use syntax::style::style::*;
-use syntax::style::style::Color::*;
+use super::style::*;
+use super::Color::*;
 
 
 /// A color theme.
@@ -36,6 +33,9 @@ pub struct ColorTheme {
 }
 
 impl ColorTheme {
+    /// A simple color theme, with colors uniformly distributed on a circle in color space.
+    ///
+    /// See (Colorful Dodecagon)[http://justinpombrio.net/random/terminal-colors.html].
     pub fn colorful_hexagon() -> ColorTheme {
         ColorTheme{
             white  : 254,
@@ -53,8 +53,8 @@ impl ColorTheme {
         }
     }
 
-    fn color(&self, color: Color) -> rustbox::Color {
-        let terminal_256_color = match color {
+    fn color(&self, color: Color) -> u16 {
+        match color {
             White   => self.white,
             Red     => self.red,
             Yellow  => self.yellow,
@@ -62,22 +62,22 @@ impl ColorTheme {
             Cyan    => self.cyan,
             Blue    => self.blue,
             Magenta => self.magenta
-        };
-        rustbox::Color::Byte(terminal_256_color)
+        }
     }
 
-    pub(crate) fn shade(&self, shade: Shade) -> rustbox::Color {
-        let terminal_256_color = match shade.0 {
+    /// The background color for a given shade, in this color theme, as a terminal256-color.
+    pub fn shade(&self, shade: Shade) -> u16 {
+        match shade.0 {
             0 => self.shade0,
             1 => self.shade1,
             2 => self.shade2,
             3 => self.shade3,
             _ => self.shade3
-        };
-        rustbox::Color::Byte(terminal_256_color)
+        }
     }
 
-    pub(crate) fn foreground(&self, style: Style) -> rustbox::Color {
+    /// The foreground color for a given style, in this color theme, as a terminal256-color.
+    pub fn foreground(&self, style: Style) -> u16 {
         if style.reversed {
             self.shade(style.shade)
         } else {
@@ -85,7 +85,8 @@ impl ColorTheme {
         }
     }
 
-    pub(crate) fn background(&self, style: Style) -> rustbox::Color {
+    /// The background color for a given style, in this color theme, as a terminal256-color.
+    pub fn background(&self, style: Style) -> u16 {
         if style.reversed {
             self.color(style.color)
         } else {
@@ -93,9 +94,12 @@ impl ColorTheme {
         }
     }
 
-    pub(crate) fn emph(&self, style: Style) -> rustbox::Style {
+    // TODO: This belongs in the Terminal frontend.
+    /*
+    pub fn emph(&self, style: Style) -> rustbox::Style {
         let ul = if style.emph.underlined { RB_UNDERLINE } else { RB_NORMAL };
         let bd = if style.emph.bold { RB_BOLD } else { RB_NORMAL };
         ul | bd
     }
+     */
 }

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use syntax::Syntax;
-use language::{ConstructName, Language, LanguageName};
+use crate::language::{ConstructName, Language, LanguageName};
 
 
 pub struct LanguageSyntax {
