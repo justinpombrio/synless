@@ -12,6 +12,9 @@ before discovering the
 however, which is a much more complete list. You should probably go
 there instead.
 
+### Collaborative Editors
+Here's a [collaborative rich text editor](https://ckeditor.com/blog/Lessons-learned-from-creating-a-rich-text-editor-with-real-time-collaboration/).
+
 ## Motivation
 
 Here are some other people's motivation for writing a tree editor:
