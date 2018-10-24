@@ -8,7 +8,7 @@ use super::BoundSet;
 use self::Layout::*;
 
 
-pub trait Layable where Self: Clone {
+pub trait Lay where Self: Clone {
     fn empty() -> Self;
     fn literal(s: &str, style: Style) -> Self;
     fn flush(&self) -> Self;
@@ -18,7 +18,7 @@ pub trait Layable where Self: Clone {
 }
 
 
-impl Layable for () {
+impl Lay for () {
     fn empty()                            {}
     fn literal(_s: &str, _style: Style)   {}
     fn flush(&self)                       {}
@@ -28,7 +28,7 @@ impl Layable for () {
 }
 
 
-impl Layable for Bound {
+impl Lay for Bound {
     fn empty() -> Bound {
         Bound {
             width: 0,
@@ -103,6 +103,7 @@ pub enum Layout {
     Child(usize)
 }
 
+// TODO: This is inefficient. Remove `shift_to`.
 impl LayoutRegion {
     fn shift_to(&mut self, pos: Pos) {
         self.region.pos = pos;
@@ -156,7 +157,7 @@ impl fmt::Debug for LayoutRegion {
     }
 }
 
-impl Layable for LayoutRegion {
+impl Lay for LayoutRegion {
     fn empty() -> LayoutRegion {
         LayoutRegion {
             region: Region {
@@ -222,73 +223,65 @@ impl Layable for LayoutRegion {
     }
 }
 
-
-struct LayOuter<'a> {
-    child_bounds: Vec<&'a BoundSet<()>>
-}
-
-impl<'a> LayOuter<'a> {
-    fn lay_out<L>(&self, syntax: &Syntax) -> BoundSet<L>
-        where L: Layable
-    {
-        match syntax {
-            Syntax::Empty => {
-                BoundSet::singleton(Bound::empty(),
-                                    L::empty())
-            }
-            Syntax::Literal(s, style) => {
-                BoundSet::singleton(Bound::literal(s, *style),
-                                    L::literal(s, *style))
-            }
-            Syntax::Text(style) => {
-                self.child_bounds[0].into_iter().map(|(bound, ())| {
-                    (bound, L::text(bound, *style))
-                }).collect()
-            }
-            Syntax::Child(index) => {
-                self.child_bounds[*index].into_iter().map(|(bound, ())| {
-                    (bound, L::child(*index, bound))
-                }).collect()
-            }
-            Syntax::Flush(syn) => {
-                let set = self.lay_out(syn);
-                set.into_iter().map(|(bound, val): (Bound, L)| {
-                    (bound.flush(), val.flush())
-                }).collect()
-            }
-            Syntax::Concat(syn1, syn2) => {
-                let set1: BoundSet<L> = self.lay_out(syn1);
-                let set2: BoundSet<L> = self.lay_out(syn2);
-
-                let mut set = BoundSet::new();
-                for (bound1, val1) in set1.into_iter() {
-                    for (bound2, val2) in set2.into_iter() {
-                        let bound = bound1.concat(bound2);
-                        let val = val1.concat(val2);
-                        set.insert(bound, val);
-                    }
-                }
-                set
-            }
-            Syntax::NoWrap(syn) => {
-                let set = self.lay_out(syn);
-                set.into_iter().filter(|(bound, _)| {
-                    bound.height == 0
-                }).collect()
-            }
-            Syntax::Choice(syn1, syn2) => {
-                let set1 = self.lay_out(syn1);
-                let set2 = self.lay_out(syn2);
-                set1.into_iter().chain(set2.into_iter()).collect()
-            }
-            Syntax::IfEmptyText(_, _) => panic!("lay_out: unexpected IfEmptyText"),
-            Syntax::Rep(_) => panic!("lay_out: unexpected Repeat"),
-            Syntax::Star   => panic!("lay_out: unexpected Star")
+pub fn lay_out<L: Lay>(child_bounds: &Vec<&BoundSet<()>>, syntax: &Syntax) -> BoundSet<L> {
+    match syntax {
+        Syntax::Empty => {
+            BoundSet::singleton(Bound::empty(),
+                                L::empty())
         }
+        Syntax::Literal(s, style) => {
+            BoundSet::singleton(Bound::literal(s, *style),
+                                L::literal(s, *style))
+        }
+        Syntax::Text(style) => {
+            child_bounds[0].into_iter().map(|(bound, ())| {
+                (bound, L::text(bound, *style))
+            }).collect()
+        }
+        Syntax::Child(index) => {
+            child_bounds[*index].into_iter().map(|(bound, ())| {
+                (bound, L::child(*index, bound))
+            }).collect()
+        }
+        Syntax::Flush(syn) => {
+            let set = lay_out(child_bounds, syn);
+            set.into_iter().map(|(bound, val): (Bound, L)| {
+                (bound.flush(), val.flush())
+            }).collect()
+        }
+        Syntax::Concat(syn1, syn2) => {
+            let set1: BoundSet<L> = lay_out(child_bounds, syn1);
+            let set2: BoundSet<L> = lay_out(child_bounds, syn2);
+
+            let mut set = BoundSet::new();
+            for (bound1, val1) in set1.into_iter() {
+                for (bound2, val2) in set2.into_iter() {
+                    let bound = bound1.concat(bound2);
+                    let val = val1.concat(val2);
+                    set.insert(bound, val);
+                }
+            }
+            set
+        }
+        Syntax::NoWrap(syn) => {
+            let set = lay_out(child_bounds, syn);
+            set.into_iter().filter(|(bound, _)| {
+                bound.height == 0
+            }).collect()
+        }
+        Syntax::Choice(syn1, syn2) => {
+            let set1 = lay_out(child_bounds, syn1);
+            let set2 = lay_out(child_bounds, syn2);
+            set1.into_iter().chain(set2.into_iter()).collect()
+        }
+        Syntax::IfEmptyText(_, _) => panic!("lay_out: unexpected IfEmptyText"),
+        Syntax::Rep(_) => panic!("lay_out: unexpected Repeat"),
+        Syntax::Star   => panic!("lay_out: unexpected Star")
     }
 }
 
 
+// TODO: remove these
 impl Syntax {
     /// Compute the possible Layouts for this `Syntax`, given
     /// information about its children.
@@ -300,10 +293,7 @@ impl Syntax {
         -> BoundSet<LayoutRegion>
     {
         let stx = self.expand(arity, child_bounds.len(), is_empty_text);
-        let lay_outer = LayOuter {
-            child_bounds: child_bounds
-        };
-        lay_outer.lay_out(&stx)
+        lay_out(&child_bounds, &stx)
     }
 
     /// Precompute the Bounds within which this `Syntax` can be
@@ -316,9 +306,6 @@ impl Syntax {
         -> BoundSet<()>
     {
         let stx = self.expand(arity, child_bounds.len(), is_empty_text);
-        let lay_outer = LayOuter {
-            child_bounds: child_bounds
-        };
-        lay_outer.lay_out(&stx)
+        lay_out(&child_bounds, &stx)
     }
 }

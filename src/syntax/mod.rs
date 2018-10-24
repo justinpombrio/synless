@@ -3,6 +3,7 @@
 mod shapes;
 mod syntax;
 mod layout;
+mod transcribe;
 
 // TODO: put language tests (below) somewhere!
 // TODO: clean up these tests. Should be more local.
@@ -15,7 +16,7 @@ pub use self::syntax::*;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::layout::Layable;
+    use super::layout::Lay;
     use style::Style;
 
     #[test]

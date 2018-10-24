@@ -42,7 +42,7 @@ impl Add<Pos> for Region {
 impl Region {
     /// The region around a single character position.
     pub fn char_region(pos: Pos) -> Region {
-        Region{
+        Region {
             pos: pos,
             bound: Bound{ width: 1, height: 0, indent: 1 }
         }

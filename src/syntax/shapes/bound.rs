@@ -47,7 +47,7 @@ impl Bound {
         self.width > MAX_WIDTH
     }
 
-    /// A  Bound that has the given width and is "infinitely" tall.
+    /// A Bound that has the given width and is "infinitely" tall.
     pub fn infinite_scroll(width: Col) -> Bound {
         Bound{
             width:  width,

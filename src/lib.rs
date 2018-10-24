@@ -18,6 +18,11 @@ macro_rules! debug {
     })
 }
 
+// Big Item TODO:
+// - forest: Add TreeMut. (Is it necessary?)
+// - syntax: Add Transcribable trait, rename Layout stuff
+// - syntax: After Transcribable, put all the tests back in
+
 // TODO: Make terminal, doc private
 // TODO: Test weird unicode chars. (Look for `.chars()`)
 // TODO: Audit uses of pub
@@ -30,8 +35,10 @@ pub mod style;     // commonly used; not listed as dep
 pub mod frontends; // dep: rustbox
 pub mod syntax;    // dep:
 pub mod forest;    // dep:
-pub mod language;  // dep:
-pub mod notation;  // dep: syntax, language
+pub mod language;  // dep: syntax
+//pub mod ast;       // dep: forest, language
+//pub mod notation;  // dep: syntax, language
+
 /*
 pub mod tree;      // dep: syntax
 pub mod render;    // dep: syntax, doc, terminal
