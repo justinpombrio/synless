@@ -1,6 +1,6 @@
 use std::fmt;
 
-use common::{Row, Col, Pos};
+use syntax::pos::{Row, Col, Pos};
 use super::range::Range;
 
 

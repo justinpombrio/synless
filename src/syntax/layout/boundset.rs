@@ -1,7 +1,7 @@
 use std::iter;
 
 #[cfg(test)]
-use common::Col;
+use syntax::pos::Col;
 use super::super::Bound;
 
 

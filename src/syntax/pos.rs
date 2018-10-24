@@ -79,21 +79,4 @@ macro_rules! bug {
             $($arg)*);
     };
 }
-
-
-// Utility
-
-// TODO: Move this elsewhere
-/// Given two slices, find the length of their longest common prefix.
-pub(crate) fn common_prefix_len<A : Eq>(p: &[A], q: &[A]) -> usize {
-    match (p, q) {
-        (&[ref p, ref ps..], &[ref q, ref qs..]) =>
-            if p == q {
-                1 + common_prefix_len(ps, qs)
-            } else {
-                0
-            },
-        _ => 0
-    }
-}
 */

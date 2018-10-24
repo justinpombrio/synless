@@ -4,7 +4,7 @@ use rustbox;
 use rustbox::RustBox;
 use rustbox::{InitOptions, InputMode, OutputMode, Mouse};
 
-use common::*;
+use syntax::{Pos, Col, Row};
 use syntax::{Style, ColorTheme};
 use super::frontend::{Event, Frontend};
 use self::Event::{MouseEvent, KeyEvent};

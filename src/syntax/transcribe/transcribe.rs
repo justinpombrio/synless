@@ -1,7 +1,7 @@
 use std::fmt;
 
 use syntax::style::Style;
-use common::{Pos, Col};
+use syntax::pos::{Pos, Col};
 use super::super::{Syntax, Bound};
 use super::super::layout::{LayoutRegion, Layout, BoundSet, Lay, lay_out};
 use self::Layout::*;

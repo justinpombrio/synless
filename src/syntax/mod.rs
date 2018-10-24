@@ -1,5 +1,6 @@
 //! Syntax describes how to display a language.
 
+mod pos;
 mod style;
 mod shapes;
 mod syntax;
@@ -9,6 +10,7 @@ mod transcribe;
 // TODO: put language tests (below) somewhere!
 // TODO: clean up these tests. Should be more local.
 
+pub use self::pos::*;
 pub use self::style::{Style, ColorTheme};
 pub use self::shapes::{Bound, Region};
 pub use self::syntax::Syntax;

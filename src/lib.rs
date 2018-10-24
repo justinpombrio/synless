@@ -29,10 +29,8 @@ macro_rules! debug {
 // TODO: Test render::render
 
 
-pub mod common;    // commonly used; not listed as dep
-
-pub mod frontends; // dep: rustbox
 pub mod syntax;    // dep:
+pub mod frontends; // dep: rustbox
 pub mod forest;    // dep:
 pub mod language;  // dep: syntax
 //pub mod ast;       // dep: forest, language
