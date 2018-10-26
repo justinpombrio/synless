@@ -9,7 +9,7 @@ pub type Sort = String; // "Any" is special
 /// A syntactic construct.
 ///
 /// For example,
-/// `Construct::new("plus", ForestArity{arity: 2, flexible: false}, some_syntax_for_plus)`
+/// `Construct::new("plus", ForestArity{arity: 2, flexible: false}, some_notation_for_plus)`
 /// might represent binary addition.
 #[derive(Debug)]
 pub struct Construct {

@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::style::Style;
 use crate::geometry::{Pos, Col, Bound};
-use crate::syntax::Syntax;
+use crate::notation::Notation;
 use crate::layout::{LayoutRegion, Layout, BoundSet, Lay, lay_out};
 
 use self::Layout::*;
@@ -15,7 +15,7 @@ pub trait Document : Sized + Clone {
     fn parent(&self) -> Option<Self>;
     fn child(&self, i: usize) -> Self;
     fn children(&self) -> Vec<Self>;
-    fn syntax(&self) -> &Syntax;
+    fn notation(&self) -> &Notation;
     fn bounds(&self) -> &BoundSet<()>;
     fn text(&self) -> Option<&str>;
 
@@ -35,7 +35,7 @@ pub trait Document : Sized + Clone {
 fn generic_lay_out<T: Document, L: Lay>(this: &T) -> BoundSet<L> {
     let children = this.children();
     let is_empty_text = this.text().is_some() && this.text().unwrap().is_empty();
-    let stx = this.syntax().expand(this.arity(), children.len(), is_empty_text);
+    let stx = this.notation().expand(this.arity(), children.len(), is_empty_text);
     let child_bounds = children.iter().map(|child| child.bounds()).collect();
     lay_out(&child_bounds, &stx)
 }

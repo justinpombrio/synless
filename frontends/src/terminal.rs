@@ -5,8 +5,8 @@ use rustbox::RustBox;
 use rustbox::{InitOptions, InputMode, OutputMode, Mouse, Color};
 use rustbox::{RB_UNDERLINE, RB_NORMAL, RB_BOLD};
 
-use syntax::{Pos, Col, Row};
-use syntax::{Style, ColorTheme};
+use pretty::{Pos, Col, Row};
+use pretty::{Style, ColorTheme};
 use crate::frontend::{Event, Frontend};
 
 use self::Event::{MouseEvent, KeyEvent};

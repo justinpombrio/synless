@@ -3,7 +3,7 @@ use std::fmt;
 
 use crate::geometry::{Col, Pos, Bound, Region};
 use crate::style::Style;
-use crate::syntax::Syntax;
+use crate::notation::Notation;
 use super::BoundSet;
 
 use self::Layout::*;
@@ -74,8 +74,8 @@ impl Lay for Bound {
 }
 
 
-/// A concrete plan for how to lay out the `Syntax`, once the program
-/// and screen width are known.  For example, unlike in `Syntax`,
+/// A concrete plan for how to lay out the `Notation`, once the program
+/// and screen width are known.  For example, unlike in `Notation`,
 /// there is no Choice, because the choices have been resolved.
 /// The outermost region always has position zero, but inner regions
 /// are relative to this.
@@ -224,33 +224,33 @@ impl Lay for LayoutRegion {
     }
 }
 
-pub fn lay_out<L: Lay>(child_bounds: &Vec<&BoundSet<()>>, syntax: &Syntax) -> BoundSet<L> {
-    match syntax {
-        Syntax::Empty => {
+pub fn lay_out<L: Lay>(child_bounds: &Vec<&BoundSet<()>>, notation: &Notation) -> BoundSet<L> {
+    match notation {
+        Notation::Empty => {
             BoundSet::singleton(Bound::empty(),
                                 L::empty())
         }
-        Syntax::Literal(s, style) => {
+        Notation::Literal(s, style) => {
             BoundSet::singleton(Bound::literal(s, *style),
                                 L::literal(s, *style))
         }
-        Syntax::Text(style) => {
+        Notation::Text(style) => {
             child_bounds[0].into_iter().map(|(bound, ())| {
                 (bound, L::text(bound, *style))
             }).collect()
         }
-        Syntax::Child(index) => {
+        Notation::Child(index) => {
             child_bounds[*index].into_iter().map(|(bound, ())| {
                 (bound, L::child(*index, bound))
             }).collect()
         }
-        Syntax::Flush(syn) => {
+        Notation::Flush(syn) => {
             let set = lay_out(child_bounds, syn);
             set.into_iter().map(|(bound, val): (Bound, L)| {
                 (bound.flush(), val.flush())
             }).collect()
         }
-        Syntax::Concat(syn1, syn2) => {
+        Notation::Concat(syn1, syn2) => {
             let set1: BoundSet<L> = lay_out(child_bounds, syn1);
             let set2: BoundSet<L> = lay_out(child_bounds, syn2);
 
@@ -264,27 +264,27 @@ pub fn lay_out<L: Lay>(child_bounds: &Vec<&BoundSet<()>>, syntax: &Syntax) -> Bo
             }
             set
         }
-        Syntax::NoWrap(syn) => {
+        Notation::NoWrap(syn) => {
             let set = lay_out(child_bounds, syn);
             set.into_iter().filter(|(bound, _)| {
                 bound.height == 0
             }).collect()
         }
-        Syntax::Choice(syn1, syn2) => {
+        Notation::Choice(syn1, syn2) => {
             let set1 = lay_out(child_bounds, syn1);
             let set2 = lay_out(child_bounds, syn2);
             set1.into_iter().chain(set2.into_iter()).collect()
         }
-        Syntax::IfEmptyText(_, _) => panic!("lay_out: unexpected IfEmptyText"),
-        Syntax::Rep(_) => panic!("lay_out: unexpected Repeat"),
-        Syntax::Star   => panic!("lay_out: unexpected Star")
+        Notation::IfEmptyText(_, _) => panic!("lay_out: unexpected IfEmptyText"),
+        Notation::Rep(_) => panic!("lay_out: unexpected Repeat"),
+        Notation::Star   => panic!("lay_out: unexpected Star")
     }
 }
 
 
 // TODO: remove these
-impl Syntax {
-    /// Compute the possible Layouts for this `Syntax`, given
+impl Notation {
+    /// Compute the possible Layouts for this `Notation`, given
     /// information about its children.
     pub fn lay_out(
         &self,
@@ -297,7 +297,7 @@ impl Syntax {
         lay_out(&child_bounds, &stx)
     }
 
-    /// Precompute the Bounds within which this `Syntax` can be
+    /// Precompute the Bounds within which this `Notation` can be
     /// displayed, given information about its children.
     pub fn bound(
         &self,

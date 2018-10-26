@@ -9,7 +9,8 @@ use crate::construct::{ConstructName, Sort, Construct};
 
 pub type LanguageName = String;
 
-/// The syntax and whatnot for a language.
+// TODO: rename to Grammar
+/// The notation and whatnot for a language.
 pub struct Language {
     name:       LanguageName,
     constructs: HashMap<ConstructName, Construct>,

@@ -1,11 +1,11 @@
-//! Syntax describes how to display a language.
+//! Notations describe how to display a language.
 
 #![feature(slice_patterns)]
 #![feature(box_patterns)]
 
 mod style;
 mod geometry;
-mod syntax;
+mod notation;
 mod layout;
 mod transcribe;
 
@@ -14,13 +14,13 @@ mod transcribe;
 
 pub use self::style::{Style, ColorTheme};
 pub use self::geometry::{Row, Col, Pos, Bound, Region, MAX_WIDTH};
-pub use self::syntax::Syntax;
-pub use self::syntax::*;
+pub use self::notation::Notation;
+pub use self::notation::*;
 pub use self::transcribe::*;
 
 
 #[cfg(test)]
-mod syntax_tests {
+mod notation_tests {
     use super::*;
     use super::layout::Lay;
 
@@ -40,11 +40,11 @@ mod syntax_tests {
         assert_eq!(actual, expected);
     }
 
-    fn lit(s: &str) -> Syntax {
+    fn lit(s: &str) -> Notation {
         literal(s, Style::plain())
     }
 
-    fn example_syntax() -> Syntax {
+    fn example_notation() -> Notation {
         flush(lit("if ") + lit("true"))
             + flush(lit("  ")
                 + lit("* ")
@@ -53,7 +53,7 @@ mod syntax_tests {
             + lit("end")
     }
 
-    fn example_repeat_syntax() -> Syntax {
+    fn example_repeat_notation() -> Notation {
         child(0) +
             repeat(Repeat{
                 empty:  lit("[]"),
@@ -66,7 +66,7 @@ mod syntax_tests {
 
     #[test]
     fn test_bound() {
-        let actual = example_syntax()
+        let actual = example_notation()
             .bound(0, vec!(), false).first().0;
         let expected = Bound {
             width:  12,
@@ -121,9 +121,9 @@ mod syntax_tests {
     }
 
     #[test]
-    fn test_expand_syntax() {
+    fn test_expand_notation() {
         let r = (flush(lit("abc")) + lit("de")).bound(0, vec!(), false);
-        let syn = example_repeat_syntax();
+        let syn = example_repeat_notation();
         let zero = &syn
             .lay_out(1, vec!(&r), false)
             .fit_width(80).1;

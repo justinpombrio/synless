@@ -1,6 +1,6 @@
 use std::ops::Index;
 
-use crate::syntax::Syntax;
+use crate::notation::Notation;
 use crate::layout::BoundSet;
 use super::transcribe::Document;
 
@@ -8,7 +8,7 @@ use super::transcribe::Document;
 struct ExampleTree {
     arity: usize,
     node: ExampleNode,
-    syntax: Syntax,
+    notation: Notation,
     bounds: BoundSet<()>
 }
 
@@ -95,8 +95,8 @@ impl<'t> Document for ExampleTreeRef<'t> {
         }
     }
 
-    fn syntax(&self) -> &Syntax {
-        &self.tree().syntax
+    fn notation(&self) -> &Notation {
+        &self.tree().notation
     }
     
     fn bounds(&self) -> &BoundSet<()> {

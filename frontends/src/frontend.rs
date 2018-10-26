@@ -1,5 +1,4 @@
-use syntax::{Pos};
-use syntax::{Style, ColorTheme};
+use pretty::{Pos, Style, ColorTheme};
 
 pub use rustbox::Key;
 

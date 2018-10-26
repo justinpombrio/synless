@@ -2,29 +2,29 @@ use std::ops::{Add, BitOr};
 
 use crate::style::Style;
 
-use self::Syntax::*;
+use self::Notation::*;
 
 
 /// Describes how to display a syntactic construct.
 #[derive(Clone, Debug)]
-pub enum Syntax {
+pub enum Notation {
     /// Display Nothing
     Empty,
     /// Display a literal string.
     Literal(String, Style),
     /// Display a piece of text. Must be used on a texty node.
     Text(Style),
-    /// Display a newline after this syntax.
-    Flush(Box<Syntax>),
-    /// Display the first syntax, followed immediately by the second syntax.
-    Concat(Box<Syntax>, Box<Syntax>),
-    /// Display this syntax, not permitting flushes/newlines.
-    NoWrap(Box<Syntax>),
-    /// Display either the first syntax, or the second, whichever is Best.
-    Choice(Box<Syntax>, Box<Syntax>),
-    /// Display the first syntax in case this tree has empty text,
-    /// otherwise show the second syntax.
-    IfEmptyText(Box<Syntax>, Box<Syntax>),
+    /// Display a newline after this notation.
+    Flush(Box<Notation>),
+    /// Display the first notation, followed immediately by the second notation.
+    Concat(Box<Notation>, Box<Notation>),
+    /// Display this notation, not permitting flushes/newlines.
+    NoWrap(Box<Notation>),
+    /// Display either the first notation, or the second, whichever is Best.
+    Choice(Box<Notation>, Box<Notation>),
+    /// Display the first notation in case this tree has empty text,
+    /// otherwise show the second notation.
+    IfEmptyText(Box<Notation>, Box<Notation>),
     /// Display the `i`th child of this node.
     /// Must be used on a foresty node.
     /// `i` must be less than the node's arity number.
@@ -43,105 +43,105 @@ pub enum Syntax {
 /// construct with extendable arity.
 #[derive(Clone, Debug)]
 pub struct Repeat {
-    /// If the sequence is empty, display this Syntax.
-    pub empty:  Syntax,
-    /// If the sequence has length one, display this Syntax.
-    pub lone:   Syntax,
-    /// If the sequence has length 2 or more, begin with this Syntax.
-    pub first:  Syntax,
-    /// If the sequence has length 2 or more, display this syntax for
+    /// If the sequence is empty, use this notation.
+    pub empty:  Notation,
+    /// If the sequence has length one, use this notation.
+    pub lone:   Notation,
+    /// If the sequence has length 2 or more, begin with this notation.
+    pub first:  Notation,
+    /// If the sequence has length 2 or more, display this notation for
     /// every node in the sequence except the first and last.
-    pub middle: Syntax,
-    /// If the sequence has length 2 or more, end with this Syntax.
-    pub last:   Syntax
+    pub middle: Notation,
+    /// If the sequence has length 2 or more, end with this notation.
+    pub last:   Notation
 }
 
 /// Construct `Literal("")`, which displays nothing.
-pub fn empty() -> Syntax {
+pub fn empty() -> Notation {
     Literal("".to_string(), Style::plain())
 }
 
 /// Construct a `Literal`.
-pub fn literal(s: &str, style: Style) -> Syntax {
+pub fn literal(s: &str, style: Style) -> Notation {
     Literal(s.to_string(), style)
 }
 
 /// Construct a `Text`.
-pub fn text(style: Style) -> Syntax {
+pub fn text(style: Style) -> Notation {
     Text(style)
 }
 
 /// Construct a `NoWrap`.
-pub fn no_wrap(syn: Syntax) -> Syntax {
-    NoWrap(Box::new(syn))
+pub fn no_wrap(note: Notation) -> Notation {
+    NoWrap(Box::new(note))
 }
 
 /// Construct a `Child`.
-pub fn child(index: usize) -> Syntax {
+pub fn child(index: usize) -> Notation {
     Child(index)
 }
 
 /// Construct a `Flush`.
-pub fn flush(syn: Syntax) -> Syntax {
-    Flush(Box::new(syn))
+pub fn flush(note: Notation) -> Notation {
+    Flush(Box::new(note))
 }
 
 /// Construct a `Repeat`.
-pub fn repeat(repeat: Repeat) -> Syntax {
+pub fn repeat(repeat: Repeat) -> Notation {
     Rep(Box::new(repeat))
 }
 
 /// Construct a `Star` (for use in `Repeat`).
-pub fn star() -> Syntax {
+pub fn star() -> Notation {
     Star
 }
 
 /// Construct an `IfEmptyText`.
-pub fn if_empty_text(syn1: Syntax, syn2: Syntax) -> Syntax {
-    IfEmptyText(Box::new(syn1), Box::new(syn2))
+pub fn if_empty_text(note1: Notation, note2: Notation) -> Notation {
+    IfEmptyText(Box::new(note1), Box::new(note2))
 }
 
 /// Construct a `Concat`. You can also use `+` for this.
-pub fn concat(syn1: Syntax, syn2: Syntax) -> Syntax {
-    Concat(Box::new(syn1), Box::new(syn2))
+pub fn concat(note1: Notation, note2: Notation) -> Notation {
+    Concat(Box::new(note1), Box::new(note2))
 }
 
 /// Construct a `Choice`. You can also use `|` for this.
-pub fn choice(syn1: Syntax, syn2: Syntax) -> Syntax {
-    Choice(Box::new(syn1), Box::new(syn2))
+pub fn choice(note1: Notation, note2: Notation) -> Notation {
+    Choice(Box::new(note1), Box::new(note2))
 }
 
-impl Add<Syntax> for Syntax {
+impl Add<Notation> for Notation {
     ///
-    type Output = Syntax;
+    type Output = Notation;
     /// Shorthand for `Concat`.
-    fn add(self, other: Syntax) -> Syntax {
+    fn add(self, other: Notation) -> Notation {
         Concat(Box::new(self), Box::new(other))
     }
 }
 
-impl BitOr<Syntax> for Syntax {
+impl BitOr<Notation> for Notation {
     ///
-    type Output = Syntax;
+    type Output = Notation;
     /// Shorthand for `Choice`.
-    fn bitor(self, other: Syntax) -> Syntax {
+    fn bitor(self, other: Notation) -> Notation {
         Choice(Box::new(self), Box::new(other))
     }
 }
 
-struct SyntaxExpander {
+struct NotationExpander {
     arity: usize,
     num_args: usize,
     empty_text: bool
 }
 
-impl SyntaxExpander {
-    fn expand(&self, syntax: &Syntax) -> Syntax {
-        match syntax {
-            &Empty         => syntax.clone(),
+impl NotationExpander {
+    fn expand(&self, notation: &Notation) -> Notation {
+        match notation {
+            &Empty         => notation.clone(),
             &Literal(ref s, style) => Literal(s.clone(), style),
-            &Text(_)       => syntax.clone(),
-            &Child(_)      => syntax.clone(),
+            &Text(_)       => notation.clone(),
+            &Child(_)      => notation.clone(),
             &Flush(ref s)  => flush(self.expand(s)),
             &NoWrap(ref s) => no_wrap(self.expand(s)),
             &Concat(ref a, ref b) => self.expand(a) + self.expand(b),
@@ -156,12 +156,12 @@ impl SyntaxExpander {
                     0 => empty.clone(),
                     1 => lone.clone().replace_star(self.arity),
                     _ => {
-                        let mut syn = last.replace_star(self.num_args - 1);
+                        let mut note = last.replace_star(self.num_args - 1);
                         for i in (self.arity + 1 .. self.num_args - 1).rev() {
-                            syn = middle.replace_star(i) + syn;
+                            note = middle.replace_star(i) + note;
                         }
-                        syn = first.replace_star(self.arity) + syn;
-                        syn
+                        note = first.replace_star(self.arity) + note;
+                        note
                     }
                 }
             },
@@ -171,19 +171,19 @@ impl SyntaxExpander {
     }
 }
 
-impl Syntax {
+impl Notation {
     // Eliminate any Repeats.
     pub(crate) fn expand(&self, arity: usize, num_args: usize, empty_text: bool)
-                         -> Syntax
+                         -> Notation
     {
-        SyntaxExpander{
+        NotationExpander{
             arity: arity,
             num_args: num_args,
             empty_text: empty_text
         }.expand(self)
     }
 
-    fn replace_star(&self, child: usize) -> Syntax {
+    fn replace_star(&self, child: usize) -> Notation {
         match self {
             &Empty => Empty,
             &Literal(_, _) | &Text(_) | &Child(_) => self.clone(),

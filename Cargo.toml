@@ -6,11 +6,11 @@ authors = ["justinpombrio <zallambo@gmail.com>"]
 [workspace]
 members = [
   "forest",
-  "syntax",
+  "pretty",
   "language",
   "frontends"]
 default-members = [
   "forest",
-  "syntax",
+  "pretty",
   "language",
   "frontends"]

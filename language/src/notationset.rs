@@ -1,27 +1,27 @@
 use std::collections::HashMap;
 
-use syntax::Syntax;
+use pretty::Notation;
 use crate::language::{ConstructName, Language, LanguageName};
 
 
-pub struct LanguageSyntax {
+pub struct NotationSet {
     name: LanguageName,
-    syntax: HashMap<ConstructName, Syntax>
+    notations: HashMap<ConstructName, Notation>
 }
 
-impl LanguageSyntax {
+impl NotationSet {
 
     // TODO: validate against language
-    pub fn new(language: &Language, syntaxes: Vec<(ConstructName, Syntax)>)
-               -> LanguageSyntax
+    pub fn new(language: &Language, notations: Vec<(ConstructName, Notation)>)
+               -> NotationSet
     {
         let mut map = HashMap::new();
-        for (construct, syntax) in syntaxes {
-            map.insert(construct, syntax);
+        for (construct, notation) in notations {
+            map.insert(construct, notation);
         }
-        LanguageSyntax {
+        NotationSet {
             name: language.name().to_string(),
-            syntax: map
+            notations: map
         }
     }
 }
@@ -33,24 +33,23 @@ use self::example::*;
 #[cfg(test)]
 mod example {
     use super::*;
-    use style::*;
-    use syntax::*;
+    use pretty::*;
     use language::{Language, Construct, Arity};
 
-    fn punct(s: &str) -> Syntax {
+    fn punct(s: &str) -> Notation {
         literal(s, Style::color(Color::Yellow))
     }
 
-    fn word(s: &str) -> Syntax {
+    fn word(s: &str) -> Notation {
         literal(s, Style::color(Color::Green))
     }
 
-    fn txt() -> Syntax {
+    fn txt() -> Notation {
         text(Style::new(Color::Blue, Emph::underlined(), Shade::black(), false))
     }
 
     /// An example language for testing.
-    pub fn example_language() -> (Language, LanguageSyntax) {
+    pub fn example_language() -> (Language, NotationSet) {
         let mut language = Language::new("TestLang");
 
         let arity = Arity::Forest(vec!("Expr".to_string(),
@@ -58,13 +57,13 @@ mod example {
                                   None);
         let construct = Construct::new("plus", "Expr", arity, 'p');
         language.add(construct);
-        let plus_syntax =
+        let plus_notation =
             child(0) + punct(" + ") + child(1)
             | flush(child(0)) + punct("+ ") + child(1);
 
-        let notation = LanguageSyntax::new(
+        let notation = NotationSet::new(
             &language,
-            vec!(("plus".to_string(), plus_syntax)));
+            vec!(("plus".to_string(), plus_notation)));
         (language, notation)
 /*
         let syn = repeat(Repeat{
