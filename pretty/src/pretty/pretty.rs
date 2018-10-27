@@ -37,8 +37,8 @@ pub trait PrettyScreen {
     fn empty(&mut self, info: PrettyInfo);
     fn literal(&mut self, info: PrettyInfo, text: &str, style: Style);
     fn text(&mut self, info: PrettyInfo, text: &str, style: Style, active_char: Option<usize>);
-    fn flush(&mut self, info: PrettyInfo, child: Box<FnOnce()>);
-    fn concat(&mut self, info: PrettyInfo, left: Box<FnOnce()>, right: Box<FnOnce()>);
+    fn horz(&mut self, info: PrettyInfo, left: Box<FnOnce()>, right: Box<FnOnce()>);
+    fn vert(&mut self, info: PrettyInfo, left: Box<FnOnce()>, right: Box<FnOnce()>);
 }
 
 pub struct PrettyInfo {
@@ -97,18 +97,18 @@ fn pretty_print_rec<Doc>(doc: &Doc, f: &mut fmt::Formatter, lay: LayoutRegion) -
         Text(_) => {
             write!(f, "{}", doc.text().expect("Expected text while transcribing; found branch node"))
         }
-        Flush(box inner_lay) => {
-            pretty_print_rec(doc, f, inner_lay)?;
-            write!(f, "\n")?;
-            let indent = lay.region.beginning().col;
-            write!(f, "{}", " ".repeat(indent as usize))
-        }
         Child(i) => {
             let lay = generic_lay_out(&doc.child(i)).fit_bound(lay.region.bound).1;
             pretty_print_rec(&doc.child(i), f, lay)
         }
-        Concat(box lay1, box lay2) => {
+        Horz(box lay1, box lay2) => {
             pretty_print_rec(doc, f, lay1)?;
+            pretty_print_rec(doc, f, lay2)
+        }
+        Vert(box lay1, box lay2) => {
+            let indent = lay.region.pos.col;
+            pretty_print_rec(doc, f, lay1)?;
+            write!(f, "\n{}", " ".repeat(indent as usize))?;
             pretty_print_rec(doc, f, lay2)
         }
     }

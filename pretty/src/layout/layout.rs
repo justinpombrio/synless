@@ -12,8 +12,8 @@ use self::Layout::*;
 pub trait Lay where Self: Clone {
     fn empty() -> Self;
     fn literal(s: &str, style: Style) -> Self;
-    fn flush(&self) -> Self;
-    fn concat(&self, other: Self) -> Self;
+    fn horz(&self, other: Self) -> Self;
+    fn vert(&self, other: Self) -> Self;
     fn text(child: Bound, style: Style) -> Self;
     fn child(i: usize, child: Bound) -> Self;
 }
@@ -22,8 +22,8 @@ pub trait Lay where Self: Clone {
 impl Lay for () {
     fn empty()                            {}
     fn literal(_s: &str, _style: Style)   {}
-    fn flush(&self)                       {}
-    fn concat(&self, _other: ())          {}
+    fn horz(&self, _other: ())            {}
+    fn vert(&self, _other: ())            {}
     fn text(_child: Bound, _style: Style) {}
     fn child(_i: usize, _child: Bound)    {}
 }
@@ -47,20 +47,20 @@ impl Lay for Bound {
         }
     }
 
-    fn flush(&self) -> Bound {
-        Bound {
-            width:  self.width,
-            indent: 0,
-            height: self.height + 1
-        }
-    }
-
-    fn concat(&self, other: Bound) -> Bound {
+    fn horz(&self, other: Bound) -> Bound {
         Bound{
             width:  cmp::max(self.width,
                              self.indent + other.width),
             height: self.height + other.height,
             indent: self.indent + other.indent
+        }
+    }
+
+    fn vert(&self, other: Bound) -> Bound {
+        Bound {
+            width:  cmp::max(self.width, other.width),
+            height: self.height + other.height + 1,
+            indent: other.indent
         }
     }
 
@@ -94,35 +94,35 @@ pub enum Layout {
     Literal(String, Style),
     /// Display a text node's text with the given style.
     Text(Style),
-    /// Display the layout, then a newline.
-    Flush(Box<LayoutRegion>),
-    /// Display the concatenation of the two layouts.
-    /// The `Col` is the indent on the Bound of the first Layout.
-    /// (This is redundant information, but convenient to have around.)
-    Concat(Box<LayoutRegion>, Box<LayoutRegion>),
+    /// Display the horizontal concatenation of the two layouts.
+    Horz(Box<LayoutRegion>, Box<LayoutRegion>),
+    /// Display the vertical concatenation of the two layouts.
+    Vert(Box<LayoutRegion>, Box<LayoutRegion>),
     /// Display a child node. Its Bound must be supplied.
     Child(usize)
 }
 
-// TODO: This is inefficient. Remove `shift_to`.
+// TODO: This is inefficient. Remove `shift_by`.
 impl LayoutRegion {
-    fn shift_to(&mut self, pos: Pos) {
-        self.region.pos = pos;
-        self.layout.shift_to(pos);
+    fn shift_by(&mut self, pos: Pos) {
+        self.region.pos = self.region.pos + pos;
+        self.layout.shift_by(pos);
     }
 }
 
 impl Layout {
-    fn shift_to(&mut self, pos: Pos) {
+    fn shift_by(&mut self, pos: Pos) {
         match self {
             Empty         => (),
             Literal(_, _) => (),
             Text(_)       => (),
-            Flush(box lay) => lay.shift_to(pos),
-            Concat(box lay1, box lay2) => {
-                let delta = lay1.region.delta();
-                lay1.shift_to(pos);
-                lay2.shift_to(pos + delta);
+            Horz(box lay1, box lay2) => {
+                lay1.shift_by(pos);
+                lay2.shift_by(pos);
+            }
+            Vert(box lay1, box lay2) => {
+                lay1.shift_by(pos);
+                lay2.shift_by(pos);
             }
             Child(_) => ()
         }
@@ -143,16 +143,16 @@ impl fmt::Debug for LayoutRegion {
             Text(_) => {
                 bound.debug_print(f, 't', indent)
             }
-            Flush(ref lay)  => {
-                write!(f, "{:?}\n", lay)?;
-                write!(f, "{}", " ".repeat(indent as usize))
-            }
             Child(index) => {
                 let ch = format!("{}", index).pop().unwrap();
                 bound.debug_print(f, ch, indent)
             }
-            Concat(ref lay1, ref lay2) => {
+            Horz(ref lay1, ref lay2) => {
                 write!(f, "{:?}{:?}", lay1, lay2)
+            }
+            Vert(ref lay1, ref lay2) => {
+                let indent_str = " ".repeat(indent as usize);
+                write!(f, "{:?}\n{}{:?}", lay1, indent_str, lay2)
             }
         }
     }
@@ -179,27 +179,33 @@ impl Lay for LayoutRegion {
         }
     }
 
-    fn flush(&self) -> LayoutRegion {
+    fn horz(&self, other: LayoutRegion) -> LayoutRegion {
         let self_lay = self.clone();
+        let mut other_lay = other.clone();
+        other_lay.shift_by(self.region.end());
         LayoutRegion {
             region: Region {
                 pos:   self.region.pos,
-                bound: self.region.bound.flush()
+                bound: self.region.bound.horz(other.region.bound)
             },
-            layout: Layout::Flush(Box::new(self_lay))
+            layout: Layout::Horz(Box::new(self_lay), Box::new(other_lay))
         }
     }
 
-    fn concat(&self, other: LayoutRegion) -> LayoutRegion {
+    fn vert(&self, other: LayoutRegion) -> LayoutRegion {
         let self_lay = self.clone();
         let mut other_lay = other.clone();
-        other_lay.shift_to(self.region.end());
+        let delta = Pos {
+            row: self.region.height() + 1,
+            col: 0
+        };
+        other_lay.shift_by(delta);
         LayoutRegion {
             region: Region {
                 pos:   self.region.pos,
-                bound: self.region.bound.concat(other.region.bound)
+                bound: self.region.bound.vert(other.region.bound)
             },
-            layout: Layout::Concat(Box::new(self_lay), Box::new(other_lay))
+            layout: Layout::Vert(Box::new(self_lay), Box::new(other_lay))
         }
     }
 
@@ -244,35 +250,43 @@ pub fn lay_out<L: Lay>(child_bounds: &Vec<BoundSet<()>>, notation: &Notation) ->
                 (bound, L::child(*index, bound))
             }).collect()
         }
-        Notation::Flush(syn) => {
-            let set = lay_out(child_bounds, syn);
-            set.into_iter().map(|(bound, val): (Bound, L)| {
-                (bound.flush(), val.flush())
-            }).collect()
-        }
-        Notation::Concat(syn1, syn2) => {
-            let set1: BoundSet<L> = lay_out(child_bounds, syn1);
-            let set2: BoundSet<L> = lay_out(child_bounds, syn2);
+        Notation::Horz(note1, note2) => {
+            let set1: BoundSet<L> = lay_out(child_bounds, note1);
+            let set2: BoundSet<L> = lay_out(child_bounds, note2);
 
             let mut set = BoundSet::new();
             for (bound1, val1) in set1.into_iter() {
                 for (bound2, val2) in set2.into_iter() {
-                    let bound = bound1.concat(bound2);
-                    let val = val1.concat(val2);
+                    let bound = bound1.horz(bound2);
+                    let val = val1.horz(val2);
                     set.insert(bound, val);
                 }
             }
             set
         }
-        Notation::NoWrap(syn) => {
-            let set = lay_out(child_bounds, syn);
+        Notation::Vert(note1, note2) => {
+            let set1: BoundSet<L> = lay_out(child_bounds, note1);
+            let set2: BoundSet<L> = lay_out(child_bounds, note2);
+
+            let mut set = BoundSet::new();
+            for (bound1, val1) in set1.into_iter() {
+                for (bound2, val2) in set2.into_iter() {
+                    let bound = bound1.vert(bound2);
+                    let val = val1.vert(val2);
+                    set.insert(bound, val);
+                }
+            }
+            set
+        }
+        Notation::NoWrap(note) => {
+            let set = lay_out(child_bounds, note);
             set.into_iter().filter(|(bound, _)| {
                 bound.height == 0
             }).collect()
         }
-        Notation::Choice(syn1, syn2) => {
-            let set1 = lay_out(child_bounds, syn1);
-            let set2 = lay_out(child_bounds, syn2);
+        Notation::Choice(note1, note2) => {
+            let set1 = lay_out(child_bounds, note1);
+            let set2 = lay_out(child_bounds, note2);
             set1.into_iter().chain(set2.into_iter()).collect()
         }
         Notation::IfEmptyText(_, _) => panic!("lay_out: unexpected IfEmptyText"),

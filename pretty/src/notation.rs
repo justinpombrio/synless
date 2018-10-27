@@ -1,4 +1,4 @@
-use std::ops::{Add, BitOr};
+use std::ops::{Add, BitOr, BitXor};
 
 use crate::style::Style;
 
@@ -14,10 +14,11 @@ pub enum Notation {
     Literal(String, Style),
     /// Display a piece of text. Must be used on a texty node.
     Text(Style),
-    /// Place the first notation above the second.
-    Flush(Box<Notation>),
-    /// Display the first notation, followed immediately by the second notation.
-    Concat(Box<Notation>, Box<Notation>),
+    /// Display the second notation to the right of the first (horizontal
+    /// concatenation).
+    Horz(Box<Notation>, Box<Notation>),
+    /// Display the second notation below the first (vertical concatenation).
+    Vert(Box<Notation>, Box<Notation>),
     /// Display this notation, not permitting flushes/newlines.
     NoWrap(Box<Notation>),
     /// Display either the first notation, or the second, whichever is Best.
@@ -81,11 +82,6 @@ pub fn child(index: usize) -> Notation {
     Child(index)
 }
 
-/// Construct a `Flush`.
-pub fn flush(note: Notation) -> Notation {
-    Flush(Box::new(note))
-}
-
 /// Construct a `Repeat`.
 pub fn repeat(repeat: Repeat) -> Notation {
     Rep(Box::new(repeat))
@@ -101,9 +97,14 @@ pub fn if_empty_text(note1: Notation, note2: Notation) -> Notation {
     IfEmptyText(Box::new(note1), Box::new(note2))
 }
 
-/// Construct a `Concat`. You can also use `+` for this.
-pub fn concat(note1: Notation, note2: Notation) -> Notation {
-    Concat(Box::new(note1), Box::new(note2))
+/// Construct a `Horz`. You can also use `+` for this.
+pub fn horz(note1: Notation, note2: Notation) -> Notation {
+    Horz(Box::new(note1), Box::new(note2))
+}
+
+/// Construct a `Vert`. You can also use `^` for this.
+pub fn vert(note1: Notation, note2: Notation) -> Notation {
+    Vert(Box::new(note1), Box::new(note2))
 }
 
 /// Construct a `Choice`. You can also use `|` for this.
@@ -114,9 +115,18 @@ pub fn choice(note1: Notation, note2: Notation) -> Notation {
 impl Add<Notation> for Notation {
     ///
     type Output = Notation;
-    /// Shorthand for `Concat`.
+    /// Shorthand for `Horz`.
     fn add(self, other: Notation) -> Notation {
-        Concat(Box::new(self), Box::new(other))
+        Horz(Box::new(self), Box::new(other))
+    }
+}
+
+impl BitXor<Notation> for Notation {
+    ///
+    type Output = Notation;
+    /// Shorthand for `Vert`.
+    fn bitxor(self, other: Notation) -> Notation {
+        Vert(Box::new(self), Box::new(other))
     }
 }
 
@@ -142,9 +152,9 @@ impl NotationExpander {
             &Literal(ref s, style) => Literal(s.clone(), style),
             &Text(_)       => notation.clone(),
             &Child(_)      => notation.clone(),
-            &Flush(ref s)  => flush(self.expand(s)),
             &NoWrap(ref s) => no_wrap(self.expand(s)),
-            &Concat(ref a, ref b) => self.expand(a) + self.expand(b),
+            &Horz(ref a, ref b)   => self.expand(a) + self.expand(b),
+            &Vert(ref a, ref b)   => self.expand(a) ^ self.expand(b),
             &Choice(ref a, ref b) => self.expand(a) | self.expand(b),
             &IfEmptyText(ref a, ref b) =>
                 self.expand(if self.empty_text { a } else { b }),
@@ -187,10 +197,11 @@ impl Notation {
         match self {
             &Empty => Empty,
             &Literal(_, _) | &Text(_) | &Child(_) => self.clone(),
-            &Flush(ref s)  => flush(s.replace_star(child)),
             &NoWrap(ref s) => no_wrap(s.replace_star(child)),
-            &Concat(ref a, ref b) =>
+            &Horz(ref a, ref b) =>
                 a.replace_star(child) + b.replace_star(child),
+            &Vert(ref a, ref b) =>
+                a.replace_star(child) ^ b.replace_star(child),
             &IfEmptyText(ref a, ref b) =>
                 if_empty_text(a.replace_star(child), b.replace_star(child)),
             &Choice(ref a, ref b) =>

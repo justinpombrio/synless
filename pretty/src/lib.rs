@@ -15,8 +15,8 @@ mod pretty;
 pub use self::style::{Style, ColorTheme};
 pub use self::geometry::{Row, Col, Pos, Bound, Region, MAX_WIDTH};
 pub use self::notation::{Notation, Repeat,
-                         empty, literal, text, no_wrap, flush, child,
-                         repeat, star, if_empty_text, concat, choice};
+                         empty, literal, text, no_wrap, horz, vert,
+                         child, repeat, star, if_empty_text, choice};
 //pub use self::pretty::{??};
 
 
@@ -28,10 +28,10 @@ mod notation_tests {
     #[test]
     fn test_bound_construction() {
         let sty = Style::plain();
-        let actual = Bound::literal("abc", sty).flush().concat(
-            Bound::literal("Schrödinger", sty).concat(
-                Bound::literal("I", sty).concat(
-                    Bound::literal(" am indented", sty)).flush().concat(
+        let actual = Bound::literal("abc", sty).vert(
+            Bound::literal("Schrödinger", sty).horz(
+                Bound::literal("I", sty).horz(
+                    Bound::literal(" am indented", sty)).vert(
                     Bound::literal("me too", sty))));
         let expected = Bound {
             width:  24,
@@ -46,12 +46,11 @@ mod notation_tests {
     }
 
     fn example_notation() -> Notation {
-        flush(lit("if ") + lit("true"))
-            + flush(lit("  ")
-                + lit("* ")
-                + flush(lit("bulleted"))
-                + lit("list"))
-            + lit("end")
+        lit("if ") + lit("true")
+            ^ lit("  ")
+            + lit("* ")
+            + (lit("bulleted") ^ lit("list"))
+            ^ lit("end")
     }
 
     fn example_repeat_notation() -> Notation {
@@ -59,8 +58,8 @@ mod notation_tests {
             repeat(Repeat{
                 empty:  lit("[]"),
                 lone:   lit("[") + star() + lit("]"),
-                first:  lit("[") + flush(star() + lit(",")),
-                middle: flush(star() + lit(",")),
+                first:  lit("[") + (star() + lit(",") ^ empty()),
+                middle: star() + lit(",") ^ empty(),
                 last:   star() + lit("]")
             })
     }
@@ -79,7 +78,7 @@ mod notation_tests {
 
     #[test]
     fn test_bound_2() {
-        let actual = (flush(lit("abc")) + lit("de"))
+        let actual = (lit("abc") ^ lit("de"))
             .bound(0, vec!(), false).first().0;
         let expected = Bound {
             width:  3,
@@ -116,14 +115,14 @@ mod notation_tests {
 
     #[test]
     fn test_show_layout() {
-        let syn = lit("abc") + (flush(lit("def")) + lit("g"));
+        let syn = lit("abc") + (lit("def") ^ lit("g"));
         let lay = &syn.lay_out(0, vec!(), false).fit_width(80).1;
         assert_eq!(format!("{:?}", lay), "abcdef\n   g");
     }
 
     #[test]
     fn test_expand_notation() {
-        let r = (flush(lit("abc")) + lit("de")).bound(0, vec!(), false);
+        let r = (lit("abc") ^ lit("de")).bound(0, vec!(), false);
         let syn = example_repeat_notation();
         let zero = &syn
             .lay_out(1, vec!(r.clone()), false)
