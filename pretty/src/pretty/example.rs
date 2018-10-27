@@ -1,15 +1,14 @@
 use std::ops::Index;
 
 use crate::notation::Notation;
-use crate::layout::BoundSet;
-use super::transcribe::Document;
+use super::pretty::{PrettyDocument, Bounds};
 
 
 struct ExampleTree {
     arity: usize,
     node: ExampleNode,
     notation: Notation,
-    bounds: BoundSet<()>
+    bounds: Bounds
 }
 
 enum ExampleNode {
@@ -52,7 +51,7 @@ fn extend_path(mut path: Vec<usize>, i: usize) -> Vec<usize> {
     path
 }
 
-impl<'t> Document for ExampleTreeRef<'t> {
+impl<'t> PrettyDocument for ExampleTreeRef<'t> {
     fn arity(&self) -> usize {
         self.tree().arity
     }
@@ -99,8 +98,8 @@ impl<'t> Document for ExampleTreeRef<'t> {
         &self.tree().notation
     }
     
-    fn bounds(&self) -> &BoundSet<()> {
-        &self.tree().bounds
+    fn bounds(&self) -> Bounds {
+        self.tree().bounds.clone()
     }
 
     fn text(&self) -> Option<&str> {

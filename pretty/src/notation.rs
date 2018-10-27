@@ -14,7 +14,7 @@ pub enum Notation {
     Literal(String, Style),
     /// Display a piece of text. Must be used on a texty node.
     Text(Style),
-    /// Display a newline after this notation.
+    /// Place the first notation above the second.
     Flush(Box<Notation>),
     /// Display the first notation, followed immediately by the second notation.
     Concat(Box<Notation>, Box<Notation>),

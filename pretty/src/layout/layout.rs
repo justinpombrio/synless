@@ -224,7 +224,7 @@ impl Lay for LayoutRegion {
     }
 }
 
-pub fn lay_out<L: Lay>(child_bounds: &Vec<&BoundSet<()>>, notation: &Notation) -> BoundSet<L> {
+pub fn lay_out<L: Lay>(child_bounds: &Vec<BoundSet<()>>, notation: &Notation) -> BoundSet<L> {
     match notation {
         Notation::Empty => {
             BoundSet::singleton(Bound::empty(),
@@ -289,7 +289,7 @@ impl Notation {
     pub fn lay_out(
         &self,
         arity: usize,
-        child_bounds: Vec<&BoundSet<()>>,
+        child_bounds: Vec<BoundSet<()>>,
         is_empty_text: bool)
         -> BoundSet<LayoutRegion>
     {
@@ -302,7 +302,7 @@ impl Notation {
     pub fn bound(
         &self,
         arity: usize,
-        child_bounds: Vec<&BoundSet<()>>,
+        child_bounds: Vec<BoundSet<()>>,
         is_empty_text: bool)
         -> BoundSet<()>
     {

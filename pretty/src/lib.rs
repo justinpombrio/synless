@@ -7,16 +7,17 @@ mod style;
 mod geometry;
 mod notation;
 mod layout;
-mod transcribe;
+mod pretty;
 
 // TODO: put language tests (below) somewhere!
 // TODO: clean up these tests. Should be more local.
 
 pub use self::style::{Style, ColorTheme};
 pub use self::geometry::{Row, Col, Pos, Bound, Region, MAX_WIDTH};
-pub use self::notation::Notation;
-pub use self::notation::*;
-pub use self::transcribe::*;
+pub use self::notation::{Notation, Repeat,
+                         empty, literal, text, no_wrap, flush, child,
+                         repeat, star, if_empty_text, concat, choice};
+//pub use self::pretty::{??};
 
 
 #[cfg(test)]
@@ -125,19 +126,19 @@ mod notation_tests {
         let r = (flush(lit("abc")) + lit("de")).bound(0, vec!(), false);
         let syn = example_repeat_notation();
         let zero = &syn
-            .lay_out(1, vec!(&r), false)
+            .lay_out(1, vec!(r.clone()), false)
             .fit_width(80).1;
         let one = &syn
-            .lay_out(1, vec!(&r, &r), false)
+            .lay_out(1, vec!(r.clone(), r.clone()), false)
             .fit_width(80).1;
         let two = &syn
-            .lay_out(1, vec!(&r, &r, &r), false)
+            .lay_out(1, vec!(r.clone(), r.clone(), r.clone()), false)
             .fit_width(80).1;
         let three = &syn
-            .lay_out(1, vec!(&r, &r, &r, &r), false)
+            .lay_out(1, vec!(r.clone(), r.clone(), r.clone(), r.clone()), false)
             .fit_width(80).1;
         let four = &syn
-            .lay_out(1, vec!(&r, &r, &r, &r, &r), false)
+            .lay_out(1, vec!(r.clone(), r.clone(), r.clone(), r.clone(), r.clone()), false)
             .fit_width(80).1;
         assert_eq!(format!("{:?}", zero), "000\n00[]");
         assert_eq!(format!("{:?}", one), "000\n00[111\n   11]");
