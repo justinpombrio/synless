@@ -1,10 +1,10 @@
 use std::cmp;
 use std::fmt;
 
+use super::boundset::BoundSet;
 use crate::geometry::{Col, Pos, Bound, Region};
 use crate::style::Style;
 use crate::notation::Notation;
-use super::BoundSet;
 
 use self::Layout::*;
 
@@ -104,7 +104,7 @@ pub enum Layout {
 
 // TODO: This is inefficient. Remove `shift_by`.
 impl LayoutRegion {
-    fn shift_by(&mut self, pos: Pos) {
+    pub fn shift_by(&mut self, pos: Pos) {
         self.region.pos = self.region.pos + pos;
         self.layout.shift_by(pos);
     }
@@ -230,7 +230,49 @@ impl Lay for LayoutRegion {
     }
 }
 
-pub fn lay_out<L: Lay>(child_bounds: &Vec<BoundSet<()>>, notation: &Notation) -> BoundSet<L> {
+#[derive(Clone)]
+pub struct Bounds(BoundSet<()>);
+
+impl Bounds {
+    pub fn empty() -> Bounds {
+        Bounds(BoundSet::new())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn first(&self) -> Bound {
+        self.0.first().0
+    }
+}
+
+impl Layouts {
+    #[cfg(test)]
+    pub(crate) fn fit_width(&self, width: Col) -> LayoutRegion {
+        self.0.fit_width(width).1
+    }
+
+    pub fn fit_bound(&self, bound: Bound) -> LayoutRegion {
+        self.0.fit_bound(bound).1
+    }
+}
+
+#[derive(Clone)]
+pub struct Layouts(BoundSet<LayoutRegion>);
+
+// If the node is texty, `child_bounds` should be a singleton vec of the text bounds.
+pub fn compute_layouts(child_bounds: &Vec<Bounds>, notation: &Notation) -> Layouts {
+    Layouts(lay(child_bounds, notation))
+}
+
+// If the node is texty, `child_bounds` should be a singleton vec of the text bounds.
+pub fn compute_bounds(child_bounds: &Vec<Bounds>, notation: &Notation) -> Bounds {
+    Bounds(lay(child_bounds, notation))
+}
+
+pub fn text_bounds(text: &str) -> Bounds {
+    Bounds(BoundSet::singleton(Bound::literal(text, Style::plain()), ()))
+}
+
+fn lay<L: Lay>(child_bounds: &Vec<Bounds>, notation: &Notation) -> BoundSet<L> {
     match notation {
         Notation::Empty => {
             BoundSet::singleton(Bound::empty(),
@@ -241,18 +283,18 @@ pub fn lay_out<L: Lay>(child_bounds: &Vec<BoundSet<()>>, notation: &Notation) ->
                                 L::literal(s, *style))
         }
         Notation::Text(style) => {
-            child_bounds[0].into_iter().map(|(bound, ())| {
+            child_bounds[0].0.into_iter().map(|(bound, ())| {
                 (bound, L::text(bound, *style))
             }).collect()
         }
         Notation::Child(index) => {
-            child_bounds[*index].into_iter().map(|(bound, ())| {
+            child_bounds[*index].0.into_iter().map(|(bound, ())| {
                 (bound, L::child(*index, bound))
             }).collect()
         }
         Notation::Horz(note1, note2) => {
-            let set1: BoundSet<L> = lay_out(child_bounds, note1);
-            let set2: BoundSet<L> = lay_out(child_bounds, note2);
+            let set1: BoundSet<L> = lay(child_bounds, note1);
+            let set2: BoundSet<L> = lay(child_bounds, note2);
 
             let mut set = BoundSet::new();
             for (bound1, val1) in set1.into_iter() {
@@ -265,8 +307,8 @@ pub fn lay_out<L: Lay>(child_bounds: &Vec<BoundSet<()>>, notation: &Notation) ->
             set
         }
         Notation::Vert(note1, note2) => {
-            let set1: BoundSet<L> = lay_out(child_bounds, note1);
-            let set2: BoundSet<L> = lay_out(child_bounds, note2);
+            let set1: BoundSet<L> = lay(child_bounds, note1);
+            let set2: BoundSet<L> = lay(child_bounds, note2);
 
             let mut set = BoundSet::new();
             for (bound1, val1) in set1.into_iter() {
@@ -279,48 +321,18 @@ pub fn lay_out<L: Lay>(child_bounds: &Vec<BoundSet<()>>, notation: &Notation) ->
             set
         }
         Notation::NoWrap(note) => {
-            let set = lay_out(child_bounds, note);
+            let set = lay(child_bounds, note);
             set.into_iter().filter(|(bound, _)| {
                 bound.height == 0
             }).collect()
         }
         Notation::Choice(note1, note2) => {
-            let set1 = lay_out(child_bounds, note1);
-            let set2 = lay_out(child_bounds, note2);
+            let set1 = lay(child_bounds, note1);
+            let set2 = lay(child_bounds, note2);
             set1.into_iter().chain(set2.into_iter()).collect()
         }
         Notation::IfEmptyText(_, _) => panic!("lay_out: unexpected IfEmptyText"),
         Notation::Rep(_) => panic!("lay_out: unexpected Repeat"),
         Notation::Star   => panic!("lay_out: unexpected Star")
-    }
-}
-
-
-// TODO: remove these
-impl Notation {
-    /// Compute the possible Layouts for this `Notation`, given
-    /// information about its children.
-    pub fn lay_out(
-        &self,
-        arity: usize,
-        child_bounds: Vec<BoundSet<()>>,
-        is_empty_text: bool)
-        -> BoundSet<LayoutRegion>
-    {
-        let stx = self.expand(arity, child_bounds.len(), is_empty_text);
-        lay_out(&child_bounds, &stx)
-    }
-
-    /// Precompute the Bounds within which this `Notation` can be
-    /// displayed, given information about its children.
-    pub fn bound(
-        &self,
-        arity: usize,
-        child_bounds: Vec<BoundSet<()>>,
-        is_empty_text: bool)
-        -> BoundSet<()>
-    {
-        let stx = self.expand(arity, child_bounds.len(), is_empty_text);
-        lay_out(&child_bounds, &stx)
     }
 }

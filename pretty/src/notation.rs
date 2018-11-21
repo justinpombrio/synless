@@ -140,9 +140,7 @@ impl BitOr<Notation> for Notation {
 }
 
 struct NotationExpander {
-    arity: usize,
-    num_args: usize,
-    empty_text: bool
+    len: usize
 }
 
 impl NotationExpander {
@@ -157,20 +155,20 @@ impl NotationExpander {
             &Vert(ref a, ref b)   => self.expand(a) ^ self.expand(b),
             &Choice(ref a, ref b) => self.expand(a) | self.expand(b),
             &IfEmptyText(ref a, ref b) =>
-                self.expand(if self.empty_text { a } else { b }),
+                self.expand(if self.len == 0 { a } else { b }),
             &Rep(ref repeat) => {
                 let &Repeat{ ref empty,
                              ref lone,
                              ref first, ref middle, ref last } = &**repeat;
-                match self.num_args - self.arity {
+                match self.len {
                     0 => empty.clone(),
-                    1 => lone.clone().replace_star(self.arity),
+                    1 => lone.clone().replace_star(0),
                     _ => {
-                        let mut note = last.replace_star(self.num_args - 1);
-                        for i in (self.arity + 1 .. self.num_args - 1).rev() {
+                        let mut note = last.replace_star(self.len - 1);
+                        for i in (1 .. self.len - 1).rev() {
                             note = middle.replace_star(i) + note;
                         }
-                        note = first.replace_star(self.arity) + note;
+                        note = first.replace_star(0) + note;
                         note
                     }
                 }
@@ -183,13 +181,10 @@ impl NotationExpander {
 
 impl Notation {
     // Eliminate any Repeats.
-    pub(crate) fn expand(&self, arity: usize, num_args: usize, empty_text: bool)
-                         -> Notation
-    {
+    // If the node is texty, `len` is the length of the text.
+    pub(crate) fn expand(&self, len: usize) -> Notation {
         NotationExpander{
-            arity: arity,
-            num_args: num_args,
-            empty_text: empty_text
+            len: len
         }.expand(self)
     }
 

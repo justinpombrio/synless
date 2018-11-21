@@ -1,4 +1,5 @@
 use std::iter;
+use std::fmt;
 
 use crate::geometry::Bound;
 #[cfg(test)]
@@ -8,14 +9,14 @@ use crate::geometry::Col;
 /// A set of Bounds. If one Bound is strictly smaller than another,
 /// only the smaller one will be kept.
 /// Each Bound may have some related data T.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct BoundSet<T> where T: Clone {
     set: Vec<(Bound, T)>
 }
 
 impl<T> BoundSet<T> where T: Clone {
     /// Construct an empty BoundSet.
-    pub fn new() -> BoundSet<T> {
+    pub(super) fn new() -> BoundSet<T> {
         BoundSet {
             set: vec!()
         }
@@ -23,26 +24,18 @@ impl<T> BoundSet<T> where T: Clone {
 
     /// Pick the best (i.e., smallest) Bound that fits within the
     /// given Bound. Panics if none fit.
-    pub fn fit_bound(&self, space: Bound) -> (Bound, T) {
+    pub(super) fn fit_bound(&self, space: Bound) -> (Bound, T) {
         let bound = self.into_iter().filter(|(bound, _)| {
             bound.dominates(space)
         }).nth(0);
         match bound {
             Some(bound) => bound,
-            None        => panic!("No bound fits within given width {}",
-                                  space.width)
+            None        => panic!("No bound fits within given width {}.\nBoundset: {:?}",
+                                  space.width, self)
         }
     }
 
-    /// Pick the best (i.e., smallest) Bound that fits within the
-    /// given width. Panics if none fit.
-    #[cfg(test)]
-    pub(crate) fn fit_width(&self, width: Col) -> (Bound, T) {
-        let bound = Bound::infinite_scroll(width);
-        self.fit_bound(bound)
-    }
-
-    pub fn singleton(bound: Bound, val: T) -> BoundSet<T> {
+    pub(super) fn singleton(bound: Bound, val: T) -> BoundSet<T> {
         let mut set = BoundSet::new();
         set.insert(bound, val);
         set
@@ -50,7 +43,7 @@ impl<T> BoundSet<T> where T: Clone {
 
     // TODO: efficiency (can go from O(n) to O(sqrt(n)))
     // MUST FILTER IDENTICALLY TO LayoutSet::insert
-    pub fn insert(&mut self, bound: Bound, val: T) {
+    pub(super) fn insert(&mut self, bound: Bound, val: T) {
         if bound.too_wide() {
             return;
         }
@@ -63,12 +56,26 @@ impl<T> BoundSet<T> where T: Clone {
         self.set.push((bound, val));
     }
 
+    /// Pick the best (i.e., smallest) Bound that fits within the
+    /// given width. Panics if none fit.
     #[cfg(test)]
-    pub(crate) fn first(&self) -> (Bound, T) {
+    pub(super) fn fit_width(&self, width: Col) -> (Bound, T) {
+        let bound = Bound::infinite_scroll(width);
+        self.fit_bound(bound)
+    }
+
+    #[cfg(test)]
+    pub(super) fn first(&self) -> (Bound, T) {
         self.set[0].clone()
     }
 }
 
+impl<T> fmt::Debug for BoundSet<T> where T: Clone {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let set: Vec<&Bound> = self.set.iter().map(|(bound, _)| bound).collect();
+        write!(f, "{:?}", set)
+    }
+}
 
 /// Iterator over Bounds in a BoundSet.
 pub struct BoundIter<'a, T: 'a> where T: Clone {

@@ -74,6 +74,7 @@ mod example {
     use super::*;
 
     /// An example language for testing.
+    // TODO: nvm, it's used to test `pretty`.
     pub fn example_language() -> Language {
         let mut language = Language::new("TestLang");
 
@@ -82,63 +83,6 @@ mod example {
                                   None);
         let construct = Construct::new("plus", "Expr", arity, 'p');
         language.add(construct);
-/*
-        let syn = repeat(Repeat{
-            empty:  empty(),
-            lone:   star(),
-            first:  star() + punct(", "),
-            middle: star() + punct(", "),
-            last:   star()
-        }) | repeat(Repeat{
-            empty:  empty(),
-            lone:   star(),
-            first:  flush(star() + punct(",")),
-            middle: flush(star() + punct(",")),
-            last:   star()
-        });
-        lang.add('a', Construct::new("args", Arity::extendable(0), syn));
-
-        let syn = repeat(Repeat{
-            empty:  punct("[]"),
-            lone:   punct("[") + star() + punct("]"),
-            first:  punct("[") + star() + punct(", "),
-            middle: star() + punct(", "),
-            last:   star() + punct("]")
-        })| repeat(Repeat{
-            empty:  punct("[]"),
-            lone:   punct("[") + star() + punct("]"),
-            first:  flush(star() + punct(",")),
-            middle: flush(star() + punct(",")),
-            last:   star() + punct("]")
-        })| repeat(Repeat{
-            empty:  punct("[]"),
-            lone:   punct("[") + star() + punct("]"),
-            first:  punct("[")
-                + (star() + punct(", ") | flush(star() + punct(","))),
-            middle: star() + punct(", ") | flush(star() + punct(",")),
-            last:   star() + punct("]")
-        });
-        lang.add('l', Construct::new("list", Arity::extendable(0), syn));
-
-        let syn =
-            word("func ") + child(0)
-            + punct("(") + child(1) + punct(") { ") + child(2) + punct(" }")
-            | flush(word("func ") + child(0) + punct("(") + child(1) + punct(") {"))
-            + flush(word("  ") + child(2))
-            + punct("}")
-            | flush(word("func ") + child(0) + punct("("))
-            + flush(word("  ") + child(1) + punct(")"))
-            + flush(punct("{"))
-            + flush(word("  ") + child(2))
-            + punct("}");
-        lang.add('f', Construct::new("func", Arity::fixed(3), syn));
-
-        let syn = if_empty_text(txt() + punct("·"), txt());
-        lang.add('i', Construct::new("iden", Arity::text(), syn));
-
-        let syn = punct("'") + txt() + punct("'");
-        lang.add('s', Construct::new("strn", Arity::text(), syn));
-         */
 
         language
     }
