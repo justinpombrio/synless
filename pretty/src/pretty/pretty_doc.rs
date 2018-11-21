@@ -94,6 +94,10 @@ fn pp<Doc, Screen>(doc: &Doc, screen: &mut Screen, lay: LayoutRegion)
             child_lay.shift_by(lay.region.pos);
             pp(child, screen, child_lay)
         }
+        Concat(box lay1, box lay2) => {
+            pp(doc, screen, lay1)?;
+            pp(doc, screen, lay2)
+        }
         Horz(box lay1, box lay2) => {
             pp(doc, screen, lay1)?;
             pp(doc, screen, lay2)

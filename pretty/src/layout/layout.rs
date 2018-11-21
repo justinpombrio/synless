@@ -12,6 +12,7 @@ use self::Layout::*;
 pub trait Lay where Self: Clone {
     fn empty() -> Self;
     fn literal(s: &str, style: Style) -> Self;
+    fn concat(&self, other: Self) -> Self;
     fn horz(&self, other: Self) -> Self;
     fn vert(&self, other: Self) -> Self;
     fn text(child: Bound, style: Style) -> Self;
@@ -22,6 +23,7 @@ pub trait Lay where Self: Clone {
 impl Lay for () {
     fn empty()                            {}
     fn literal(_s: &str, _style: Style)   {}
+    fn concat(&self, _other: ())          {}
     fn horz(&self, _other: ())            {}
     fn vert(&self, _other: ())            {}
     fn text(_child: Bound, _style: Style) {}
@@ -46,13 +48,25 @@ impl Lay for Bound {
             height: 0
         }
     }
-
-    fn horz(&self, other: Bound) -> Bound {
-        Bound{
+    
+    fn concat(&self, other: Bound) -> Bound {
+        Bound {
             width:  cmp::max(self.width,
                              self.indent + other.width),
             height: self.height + other.height,
             indent: self.indent + other.indent
+        }
+    }
+
+    fn horz(&self, other: Bound) -> Bound {
+        Bound {
+            width: self.width + other.width,
+            height: cmp::max(self.height, other.height),
+            indent: if self.height > other.height {
+                self.indent
+            } else {
+                self.width + other.indent
+            }
         }
     }
 
@@ -94,6 +108,8 @@ pub enum Layout {
     Literal(String, Style),
     /// Display a text node's text with the given style.
     Text(Style),
+    /// Display the standard concatenation of the two layouts.
+    Concat(Box<LayoutRegion>, Box<LayoutRegion>),
     /// Display the horizontal concatenation of the two layouts.
     Horz(Box<LayoutRegion>, Box<LayoutRegion>),
     /// Display the vertical concatenation of the two layouts.
@@ -116,6 +132,10 @@ impl Layout {
             Empty         => (),
             Literal(_, _) => (),
             Text(_)       => (),
+            Concat(box lay1, box lay2) => {
+                lay1.shift_by(pos);
+                lay2.shift_by(pos);
+            }
             Horz(box lay1, box lay2) => {
                 lay1.shift_by(pos);
                 lay2.shift_by(pos);
@@ -147,8 +167,11 @@ impl fmt::Debug for LayoutRegion {
                 let ch = format!("{}", index).pop().unwrap();
                 bound.debug_print(f, ch, indent)
             }
-            Horz(ref lay1, ref lay2) => {
+            Concat(ref lay1, ref lay2) => {
                 write!(f, "{:?}{:?}", lay1, lay2)
+            }
+            Horz(ref lay1, ref lay2) => {
+                write!(f, "HORZ\n{:?}\n\n{:?}", lay1, lay2)
             }
             Vert(ref lay1, ref lay2) => {
                 let indent_str = " ".repeat(indent as usize);
@@ -179,10 +202,27 @@ impl Lay for LayoutRegion {
         }
     }
 
-    fn horz(&self, other: LayoutRegion) -> LayoutRegion {
+    fn concat(&self, other: LayoutRegion) -> LayoutRegion {
         let self_lay = self.clone();
         let mut other_lay = other.clone();
         other_lay.shift_by(self.region.end());
+        LayoutRegion {
+            region: Region {
+                pos:   self.region.pos,
+                bound: self.region.bound.concat(other.region.bound)
+            },
+            layout: Layout::Concat(Box::new(self_lay), Box::new(other_lay))
+        }
+    }
+
+    fn horz(&self, other: LayoutRegion) -> LayoutRegion {
+        let self_lay = self.clone();
+        let mut other_lay = other.clone();
+        let delta = Pos {
+            row: 0,
+            col: self.region.width()
+        };
+        other_lay.shift_by(delta);
         LayoutRegion {
             region: Region {
                 pos:   self.region.pos,
@@ -292,33 +332,23 @@ fn lay<L: Lay>(child_bounds: &Vec<Bounds>, notation: &Notation) -> BoundSet<L> {
                 (bound, L::child(*index, bound))
             }).collect()
         }
+        Notation::Concat(note1, note2) => {
+            BoundSet::combine(&lay(child_bounds, note1),
+                              &lay(child_bounds, note2),
+                              |b1, b2| b1.concat(b2),
+                              |v1, v2| v1.concat(v2))
+        }
         Notation::Horz(note1, note2) => {
-            let set1: BoundSet<L> = lay(child_bounds, note1);
-            let set2: BoundSet<L> = lay(child_bounds, note2);
-
-            let mut set = BoundSet::new();
-            for (bound1, val1) in set1.into_iter() {
-                for (bound2, val2) in set2.into_iter() {
-                    let bound = bound1.horz(bound2);
-                    let val = val1.horz(val2);
-                    set.insert(bound, val);
-                }
-            }
-            set
+            BoundSet::combine(&lay(child_bounds, note1),
+                              &lay(child_bounds, note2),
+                              |b1, b2| b1.horz(b2),
+                              |v1, v2| v1.horz(v2))
         }
         Notation::Vert(note1, note2) => {
-            let set1: BoundSet<L> = lay(child_bounds, note1);
-            let set2: BoundSet<L> = lay(child_bounds, note2);
-
-            let mut set = BoundSet::new();
-            for (bound1, val1) in set1.into_iter() {
-                for (bound2, val2) in set2.into_iter() {
-                    let bound = bound1.vert(bound2);
-                    let val = val1.vert(val2);
-                    set.insert(bound, val);
-                }
-            }
-            set
+            BoundSet::combine(&lay(child_bounds, note1),
+                              &lay(child_bounds, note2),
+                              |b1, b2| b1.vert(b2),
+                              |v1, v2| v1.vert(v2))
         }
         Notation::NoWrap(note) => {
             let set = lay(child_bounds, note);

@@ -14,6 +14,8 @@ pub enum Notation {
     Literal(String, Style),
     /// Display a piece of text. Must be used on a texty node.
     Text(Style),
+    /// Display the second notation after the first (standard concatenation).
+    Concat(Box<Notation>, Box<Notation>),
     /// Display the second notation to the right of the first (horizontal
     /// concatenation).
     Horz(Box<Notation>, Box<Notation>),
@@ -97,7 +99,12 @@ pub fn if_empty_text(note1: Notation, note2: Notation) -> Notation {
     IfEmptyText(Box::new(note1), Box::new(note2))
 }
 
-/// Construct a `Horz`. You can also use `+` for this.
+/// Construct a `Concat`. You can also use `+` for this.
+pub fn concat(note1: Notation, note2: Notation) -> Notation {
+    Concat(Box::new(note1), Box::new(note2))
+}
+
+/// Construct a `Horz`.
 pub fn horz(note1: Notation, note2: Notation) -> Notation {
     Horz(Box::new(note1), Box::new(note2))
 }
@@ -115,9 +122,9 @@ pub fn choice(note1: Notation, note2: Notation) -> Notation {
 impl Add<Notation> for Notation {
     ///
     type Output = Notation;
-    /// Shorthand for `Horz`.
+    /// Shorthand for `Concat`.
     fn add(self, other: Notation) -> Notation {
-        Horz(Box::new(self), Box::new(other))
+        Concat(Box::new(self), Box::new(other))
     }
 }
 
@@ -151,7 +158,8 @@ impl NotationExpander {
             &Text(_)       => notation.clone(),
             &Child(_)      => notation.clone(),
             &NoWrap(ref s) => no_wrap(self.expand(s)),
-            &Horz(ref a, ref b)   => self.expand(a) + self.expand(b),
+            &Concat(ref a, ref b) => self.expand(a) + self.expand(b),
+            &Horz(ref a, ref b)   => horz(self.expand(a), self.expand(b)),
             &Vert(ref a, ref b)   => self.expand(a) ^ self.expand(b),
             &Choice(ref a, ref b) => self.expand(a) | self.expand(b),
             &IfEmptyText(ref a, ref b) =>
@@ -193,8 +201,10 @@ impl Notation {
             &Empty => Empty,
             &Literal(_, _) | &Text(_) | &Child(_) => self.clone(),
             &NoWrap(ref s) => no_wrap(s.replace_star(child)),
-            &Horz(ref a, ref b) =>
+            &Concat(ref a, ref b) =>
                 a.replace_star(child) + b.replace_star(child),
+            &Horz(ref a, ref b) =>
+                horz(a.replace_star(child), b.replace_star(child)),
             &Vert(ref a, ref b) =>
                 a.replace_star(child) ^ b.replace_star(child),
             &IfEmptyText(ref a, ref b) =>

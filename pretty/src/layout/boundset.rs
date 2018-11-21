@@ -56,6 +56,24 @@ impl<T> BoundSet<T> where T: Clone {
         self.set.push((bound, val));
     }
 
+    /// Combine two boundsets. Produces a boundset whose elements are
+    /// `(f(b1, b2), g(t1, t2))`
+    /// for all `(b1, t1)` in `set1` and all `(b2, t2)` in `set2`.
+    pub(super) fn combine<F, G>(set1: &BoundSet<T>, set2: &BoundSet<T>, f: F, g: G)
+                                -> BoundSet<T>
+        where F: Fn(Bound, Bound) -> Bound, G: Fn(T, T) -> T
+    {
+        let mut set = BoundSet::new();
+        for (bound1, val1) in set1.into_iter() {
+            for (bound2, val2) in set2.into_iter() {
+                let bound = f(bound1, bound2);
+                let val = g(val1.clone(), val2);
+                set.insert(bound, val);
+            }
+        }
+        set
+    }
+
     /// Pick the best (i.e., smallest) Bound that fits within the
     /// given width. Panics if none fit.
     #[cfg(test)]

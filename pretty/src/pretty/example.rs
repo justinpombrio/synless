@@ -9,6 +9,8 @@ use crate::pretty::pretty_doc::PrettyDocument;
 use self::Notation::*;
 use self::ExampleNode::{Branch, Leaf};
 
+// TODO: test horz concat
+
 
 pub struct ExampleTree {
     arity: usize,
