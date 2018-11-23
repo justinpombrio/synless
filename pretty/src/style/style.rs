@@ -66,7 +66,7 @@ impl Style {
 
     /// Ordinary colored text.
     pub fn color(color: Color) -> Style {
-        Style::new(color, Emph::plain(), Shade(0), false)
+        Style::new(color, Emph::plain(), Shade::black(), false)
     }
 
     /// Color the background. Visually very strong!

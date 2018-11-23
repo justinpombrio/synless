@@ -17,6 +17,7 @@ use super::Color::*;
 /// `cursor` is the color of the cursor.
 ///
 /// All colors are given as [terminal 256 colors](https://en.wikipedia.org/wiki/ANSI_escape_code).
+// TODO make these u8, or true color
 pub struct ColorTheme {
     pub white:   u16,
     pub red:     u16,
