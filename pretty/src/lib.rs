@@ -9,7 +9,7 @@ mod notation;
 mod layout;
 mod pretty;
 
-pub use self::style::{Style, ColorTheme};
+pub use self::style::{Style, ColorTheme, Color};
 pub use self::geometry::{Row, Col, Pos, Bound, Region, MAX_WIDTH};
 pub use self::notation::{Notation, Repeat,
                          empty, literal, text, no_wrap, horz, vert,

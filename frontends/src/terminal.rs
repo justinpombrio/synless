@@ -128,6 +128,13 @@ impl Frontend for Terminal {
      */
 }
 
+impl Drop for Terminal {
+    fn drop(&mut self) {
+        self.write(cursor::Show)
+            .expect("failed to re-show cursor when dropping terminal")
+    }
+}
+
 /// Convert a synless Pos into termion's XY coordinates.
 fn pos_to_coords(pos: Pos) -> (u16, u16) {
     (pos.col as u16 + 1, pos.row as u16 + 1)
