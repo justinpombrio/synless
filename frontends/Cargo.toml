@@ -2,9 +2,9 @@
 workspace = ".."
 name = "frontends"
 version = "0.1.0"
-authors = ["Justin Pombrio <justinpombrio@cs.brown.edu>"]
+authors = ["Justin Pombrio <justinpombrio@cs.brown.edu>", "e-matteson <e.r.matteson@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-rustbox = "*"
+termion = "1.5"
 pretty = { path = "../pretty" }

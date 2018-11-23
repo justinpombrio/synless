@@ -1,84 +1,104 @@
-//! Render to and poll events from the terminal emulator.
+//! Render to and receive events from the terminal emulator.
 
-use rustbox;
-use rustbox::RustBox;
-use rustbox::{InitOptions, InputMode, OutputMode, Mouse, Color};
-use rustbox::{RB_UNDERLINE, RB_NORMAL, RB_BOLD};
+use std::fmt::Display;
+use std::io::{self, stdin, stdout, Stdin, Stdout, Write};
 
-use pretty::{Pos, Col, Row};
-use pretty::{Style, ColorTheme};
+use termion::clear;
+use termion::color::{AnsiValue, Bg, Fg};
+use termion::cursor;
+use termion::event;
+use termion::input::{self, MouseTerminal, TermRead};
+use termion::raw::{IntoRawMode, RawTerminal};
+use termion::screen::AlternateScreen;
+use termion::style::{Bold, NoBold, NoUnderline, Underline};
+
+use pretty::{Col, Pos, Row};
+use pretty::{ColorTheme, Style};
+
 use crate::frontend::{Event, Frontend};
 
-use self::Event::{MouseEvent, KeyEvent};
+use self::Event::{KeyEvent, MouseEvent};
 
-
-/// Used to render to and poll events from the terminal emulator.
-/// Implemented using [Rustbox](https://github.com/gchp/rustbox).
+/// Used to render to and receive events from the terminal emulator.
+/// Implemented using [Termion](https://github.com/redox-os/termion).
 /// Make only one.
 pub struct Terminal {
-    rust_box: RustBox,
-    color_theme: ColorTheme
+    stdout: AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>,
+    events: input::Events<Stdin>,
+    color_theme: ColorTheme,
+}
+
+impl Terminal {
+    fn write<T: Display>(&mut self, thing: T) -> Result<(), io::Error> {
+        write!(self.stdout, "{}", thing)
+    }
+
+    fn go_to(&mut self, pos: Pos) -> Result<(), io::Error> {
+        let (x, y) = pos_to_coords(pos);
+        self.write(cursor::Goto(x, y))
+    }
+
+    fn apply_style(&mut self, style: Style) -> Result<(), io::Error> {
+        if style.emph.bold {
+            self.write(Bold)?;
+        } else {
+            self.write(NoBold)?;
+        }
+
+        if style.emph.underlined {
+            self.write(Underline)?;
+        } else {
+            self.write(NoUnderline)?;
+        }
+
+        self.write(Fg(AnsiValue(self.color_theme.foreground(style) as u8)))?;
+        self.write(Bg(AnsiValue(self.color_theme.background(style) as u8)))
+    }
 }
 
 impl Frontend for Terminal {
-    fn new(theme: ColorTheme) -> Terminal {
-        let settings = InitOptions {
-            input_mode: InputMode::EscMouse,
-            output_mode: OutputMode::EightBit,
-            buffer_stderr: true
+    type Error = io::Error;
+
+    fn new(theme: ColorTheme) -> Result<Terminal, io::Error> {
+        let mut term = Terminal {
+            stdout: AlternateScreen::from(MouseTerminal::from(stdout().into_raw_mode()?)),
+            events: stdin().events(),
+            color_theme: theme,
         };
-        match RustBox::init(settings) {
-            Result::Ok(rb) => Terminal{
-                rust_box: rb,
-                color_theme: theme
-            },
-            Result::Err(e) => panic!("Failed to initialize Rustbox!\n{}", e),
-        }
+        term.write(cursor::Hide)?;
+        Ok(term)
     }
 
-    fn present(&mut self) {
-        self.rust_box.present();
+    fn present(&mut self) -> Result<(), io::Error> {
+        self.stdout.flush()
     }
 
-    fn simple_print(&mut self, text: &str, pos: Pos) {
-        self.print_str(text, pos, Style::plain());
+    fn print_str(&mut self, text: &str, pos: Pos, style: Style) -> Result<(), io::Error> {
+        self.go_to(pos)?;
+        self.apply_style(style)?;
+        self.write(text)
     }
 
-    fn print_char(&mut self, ch: char, pos: Pos, style: Style) {
-        let fg = Color::Byte(self.color_theme.foreground(style));
-        let bg = Color::Byte(self.color_theme.background(style));
-        let ul = if style.emph.underlined { RB_UNDERLINE } else { RB_NORMAL };
-        let bd = if style.emph.bold { RB_BOLD } else { RB_NORMAL };
-        let emph = ul | bd;
-
-        let (row, col) = (pos.row as usize, pos.col as usize);
-        self.rust_box.print_char(col, row, emph, fg, bg, ch);
+    fn clear(&mut self) -> Result<(), io::Error> {
+        self.write(clear::All)
     }
 
-    fn clear(&mut self) {
-        self.rust_box.clear();
+    fn size(&self) -> Result<Pos, io::Error> {
+        let (x, y) = termion::terminal_size()?;
+        Ok(size_to_pos(x, y))
     }
 
-    fn size(&self) -> Pos {
-        Pos{
-            col: self.rust_box.width() as Col,
-            row: self.rust_box.height() as Row
-        }
-    }
-
-    fn poll_event(&self) -> Option<Event> {
-        // Ctrl-n = Enter
-        // Ctrl-r = Return?
-        // Ctrl-m = Tab
-        match self.rust_box.poll_event(false) {
-            Ok(rustbox::Event::MouseEvent(Mouse::Left, x, y)) =>
-                Some(MouseEvent(Pos{ col: x as Col, row: y as Row })),
-            Ok(rustbox::Event::KeyEvent(key)) =>
-                Some(KeyEvent(key)),
-            Ok(_) =>
-                None,
-            Err(e) =>
-                panic!("Failed to poll terminal event!\n{}", e)
+    fn next_event(&mut self) -> Option<Result<Event, io::Error>> {
+        match self.events.next() {
+            Some(Ok(event::Event::Key(key))) => Some(Ok(KeyEvent(key))),
+            Some(Ok(event::Event::Mouse(event::MouseEvent::Press(
+                event::MouseButton::Left,
+                x,
+                y,
+            )))) => Some(Ok(MouseEvent(coords_to_pos(x, y)))),
+            Some(Ok(_)) => self.next_event(),
+            Some(Err(err)) => Some(Err(err)),
+            None => None,
         }
     }
 
@@ -106,4 +126,25 @@ impl Frontend for Terminal {
         }
     }
      */
+}
+
+/// Convert a synless Pos into termion's XY coordinates.
+fn pos_to_coords(pos: Pos) -> (u16, u16) {
+    (pos.col as u16 + 1, pos.row as u16 + 1)
+}
+
+/// Convert termion's XY coordinates into a synless Pos.
+fn coords_to_pos(x: u16, y: u16) -> Pos {
+    Pos {
+        col: x as Col - 1,
+        row: y as Row - 1,
+    }
+}
+
+/// Convert termion's XY size into a synless Pos.
+fn size_to_pos(x: u16, y: u16) -> Pos {
+    Pos {
+        col: x as Col,
+        row: y as Row,
+    }
 }
