@@ -36,4 +36,4 @@ Please read:
 
 [The Synless Design Documentation](doc/design.html) (for developers)
 
-[An Imcomplete Survey of Tree Editors](doc/survey.html)
+[An Incomplete Survey of Tree Editors](doc/survey.html)
