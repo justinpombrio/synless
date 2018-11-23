@@ -30,10 +30,10 @@ Synless is not:
 
 Please read:
 
-[Why Synless? And why "Synless"?](doc/why.html)
+[Why Synless? And why "Synless"?](doc/why.md)
 
-[The Synless Documentation](doc/readme.html)
+[The Synless Documentation](doc/readme.md)
 
-[The Synless Design Documentation](doc/design.html) (for developers)
+[The Synless Design Documentation](doc/design.md) (for developers)
 
-[An Incomplete Survey of Tree Editors](doc/survey.html)
+[An Incomplete Survey of Tree Editors](doc/survey.md)
