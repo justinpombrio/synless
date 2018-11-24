@@ -36,7 +36,7 @@ impl TermDemo {
     /// Print an intro message explaining how the demo will work.
     fn intro(&mut self) -> Result<(), io::Error> {
         self.println(
-            "This is a demo of printing to the terminal.",
+            "This is a demo of terminal frontend features.",
             Style::plain(),
         )?;
         self.println("Click to paint!", Style::color(Color::Red))?;
@@ -61,7 +61,7 @@ impl TermDemo {
     fn run(&mut self) -> Result<(), io::Error> {
         for _ in 0..self.num_events {
             if !self.handle_event()? {
-                break
+                break;
             }
         }
         Ok(())

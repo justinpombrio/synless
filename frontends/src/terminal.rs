@@ -10,7 +10,7 @@ use termion::event;
 use termion::input::{self, MouseTerminal, TermRead};
 use termion::raw::{IntoRawMode, RawTerminal};
 use termion::screen::AlternateScreen;
-use termion::style::{Bold, NoBold, NoUnderline, Underline};
+use termion::style::{Bold, NoBold, NoUnderline, Reset, Underline};
 
 use pretty::{Col, Pos, Row};
 use pretty::{ColorTheme, Style};
@@ -80,6 +80,9 @@ impl Frontend for Terminal {
     }
 
     fn clear(&mut self) -> Result<(), io::Error> {
+        // Reset style before clearing, or the most recently used background
+        // color will fill the screen.
+        self.write(Reset)?;
         self.write(clear::All)
     }
 
