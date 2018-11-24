@@ -1,4 +1,4 @@
-use std::io;
+use std::{io, thread, time};
 
 use termion::event::Key;
 
@@ -7,7 +7,6 @@ use pretty::{Color, ColorTheme, Pos, Row, Style};
 
 fn main() -> Result<(), io::Error> {
     let mut demo = TermDemo::new(20)?;
-    demo.intro()?;
     demo.run()?;
     drop(demo);
     println!("Exited alternate screen. Your cursor should be visible again.");
@@ -31,6 +30,25 @@ impl TermDemo {
             line: 0,
             term: Terminal::new(ColorTheme::colorful_hexagon())?,
         })
+    }
+
+    /// Respond to some key/mouse events, then quit.
+    fn run(&mut self) -> Result<(), io::Error> {
+        self.intro()?;
+        for _ in 0..self.num_events {
+            if !self.handle_event()? {
+                // We quit early.
+                return Ok(());
+            }
+        }
+
+        self.println(
+            &format!("Handled all {} events, goodbye!",  self.num_events),
+            Style::reverse_color(Color::Yellow),
+        )?;
+        thread::sleep(time::Duration::from_secs(1));
+
+        Ok(())
     }
 
     /// Print an intro message explaining how the demo will work.
@@ -57,16 +75,6 @@ impl TermDemo {
         )
     }
 
-    /// Respond to some key/mouse events, then quit.
-    fn run(&mut self) -> Result<(), io::Error> {
-        for _ in 0..self.num_events {
-            if !self.handle_event()? {
-                break;
-            }
-        }
-        Ok(())
-    }
-
     /// Wait for an event, then handle it. Return false if we should quit.
     fn handle_event(&mut self) -> Result<bool, io::Error> {
         match self.term.next_event() {
@@ -74,6 +82,11 @@ impl TermDemo {
                 self.paint(pos)?;
             }
             Some(Ok(Event::KeyEvent(Key::Char('q')))) => {
+                self.println(
+                    &format!("Quitting, goodbye!"),
+                    Style::reverse_color(Color::Yellow),
+                )?;
+                thread::sleep(time::Duration::from_secs(1));
                 return Ok(false);
             }
             Some(Ok(Event::KeyEvent(Key::Char('c')))) => {
