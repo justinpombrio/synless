@@ -155,10 +155,10 @@ impl<'t> PrettyDocument for ExampleTreeRef<'t> {
 
 fn example_notation() -> HashMap<String, Notation> {
     fn punct(text: &str) -> Notation {
-        literal(text, Style::color(Color::Yellow))
+        literal(text, Style::color(Color::Base0A))
     }
     fn word(text: &str) -> Notation {
-        literal(text, Style::color(Color::Blue))
+        literal(text, Style::color(Color::Base0D))
     }
     fn txt() -> Notation {
         text(Style::plain())

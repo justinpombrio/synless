@@ -28,7 +28,7 @@ impl TermDemo {
         Ok(Self {
             num_events,
             line: 0,
-            term: Terminal::new(ColorTheme::colorful_hexagon())?,
+            term: Terminal::new(ColorTheme::default_dark())?,
         })
     }
 
@@ -44,7 +44,7 @@ impl TermDemo {
 
         self.println(
             &format!("Handled all {} events, goodbye!",  self.num_events),
-            Style::reverse_color(Color::Yellow),
+            Style::reverse_color(Color::Base09),
         )?;
         thread::sleep(time::Duration::from_secs(1));
 
@@ -57,21 +57,21 @@ impl TermDemo {
             "This is a demo of terminal frontend features.",
             Style::plain(),
         )?;
-        self.println("Click to paint!", Style::color(Color::Red))?;
+        self.println("Click to paint!", Style::color(Color::Base08))?;
         self.println(
             "Type q to quit, c to clear screen, or s to print size.",
-            Style::color(Color::Yellow),
+            Style::color(Color::Base0A),
         )?;
         self.println(
             "Or type something else to print its event below.",
-            Style::color(Color::Green),
+            Style::color(Color::Base0B),
         )?;
         self.println(
             &format!(
                 "The demo will end after {} keypresses or clicks.",
                 self.num_events
             ),
-            Style::color(Color::Blue),
+            Style::color(Color::Base0D),
         )
     }
 
@@ -84,7 +84,7 @@ impl TermDemo {
             Some(Ok(Event::KeyEvent(Key::Char('q')))) => {
                 self.println(
                     &format!("Quitting, goodbye!"),
-                    Style::reverse_color(Color::Yellow),
+                    Style::reverse_color(Color::Base09),
                 )?;
                 thread::sleep(time::Duration::from_secs(1));
                 return Ok(false);
@@ -96,29 +96,29 @@ impl TermDemo {
                 let size = self.term.size()?;
                 self.println(
                     &format!("size: ({},{})", size.row, size.col),
-                    Style::reverse_color(Color::Magenta),
+                    Style::reverse_color(Color::Base0E),
                 )?;
             }
             Some(Ok(Event::KeyEvent(Key::Char(c)))) => {
                 self.println(
                     &format!("got character: {}", c),
-                    Style::reverse_color(Color::Green),
+                    Style::reverse_color(Color::Base0B),
                 )?;
             }
             Some(Ok(Event::KeyEvent(ev))) => {
                 self.println(
                     &format!("got other key event: {:?}", ev),
-                    Style::reverse_color(Color::Cyan),
+                    Style::reverse_color(Color::Base0C),
                 )?;
             }
             Some(Err(err)) => {
                 self.println(
                     &format!("got error: {:?}", err),
-                    Style::reverse_color(Color::Magenta),
+                    Style::reverse_color(Color::Base0E),
                 )?;
             }
             None => {
-                self.println("got no event!", Style::reverse_color(Color::Red))?;
+                self.println("got no event!", Style::reverse_color(Color::Base08))?;
             }
         }
         Ok(true)
@@ -135,7 +135,7 @@ impl TermDemo {
     /// Draw a blue '!' at the given position.
     fn paint(&mut self, pos: Pos) -> Result<(), io::Error> {
         self.term
-            .print_char('!', pos, Style::reverse_color(Color::Blue))?;
+            .print_char('!', pos, Style::reverse_color(Color::Base0D))?;
         self.term.present()
     }
 

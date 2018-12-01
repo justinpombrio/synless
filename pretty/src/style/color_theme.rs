@@ -1,7 +1,6 @@
 use super::style::*;
 use super::Color::*;
 
-
 /// A color theme.
 ///
 /// The colors are nominally the six standard terminal colors (plus
@@ -16,18 +15,38 @@ use super::Color::*;
 ///
 /// `cursor` is the color of the cursor.
 pub struct ColorTheme {
-    pub white: Rgb,
-    pub red: Rgb,
-    pub yellow: Rgb,
-    pub green: Rgb,
-    pub cyan: Rgb,
-    pub blue: Rgb,
-    pub magenta: Rgb,
-    pub shade0: Rgb,
-    pub shade1: Rgb,
-    pub shade2: Rgb,
-    pub shade3: Rgb,
-    pub cursor: Rgb,
+    /// Default Background, was shade0
+    pub base00: Rgb,
+    /// Lighter Background (Used for status bars), was shade1
+    pub base01: Rgb,
+    /// Selection Background, was shade2
+    pub base02: Rgb,
+    /// Comments, Invisibles, Line Highlighting
+    pub base03: Rgb,
+    /// Dark Foreground (Used for status bars)
+    pub base04: Rgb,
+    /// Default Foreground, Caret, Delimiters, Operators
+    pub base05: Rgb,
+    /// Light Foreground (Not often used)
+    pub base06: Rgb,
+    /// Light Background (Not often used), was cursor
+    pub base07: Rgb,
+    /// Variables, XML Tags, Markup Link Text, Markup Lists, Diff Deleted
+    pub base08: Rgb,
+    /// Integers, Boolean, Constants, XML Attributes, Markup Link Url
+    pub base09: Rgb,
+    /// Classes, Markup Bold, Search Text Background
+    pub base0A: Rgb,
+    /// Strings, Inherited Class, Markup Code, Diff Inserted
+    pub base0B: Rgb,
+    /// Support, Regular Expressions, Escape Characters, Markup Quotes
+    pub base0C: Rgb,
+    /// Functions, Methods, Attribute IDs, Headings
+    pub base0D: Rgb,
+    /// Keywords, Storage, Selector, Markup Italic, Diff Changed
+    pub base0E: Rgb,
+    /// Deprecated, Opening/Closing Embedded Language Tags, e.g. <?php ?>
+    pub base0F: Rgb,
 }
 
 /// A 24-bit RGB color.
@@ -39,47 +58,52 @@ pub struct Rgb {
 }
 
 impl ColorTheme {
-    /// A simple color theme, with colors uniformly distributed on a circle in color space.
-    ///
-    /// See (Colorful Dodecagon)[http://justinpombrio.net/random/terminal-colors.html].
-    pub fn colorful_hexagon() -> ColorTheme {
+    /// The "default dark" Base16 colorscheme, by Chris Kempson (http://chriskempson.com)
+    pub fn default_dark() -> ColorTheme {
         ColorTheme {
-            white: Rgb::from_hex("#e2e2e2"),
-            red: Rgb::from_hex("#fc9c93"),
-            yellow: Rgb::from_hex("#cdb36b"),
-            green: Rgb::from_hex("#7ac68f"),
-            cyan: Rgb::from_hex("#01c8d9"),
-            blue: Rgb::from_hex("#80b9fe"),
-            magenta: Rgb::from_hex("#e49fdb"),
-            shade0: Rgb::from_hex("#4e4e4e"),
-            shade1: Rgb::from_hex("#262626"),
-            shade2: Rgb::from_hex("#080808"),
-            shade3: Rgb::from_hex("#080808"),
-            cursor: Rgb::from_hex("#eeeeee"),
+            base00: Rgb::from_hex("#181818"),
+            base01: Rgb::from_hex("#282828"),
+            base02: Rgb::from_hex("#383838"),
+            base03: Rgb::from_hex("#585858"),
+            base04: Rgb::from_hex("#b8b8b8"),
+            base05: Rgb::from_hex("#d8d8d8"),
+            base06: Rgb::from_hex("#e8e8e8"),
+            base07: Rgb::from_hex("#f8f8f8"),
+            base08: Rgb::from_hex("#ab4642"),
+            base09: Rgb::from_hex("#dc9656"),
+            base0A: Rgb::from_hex("#f7ca88"),
+            base0B: Rgb::from_hex("#a1b56c"),
+            base0C: Rgb::from_hex("#86c1b9"),
+            base0D: Rgb::from_hex("#7cafc2"),
+            base0E: Rgb::from_hex("#ba8baf"),
+            base0F: Rgb::from_hex("#a16946"),
         }
     }
 
     fn color(&self, color: Color) -> Rgb {
         match color {
-            White => self.white,
-            Red => self.red,
-            Yellow => self.yellow,
-            Green => self.green,
-            Cyan => self.cyan,
-            Blue => self.blue,
-            Magenta => self.magenta,
+            Base00 => self.base00,
+            Base01 => self.base01,
+            Base02 => self.base02,
+            Base03 => self.base03,
+            Base04 => self.base04,
+            Base05 => self.base05,
+            Base06 => self.base06,
+            Base07 => self.base07,
+            Base08 => self.base08,
+            Base09 => self.base09,
+            Base0A => self.base0A,
+            Base0B => self.base0B,
+            Base0C => self.base0C,
+            Base0D => self.base0D,
+            Base0E => self.base0E,
+            Base0F => self.base0F,
         }
     }
 
     /// The background color for a given shade, in this color theme, as a terminal256-color.
     pub fn shade(&self, shade: Shade) -> Rgb {
-        match shade.0 {
-            0 => self.shade0,
-            1 => self.shade1,
-            2 => self.shade2,
-            3 => self.shade3,
-            _ => self.shade3,
-        }
+         self.color(shade.into())
     }
 
     /// The foreground color for a given style, in this color theme, as a terminal256-color.
