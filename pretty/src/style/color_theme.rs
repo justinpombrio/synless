@@ -15,22 +15,27 @@ use super::Color::*;
 /// darkest) shade, which is used for most of the background.
 ///
 /// `cursor` is the color of the cursor.
-///
-/// All colors are given as [terminal 256 colors](https://en.wikipedia.org/wiki/ANSI_escape_code).
-// TODO make these u8, or true color
 pub struct ColorTheme {
-    pub white:   u16,
-    pub red:     u16,
-    pub yellow:  u16,
-    pub green:   u16,
-    pub cyan:    u16,
-    pub blue:    u16,
-    pub magenta: u16,
-    pub shade0:  u16,
-    pub shade1:  u16,
-    pub shade2:  u16,
-    pub shade3:  u16,
-    pub cursor:  u16
+    pub white: Rgb,
+    pub red: Rgb,
+    pub yellow: Rgb,
+    pub green: Rgb,
+    pub cyan: Rgb,
+    pub blue: Rgb,
+    pub magenta: Rgb,
+    pub shade0: Rgb,
+    pub shade1: Rgb,
+    pub shade2: Rgb,
+    pub shade3: Rgb,
+    pub cursor: Rgb,
+}
+
+/// A 24-bit RGB color.
+#[derive(Clone, Copy)]
+pub struct Rgb {
+    pub red: u8,
+    pub green: u8,
+    pub blue: u8,
 }
 
 impl ColorTheme {
@@ -38,47 +43,47 @@ impl ColorTheme {
     ///
     /// See (Colorful Dodecagon)[http://justinpombrio.net/random/terminal-colors.html].
     pub fn colorful_hexagon() -> ColorTheme {
-        ColorTheme{
-            white  : 254,
-            red    : 210,
-            yellow : 179,
-            green  : 114,
-            cyan   : 44,
-            blue   : 111,
-            magenta: 176,
-            shade0 : 239,
-            shade1 : 235,
-            shade2 : 232,
-            shade3 : 232,
-            cursor : 255
+        ColorTheme {
+            white: Rgb::from_hex("#e2e2e2"),
+            red: Rgb::from_hex("#fc9c93"),
+            yellow: Rgb::from_hex("#cdb36b"),
+            green: Rgb::from_hex("#7ac68f"),
+            cyan: Rgb::from_hex("#01c8d9"),
+            blue: Rgb::from_hex("#80b9fe"),
+            magenta: Rgb::from_hex("#e49fdb"),
+            shade0: Rgb::from_hex("#4e4e4e"),
+            shade1: Rgb::from_hex("#262626"),
+            shade2: Rgb::from_hex("#080808"),
+            shade3: Rgb::from_hex("#080808"),
+            cursor: Rgb::from_hex("#eeeeee"),
         }
     }
 
-    fn color(&self, color: Color) -> u16 {
+    fn color(&self, color: Color) -> Rgb {
         match color {
-            White   => self.white,
-            Red     => self.red,
-            Yellow  => self.yellow,
-            Green   => self.green,
-            Cyan    => self.cyan,
-            Blue    => self.blue,
-            Magenta => self.magenta
+            White => self.white,
+            Red => self.red,
+            Yellow => self.yellow,
+            Green => self.green,
+            Cyan => self.cyan,
+            Blue => self.blue,
+            Magenta => self.magenta,
         }
     }
 
     /// The background color for a given shade, in this color theme, as a terminal256-color.
-    pub fn shade(&self, shade: Shade) -> u16 {
+    pub fn shade(&self, shade: Shade) -> Rgb {
         match shade.0 {
             0 => self.shade0,
             1 => self.shade1,
             2 => self.shade2,
             3 => self.shade3,
-            _ => self.shade3
+            _ => self.shade3,
         }
     }
 
     /// The foreground color for a given style, in this color theme, as a terminal256-color.
-    pub fn foreground(&self, style: Style) -> u16 {
+    pub fn foreground(&self, style: Style) -> Rgb {
         if style.reversed {
             self.shade(style.shade)
         } else {
@@ -87,7 +92,7 @@ impl ColorTheme {
     }
 
     /// The background color for a given style, in this color theme, as a terminal256-color.
-    pub fn background(&self, style: Style) -> u16 {
+    pub fn background(&self, style: Style) -> Rgb {
         if style.reversed {
             self.color(style.color)
         } else {
@@ -103,4 +108,26 @@ impl ColorTheme {
         ul | bd
     }
      */
+}
+
+impl Rgb {
+    /// Construct an Rgb color from a string of the form "#FFFFFF".
+    // TODO return a result instead of panicking
+    fn from_hex(hex_color: &str) -> Rgb {
+        let to_int = |inclusive_range: (usize, usize)| {
+            u8::from_str_radix(
+                hex_color
+                    .get(inclusive_range.0..=inclusive_range.1)
+                    .expect("invalid hex color string: wrong length"),
+                16,
+            )
+            .expect("invalid hex color string: not an int")
+        };
+
+        Rgb {
+            red: to_int((1, 2)),
+            green: to_int((3, 4)),
+            blue: to_int((5, 6)),
+        }
+    }
 }

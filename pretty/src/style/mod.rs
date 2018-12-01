@@ -1,7 +1,7 @@
 //! Style choices, such as color, bolding, and underlining.
 
-mod style;
 mod color_theme;
+mod style;
 
+pub use self::color_theme::{ColorTheme, Rgb};
 pub use self::style::*;
-pub use self::color_theme::ColorTheme;
