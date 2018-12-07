@@ -88,17 +88,17 @@ impl Emph {
 impl Style {
     /// Typically, ordinary white on black.
     pub fn plain() -> Style {
-        Style::new(Base05, Emph::plain(), Shade::black(), false)
+        Style::new(Base05, Emph::plain(), Shade::background(), false)
     }
 
     /// Ordinary colored text.
     pub fn color(color: Color) -> Style {
-        Style::new(color, Emph::plain(), Shade::black(), false)
+        Style::new(color, Emph::plain(), Shade::background(), false)
     }
 
     /// Color the background. Visually very strong!
     pub fn reverse_color(color: Color) -> Style {
-        Style::new(color, Emph::plain(), Shade::black(), true)
+        Style::new(color, Emph::plain(), Shade::background(), true)
     }
 
     /// Fully customized style.
@@ -114,8 +114,7 @@ impl Style {
 
 impl Shade {
     /// Typically pure black, the most ordinary shade.
-    // TODO don't name this after a color, since it depends on the colorscheme.
-    pub fn black() -> Shade {
+    pub fn background() -> Shade {
         Shade(usize::max_value())
     }
 }
@@ -123,7 +122,7 @@ impl Shade {
 impl From<Shade> for Color {
     fn from(shade: Shade) -> Color {
         match shade  {
-            Shade(0) => Base07,
+            Shade(0) => Base03,
             Shade(1) => Base02,
             Shade(2) => Base01,
             _ => Base00,

@@ -14,12 +14,13 @@ use super::Color::*;
 /// darkest) shade, which is used for most of the background.
 ///
 /// `cursor` is the color of the cursor.
+#[allow(non_snake_case)]
 pub struct ColorTheme {
-    /// Default Background, was shade0
+    /// Default Background
     pub base00: Rgb,
-    /// Lighter Background (Used for status bars), was shade1
+    /// Lighter Background (Used for status bars)
     pub base01: Rgb,
-    /// Selection Background, was shade2
+    /// Selection Background
     pub base02: Rgb,
     /// Comments, Invisibles, Line Highlighting
     pub base03: Rgb,
@@ -29,7 +30,7 @@ pub struct ColorTheme {
     pub base05: Rgb,
     /// Light Foreground (Not often used)
     pub base06: Rgb,
-    /// Light Background (Not often used), was cursor
+    /// Light Background (Not often used)
     pub base07: Rgb,
     /// Variables, XML Tags, Markup Link Text, Markup Lists, Diff Deleted
     pub base08: Rgb,
@@ -61,22 +62,22 @@ impl ColorTheme {
     /// The "default dark" Base16 colorscheme, by Chris Kempson (http://chriskempson.com)
     pub fn default_dark() -> ColorTheme {
         ColorTheme {
-            base00: Rgb::from_hex("#181818"),
-            base01: Rgb::from_hex("#282828"),
-            base02: Rgb::from_hex("#383838"),
-            base03: Rgb::from_hex("#585858"),
-            base04: Rgb::from_hex("#b8b8b8"),
-            base05: Rgb::from_hex("#d8d8d8"),
-            base06: Rgb::from_hex("#e8e8e8"),
-            base07: Rgb::from_hex("#f8f8f8"),
-            base08: Rgb::from_hex("#ab4642"),
-            base09: Rgb::from_hex("#dc9656"),
-            base0A: Rgb::from_hex("#f7ca88"),
-            base0B: Rgb::from_hex("#a1b56c"),
-            base0C: Rgb::from_hex("#86c1b9"),
-            base0D: Rgb::from_hex("#7cafc2"),
-            base0E: Rgb::from_hex("#ba8baf"),
-            base0F: Rgb::from_hex("#a16946"),
+            base00: Rgb::from_hex("#181818").unwrap(),
+            base01: Rgb::from_hex("#282828").unwrap(),
+            base02: Rgb::from_hex("#383838").unwrap(),
+            base03: Rgb::from_hex("#585858").unwrap(),
+            base04: Rgb::from_hex("#b8b8b8").unwrap(),
+            base05: Rgb::from_hex("#d8d8d8").unwrap(),
+            base06: Rgb::from_hex("#e8e8e8").unwrap(),
+            base07: Rgb::from_hex("#f8f8f8").unwrap(),
+            base08: Rgb::from_hex("#ab4642").unwrap(),
+            base09: Rgb::from_hex("#dc9656").unwrap(),
+            base0A: Rgb::from_hex("#f7ca88").unwrap(),
+            base0B: Rgb::from_hex("#a1b56c").unwrap(),
+            base0C: Rgb::from_hex("#86c1b9").unwrap(),
+            base0D: Rgb::from_hex("#7cafc2").unwrap(),
+            base0E: Rgb::from_hex("#ba8baf").unwrap(),
+            base0F: Rgb::from_hex("#a16946").unwrap(),
         }
     }
 
@@ -136,22 +137,19 @@ impl ColorTheme {
 
 impl Rgb {
     /// Construct an Rgb color from a string of the form "#FFFFFF".
-    // TODO return a result instead of panicking
-    fn from_hex(hex_color: &str) -> Rgb {
-        let to_int = |inclusive_range: (usize, usize)| {
+    fn from_hex(hex_color: &str) -> Option<Rgb> {
+        let to_int = |inclusive_range: (usize, usize)| -> Option<u8> {
             u8::from_str_radix(
                 hex_color
-                    .get(inclusive_range.0..=inclusive_range.1)
-                    .expect("invalid hex color string: wrong length"),
+                     .get(inclusive_range.0 ..= inclusive_range.1)?,
                 16,
-            )
-            .expect("invalid hex color string: not an int")
+            ).ok()
         };
 
-        Rgb {
-            red: to_int((1, 2)),
-            green: to_int((3, 4)),
-            blue: to_int((5, 6)),
-        }
+        Some(Rgb {
+            red: to_int((1, 2))?,
+            green: to_int((3, 4))?,
+            blue: to_int((5, 6))?,
+        })
     }
 }
