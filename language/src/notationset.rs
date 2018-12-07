@@ -37,15 +37,15 @@ mod example {
     use language::{Language, Construct, Arity};
 
     fn punct(s: &str) -> Notation {
-        literal(s, Style::color(Color::Yellow))
+        literal(s, Style::color(Color::Base0A))
     }
 
     fn word(s: &str) -> Notation {
-        literal(s, Style::color(Color::Green))
+        literal(s, Style::color(Color::Base0B))
     }
 
     fn txt() -> Notation {
-        text(Style::new(Color::Blue, Emph::underlined(), Shade::black(), false))
+        text(Style::new(Color::Base0D, Emph::underlined(), Shade::black(), false))
     }
 
     /// An example language for testing.

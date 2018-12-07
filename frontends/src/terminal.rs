@@ -4,16 +4,16 @@ use std::fmt::Display;
 use std::io::{self, stdin, stdout, Stdin, Stdout, Write};
 
 use termion::clear;
-use termion::color::{AnsiValue, Bg, Fg};
+use termion::color::{Bg, Fg, Rgb as TermionRgb};
 use termion::cursor;
 use termion::event;
 use termion::input::{self, MouseTerminal, TermRead};
 use termion::raw::{IntoRawMode, RawTerminal};
 use termion::screen::AlternateScreen;
-use termion::style::{Bold, NoBold, NoUnderline, Underline};
+use termion::style::{Bold, NoBold, NoUnderline, Reset, Underline};
 
 use pretty::{Col, Pos, Row};
-use pretty::{ColorTheme, Style};
+use pretty::{ColorTheme, Rgb, Style};
 
 use crate::frontend::{Event, Frontend};
 
@@ -51,8 +51,8 @@ impl Terminal {
             self.write(NoUnderline)?;
         }
 
-        self.write(Fg(AnsiValue(self.color_theme.foreground(style) as u8)))?;
-        self.write(Bg(AnsiValue(self.color_theme.background(style) as u8)))
+        self.write(Fg(to_termion_rgb(self.color_theme.foreground(style))))?;
+        self.write(Bg(to_termion_rgb(self.color_theme.background(style))))
     }
 }
 
@@ -80,6 +80,9 @@ impl Frontend for Terminal {
     }
 
     fn clear(&mut self) -> Result<(), io::Error> {
+        // Reset style before clearing, or the most recently used background
+        // color will fill the screen.
+        self.write(Reset)?;
         self.write(clear::All)
     }
 
@@ -133,6 +136,12 @@ impl Drop for Terminal {
         self.write(cursor::Show)
             .expect("failed to re-show cursor when dropping terminal")
     }
+}
+
+/// Convert the native synless Rgb type into the termion one. They're both
+/// defined in different crates, so we can't impl From/Into.
+fn to_termion_rgb(synless_rgb: Rgb) -> TermionRgb {
+    TermionRgb(synless_rgb.red, synless_rgb.green, synless_rgb.blue)
 }
 
 /// Convert a synless Pos into termion's XY coordinates.

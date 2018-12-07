@@ -6,7 +6,6 @@ use crate::style::{Style, Color};
 use crate::layout::Bounds;
 use crate::pretty::pretty_doc::PrettyDocument;
 
-use self::Notation::*;
 use self::ExampleNode::{Branch, Leaf};
 
 // TODO: test horz concat
@@ -155,10 +154,10 @@ impl<'t> PrettyDocument for ExampleTreeRef<'t> {
 
 fn example_notation() -> HashMap<String, Notation> {
     fn punct(text: &str) -> Notation {
-        literal(text, Style::color(Color::Yellow))
+        literal(text, Style::color(Color::Base0A))
     }
     fn word(text: &str) -> Notation {
-        literal(text, Style::color(Color::Blue))
+        literal(text, Style::color(Color::Base0D))
     }
     fn txt() -> Notation {
         text(Style::plain())
