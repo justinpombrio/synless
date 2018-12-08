@@ -9,8 +9,6 @@ use crate::construct::{ConstructName, Sort, Construct};
 
 pub type LanguageName = String;
 
-// TODO: rename to Grammar
-/// The notation and whatnot for a language.
 pub struct Language {
     name:       LanguageName,
     constructs: HashMap<ConstructName, Construct>,
@@ -78,9 +76,8 @@ mod example {
     pub fn example_language() -> Language {
         let mut language = Language::new("TestLang");
 
-        let arity = Arity::Forest(vec!("Expr".to_string(),
-                                       "Expr".to_string()),
-                                  None);
+        let arity = Arity::FixedForest(vec!("Expr".to_string(),
+                                            "Expr".to_string()));
         let construct = Construct::new("plus", "Expr", arity, 'p');
         language.add(construct);
 

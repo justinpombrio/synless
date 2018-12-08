@@ -7,10 +7,6 @@ pub type ConstructName = String;
 pub type Sort = String; // "Any" is special
 
 /// A syntactic construct.
-///
-/// For example,
-/// `Construct::new("plus", ForestArity{arity: 2, flexible: false}, some_notation_for_plus)`
-/// might represent binary addition.
 #[derive(Debug)]
 pub struct Construct {
     pub name:  ConstructName,
@@ -30,17 +26,26 @@ impl Construct {
     }
 }
 
+/// The sorts of children that a node is allowed to contain.
 #[derive(Debug)]
 pub enum Arity {
+    /// Designates a pure text node.
     Text,
+    /// Designates a node containing mixed text and trees.
+    /// `Sort` is the sort of trees it may contain.
     Mixed(Sort),
-    Forest(Vec<Sort>, Option<Sort>) // if Some, rest of children have this sort
+    /// Designates a node containing a fixed number of tree children.
+    /// `Vec<Sort>` contains the `Sort`s of each of its children respectively.
+    FixedForest(Vec<Sort>),
+    /// Designates a node containing any number of tree children,
+    /// all of the same `Sort`.
+    FlexibleForest(Sort)
 }
 
 lazy_static! {
     /// A hole in the document, for when your program is incomplete.
     pub static ref HOLE: Construct =
-        Construct::new("?", "Any", Arity::Forest(vec!(), None), '?');
+        Construct::new("Hole", "Any", Arity::FixedForest(vec!()), '?');
 }
 
 /*
