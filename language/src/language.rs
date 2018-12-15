@@ -1,5 +1,3 @@
-// TODO: use or remove commented code
-
 //! An editable language.
 
 use std::collections::HashMap;
