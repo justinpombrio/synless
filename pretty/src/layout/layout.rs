@@ -270,6 +270,7 @@ impl Lay for LayoutRegion {
     }
 }
 
+/// Precomputed information that helps pretty-print a document.
 #[derive(Clone)]
 pub struct Bounds(BoundSet<()>);
 

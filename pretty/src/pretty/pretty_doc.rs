@@ -5,6 +5,12 @@ use super::pretty_screen::PrettyScreen;
 use self::Layout::*;
 
 
+/// A "document" that supports the necessary methods to be pretty-printed.
+///
+/// To pretty-print, you need:
+///
+/// 1. A document that implements PrettyDocument, and
+/// 2. A screen that implements PrettyScreen.
 pub trait PrettyDocument : Sized + Clone {
     /// The minimum number of children this node can have. (See `grammar::Arity`)
     fn arity(&self) -> usize;

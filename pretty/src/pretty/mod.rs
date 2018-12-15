@@ -1,11 +1,10 @@
 mod pretty_screen;
 mod pretty_doc;
-mod pretty_formatter;
-mod example;
-//mod locate_cursor;
+mod plain_text;
 
-//pub use self::pretty::*;
-//pub use self::example::*;
+pub use self::pretty_screen::PrettyScreen;
+pub use self::pretty_doc::PrettyDocument;
+pub use self::plain_text::PlainText;
 
 
 #[cfg(test)]
