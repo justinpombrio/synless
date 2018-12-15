@@ -5,6 +5,7 @@ use std::ops::{Deref, DerefMut};
 use std::thread;
 
 use crate::forest::{Id, RawForest};
+use utility::expect;
 
 
 /// All [Trees](struct.Tree.html) belong to a Forest.
@@ -76,11 +77,13 @@ impl<D, L> Forest<D, L> {
     }
 
     pub (super) fn write_lock(&self) -> RefMut<RawForest<D, L>> {
-        self.lock.try_borrow_mut().expect("Failed to obtain write lock for forest.")
+        expect!(self.lock.try_borrow_mut(),
+                "Failed to obtain write lock for forest.")
     }
 
     pub (super) fn read_lock(&self) -> Ref<RawForest<D, L>> {
-        self.lock.try_borrow().expect("Failed to obtain read lock for forest.")
+        expect!(self.lock.try_borrow(),
+                "Failed to obtain read lock for forest.")
     }
 }
 
