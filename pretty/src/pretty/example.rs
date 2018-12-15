@@ -92,10 +92,6 @@ fn extend_path(mut path: Vec<usize>, i: usize) -> Vec<usize> {
 }
 
 impl<'t> PrettyDocument for ExampleTreeRef<'t> {
-    fn arity(&self) -> usize {
-        self.tree().arity
-    }
-
     fn parent(&self) -> Option<ExampleTreeRef<'t>> {
         if self.path.is_empty() {
             None

@@ -13,8 +13,6 @@ use self::Layout::*;
 /// 2. A screen that implements PrettyScreen.
 pub trait PrettyDocument : Sized + Clone {
     /// The minimum number of children this node can have. (See `grammar::Arity`)
-    fn arity(&self) -> usize;
-    /// The node's parent (or `None` if this is the root node).
     fn parent(&self) -> Option<Self>;
     /// The node's `i`th child. `i` will always be valid.
     fn child(&self, i: usize) -> Self;

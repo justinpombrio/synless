@@ -1,6 +1,8 @@
 mod pretty_screen;
 mod pretty_doc;
 mod plain_text;
+#[cfg(test)]
+mod example;
 
 pub use self::pretty_screen::PrettyScreen;
 pub use self::pretty_doc::PrettyDocument;
@@ -9,7 +11,7 @@ pub use self::plain_text::PlainText;
 
 #[cfg(test)]
 mod tests {
-    use super::pretty_formatter::PlainText;
+    use super::plain_text::PlainText;
     use super::pretty_doc::PrettyDocument;
     use super::example::{ExampleTree, make_example_tree};
 
