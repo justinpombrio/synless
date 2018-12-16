@@ -1,3 +1,5 @@
+use std::convert::AsRef;
+
 use crate::notation::Notation;
 use crate::layout::{LayoutRegion, Layout, Bounds, Layouts,
                     compute_bounds, compute_layouts, text_bounds};
@@ -12,6 +14,8 @@ use self::Layout::*;
 /// 1. A document that implements PrettyDocument, and
 /// 2. A screen that implements PrettyScreen.
 pub trait PrettyDocument : Sized + Clone {
+    type TextRef : AsRef<str>;
+
     /// The minimum number of children this node can have. (See `grammar::Arity`)
     fn parent(&self) -> Option<Self>;
     /// The node's `i`th child. `i` will always be valid.
@@ -21,7 +25,7 @@ pub trait PrettyDocument : Sized + Clone {
     /// The node's notation.
     fn notation(&self) -> &Notation;
     /// If the node contains text, that text. Otherwise `None`.
-    fn text(&self) -> Option<&str>;
+    fn text(&self) -> Option<Self::TextRef>;
 
     // TODO: have this return a reference instead?
     /// Get the Bounds within which this document node can be displayed,
@@ -62,14 +66,14 @@ impl Layouts {
 fn child_bounds<Doc: PrettyDocument>(doc: &Doc) -> Vec<Bounds> {
     match doc.text() {
         None => doc.children().iter().map(|child| child.bounds()).collect(),
-        Some(text) => vec!(text_bounds(text))
+        Some(text) => vec!(text_bounds(text.as_ref()))
     }
 }
 
 fn expanded_notation<Doc: PrettyDocument>(doc: &Doc) -> Notation {
     let len = match doc.text() {
         None       => doc.children().len(),
-        Some(text) => text.chars().count()
+        Some(text) => text.as_ref().chars().count()
     };
     doc.notation().expand(len)
 }
@@ -84,12 +88,12 @@ fn pp<Doc, Screen>(doc: &Doc, screen: &mut Screen, lay: LayoutRegion)
             Ok(())
         }
         Literal(text, style) => {
-            screen.print(lay.region.pos, &text, style)
+            screen.print(lay.region.pos, text.as_ref(), style)
         }
         Text(style) => {
             let text = doc.text()
                 .expect("Expected text while transcribing; found branch node");
-            screen.print(lay.region.pos, text, style)
+            screen.print(lay.region.pos, text.as_ref(), style)
         }
         Child(i) => {
             let child = &doc.child(i);

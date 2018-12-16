@@ -2,6 +2,7 @@ use std::mem;
 use std::rc::Rc;
 use std::cell::{RefCell, Ref, RefMut};
 use std::ops::{Deref, DerefMut};
+use std::convert::AsRef;
 use std::thread;
 
 use crate::forest::{Id, RawForest};

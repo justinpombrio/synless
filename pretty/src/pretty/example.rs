@@ -1,4 +1,4 @@
-use std::ops::Index;
+use std::ops::{Index, Deref};
 use std::collections::HashMap;
 
 use crate::notation::*;
@@ -92,6 +92,8 @@ fn extend_path(mut path: Vec<usize>, i: usize) -> Vec<usize> {
 }
 
 impl<'t> PrettyDocument for ExampleTreeRef<'t> {
+    type TextRef = String;
+
     fn parent(&self) -> Option<ExampleTreeRef<'t>> {
         if self.path.is_empty() {
             None
@@ -138,10 +140,10 @@ impl<'t> PrettyDocument for ExampleTreeRef<'t> {
         self.tree().bounds.clone()
     }
 
-    fn text(&self) -> Option<&str> {
+    fn text(&self) -> Option<String> {
         match &self.tree().node {
             ExampleNode::Branch(_) => None,
-            ExampleNode::Leaf(s)   => Some(s)
+            ExampleNode::Leaf(s)   => Some(s.to_string())
         }
     }
 }

@@ -6,6 +6,7 @@ use crate::tree::{Tree, Bookmark, Forest, ReadData, ReadLeaf};
 
 
 /// An immutable reference to a node in a tree.
+#[derive(Clone)]
 pub struct TreeRef<'f, D, L> {
     pub (super) forest: &'f Forest<D, L>,
     pub (super) root: Id,
