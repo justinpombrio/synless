@@ -121,6 +121,10 @@ impl<'f, D, L> TreeRef<'f, D, L> {
     }
 
     /// Obtain an iterator over all of the (direct) children of this node.
+    ///
+    /// # Panics
+    ///
+    /// Panics if this is a leaf node.
     pub fn children(&self) -> RefChildrenIter<'f, D, L> {
         let children = self.forest().children(self.id).clone(); // TODO: avoid clone?
         RefChildrenIter {

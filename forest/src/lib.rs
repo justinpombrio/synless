@@ -4,7 +4,8 @@ mod forest;
 mod tree;
 mod tree_ref;
 
-pub use self::tree::{Tree, Forest, ReadLeaf, WriteLeaf, ReadData, WriteData};
+pub use self::tree::{Tree, Forest, Bookmark,
+                     ReadLeaf, WriteLeaf, ReadData, WriteData};
 pub use self::tree_ref::TreeRef;
 
 

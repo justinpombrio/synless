@@ -2,7 +2,6 @@ use std::mem;
 use std::rc::Rc;
 use std::cell::{RefCell, Ref, RefMut};
 use std::ops::{Deref, DerefMut};
-use std::convert::AsRef;
 use std::thread;
 
 use crate::forest::{Id, RawForest};
@@ -35,7 +34,7 @@ impl<D, L> Clone for Forest<D, L> {
 ///
 /// This value owns the entire tree. When it is dropped, the tree is deleted.
 ///
-/// It also grants write access to the tree. Use [`as_ref`](#method.as_ref) to
+/// It also grants write access to the tree. Use [`borrow`](#method.borrow) to
 /// obtain a shared reference with read-only access.
 ///
 /// All write operations mutably borrow the _entire forest_. While a tree is
