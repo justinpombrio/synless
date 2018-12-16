@@ -1,0 +1,10 @@
+[package]
+name = "editor"
+version = "0.1.0"
+authors = ["Justin <zallambo@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+forest = { path = "../forest" }
+pretty = { path = "../pretty" }
+language = { path  = "../language" }

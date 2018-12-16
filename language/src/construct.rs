@@ -27,7 +27,7 @@ impl Construct {
 }
 
 /// The sorts of children that a node is allowed to contain.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Arity {
     /// Designates a pure text node.
     Text,
