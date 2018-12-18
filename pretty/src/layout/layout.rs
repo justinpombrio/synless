@@ -363,7 +363,6 @@ fn lay<L: Lay>(child_bounds: &Vec<Bounds>, notation: &Notation) -> BoundSet<L> {
             set1.into_iter().chain(set2.into_iter()).collect()
         }
         Notation::IfEmptyText(_, _) => panic!("lay_out: unexpected IfEmptyText"),
-        Notation::Rep(_) => panic!("lay_out: unexpected Repeat"),
-        Notation::Star   => panic!("lay_out: unexpected Star")
+        Notation::Rep(_) => panic!("lay_out: unexpected Repeat")
     }
 }

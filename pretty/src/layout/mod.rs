@@ -69,11 +69,10 @@ mod layout_tests {
 
     fn example_repeat_notation() -> Notation {
         repeat(Repeat{
-            empty:  lit("[]"),
-            lone:   lit("[") + star() + lit("]"),
-            first:  lit("[") + (star() + lit(",") ^ empty()),
-            middle: star() + lit(",") ^ empty(),
-            last:   star() + lit("]")
+            empty:    lit("[]"),
+            lone:     lit("[") + child(0) + lit("]"),
+            surround: lit("[") + child(0) + lit("]"),
+            join:     child(0) + lit(",") ^ child(1)
         })
     }
 
