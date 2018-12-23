@@ -4,13 +4,15 @@ use crate::style::Style;
 
 use self::Notation::*;
 
+// TODO: fix layout so that these properties hold
 
 /// Describes how to display a syntactic construct.
+
 #[derive(Clone, Debug)]
 pub enum Notation {
     /// Display Nothing
     Empty,
-    /// Display a literal string.
+    /// Display a literal string. Cannot contain a newline.
     Literal(String, Style),
     /// Display a piece of text. Must be used on a texty node.
     Text(Style),
@@ -47,9 +49,11 @@ pub struct Repeat {
     pub lone:   Notation,
     /// If the sequence has length 2 or more, (left-)fold elements together with this notation.
     /// `Child(0)` holds the notation so far, while `Child(1)` holds the next child to be folded.
+    // TODO: should this use `Left` and `Right` instead of `Child(0)` and `Child(1)`?
     pub join:   Notation,
     /// If the sequence has length 2 or more, surround the folded notation with this notation.
     /// `Child(0)` holds the folded notation.
+    // TODO: should this use `Surrounded` instead of `Child(0)`?
     pub surround: Notation
 }
 
@@ -58,52 +62,55 @@ pub fn empty() -> Notation {
     Literal("".to_string(), Style::plain())
 }
 
-/// Construct a `Literal`.
+/// Construct a [`Literal`](Literal).
 pub fn literal(s: &str, style: Style) -> Notation {
     Literal(s.to_string(), style)
 }
 
-/// Construct a `Text`.
+/// Construct a [`Text`](Text).
 pub fn text(style: Style) -> Notation {
     Text(style)
 }
 
-/// Construct a `NoWrap`.
+/// Construct a [`NoWrap`](NoWrap).
 pub fn no_wrap(note: Notation) -> Notation {
     NoWrap(Box::new(note))
 }
 
-/// Construct a `Child`.
+/// Construct a [`Child`](Child).
 pub fn child(index: usize) -> Notation {
     Child(index)
 }
 
-/// Construct a `Repeat`.
+/// Construct a [`Rep`](Rep).
 pub fn repeat(repeat: Repeat) -> Notation {
     Rep(Box::new(repeat))
 }
 
-/// Construct an `IfEmptyText`.
+/// Construct an [`IfEmptyText`](IfEmptyText).
 pub fn if_empty_text(note1: Notation, note2: Notation) -> Notation {
     IfEmptyText(Box::new(note1), Box::new(note2))
 }
 
-/// Construct a `Concat`. You can also use `+` for this.
+/// Construct a [`Concat`](Concat). You can also use
+/// [`+`](enum.Notation.html#impl-Add<Notation>) for this.
 pub fn concat(note1: Notation, note2: Notation) -> Notation {
     Concat(Box::new(note1), Box::new(note2))
 }
 
-/// Construct a `Horz`.
+/// Construct a [`Horz`](Horz).
 pub fn horz(note1: Notation, note2: Notation) -> Notation {
     Horz(Box::new(note1), Box::new(note2))
 }
 
-/// Construct a `Vert`. You can also use `^` for this.
+/// Construct a [`Vert`](Vert). You can also use
+/// [`^`](enum.Notation.html#impl-BitXor<Notation>) for this.
 pub fn vert(note1: Notation, note2: Notation) -> Notation {
     Vert(Box::new(note1), Box::new(note2))
 }
 
-/// Construct a `Choice`. You can also use `|` for this.
+/// Construct a [`Choice`](Choice). You can also use
+/// [`|`](enum.Notation.html#impl-BitOr<Notation>) for this.
 pub fn choice(note1: Notation, note2: Notation) -> Notation {
     Choice(Box::new(note1), Box::new(note2))
 }
@@ -111,7 +118,7 @@ pub fn choice(note1: Notation, note2: Notation) -> Notation {
 impl Add<Notation> for Notation {
     ///
     type Output = Notation;
-    /// Shorthand for `Concat`.
+    /// Shorthand for [`Concat`](Concat).
     fn add(self, other: Notation) -> Notation {
         Concat(Box::new(self), Box::new(other))
     }
@@ -120,7 +127,7 @@ impl Add<Notation> for Notation {
 impl BitXor<Notation> for Notation {
     ///
     type Output = Notation;
-    /// Shorthand for `Vert`.
+    /// Shorthand for [`Vert`](Vert).
     fn bitxor(self, other: Notation) -> Notation {
         Vert(Box::new(self), Box::new(other))
     }
@@ -129,7 +136,7 @@ impl BitXor<Notation> for Notation {
 impl BitOr<Notation> for Notation {
     ///
     type Output = Notation;
-    /// Shorthand for `Choice`.
+    /// Shorthand for [`Choice`](Choice).
     fn bitor(self, other: Notation) -> Notation {
         Choice(Box::new(self), Box::new(other))
     }

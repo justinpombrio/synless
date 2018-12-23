@@ -6,3 +6,4 @@ authors = ["Justin Pombrio <justinpombrio@cs.brown.edu>"]
 edition = "2018"
 
 [dependencies]
+lazy_static = "*"

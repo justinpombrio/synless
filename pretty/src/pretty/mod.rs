@@ -2,7 +2,7 @@ mod pretty_screen;
 mod pretty_doc;
 mod plain_text;
 #[cfg(test)]
-mod testing;
+pub(crate) mod testing;
 
 pub use self::pretty_screen::PrettyScreen;
 pub use self::pretty_doc::PrettyDocument;
@@ -16,7 +16,7 @@ mod tests {
     use super::testing::{TestTree, make_test_tree};
 
     impl TestTree {
-        fn write(&self, width: usize) -> String {
+        pub(crate) fn write(&self, width: usize) -> String {
             let mut screen = PlainText::new(width);
             self.as_ref().pretty_print(&mut screen).unwrap();
             format!("{}", screen)
