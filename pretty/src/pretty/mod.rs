@@ -2,7 +2,7 @@ mod pretty_screen;
 mod pretty_doc;
 mod plain_text;
 #[cfg(test)]
-mod example;
+mod testing;
 
 pub use self::pretty_screen::PrettyScreen;
 pub use self::pretty_doc::PrettyDocument;
@@ -13,9 +13,9 @@ pub use self::plain_text::PlainText;
 mod tests {
     use super::plain_text::PlainText;
     use super::pretty_doc::PrettyDocument;
-    use super::example::{ExampleTree, make_example_tree};
+    use super::testing::{TestTree, make_test_tree};
 
-    impl ExampleTree {
+    impl TestTree {
         fn write(&self, width: usize) -> String {
             let mut screen = PlainText::new(width);
             self.as_ref().pretty_print(&mut screen).unwrap();
@@ -25,7 +25,7 @@ mod tests {
 
     #[test]
     fn test_lay_out() {
-        let doc = make_example_tree();
+        let doc = make_test_tree();
         assert_eq!(doc.write(80),
                    "func foo(abc, def) { 'abcdef' + 'abcdef' }");
         assert_eq!(doc.write(42),

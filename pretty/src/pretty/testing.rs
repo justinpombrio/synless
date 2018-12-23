@@ -6,33 +6,33 @@ use crate::style::{Style, Color};
 use crate::layout::Bounds;
 use crate::pretty::pretty_doc::PrettyDocument;
 
-use self::ExampleNode::{Branch, Leaf};
+use self::TestNode::{Branch, Leaf};
 
 // TODO: test horz concat
 
 
-pub struct ExampleTree {
-    node: ExampleNode,
+pub struct TestTree {
+    node: TestNode,
     notation: Notation,
     bounds: Bounds
 }
 
-pub enum ExampleNode {
-    Branch(Vec<ExampleTree>),
+pub enum TestNode {
+    Branch(Vec<TestTree>),
     Leaf(String)
 }
 
 #[derive(Clone)]
-pub struct ExampleTreeRef<'t> {
-    root: &'t ExampleTree,
+pub struct TestTreeRef<'t> {
+    root: &'t TestTree,
     path: Vec<usize>
 }
 
-impl ExampleTree {
-    pub fn new_branch(notation: Notation, children: Vec<ExampleTree>)
-                      -> ExampleTree
+impl TestTree {
+    pub fn new_branch(notation: Notation, children: Vec<TestTree>)
+                      -> TestTree
     {
-        let mut tree = ExampleTree {
+        let mut tree = TestTree {
             node: Branch(children),
             bounds: Bounds::empty(),
             notation: notation
@@ -41,8 +41,8 @@ impl ExampleTree {
         tree
     }
 
-    pub fn new_leaf(notation: Notation, contents: &str) -> ExampleTree {
-        let mut tree = ExampleTree {
+    pub fn new_leaf(notation: Notation, contents: &str) -> TestTree {
+        let mut tree = TestTree {
             node: Leaf(contents.to_string()),
             bounds: Bounds::empty(),
             notation: notation
@@ -51,29 +51,29 @@ impl ExampleTree {
         tree
     }
 
-    pub fn as_ref(&self) -> ExampleTreeRef {
-        ExampleTreeRef {
+    pub fn as_ref(&self) -> TestTreeRef {
+        TestTreeRef {
             root: self,
             path: vec!()
         }
     }
 }
 
-impl<'a> Index<&'a [usize]> for ExampleTree {
-    type Output = ExampleTree;
-    fn index(&self, path: &[usize]) -> &ExampleTree {
+impl<'a> Index<&'a [usize]> for TestTree {
+    type Output = TestTree;
+    fn index(&self, path: &[usize]) -> &TestTree {
         match &path {
             &[] => self,
             &[i, path..] => match &self.node {
-                ExampleNode::Branch(children) => children[*i].index(path),
-                ExampleNode::Leaf(_) => panic!("leaf node")
+                TestNode::Branch(children) => children[*i].index(path),
+                TestNode::Leaf(_) => panic!("leaf node")
             }
         }
     }
 }
 
-impl<'t> ExampleTreeRef<'t> {
-    fn tree(&self) -> &ExampleTree {
+impl<'t> TestTreeRef<'t> {
+    fn tree(&self) -> &TestTree {
         &self.root[&self.path]
     }
 }
@@ -88,14 +88,14 @@ fn extend_path(mut path: Vec<usize>, i: usize) -> Vec<usize> {
     path
 }
 
-impl<'t> PrettyDocument for ExampleTreeRef<'t> {
+impl<'t> PrettyDocument for TestTreeRef<'t> {
     type TextRef = String;
 
-    fn parent(&self) -> Option<ExampleTreeRef<'t>> {
+    fn parent(&self) -> Option<TestTreeRef<'t>> {
         if self.path.is_empty() {
             None
         } else {
-            Some(ExampleTreeRef {
+            Some(TestTreeRef {
                 root: self.root,
                 path: shrink_path(self.path.clone())
             })
@@ -103,29 +103,29 @@ impl<'t> PrettyDocument for ExampleTreeRef<'t> {
     }
 
     // TODO: panic if index out of bounds
-    fn child(&self, i: usize) -> ExampleTreeRef<'t> {
+    fn child(&self, i: usize) -> TestTreeRef<'t> {
         match &self.tree().node {
-            ExampleNode::Branch(_) => {
-                ExampleTreeRef {
+            TestNode::Branch(_) => {
+                TestTreeRef {
                     root: self.root,
                     path: extend_path(self.path.clone(), i)
                 }
             }
-            ExampleNode::Leaf(_) => panic!("leaf node")
+            TestNode::Leaf(_) => panic!("leaf node")
         }
     }
     
-    fn children(&self) -> Vec<ExampleTreeRef<'t>> {
+    fn children(&self) -> Vec<TestTreeRef<'t>> {
         match &self.tree().node {
-            ExampleNode::Branch(children) => {
+            TestNode::Branch(children) => {
                 children.iter().enumerate().map(|(i, _)| {
-                    ExampleTreeRef {
+                    TestTreeRef {
                         root: self.root,
                         path: extend_path(self.path.clone(), i)
                     }
                 }).collect()
             }
-            ExampleNode::Leaf(_) => panic!("leaf node")
+            TestNode::Leaf(_) => panic!("leaf node")
         }
     }
 
@@ -139,15 +139,15 @@ impl<'t> PrettyDocument for ExampleTreeRef<'t> {
 
     fn text(&self) -> Option<String> {
         match &self.tree().node {
-            ExampleNode::Branch(_) => None,
-            ExampleNode::Leaf(s)   => Some(s.to_string())
+            TestNode::Branch(_) => None,
+            TestNode::Leaf(s)   => Some(s.to_string())
         }
     }
 }
 
 
 
-fn example_notation() -> HashMap<String, Notation> {
+fn make_test_notation() -> HashMap<String, Notation> {
     fn punct(text: &str) -> Notation {
         literal(text, Style::color(Color::Base0A))
     }
@@ -219,18 +219,18 @@ fn example_notation() -> HashMap<String, Notation> {
     map
 }
 
-pub fn make_example_tree() -> ExampleTree {
+pub fn make_test_tree() -> TestTree {
 
-    let notations = example_notation();
+    let notations = make_test_notation();
 
-    let leaf = |construct: &str, contents: &str| -> ExampleTree {
+    let leaf = |construct: &str, contents: &str| -> TestTree {
         let note = notations.get(construct).unwrap().clone();
-        ExampleTree::new_leaf(note, contents)
+        TestTree::new_leaf(note, contents)
     };
 
-    let branch = |construct: &str, children: Vec<ExampleTree>| -> ExampleTree {
+    let branch = |construct: &str, children: Vec<TestTree>| -> TestTree {
         let note = notations.get(construct).unwrap().clone();
-        ExampleTree::new_branch(note, children)
+        TestTree::new_branch(note, children)
     };
 
     branch("function", vec!(
