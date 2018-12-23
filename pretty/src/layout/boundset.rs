@@ -22,17 +22,16 @@ impl<T> BoundSet<T> where T: Clone {
         }
     }
 
-    /// Pick the best (i.e., smallest) Bound that fits within the
+    /// Pick the best (i.e., shortest) Bound that fits within the
     /// given Bound. Panics if none fit.
     pub(super) fn fit_bound(&self, space: Bound) -> (Bound, T) {
-        let bound = self.into_iter().filter(|(bound, _)| {
-            bound.dominates(space)
-        }).nth(0);
-        match bound {
-            Some(bound) => bound,
-            None        => panic!("No bound fits within given width {}.\nBoundset: {:?}",
-                                  space.width, self)
-        }
+        self.into_iter()
+            .filter(|(bound, _)| bound.dominates(space))
+            .min_by_key(|bound| bound.0.height)
+            .unwrap_or_else(|| {
+                panic!("No bound fits within given width {}.\nBoundset: {:?}",
+                       space.width, self)
+            })
     }
 
     pub(super) fn singleton(bound: Bound, val: T) -> BoundSet<T> {
