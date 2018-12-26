@@ -44,14 +44,14 @@ pub trait PrettyDocument : Sized + Clone {
 }
 
 
-/// _Compute_ the possible bounds of this node. This is required in order to
-/// pretty-print it. Note that:
-///
-/// 1. This depends on the Notation of this node, plus the Bounds of its
-/// (immediate) children.
-/// 2. This _does not_ depend on the width with which the document will be
-/// pretty-printed.
 impl Bounds {
+    /// _Compute_ the possible bounds of this node. This is required in order to
+    /// pretty-print it. Note that:
+    ///
+    /// 1. This depends on the Notation of this node, plus the Bounds of its
+    /// (immediate) children.
+    /// 2. This _does not_ depend on the width with which the document will be
+    /// pretty-printed.
     pub fn compute<Doc: PrettyDocument>(doc: &Doc) -> Bounds {
         compute_bounds(&child_bounds(doc), &expanded_notation(doc))
     }

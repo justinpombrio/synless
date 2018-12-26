@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use pretty::Notation;
-use crate::language::{ConstructName, Language, LanguageName};
+use language::{ConstructName, Language, LanguageName};
 
 
 pub struct NotationSet {
@@ -24,11 +24,16 @@ impl NotationSet {
             notations: map
         }
     }
+
+    pub fn lookup(&self, construct: &ConstructName) -> &Notation {
+        match self.notations.get(construct) {
+            None => panic!("Construct {} not found in notation set for {}",
+                           construct, self.name),
+            Some(notation) => notation
+        }
+    }
 }
 
-
-#[cfg(test)]
-use self::example::*;
 
 #[cfg(test)]
 mod example {
@@ -45,21 +50,20 @@ mod example {
     }
 
     fn txt() -> Notation {
-        text(Style::new(Color::Base0D, Emph::underlined(), Shade::black(), false))
+        text(Style::new(Color::Base0D, Emph::underlined(), Shade::background(), false))
     }
 
     /// An example language for testing.
     pub fn example_language() -> (Language, NotationSet) {
         let mut language = Language::new("TestLang");
 
-        let arity = Arity::Forest(vec!("Expr".to_string(),
-                                       "Expr".to_string()),
-                                  None);
+        let arity = Arity::Fixed(vec!("Expr".to_string(),
+                                      "Expr".to_string()));
         let construct = Construct::new("plus", "Expr", arity, 'p');
         language.add(construct);
         let plus_notation =
             child(0) + punct(" + ") + child(1)
-            | flush(child(0)) + punct("+ ") + child(1);
+            | child(0) ^ punct("+ ") + child(1);
 
         let notation = NotationSet::new(
             &language,

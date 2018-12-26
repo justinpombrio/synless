@@ -85,7 +85,7 @@ mod layout;
 mod pretty;
 pub mod examples;
 
-pub use self::style::{Style, ColorTheme, Color, Rgb};
+pub use self::style::{Style, ColorTheme, Color, Rgb, Emph, Shade};
 pub use self::geometry::{Row, Col, Pos, Bound, Region, MAX_WIDTH};
 pub use self::notation::{Notation, Repeat,
                          empty, literal, text, no_wrap, horz, vert, concat,

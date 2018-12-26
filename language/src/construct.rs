@@ -1,13 +1,14 @@
 // TODO: fix example
 // TODO: use or remove commented code
 
+use std::fmt;
 use lazy_static::lazy_static;
 
 pub type ConstructName = String;
 pub type Sort = String; // "Any" is special
 
 /// A syntactic construct.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Construct {
     pub name:  ConstructName,
     pub sort:  Sort,
@@ -36,16 +37,22 @@ pub enum Arity {
     Mixed(Sort),
     /// Designates a node containing a fixed number of tree children.
     /// `Vec<Sort>` contains the `Sort`s of each of its children respectively.
-    FixedForest(Vec<Sort>),
+    Fixed(Vec<Sort>),
     /// Designates a node containing any number of tree children,
     /// all of the same `Sort`.
-    FlexibleForest(Sort)
+    Flexible(Sort)
+}
+
+impl fmt::Display for Arity {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 lazy_static! {
     /// A hole in the document, for when your program is incomplete.
     pub static ref HOLE: Construct =
-        Construct::new("Hole", "Any", Arity::FixedForest(vec!()), '?');
+        Construct::new("Hole", "Any", Arity::Fixed(vec!()), '?');
 }
 
 /*

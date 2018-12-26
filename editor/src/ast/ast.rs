@@ -1,6 +1,6 @@
 use std::ops::Deref;
 
-use forest::{Tree, ReadLeaf};
+use forest::{Tree, ReadLeaf, Bookmark};
 use pretty::{Bounds, Notation};
 use language::{Language, Construct, Arity};
 
@@ -30,11 +30,20 @@ pub struct Node<'l> {
 /// pretty-printing.
 // TODO: can its data ever be mutably bororwed? If so, give an example. If not,
 // delete that phrase.
+#[derive(Clone)]
 pub struct Ast<'l> {
     pub(super) tree: Tree<Node<'l>, String>
 }
 
 impl<'l> Ast<'l> {
+    pub(super) fn new(tree: Tree<Node<'l>, String>) -> Ast<'l> {
+        let mut ast = Ast {
+            tree: tree
+        };
+        ast.update();
+        ast
+    }
+
     /// Get the arity of this node.
     fn arity(&self) -> Arity {
         self.tree.data().construct.arity.clone()
@@ -47,6 +56,51 @@ impl<'l> Ast<'l> {
     /// Panics if the arity of this node is not `Text`.
     fn text<'f>(&'f self) -> ReadText<'f, 'l> {
         ReadText(self.tree.leaf())
+    }
+
+    /// Returns `true` if this is the root of the tree, and `false` if
+    /// it isn't (and thus this node has a parent).
+    fn at_root(&self) -> bool {
+        self.tree.at_root()
+    }
+
+    /// Go to the parent of this node.
+    ///
+    /// # Panics
+    ///
+    /// Panics if this is the root of the tree, and there is no parent.
+    pub fn goto_parent(&mut self) {
+        self.tree.goto_parent()
+    }
+
+    /// Save a bookmark to return to later.
+    pub fn bookmark(&mut self) -> Bookmark {
+        self.tree.bookmark()
+    }
+
+    /// Jump to a previously saved bookmark, as long as that
+    /// bookmark's node is present somewhere in this tree. This will
+    /// work even if the Tree has been modified since the bookmark was
+    /// created. However, it will return `false` if the bookmark's node
+    /// has since been deleted, or if it is currently located in a
+    /// different tree.
+    pub fn goto_bookmark(&mut self, mark: Bookmark) -> bool {
+        self.tree.goto_bookmark(mark)
+    }
+
+    /// Update bounds. This must be called every time the tree is modified!
+    ///
+    /// # Panics
+    /// 
+    /// Panics if this is a leaf node.
+    fn update(&mut self) {
+        let bookmark = self.bookmark();
+        self.tree.data_mut().bounds = Bounds::compute(&self.borrow());
+        while !self.at_root() {
+            self.goto_parent();
+            self.tree.data_mut().bounds = Bounds::compute(&self.borrow());
+        }
+        self.goto_bookmark(bookmark);
     }
 }
 

@@ -6,7 +6,7 @@ use crate::ast::ast::{Node, Ast, ReadText};
 
 
 impl<'f, 'l> Ast<'l> {
-    fn borrow(&'f self) -> AstRef<'f, 'l> {
+    pub fn borrow(&'f self) -> AstRef<'f, 'l> {
         AstRef {tree_ref: self.tree.borrow()}
     }
 }
@@ -37,10 +37,9 @@ impl<'f, 'l> AstRef<'f, 'l> {
     /// # Panics
     ///
     /// Panics unless the arity of this node is `FixedForest` or `FlexibleForest`.
-    pub fn children(&self) -> Vec<AstRef<'f, 'l>> {
+    pub fn children(&self) -> impl Iterator<Item=AstRef<'f, 'l>> {
         self.tree_ref.children()
             .map(|tr| AstRef {tree_ref: tr})
-            .collect()
     }
 
     /// Get a child of a foresty node.
@@ -106,6 +105,6 @@ impl<'f, 'l> PrettyDocument for AstRef<'f, 'l> {
     }
 
     fn children(&self) -> Vec<AstRef<'f, 'l>> {
-        self.children()
+        self.children().collect()
     }
 }

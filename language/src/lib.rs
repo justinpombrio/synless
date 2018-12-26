@@ -1,5 +1,5 @@
 mod construct;
 mod language;
 
-pub use self::construct::{Construct, ConstructName, Sort, Arity};
-pub use self::language::{Language, LanguageName};
+pub use self::construct::{Construct, ConstructName, Sort, Arity, HOLE};
+pub use self::language::{Language, LanguageName, LanguageSet};

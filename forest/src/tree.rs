@@ -43,7 +43,16 @@ impl<D, L> Clone for Forest<D, L> {
 pub struct Tree<D, L> {
     pub (super) forest: Forest<D, L>,
     pub (super) root: Id, // INVARIANT: This root remains valid despite edits
-    pub (super) id: Id
+    pub (super) id: Id // TODO: Rename to loc or current
+}
+
+// TODO: test
+impl<D, L> Clone for Tree<D, L>
+    where D: Clone, L: Clone
+{
+    fn clone(&self) -> Tree<D, L> {
+        self.borrow().to_owned_tree()
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -125,7 +134,7 @@ impl<D, L> Tree<D, L> {
     ///
     /// Panics if this is a leaf node.
     pub fn num_children(&self) -> usize {
-        self.forest().children(self.id).len()
+        self.forest().children(self.id).count()
     }
 
     /// Obtain a mutable reference to the data value at this node.
@@ -195,7 +204,7 @@ impl<D, L> Tree<D, L> {
     /// Jump to a previously saved bookmark, as long as that
     /// bookmark's node is present somewhere in this tree. This will
     /// work even if the Tree has been modified since the bookmark was
-    /// created. However, it will return `None` if the bookmark's node
+    /// created. However, it will return `false` if the bookmark's node
     /// has since been deleted, or if it is currently located in a
     /// different tree.
     pub fn goto_bookmark(&mut self, mark: Bookmark) -> bool {

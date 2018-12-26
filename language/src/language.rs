@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::iter::Iterator;
 
+use utility::GrowOnlyMap;
 use crate::construct::{ConstructName, Sort, Construct};
 
 pub type LanguageName = String;
@@ -13,6 +14,8 @@ pub struct Language {
     sorts:      HashMap<Sort, Vec<ConstructName>>,
     keymap:     HashMap<char, ConstructName>
 }
+
+pub type LanguageSet = GrowOnlyMap<String, Language>;
 
 impl Language {
 
@@ -74,7 +77,7 @@ mod example {
     pub fn example_language() -> Language {
         let mut language = Language::new("TestLang");
 
-        let arity = Arity::FixedForest(vec!("Expr".to_string(),
+        let arity = Arity::Fixed(vec!("Expr".to_string(),
                                             "Expr".to_string()));
         let construct = Construct::new("plus", "Expr", arity, 'p');
         language.add(construct);
