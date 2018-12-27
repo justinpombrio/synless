@@ -8,7 +8,7 @@ use crate::forest::{Id, RawForest};
 use utility::expect;
 
 
-/// All [Trees](struct.Tree.html) belong to a Forest.
+/// All [Trees](Tree) belong to a Forest.
 ///
 /// It is your responsibility to ensure that Trees are kept with the
 /// Forest they came from. The methods on Trees will panic if you use

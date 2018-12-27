@@ -32,21 +32,21 @@ impl<'f, 'l> AstRef<'f, 'l> {
         self.tree_ref.data().construct.arity.clone()
     }
 
-    /// Get the children of a foresty node.
+    /// Get the children of a Fixed, Flexible, or Mixed node.
     ///
     /// # Panics
     ///
-    /// Panics unless the arity of this node is `FixedForest` or `FlexibleForest`.
+    /// Panics if the arity of this node is `Text`.
     pub fn children(&self) -> impl Iterator<Item=AstRef<'f, 'l>> {
         self.tree_ref.children()
             .map(|tr| AstRef {tree_ref: tr})
     }
 
-    /// Get a child of a foresty node.
+    /// Get the `i`th child of a Fixed, Flexible, or Mixed node.
     ///
     /// # Panics
     ///
-    /// Panics unless the arity of this node is `FixedForest` or `FlexibleForest`.
+    /// Panics if the arity of this node is `Text`.
     pub fn child(&self, i: usize) -> AstRef<'f, 'l> {
         AstRef {tree_ref: self.tree_ref.child(i)}
     }

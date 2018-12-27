@@ -5,13 +5,18 @@ use language::{Language, Arity, LanguageSet, Construct, HOLE};
 use crate::notationset::NotationSet;
 use crate::ast::ast::{Ast, Node};
 
-
+/// All [Asts](Ast) belong to an AstForest.
+///
+/// It is your responsibility to ensure that Asts are kept with the
+/// forest they came from. The methods on Asts will panic if you use
+/// them on a different forest.
 pub struct AstForest<'l> {
     language_set: &'l LanguageSet,
     forest: Forest<Node<'l>, String>
 }
 
 impl<'l> AstForest<'l> {
+    /// Construct a new, empty, forest.
     pub fn new(language_set: &'l LanguageSet) -> AstForest<'l> {
         AstForest {
             language_set: language_set,
@@ -19,8 +24,9 @@ impl<'l> AstForest<'l> {
         }
     }
 
-    pub fn new_hole(&self, language: &'l Language, notation_set: &'l NotationSet)
-                    -> Ast<'l>
+    /// Construct a hole in this forest, that represents a gap in the document.
+    pub fn new_hole_tree(&self, language: &'l Language, notation_set: &'l NotationSet)
+                         -> Ast<'l>
     {
         let node = Node {
             bounds: Bounds::empty(),
@@ -31,12 +37,26 @@ impl<'l> AstForest<'l> {
         Ast::new(self.forest.new_branch(node, vec!()))
     }
 
-    // TODO: is this right?
-    pub fn new_text_tree(&self, text: &str) -> Ast<'l> {
-        Ast::new(self.forest.new_leaf(text.to_string()))
+    /// Construct a new tree in this forest, of `Text` arity.
+    pub fn new_text_tree(&self,
+                          language: &'l Language,
+                          construct: &'l Construct,
+                          notation_set: &'l NotationSet) -> Ast<'l> {
+        let node = Node {
+            bounds: Bounds::empty(),
+            language: language,
+            construct: construct,
+            notation: notation_set.lookup(&construct.name)
+        };
+        if !construct.arity.is_text() {
+            panic!("AstForest::new_text_tree - expected a node of text arity, but found arity {}", construct.arity)
+        }
+        let leaf = self.forest.new_leaf(String::new());
+        Ast::new(self.forest.new_branch(node, vec!(leaf)))
     }
 
     // TODO: check that language has construct! UUID?
+    /// Construct a new tree in this forest, of `Fixed` arity.
     pub fn new_fixed_tree(&self,
                           language: &'l Language,
                           construct: &'l Construct,
@@ -53,10 +73,11 @@ impl<'l> AstForest<'l> {
             Arity::Fixed(sorts) => sorts.len(),
             a => panic!("AstForest::new_fixed_tree - expected a node of fixed arity, but found arity {}", a)
         };
-        let children = vec!(self.new_hole(language, notation_set).tree; arity);
+        let children = vec!(self.new_hole_tree(language, notation_set).tree; arity);
         Ast::new(self.forest.new_branch(node, children))
     }
 
+    /// Construct a new tree in this forest, of `Flexible` arity.
     pub fn new_flexible_tree(&self,
                              language: &'l Language,
                              construct: &'l Construct,
@@ -69,13 +90,13 @@ impl<'l> AstForest<'l> {
             construct: construct,
             notation: notation_set.lookup(&construct.name)
         };
-        match &construct.arity {
-            Arity::Flexible(_) => (),
-            a => panic!("AstForest::new_flexible_tree - expected a node of flexible arity, but found arity {}", a)
-        };
+        if !construct.arity.is_flexible() {
+            panic!("AstForest::new_flexible_tree - expected a node of flexible arity, but found arity {}", construct.arity)
+        }
         Ast::new(self.forest.new_branch(node, vec!()))
     }
 
+    /// Construct a new tree in this forest, of `Mixed` arity.
     pub fn new_mixed_tree(&self,
                           language: &'l Language,
                           construct: &'l Construct,
@@ -88,10 +109,9 @@ impl<'l> AstForest<'l> {
             construct: construct,
             notation: notation_set.lookup(&construct.name)
         };
-        match &construct.arity {
-            Arity::Mixed(_) => (),
-            a => panic!("AstForest::new_mixed_tree - expected a node of mixed arity, but found arity {}", a)
-        };
+        if !construct.arity.is_mixed() {
+            panic!("AstForest::new_mixed_tree - expected a node of mixed arity, but found arity {}", construct.arity)
+        }
         Ast::new(self.forest.new_branch(node, vec!()))
     }
 }

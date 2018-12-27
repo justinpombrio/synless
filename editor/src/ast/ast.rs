@@ -1,6 +1,6 @@
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
-use forest::{Tree, ReadLeaf, Bookmark};
+use forest::{Tree, ReadLeaf, WriteLeaf, Bookmark};
 use pretty::{Bounds, Notation};
 use language::{Language, Construct, Arity};
 
@@ -53,15 +53,102 @@ impl<'l> Ast<'l> {
     ///
     /// # Panics
     ///
-    /// Panics if the arity of this node is not `Text`.
+    /// Panics if the arity of this node is not `Text`. Also panics if two
+    /// nodes/texts in the forest are borrowed at the same time.
     fn text<'f>(&'f self) -> ReadText<'f, 'l> {
         ReadText(self.tree.leaf())
     }
 
+    /// Obtain a mutable reference to the text at this node.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the arity of this node is not `Text`. Also panics if two
+    /// nodes/texts in the forest are borrowed at the same time.
+    pub fn text_mut<'f>(&'f mut self) -> WriteText<'f, 'l> {
+        WriteText(self.tree.leaf_mut())
+    }
+
+    /// Get the language of this node's syntactic construct.
+    pub fn get_language(&self) -> &'l Language {
+        &self.tree.data().language
+    }
+
+    /// Get the syntactic construct this node falls into.
+    pub fn get_construct(&self) -> &'l Construct {
+        &self.tree.data().construct
+    }
+
+    /// Get the notation with which this node is currently displayed.
+    pub fn get_notation(&self) -> &'l Notation {
+        &self.tree.data().notation
+    }
+
+    /// Replace a Fixed node's `i`th child. Returns the replaced child.
+    ///
+    /// # Panics
+    ///
+    /// Panics if this node's arity is not `Fixed`.
+    pub fn replace_child(&mut self, i: usize, tree: Ast<'l>) -> Ast<'l> {
+        if !self.arity().is_fixed() {
+            panic!("Ast::replace_child called on a non-Fixed node")
+        }
+        Ast {
+            tree: self.tree.replace_child(i, tree.tree)
+        }
+    }
+
+    /// Insert `tree` as the `i`th child of this node. This node must be
+    /// `Flexible` or `Mixed`. For nodes of `Mixed` arity, `i` counts both tree
+    /// and text children.
+    ///
+    /// # Panics
+    ///
+    /// Panics if this node's arity is not `Flexible` or `Mixed`, or if `i` is
+    /// out of bounds.
+    pub fn insert_child(&mut self, i: usize, tree: Ast<'l>) {
+        if !self.arity().is_flexible() && !self.arity().is_mixed() {
+            panic!("Ast::insert_child called on a node that isn't Flexible or Mixed")
+        }
+        self.tree.insert_child(i, tree.tree);
+    }
+
+    /// Remove and return the `i`th child of this node. This node must be
+    /// `Flexible` or `Mixed`. For nodes of `Mixed` arity, `i` counts both tree
+    /// and text children.
+    ///
+    /// # Panics
+    ///
+    /// Panics if this node's arity is not `Flexible` or `Mixed`, or if `i` is
+    /// out of bounds.
+    pub fn remove_child(&mut self, i: usize) -> Ast<'l> {
+        if !self.arity().is_flexible() && !self.arity().is_mixed() {
+            panic!("Ast::remove_child called on a node that isn't Flexible or Mixed")
+        }
+        Ast {
+            tree: self.tree.remove_child(i)
+        }
+    }
+
     /// Returns `true` if this is the root of the tree, and `false` if
     /// it isn't (and thus this node has a parent).
-    fn at_root(&self) -> bool {
+    pub fn at_root(&self) -> bool {
         self.tree.at_root()
+    }
+
+    /// Return the number of children this node has. For a Fixed node, this is
+    /// its arity. For a Flexible node, this is its current number of children.
+    /// For a Mixed node, this is its _total number_ of children, counting both
+    /// tree and text children.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the arity of this node is `Text`.
+    pub fn num_children(&self) -> usize {
+        match self.arity() {
+            Arity::Text => panic!("Ast::num_children called on a Text node"),
+            _ => self.tree.num_children()
+        }
     }
 
     /// Go to the parent of this node.
@@ -71,6 +158,21 @@ impl<'l> Ast<'l> {
     /// Panics if this is the root of the tree, and there is no parent.
     pub fn goto_parent(&mut self) {
         self.tree.goto_parent()
+    }
+
+    /// Go to this tree's root.
+    pub fn goto_root(&mut self) {
+        self.tree.goto_root()
+    }
+
+    /// Go to this tree's i'th child. For nodes of `Mixed` arity, `i` counts
+    /// both tree and text children.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the arity of this node is `Text`, or if `i` is out of bounds.
+    pub fn goto_child(&mut self, i: usize) {
+        self.tree.goto_child(i)
     }
 
     /// Save a bookmark to return to later.
@@ -109,5 +211,13 @@ pub struct ReadText<'f, 'l>(pub(super) ReadLeaf<'f, Node<'l>, String>);
 impl<'f, 'l> AsRef<str> for ReadText<'f, 'l> {
     fn as_ref(&self) -> &str {
         self.0.deref().as_ref()
+    }
+}
+
+pub struct WriteText<'f, 'l>(pub(super) WriteLeaf<'f, Node<'l>, String>);
+
+impl<'f, 'l> AsMut<str> for WriteText<'f, 'l> {
+    fn as_mut(&mut self) -> &mut str {
+        self.0.deref_mut().as_mut_str()
     }
 }

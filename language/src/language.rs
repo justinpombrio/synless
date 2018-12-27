@@ -63,26 +63,3 @@ impl Language {
         self.constructs.values()
     }
 }
-
-//#[cfg(test)]
-//use self::example::*;
-
-#[cfg(test)]
-mod example {
-    use crate::Arity;
-    use super::*;
-
-    /// An example language for testing.
-    // TODO: nvm, it's used to test `pretty`.
-    pub fn example_language() -> Language {
-        let mut language = Language::new("TestLang");
-
-        let arity = Arity::Fixed(vec!("Expr".to_string(),
-                                            "Expr".to_string()));
-        let construct = Construct::new("plus", "Expr", arity, 'p');
-        language.add(construct);
-
-        language
-    }
-
-}

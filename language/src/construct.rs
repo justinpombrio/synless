@@ -43,6 +43,36 @@ pub enum Arity {
     Flexible(Sort)
 }
 
+impl Arity {
+    pub fn is_text(&self) -> bool {
+        match self {
+            Arity::Text => true,
+            _ => false
+        }
+    }
+
+    pub fn is_mixed(&self) -> bool {
+        match self {
+            Arity::Mixed(_) => true,
+            _ => false
+        }
+    }
+
+    pub fn is_fixed(&self) -> bool {
+        match self {
+            Arity::Fixed(_) => true,
+            _ => false
+        }
+    }
+
+    pub fn is_flexible(&self) -> bool {
+        match self {
+            Arity::Flexible(_) => true,
+            _ => false
+        }
+    }
+}
+
 impl fmt::Display for Arity {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
