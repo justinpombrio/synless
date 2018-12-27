@@ -30,6 +30,8 @@ pub struct Node<'l> {
 /// pretty-printing.
 // TODO: can its data ever be mutably bororwed? If so, give an example. If not,
 // delete that phrase.
+//
+// Many methods here panics if called on a text leaf. Make sure this can't happen.
 #[derive(Clone)]
 pub struct Ast<'l> {
     pub(super) tree: Tree<Node<'l>, String>
@@ -44,9 +46,12 @@ impl<'l> Ast<'l> {
         ast
     }
 
-    /// Get the arity of this node.
-    fn arity(&self) -> Arity {
-        self.tree.data().construct.arity.clone()
+    /// Get the arity of this node, or `None` if this is a leaf node.
+    fn arity(&self) -> Option<Arity> {
+        if self.tree.is_leaf() {
+            return None;
+        }
+        Some(self.tree.data().construct.arity.clone())
     }
 
     /// Get a shared reference to the text at this node.
@@ -90,11 +95,15 @@ impl<'l> Ast<'l> {
     ///
     /// Panics if this node's arity is not `Fixed`.
     pub fn replace_child(&mut self, i: usize, tree: Ast<'l>) -> Ast<'l> {
-        if !self.arity().is_fixed() {
-            panic!("Ast::replace_child called on a non-Fixed node")
-        }
-        Ast {
-            tree: self.tree.replace_child(i, tree.tree)
+        if let Some(arity) = self.arity() {
+            if !arity.is_fixed() {
+                panic!("Ast::replace_child called on a non-Fixed node")
+            }
+            Ast {
+                tree: self.tree.replace_child(i, tree.tree)
+            }
+        } else {
+            panic!("Ast::replace_child called on a leaf node");
         }
     }
 
@@ -107,10 +116,14 @@ impl<'l> Ast<'l> {
     /// Panics if this node's arity is not `Flexible` or `Mixed`, or if `i` is
     /// out of bounds.
     pub fn insert_child(&mut self, i: usize, tree: Ast<'l>) {
-        if !self.arity().is_flexible() && !self.arity().is_mixed() {
-            panic!("Ast::insert_child called on a node that isn't Flexible or Mixed")
+        if let Some(arity) = self.arity() {
+            if !arity.is_flexible() && !arity.is_mixed() {
+                panic!("Ast::insert_child called on a node that isn't Flexible or Mixed")
+            }
+            self.tree.insert_child(i, tree.tree);
+        } else {
+            panic!("Ast::insert_child called on a leaf node");
         }
-        self.tree.insert_child(i, tree.tree);
     }
 
     /// Remove and return the `i`th child of this node. This node must be
@@ -122,12 +135,29 @@ impl<'l> Ast<'l> {
     /// Panics if this node's arity is not `Flexible` or `Mixed`, or if `i` is
     /// out of bounds.
     pub fn remove_child(&mut self, i: usize) -> Ast<'l> {
-        if !self.arity().is_flexible() && !self.arity().is_mixed() {
-            panic!("Ast::remove_child called on a node that isn't Flexible or Mixed")
+        if let Some(arity) = self.arity() {
+            if !arity.is_flexible() && !arity.is_mixed() {
+                panic!("Ast::remove_child called on a node that isn't Flexible or Mixed")
+            }
+            Ast {
+                tree: self.tree.remove_child(i)
+            }
+        } else {
+            panic!("Ast::remove_child called on leaf node");
         }
-        Ast {
-            tree: self.tree.remove_child(i)
-        }
+    }
+
+    /// Determine this node's index among its siblings. Returns `0` when at the
+    /// root. For Mixed parents, counts both text and tree children.
+    pub fn index(&self) -> usize {
+        self.tree.index()
+    }
+
+    /// Determine the number of siblings that this node has, including itself.
+    /// For Mixed parents, counts both text and tree children. When at the root,
+    /// returns 1.
+    pub fn num_siblings(&self) -> usize {
+        self.tree.num_siblings()
     }
 
     /// Returns `true` if this is the root of the tree, and `false` if
@@ -146,8 +176,9 @@ impl<'l> Ast<'l> {
     /// Panics if the arity of this node is `Text`.
     pub fn num_children(&self) -> usize {
         match self.arity() {
-            Arity::Text => panic!("Ast::num_children called on a Text node"),
-            _ => self.tree.num_children()
+            None => panic!("Ast::num_children called on a leaf node"),
+            Some(Arity::Text) => panic!("Ast::num_children called on a Text node"),
+            Some(_) => self.tree.num_children()
         }
     }
 
