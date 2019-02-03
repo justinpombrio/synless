@@ -23,16 +23,16 @@ be a real tree editor. It aims to:
 Synless is not:
 
 - A text editor.
-- A tree editor built on top of a text editor. Seriously, there's no
+- A tree editor built on top of a text editor. There's no
   gap buffer. It's really just a tree.
 - A language workbench. Synless will not help you define a language
-  semantics, or perform static analysis.
+  semantics or perform static analysis.
 
-Please read:
+To learn more:
 
 [Why Synless? And why "Synless"?](doc/why.md)
 
-[The Synless Documentation](doc/readme.md)
+[The Synless Documentation (to come)](doc/readme.md)
 
 [The Synless Design Documentation](doc/design.md) (for developers)
 
