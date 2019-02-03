@@ -29,8 +29,11 @@ pub trait PrettyDocument : Sized + Clone {
 
     // TODO: have this return a reference instead?
     /// Get the Bounds within which this document node can be displayed,
-    /// given information about its children. **For efficiency, you should
-    /// cache the result of `Bounds::compute` every time the document changes.**
+    /// given information about its children. This can be computed via
+    /// `Bounds::compute`. **However, it is a potentially expensive operation
+    /// (at least when applied over the whole document), so for efficiency you
+    /// should re-compute it only when the document is edited, and cache the
+    /// result.**
     fn bounds(&self) -> Bounds;
 
     /// Pretty-print entire document.
