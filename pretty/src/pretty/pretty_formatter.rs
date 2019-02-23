@@ -11,8 +11,6 @@ pub struct PlainText {
     lines: Vec<Vec<char>>
 }
 
-const DEFAULT_WIDTH: Col = 80;
-
 impl fmt::Display for PlainText {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for (i, line) in self.lines.iter().enumerate() {

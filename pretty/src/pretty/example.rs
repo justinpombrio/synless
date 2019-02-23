@@ -230,7 +230,6 @@ fn example_notation() -> HashMap<String, Notation> {
 }
 
 pub fn make_example_tree() -> ExampleTree {
-
     let notations = example_notation();
 
     let leaf = |construct: &str, contents: &str| -> ExampleTree {

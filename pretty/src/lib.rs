@@ -12,7 +12,6 @@ mod pretty;
 pub use self::style::{Style, ColorTheme, Color, Rgb};
 pub use self::geometry::{Row, Col, Pos, Bound, Region, MAX_WIDTH};
 pub use self::notation::{Notation, Repeat,
-                         empty, literal, text, no_wrap, horz, vert,
+                         empty, literal, text, no_wrap, concat, horz, vert,
                          child, repeat, star, if_empty_text, choice};
-//pub use self::pretty::{??};
-
+pub use self::pretty::{PrettyScreen, PrettyDocument, PlainText};
