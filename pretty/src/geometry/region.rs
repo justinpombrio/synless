@@ -40,6 +40,14 @@ impl Add<Pos> for Region {
 }
 
 impl Region {
+    /// The empty region at a particular location.
+    pub fn empty_region(pos: Pos) -> Region {
+        Region {
+            pos: pos,
+            bound: Bound{ width: 0, height: 0, indent: 0 }
+        }
+    }
+    
     /// The region around a single character position.
     pub fn char_region(pos: Pos) -> Region {
         Region {

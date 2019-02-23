@@ -1,3 +1,4 @@
+use crate::geometry::Region;
 use crate::notation::Notation;
 use crate::layout::{LayoutRegion, Layout, Bounds, Layouts,
                     compute_bounds, compute_layouts, text_bounds};
@@ -8,8 +9,9 @@ use self::Layout::*;
 pub trait PrettyDocument : Sized + Clone {
     /// The minimum number of children this node can have. (See `grammar::Arity`)
     fn arity(&self) -> usize;
-    /// The node's parent (or `None` if this is the root node).
-    fn parent(&self) -> Option<Self>;
+    /// This node's parent, together with the index of this node (or `None` if
+    /// this is the root node).
+    fn parent(&self) -> Option<(Self, usize)>;
     /// The node's `i`th child. `i` will always be valid.
     fn child(&self, i: usize) -> Self;
     /// All of the node's (immediate) children.
@@ -29,9 +31,35 @@ pub trait PrettyDocument : Sized + Clone {
     fn pretty_print<Screen>(&self, screen: &mut Screen) -> Result<(), Screen::Error>
         where Screen: PrettyScreen
     {
-        // TODO: wrong
-        let lay = Layouts::compute(self).fit_bound(screen.size()?);
+        let lay = Layouts::compute(&self.root()).fit_bound(screen.size()?);
         pp(self, screen, lay)
+    }
+
+    /// Locate the selected node, in the coordinate system of the entire document.
+    fn locate_cursor<Screen>(&self, screen: &Screen) -> Result<Region, Screen::Error>
+        where Screen: PrettyScreen
+    {
+        // Find the root of the Document, and the path from the root to the
+        // selected node.
+        let mut path = vec!();
+        let mut root = self.clone();
+        while let Some((parent, i)) = root.parent() {
+            root = parent;
+            path.push(i);
+        }
+        path.reverse();
+        // Recursively compute the cursor region.
+        let lay = Layouts::compute(&root).fit_bound(screen.size()?);
+        Ok(loc_cursor(&root, &lay, &path))
+    }
+
+    /// Goto the root of the document.
+    fn root(&self) -> Self {
+        let mut root = self.clone();
+        while let Some((parent, _)) = root.parent() {
+            root = parent;
+        }
+        root
     }
 }
 
@@ -89,9 +117,7 @@ fn pp<Doc, Screen>(doc: &Doc, screen: &mut Screen, lay: LayoutRegion)
         }
         Child(i) => {
             let child = &doc.child(i);
-            // TODO: shouldn't need to shift layout here?
-            let mut child_lay = Layouts::compute(child).fit_bound(lay.region.bound);
-            child_lay.shift_by(lay.region.pos);
+            let child_lay = Layouts::compute(child).fit_region(lay.region);
             pp(child, screen, child_lay)
         }
         Concat(box lay1, box lay2) => {
@@ -105,6 +131,21 @@ fn pp<Doc, Screen>(doc: &Doc, screen: &mut Screen, lay: LayoutRegion)
         Vert(box lay1, box lay2) => {
             pp(doc, screen, lay1)?;
             pp(doc, screen, lay2)
+        }
+    }
+}
+
+fn loc_cursor<Doc>(doc: &Doc, lay: &LayoutRegion, path: &[usize]) -> Region
+    where Doc: PrettyDocument
+{
+    match path {
+        [] => lay.region,
+        [i, path..] => {
+            let child_region = lay.find_child(*i)
+                .expect("PrettyDocument::locate_cursor - got lost looking for cursor")
+                .region;
+            let child_lay = Layouts::compute(&doc.child(*i)).fit_region(child_region);
+            loc_cursor(&doc.child(*i), &child_lay, path)
         }
     }
 }

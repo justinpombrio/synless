@@ -3,7 +3,6 @@ mod pretty_doc;
 mod plain_text;
 #[cfg(test)]
 mod example;
-//mod locate_cursor;
 
 pub use pretty_screen::PrettyScreen;
 pub use pretty_doc::PrettyDocument;

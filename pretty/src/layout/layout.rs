@@ -118,11 +118,30 @@ pub enum Layout {
     Child(usize)
 }
 
-// TODO: This is inefficient. Remove `shift_by`.
 impl LayoutRegion {
+    // TODO: This is inefficient. Remove `shift_by`.
     pub fn shift_by(&mut self, pos: Pos) {
         self.region.pos = self.region.pos + pos;
         self.layout.shift_by(pos);
+    }
+
+    pub fn find_child(&self, i: usize) -> Option<&LayoutRegion> {
+        match &self.layout {
+            Empty => None,
+            Literal(_, _) => None,
+            Text(_) => None,
+            Concat(box lay1, box lay2) =>
+                lay1.find_child(i).or_else(|| lay2.find_child(i)),
+            Horz(box lay1, box lay2) =>
+                lay1.find_child(i).or_else(|| lay2.find_child(i)),
+            Vert(box lay1, box lay2) =>
+                lay1.find_child(i).or_else(|| lay2.find_child(i)),
+            Child(j) => if i == *j {
+                Some(self)
+            } else {
+                None
+            }
+        }
     }
 }
 
@@ -292,6 +311,12 @@ impl Layouts {
 
     pub fn fit_bound(&self, bound: Bound) -> LayoutRegion {
         self.0.fit_bound(bound).1
+    }
+
+    pub fn fit_region(&self, region: Region) -> LayoutRegion {
+        let mut lay = self.0.fit_bound(region.bound).1;
+        lay.shift_by(region.pos);
+        lay
     }
 }
 

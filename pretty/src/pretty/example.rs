@@ -81,9 +81,9 @@ impl<'t> ExampleTreeRef<'t> {
     }
 }
 
-fn shrink_path(mut path: Vec<usize>) -> Vec<usize> {
-    path.pop();
-    path
+fn pop_path(mut path: Vec<usize>) -> (Vec<usize>, usize) {
+    let i = path.pop().expect("pretty::example: could not pop");
+    (path, i)
 }
 
 fn extend_path(mut path: Vec<usize>, i: usize) -> Vec<usize> {
@@ -96,14 +96,16 @@ impl<'t> PrettyDocument for ExampleTreeRef<'t> {
         self.tree().arity
     }
 
-    fn parent(&self) -> Option<ExampleTreeRef<'t>> {
+    fn parent(&self) -> Option<(ExampleTreeRef<'t>, usize)> {
         if self.path.is_empty() {
             None
         } else {
-            Some(ExampleTreeRef {
+            let (path, i) = pop_path(self.path.clone());
+            let doc = ExampleTreeRef {
                 root: self.root,
-                path: shrink_path(self.path.clone())
-            })
+                path: path
+            };
+            Some((doc, i))
         }
     }
 
