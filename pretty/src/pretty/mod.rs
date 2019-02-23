@@ -1,18 +1,18 @@
 mod pretty_screen;
 mod pretty_doc;
-mod pretty_formatter;
+mod plain_text;
 #[cfg(test)]
 mod example;
 //mod locate_cursor;
 
 pub use pretty_screen::PrettyScreen;
 pub use pretty_doc::PrettyDocument;
-pub use pretty_formatter::PlainText;
+pub use plain_text::PlainText;
 
 
 #[cfg(test)]
 mod tests {
-    use super::pretty_formatter::PlainText;
+    use super::plain_text::PlainText;
     use super::pretty_doc::PrettyDocument;
     use super::example::{ExampleTree, make_example_tree};
 
