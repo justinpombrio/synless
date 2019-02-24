@@ -1,8 +1,6 @@
 use std::fmt;
 
-use super::pos::{Row, Col, MAX_WIDTH};
-
-
+use super::pos::{Col, Row, MAX_WIDTH};
 
 /// A "paragraph" shape: it is like a rectangle, except that the last
 /// line may be shorter than the rest.
@@ -27,7 +25,7 @@ use super::pos::{Row, Col, MAX_WIDTH};
 pub struct Bound {
     pub width: Col,
     pub indent: Col,
-    pub height: Row
+    pub height: Row,
 }
 
 impl Bound {
@@ -35,9 +33,9 @@ impl Bound {
     /// dimensions.
     pub fn dominates(&self, other: Bound) -> bool {
         // self wins ties
-        (self.width <= other.width) &&
-            (self.height <= other.height) &&
-            (self.indent <= other.indent)
+        (self.width <= other.width)
+            && (self.height <= other.height)
+            && (self.indent <= other.indent)
     }
 
     /// Is this Bound wider than MAX_WIDTH?
@@ -49,18 +47,16 @@ impl Bound {
 
     /// A Bound that has the given width and is "infinitely" tall.
     pub fn infinite_scroll(width: Col) -> Bound {
-        Bound{
-            width:  width,
+        Bound {
+            width: width,
             indent: width,
-            height: Row::max_value()
+            height: Row::max_value(),
         }
     }
 
-    pub(crate) fn debug_print(&self, f: &mut fmt::Formatter, ch: char, indent: Col)
-                   -> fmt::Result
-    {
+    pub(crate) fn debug_print(&self, f: &mut fmt::Formatter, ch: char, indent: Col) -> fmt::Result {
         if self.height > 30 {
-            return write!(f, "[very large bound]")
+            return write!(f, "[very large bound]");
         }
         for _ in 0..self.height {
             write!(f, "{}", ch.to_string().repeat(self.width as usize))?;

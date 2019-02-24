@@ -2,15 +2,14 @@
 
 use self::Color::*;
 
-
 /// The overall style to render text to the terminal.
 /// If `reversed`, swap the foreground and background.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Style {
-    pub color:    Color,
-    pub emph:     Emph,
-    pub shade:    Shade,
-    pub reversed: bool
+    pub color: Color,
+    pub emph: Emph,
+    pub shade: Shade,
+    pub reversed: bool,
 }
 
 // TODO: I do not know how widespread terminal support for underlining is.
@@ -18,7 +17,7 @@ pub struct Style {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Emph {
     pub bold: bool,
-    pub underlined: bool
+    pub underlined: bool,
 }
 
 /// The foreground color of some text (or if reversed the background color).
@@ -70,17 +69,17 @@ pub struct Shade(pub usize);
 impl Emph {
     /// Neither bold nor underlined.
     pub fn plain() -> Emph {
-        Emph{
+        Emph {
             underlined: false,
-            bold: false
+            bold: false,
         }
     }
 
     /// Just underlined.
     pub fn underlined() -> Emph {
-        Emph{
+        Emph {
             underlined: true,
-            bold: false
+            bold: false,
         }
     }
 }
@@ -103,11 +102,11 @@ impl Style {
 
     /// Fully customized style.
     pub fn new(color: Color, emph: Emph, shade: Shade, reversed: bool) -> Style {
-        Style{
+        Style {
             color: color,
             emph: emph,
             shade: shade,
-            reversed: reversed
+            reversed: reversed,
         }
     }
 }
@@ -121,7 +120,7 @@ impl Shade {
 
 impl From<Shade> for Color {
     fn from(shade: Shade) -> Color {
-        match shade  {
+        match shade {
             Shade(0) => Base03,
             Shade(1) => Base02,
             Shade(2) => Base01,

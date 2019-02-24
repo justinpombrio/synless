@@ -4,19 +4,15 @@ mod forest;
 mod tree;
 mod tree_ref;
 
-pub use self::tree::{Tree, Forest, ReadLeaf, WriteLeaf, ReadData, WriteData};
+pub use self::tree::{Forest, ReadData, ReadLeaf, Tree, WriteData, WriteLeaf};
 pub use self::tree_ref::TreeRef;
-
 
 #[cfg(test)]
 mod forest_tests {
     use super::*;
 
-    fn family(forest: &Forest<&'static str, &'static str>)
-                  -> Tree<&'static str, &'static str>
-    {
-        let leaves = vec!(forest.new_leaf("elder"),
-                          forest.new_leaf("younger"));
+    fn family(forest: &Forest<&'static str, &'static str>) -> Tree<&'static str, &'static str> {
+        let leaves = vec![forest.new_leaf("elder"), forest.new_leaf("younger")];
         forest.new_branch("parent", leaves)
     }
 
@@ -24,7 +20,7 @@ mod forest_tests {
         if height == 0 {
             forest.new_leaf(id)
         } else {
-            let mut children = vec!();
+            let mut children = vec![];
             for i in 0..height {
                 children.push(mirror(forest, i, id + 2_u32.pow(i)));
             }
@@ -63,7 +59,7 @@ mod forest_tests {
     fn test_data() {
         let forest: Forest<u32, ()> = Forest::new();
         // Begin with data of 2
-        let mut tree = forest.new_branch(2, vec!());
+        let mut tree = forest.new_branch(2, vec![]);
         assert!(!tree.borrow().is_leaf());
         assert_eq!(*tree.borrow().data(), 2);
         // Mutate it to be 3
@@ -75,9 +71,11 @@ mod forest_tests {
     #[test]
     fn test_num_children() {
         let forest: Forest<(), ()> = Forest::new();
-        let leaves = vec!(forest.new_leaf(()),
-                          forest.new_leaf(()),
-                          forest.new_leaf(()));
+        let leaves = vec![
+            forest.new_leaf(()),
+            forest.new_leaf(()),
+            forest.new_leaf(()),
+        ];
         println!("before");
         let tree = forest.new_branch((), leaves);
         println!("after");
@@ -93,7 +91,8 @@ mod forest_tests {
         assert_eq!(*tree.borrow().child(1).leaf(), "younger");
         assert_eq!(*tree.borrow().child(0).parent().unwrap().data(), "parent");
         assert!(tree.borrow().child(0).parent().unwrap().parent().is_none());
-        let children: Vec<&'static str> = tree.borrow()
+        let children: Vec<&'static str> = tree
+            .borrow()
             .children()
             .map(|child| *child.leaf())
             .collect();
@@ -132,10 +131,10 @@ mod forest_tests {
         let bookmark = tree.borrow().child(1).bookmark();
         assert!(other_tree.borrow().lookup_bookmark(bookmark).is_none());
         assert!(!other_tree.goto_bookmark(bookmark));
-        assert_eq!(*tree.borrow()
-                   .lookup_bookmark(bookmark).unwrap()
-                   .leaf(),
-                   "younger");
+        assert_eq!(
+            *tree.borrow().lookup_bookmark(bookmark).unwrap().leaf(),
+            "younger"
+        );
         tree.goto_child(0);
         assert!(tree.goto_bookmark(bookmark));
         assert_eq!(*tree.leaf(), "younger");
@@ -151,7 +150,10 @@ mod forest_tests {
         tree.goto_parent();
         assert!(other_tree.borrow().lookup_bookmark(bookmark).is_none());
         assert!(!other_tree.goto_bookmark(bookmark));
-        assert_eq!(*tree.borrow().lookup_bookmark(bookmark).unwrap().leaf(), "younger");
+        assert_eq!(
+            *tree.borrow().lookup_bookmark(bookmark).unwrap().leaf(),
+            "younger"
+        );
         tree.goto_child(0);
         assert!(tree.goto_bookmark(bookmark));
         assert_eq!(*tree.leaf(), "younger");
@@ -210,11 +212,15 @@ mod forest_tests {
         tree.insert_child(1, malcolm); // Malcolm is in the middle
         tree.insert_child(0, reese);
         tree.insert_child(4, dewey);
-        let children: Vec<&'static str> = tree.borrow()
+        let children: Vec<&'static str> = tree
+            .borrow()
             .children()
             .map(|child| *child.leaf())
             .collect();
-        assert_eq!(children, vec!("Reese", "elder", "Malcolm", "younger", "Dewey"));
+        assert_eq!(
+            children,
+            vec!("Reese", "elder", "Malcolm", "younger", "Dewey")
+        );
         assert_eq!(*tree.borrow().child(0).parent().unwrap().data(), "parent");
         assert_eq!(*tree.borrow().child(1).parent().unwrap().data(), "parent");
     }
@@ -224,9 +230,9 @@ mod forest_tests {
         let forest: Forest<u32, u32> = Forest::new();
         {
             let mut tree = mirror(&forest, 3, 0);
-            let mut canada = forest.new_branch(721, vec!());
+            let mut canada = forest.new_branch(721, vec![]);
             let mut mexico = forest.new_leaf(3767);
-            assert_eq!(forest.read_lock().tree_count(), 8+1+1);
+            assert_eq!(forest.read_lock().tree_count(), 8 + 1 + 1);
             // tree:
             //       0
             //     / |  \
@@ -248,31 +254,37 @@ mod forest_tests {
                 assert_eq!(*node5.leaf(), 5);
                 let node4 = node5.parent().unwrap();
                 assert_eq!(*node4.data(), 4);
-                assert!(node5
-                        .parent().unwrap()
-                        .parent().unwrap()
-                        .parent()
-                        .is_none());
+                assert!(node5.parent().unwrap().parent().unwrap().parent().is_none());
 
                 // Bookmarks: successful lookup
                 let subtree = tree.borrow().child(1);
                 let mark5 = node5.bookmark();
-                assert_eq!(*subtree
-                           .lookup_bookmark(mark5).unwrap()
-                           .parent().unwrap()
-                           .data(), 4);
+                assert_eq!(
+                    *subtree
+                        .lookup_bookmark(mark5)
+                        .unwrap()
+                        .parent()
+                        .unwrap()
+                        .data(),
+                    4
+                );
                 let mark4 = node4.bookmark();
-                assert_eq!(*node5
-                           .lookup_bookmark(mark4).unwrap()
-                           .parent().unwrap()
-                           .child(1)
-                           .data(), 2);
-                
+                assert_eq!(
+                    *node5
+                        .lookup_bookmark(mark4)
+                        .unwrap()
+                        .parent()
+                        .unwrap()
+                        .child(1)
+                        .data(),
+                    2
+                );
+
                 // Bookmarks: failing lookup
                 assert!(canada.borrow().lookup_bookmark(mark5).is_none());
                 let mark_mexico = mexico.borrow().bookmark();
                 assert!(node4.lookup_bookmark(mark_mexico).is_none());
-                
+
                 // Save some bookmarks for later testing
                 let mark2 = tree.borrow().child(1).bookmark();
                 let mark4 = node4.bookmark();
@@ -280,7 +292,7 @@ mod forest_tests {
             };
 
             // Test Tree
-            
+
             // To start:
             //
             //  tree: 0
@@ -306,7 +318,7 @@ mod forest_tests {
             tree.goto_parent();
             let mark0 = tree.bookmark();
             assert!(tree.at_root());
-            
+
             // Cut
             let mut snip = tree.remove_child(1);
             //  tree: 0+
@@ -325,7 +337,7 @@ mod forest_tests {
             assert_eq!(*snip.borrow().data(), 22);
             assert_eq!(tree.borrow().sum(), 23);
             assert_eq!(forest.read_lock().tree_count(), 10);
-            
+
             // Paste
             tree.goto_child(1);
             tree.insert_child(1, snip);
@@ -383,23 +395,22 @@ mod forest_tests {
             //       3  376+
 
             // Bookmarks after mutation
-            assert!( ! tree.goto_bookmark(mark2));
+            assert!(!tree.goto_bookmark(mark2));
             assert_eq!(*tree.data(), 6);
             assert!(tree.goto_bookmark(mark4));
             assert_eq!(*tree.data(), 4);
-            assert_eq!(*canada.borrow()
-                       .lookup_bookmark(mark3767).unwrap()
-                       .leaf(),
-                       376);
-            assert!( ! canada.goto_bookmark(mark0));
+            assert_eq!(
+                *canada.borrow().lookup_bookmark(mark3767).unwrap().leaf(),
+                376
+            );
+            assert!(!canada.goto_bookmark(mark0));
 
             // Some final bookmark checks
             assert!(tree.borrow().child(0).lookup_bookmark(mark2).is_none());
-            assert_eq!(tree.borrow()
-                       .child(0)
-                       .lookup_bookmark(mark4).unwrap()
-                       .sum(),
-                       743);
+            assert_eq!(
+                tree.borrow().child(0).lookup_bookmark(mark4).unwrap().sum(),
+                743
+            );
             // Summation checks
             tree.goto_parent();
             assert_eq!(tree.borrow().sum(), 744);
@@ -413,7 +424,7 @@ mod forest_tests {
     // Error Testing //
 
     #[test]
-    #[should_panic(expected="leaf node has no children")]
+    #[should_panic(expected = "leaf node has no children")]
     fn test_num_chilren_panic() {
         let forest: Forest<(), ()> = Forest::new();
         let tree = forest.new_leaf(());
@@ -421,7 +432,7 @@ mod forest_tests {
     }
 
     #[test]
-    #[should_panic(expected="leaf node has no data")]
+    #[should_panic(expected = "leaf node has no data")]
     fn test_data_panic() {
         let forest: Forest<(), ()> = Forest::new();
         let tree = forest.new_leaf(());
@@ -429,15 +440,15 @@ mod forest_tests {
     }
 
     #[test]
-    #[should_panic(expected="branch node has no leaf")]
+    #[should_panic(expected = "branch node has no leaf")]
     fn test_leaf_panic() {
         let forest: Forest<(), ()> = Forest::new();
-        let mut tree = forest.new_branch((), vec!());
+        let mut tree = forest.new_branch((), vec![]);
         *tree.leaf_mut();
     }
 
     #[test]
-    #[should_panic(expected="leaf node has no children")]
+    #[should_panic(expected = "leaf node has no children")]
     fn test_navigation_panic_leaf_ref() {
         let forest: Forest<(), ()> = Forest::new();
         let tree = forest.new_leaf(());
@@ -445,7 +456,7 @@ mod forest_tests {
     }
 
     #[test]
-    #[should_panic(expected="leaf node has no children")]
+    #[should_panic(expected = "leaf node has no children")]
     fn test_navigation_panic_leaf_mut() {
         let forest: Forest<(), ()> = Forest::new();
         let mut tree = forest.new_leaf(());
@@ -453,23 +464,23 @@ mod forest_tests {
     }
 
     #[test]
-    #[should_panic(expected="child index out of bounds")]
+    #[should_panic(expected = "child index out of bounds")]
     fn test_navigation_panic_oob_ref() {
         let forest: Forest<(), ()> = Forest::new();
-        let tree = forest.new_branch((), vec!());
+        let tree = forest.new_branch((), vec![]);
         tree.borrow().child(0);
     }
 
     #[test]
-    #[should_panic(expected="child index out of bounds")]
+    #[should_panic(expected = "child index out of bounds")]
     fn test_navigation_panic_oob_mut() {
         let forest: Forest<(), ()> = Forest::new();
-        let mut tree = forest.new_branch((), vec!());
+        let mut tree = forest.new_branch((), vec![]);
         tree.goto_child(0);
     }
 
     #[test]
-    #[should_panic(expected="child index out of bounds")]
+    #[should_panic(expected = "child index out of bounds")]
     fn test_insert_panic_oob() {
         let forest: Forest<&'static str, &'static str> = Forest::new();
         let mut tree = family(&forest);
@@ -478,7 +489,7 @@ mod forest_tests {
     }
 
     #[test]
-    #[should_panic(expected="child index out of bounds")]
+    #[should_panic(expected = "child index out of bounds")]
     fn test_remove_panic_oob() {
         let forest: Forest<&'static str, &'static str> = Forest::new();
         let mut tree = family(&forest);
@@ -486,7 +497,7 @@ mod forest_tests {
     }
 
     #[test]
-    #[should_panic(expected="child index out of bounds")]
+    #[should_panic(expected = "child index out of bounds")]
     fn test_replace_panic_oob() {
         let forest: Forest<&'static str, &'static str> = Forest::new();
         let mut tree = family(&forest);
@@ -495,7 +506,7 @@ mod forest_tests {
     }
 
     #[test]
-    #[should_panic(expected="root node has no parent")]
+    #[should_panic(expected = "root node has no parent")]
     fn test_parent_of_root_panic() {
         let forest: Forest<&'static str, &'static str> = Forest::new();
         let mut tree = family(&forest);

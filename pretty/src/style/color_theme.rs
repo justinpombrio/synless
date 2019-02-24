@@ -104,7 +104,7 @@ impl ColorTheme {
 
     /// The background color for a given shade, in this color theme, as a terminal256-color.
     pub fn shade(&self, shade: Shade) -> Rgb {
-         self.color(shade.into())
+        self.color(shade.into())
     }
 
     /// The foreground color for a given style, in this color theme, as a terminal256-color.
@@ -139,11 +139,7 @@ impl Rgb {
     /// Construct an Rgb color from a string of the form "#FFFFFF".
     fn from_hex(hex_color: &str) -> Option<Rgb> {
         let to_int = |inclusive_range: (usize, usize)| -> Option<u8> {
-            u8::from_str_radix(
-                hex_color
-                     .get(inclusive_range.0 ..= inclusive_range.1)?,
-                16,
-            ).ok()
+            u8::from_str_radix(hex_color.get(inclusive_range.0..=inclusive_range.1)?, 16).ok()
         };
 
         Some(Rgb {

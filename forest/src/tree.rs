@@ -1,11 +1,10 @@
+use std::cell::{Ref, RefCell, RefMut};
 use std::mem;
-use std::rc::Rc;
-use std::cell::{RefCell, Ref, RefMut};
 use std::ops::{Deref, DerefMut};
+use std::rc::Rc;
 use std::thread;
 
 use crate::forest::{Id, RawForest};
-
 
 /// All [Trees](struct.Tree.html) belong to a Forest.
 ///
@@ -13,13 +12,13 @@ use crate::forest::{Id, RawForest};
 /// Forest they came from. The methods on Trees will panic if you use
 /// them on a different Forest.
 pub struct Forest<D, L> {
-    pub (super) lock: Rc<RefCell<RawForest<D, L>>>
+    pub(super) lock: Rc<RefCell<RawForest<D, L>>>,
 }
 
 impl<D, L> Clone for Forest<D, L> {
     fn clone(&self) -> Forest<D, L> {
         Forest {
-            lock: self.lock.clone()
+            lock: self.lock.clone(),
         }
     }
 }
@@ -40,21 +39,21 @@ impl<D, L> Clone for Forest<D, L> {
 /// being mutated, or when some of its data is mutably borrowed (e.g. with
 /// `leaf_mut()`), _no other tree in the forest can be accessed_.
 pub struct Tree<D, L> {
-    pub (super) forest: Forest<D, L>,
-    pub (super) root: Id, // INVARIANT: This root remains valid despite edits
-    pub (super) id: Id
+    pub(super) forest: Forest<D, L>,
+    pub(super) root: Id, // INVARIANT: This root remains valid despite edits
+    pub(super) id: Id,
 }
 
 #[derive(Clone, Copy)]
 pub struct Bookmark {
-    pub (super) id: Id
+    pub(super) id: Id,
 }
 
 impl<D, L> Forest<D, L> {
     /// Construct a new forest.
     pub fn new() -> Forest<D, L> {
         Forest {
-            lock: Rc::new(RefCell::new(RawForest::new()))
+            lock: Rc::new(RefCell::new(RawForest::new())),
         }
     }
 
@@ -66,26 +65,32 @@ impl<D, L> Forest<D, L> {
 
     /// Construct a new branch.
     pub fn new_branch(&self, data: D, children: Vec<Tree<D, L>>) -> Tree<D, L> {
-        let child_ids = children.into_iter().map(|tree| {
-            let id = tree.id;
-            mem::forget(tree);
-            id
-        }).collect();
+        let child_ids = children
+            .into_iter()
+            .map(|tree| {
+                let id = tree.id;
+                mem::forget(tree);
+                id
+            })
+            .collect();
         let branch_id = self.write_lock().create_branch(data, child_ids);
         Tree::new(self, branch_id)
     }
 
-    pub (super) fn write_lock(&self) -> RefMut<RawForest<D, L>> {
-        self.lock.try_borrow_mut().expect("Failed to obtain write lock for forest.")
+    pub(super) fn write_lock(&self) -> RefMut<RawForest<D, L>> {
+        self.lock
+            .try_borrow_mut()
+            .expect("Failed to obtain write lock for forest.")
     }
 
-    pub (super) fn read_lock(&self) -> Ref<RawForest<D, L>> {
-        self.lock.try_borrow().expect("Failed to obtain read lock for forest.")
+    pub(super) fn read_lock(&self) -> Ref<RawForest<D, L>> {
+        self.lock
+            .try_borrow()
+            .expect("Failed to obtain read lock for forest.")
     }
 }
 
 impl<D, L> Tree<D, L> {
-
     /// Returns `true` if this is a leaf node, and `false` if this is
     /// a branch node.
     pub fn is_leaf(&self) -> bool {
@@ -100,7 +105,7 @@ impl<D, L> Tree<D, L> {
     pub fn data(&self) -> ReadData<D, L> {
         ReadData {
             guard: self.forest(),
-            id: self.id
+            id: self.id,
         }
     }
 
@@ -112,7 +117,7 @@ impl<D, L> Tree<D, L> {
     pub fn leaf(&self) -> ReadLeaf<D, L> {
         ReadLeaf {
             guard: self.forest(),
-            id: self.id
+            id: self.id,
         }
     }
 
@@ -133,7 +138,7 @@ impl<D, L> Tree<D, L> {
     pub fn data_mut(&mut self) -> WriteData<D, L> {
         WriteData {
             guard: self.forest_mut(),
-            id: self.id
+            id: self.id,
         }
     }
 
@@ -145,13 +150,13 @@ impl<D, L> Tree<D, L> {
     pub fn leaf_mut(&mut self) -> WriteLeaf<D, L> {
         WriteLeaf {
             guard: self.forest_mut(),
-            id: self.id
+            id: self.id,
         }
     }
 
     /// Replace the `i`th child of this node with `tree`.
     /// Returns the original child.
-    /// 
+    ///
     /// # Panics
     ///
     /// Panics if this is a leaf node, or if `i` is out of bounds.
@@ -162,7 +167,7 @@ impl<D, L> Tree<D, L> {
     }
 
     /// Insert `tree` as the `i`th child of this node.
-    /// 
+    ///
     /// # Panics
     ///
     /// Panics if this is a leaf node, or if `i` is out of bounds.
@@ -173,7 +178,7 @@ impl<D, L> Tree<D, L> {
     }
 
     /// Remove and return the `i`th child of this node.
-    /// 
+    ///
     /// # Panics
     ///
     /// Panics if this is a leaf node, or if `i` is out of bounds.
@@ -184,9 +189,7 @@ impl<D, L> Tree<D, L> {
 
     /// Save a bookmark to return to later.
     pub fn bookmark(&mut self) -> Bookmark {
-        Bookmark {
-            id: self.id
-        }
+        Bookmark { id: self.id }
     }
 
     /// Jump to a previously saved bookmark, as long as that
@@ -209,7 +212,7 @@ impl<D, L> Tree<D, L> {
     pub fn at_root(&self) -> bool {
         match self.forest().parent(self.id) {
             None => true,
-            Some(_) => false
+            Some(_) => false,
         }
     }
 
@@ -224,7 +227,10 @@ impl<D, L> Tree<D, L> {
     ///
     /// Panics if this is the root of the tree, and there is no parent.
     pub fn goto_parent(&mut self) {
-        let id = self.forest().parent(self.id).expect("Forest - root node has no parent!");
+        let id = self
+            .forest()
+            .parent(self.id)
+            .expect("Forest - root node has no parent!");
         self.id = id;
     }
 
@@ -240,11 +246,11 @@ impl<D, L> Tree<D, L> {
 
     // Private //
 
-    pub (super) fn new(forest: &Forest<D, L>, id: Id) -> Tree<D, L> {
+    pub(super) fn new(forest: &Forest<D, L>, id: Id) -> Tree<D, L> {
         Tree {
             forest: forest.clone(),
             root: id,
-            id: id
+            id: id,
         }
     }
 
@@ -266,31 +272,30 @@ impl<D, L> Drop for Tree<D, L> {
     }
 }
 
-
 // Derefs //
 
 /// Provides read access to a tree's data. Released on drop.
 pub struct ReadData<'f, D, L> {
-    pub (super) guard: Ref<'f, RawForest<D, L>>,
-    pub (super) id: Id
+    pub(super) guard: Ref<'f, RawForest<D, L>>,
+    pub(super) id: Id,
 }
 
 /// Provides read access to a tree's leaf. Released on drop.
 pub struct ReadLeaf<'f, D, L> {
-    pub (super) guard: Ref<'f, RawForest<D, L>>,
-    pub (super) id: Id
+    pub(super) guard: Ref<'f, RawForest<D, L>>,
+    pub(super) id: Id,
 }
 
 /// Provides write access to a tree's data. Released on drop.
 pub struct WriteData<'f, D, L> {
-    pub (super) guard: RefMut<'f, RawForest<D, L>>,
-    pub (super) id: Id
+    pub(super) guard: RefMut<'f, RawForest<D, L>>,
+    pub(super) id: Id,
 }
 
 /// Provides write access to a tree's leaf. Released on drop.
 pub struct WriteLeaf<'f, D, L> {
-    pub (super) guard: RefMut<'f, RawForest<D, L>>,
-    pub (super) id: Id
+    pub(super) guard: RefMut<'f, RawForest<D, L>>,
+    pub(super) id: Id,
 }
 
 impl<'f, D, L> Deref for ReadData<'f, D, L> {

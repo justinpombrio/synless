@@ -3,15 +3,16 @@
 #![feature(slice_patterns)]
 #![feature(box_patterns)]
 
-mod style;
 mod geometry;
-mod notation;
 mod layout;
+mod notation;
 mod pretty;
+mod style;
 
-pub use self::style::{Style, ColorTheme, Color, Rgb};
-pub use self::geometry::{Row, Col, Pos, Bound, Region, MAX_WIDTH};
-pub use self::notation::{Notation, Repeat,
-                         empty, literal, text, no_wrap, concat, horz, vert,
-                         child, repeat, star, if_empty_text, choice};
-pub use self::pretty::{PrettyScreen, PrettyDocument, PlainText};
+pub use self::geometry::{Bound, Col, Pos, Region, Row, MAX_WIDTH};
+pub use self::notation::{
+    child, choice, concat, empty, horz, if_empty_text, literal, no_wrap, repeat, star, text, vert,
+    Notation, Repeat,
+};
+pub use self::pretty::{PlainText, PrettyDocument, PrettyScreen};
+pub use self::style::{Color, ColorTheme, Rgb, Style};

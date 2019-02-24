@@ -13,19 +13,19 @@ pub type Sort = String; // "Any" is special
 /// might represent binary addition.
 #[derive(Debug)]
 pub struct Construct {
-    pub name:  ConstructName,
-    pub sort:  Sort,
+    pub name: ConstructName,
+    pub sort: Sort,
     pub arity: Arity,
-    pub key:   char
+    pub key: char,
 }
 
 impl Construct {
     pub fn new(name: &str, sort: &str, arity: Arity, key: char) -> Construct {
-        Construct{
+        Construct {
             name: name.to_string(),
             sort: sort.to_string(),
             arity: arity,
-            key: key
+            key: key,
         }
     }
 }
@@ -34,7 +34,7 @@ impl Construct {
 pub enum Arity {
     Text,
     Mixed(Sort),
-    Forest(Vec<Sort>, Option<Sort>) // if Some, rest of children have this sort
+    Forest(Vec<Sort>, Option<Sort>), // if Some, rest of children have this sort
 }
 
 lazy_static! {

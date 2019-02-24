@@ -1,43 +1,40 @@
-use std::ops::Index;
 use std::collections::HashMap;
+use std::ops::Index;
 
-use crate::notation::*;
-use crate::style::{Style, Color};
 use crate::layout::Bounds;
+use crate::notation::*;
 use crate::pretty::pretty_doc::PrettyDocument;
+use crate::style::{Color, Style};
 
 use self::ExampleNode::{Branch, Leaf};
 
 // TODO: test horz concat
 
-
 pub struct ExampleTree {
     arity: usize,
     node: ExampleNode,
     notation: Notation,
-    bounds: Bounds
+    bounds: Bounds,
 }
 
 pub enum ExampleNode {
     Branch(Vec<ExampleTree>),
-    Leaf(String)
+    Leaf(String),
 }
 
 #[derive(Clone)]
 pub struct ExampleTreeRef<'t> {
     root: &'t ExampleTree,
-    path: Vec<usize>
+    path: Vec<usize>,
 }
 
 impl ExampleTree {
-    pub fn new_branch(arity: usize, notation: Notation, children: Vec<ExampleTree>)
-                      -> ExampleTree
-    {
+    pub fn new_branch(arity: usize, notation: Notation, children: Vec<ExampleTree>) -> ExampleTree {
         let mut tree = ExampleTree {
             arity: arity,
             node: Branch(children),
             bounds: Bounds::empty(),
-            notation: notation
+            notation: notation,
         };
         tree.bounds = Bounds::compute(&tree.as_ref());
         tree
@@ -48,7 +45,7 @@ impl ExampleTree {
             arity: 0,
             node: Leaf(contents.to_string()),
             bounds: Bounds::empty(),
-            notation: notation
+            notation: notation,
         };
         tree.bounds = Bounds::compute(&tree.as_ref());
         tree
@@ -57,7 +54,7 @@ impl ExampleTree {
     pub fn as_ref(&self) -> ExampleTreeRef {
         ExampleTreeRef {
             root: self,
-            path: vec!()
+            path: vec![],
         }
     }
 }
@@ -69,8 +66,8 @@ impl<'a> Index<&'a [usize]> for ExampleTree {
             &[] => self,
             &[i, path..] => match &self.node {
                 ExampleNode::Branch(children) => children[*i].index(path),
-                ExampleNode::Leaf(_) => panic!("leaf node")
-            }
+                ExampleNode::Leaf(_) => panic!("leaf node"),
+            },
         }
     }
 }
@@ -103,7 +100,7 @@ impl<'t> PrettyDocument for ExampleTreeRef<'t> {
             let (path, i) = pop_path(self.path.clone());
             let doc = ExampleTreeRef {
                 root: self.root,
-                path: path
+                path: path,
             };
             Some((doc, i))
         }
@@ -112,34 +109,32 @@ impl<'t> PrettyDocument for ExampleTreeRef<'t> {
     // TODO: panic if index out of bounds
     fn child(&self, i: usize) -> ExampleTreeRef<'t> {
         match &self.tree().node {
-            ExampleNode::Branch(_) => {
-                ExampleTreeRef {
-                    root: self.root,
-                    path: extend_path(self.path.clone(), i)
-                }
-            }
-            ExampleNode::Leaf(_) => panic!("leaf node")
+            ExampleNode::Branch(_) => ExampleTreeRef {
+                root: self.root,
+                path: extend_path(self.path.clone(), i),
+            },
+            ExampleNode::Leaf(_) => panic!("leaf node"),
         }
     }
-    
+
     fn children(&self) -> Vec<ExampleTreeRef<'t>> {
         match &self.tree().node {
-            ExampleNode::Branch(children) => {
-                children.iter().enumerate().map(|(i, _)| {
-                    ExampleTreeRef {
-                        root: self.root,
-                        path: extend_path(self.path.clone(), i)
-                    }
-                }).collect()
-            }
-            ExampleNode::Leaf(_) => panic!("leaf node")
+            ExampleNode::Branch(children) => children
+                .iter()
+                .enumerate()
+                .map(|(i, _)| ExampleTreeRef {
+                    root: self.root,
+                    path: extend_path(self.path.clone(), i),
+                })
+                .collect(),
+            ExampleNode::Leaf(_) => panic!("leaf node"),
         }
     }
 
     fn notation(&self) -> &Notation {
         &self.tree().notation
     }
-    
+
     fn bounds(&self) -> Bounds {
         self.tree().bounds.clone()
     }
@@ -147,12 +142,10 @@ impl<'t> PrettyDocument for ExampleTreeRef<'t> {
     fn text(&self) -> Option<&str> {
         match &self.tree().node {
             ExampleNode::Branch(_) => None,
-            ExampleNode::Leaf(s)   => Some(s)
+            ExampleNode::Leaf(s) => Some(s),
         }
     }
 }
-
-
 
 fn example_notation() -> HashMap<String, Notation> {
     fn punct(text: &str) -> Notation {
@@ -166,58 +159,55 @@ fn example_notation() -> HashMap<String, Notation> {
     }
 
     let mut map = HashMap::new();
-    let note = repeat(Repeat{
-        empty:  empty(),
-        lone:   star(),
-        first:  star() + punct(", "),
+    let note = repeat(Repeat {
+        empty: empty(),
+        lone: star(),
+        first: star() + punct(", "),
         middle: star() + punct(", "),
-        last:   star()
-    }) | repeat(Repeat{
-        empty:  empty(),
-        lone:   star(),
-        first:  star() + punct(",") ^ empty(),
+        last: star(),
+    }) | repeat(Repeat {
+        empty: empty(),
+        lone: star(),
+        first: star() + punct(",") ^ empty(),
         middle: star() + punct(",") ^ empty(),
-        last:   star()
+        last: star(),
     });
     map.insert("args".to_string(), note);
 
-    let note = repeat(Repeat{
-        empty:  punct("[]"),
-        lone:   punct("[") + star() + punct("]"),
-        first:  punct("[") + star() + punct(", "),
+    let note = repeat(Repeat {
+        empty: punct("[]"),
+        lone: punct("[") + star() + punct("]"),
+        first: punct("[") + star() + punct(", "),
         middle: star() + punct(", "),
-        last:   star() + punct("]")
-    })| repeat(Repeat{
-        empty:  punct("[]"),
-        lone:   punct("[") + star() + punct("]"),
-        first:  star() + punct(",") ^ empty(),
+        last: star() + punct("]"),
+    }) | repeat(Repeat {
+        empty: punct("[]"),
+        lone: punct("[") + star() + punct("]"),
+        first: star() + punct(",") ^ empty(),
         middle: star() + punct(",") ^ empty(),
-        last:   star() + punct("]")
-    })| repeat(Repeat{
-        empty:  punct("[]"),
-        lone:   punct("[") + star() + punct("]"),
-        first:  punct("[")
-            + (star() + punct(", ") | star() + punct(",") ^ empty()),
+        last: star() + punct("]"),
+    }) | repeat(Repeat {
+        empty: punct("[]"),
+        lone: punct("[") + star() + punct("]"),
+        first: punct("[") + (star() + punct(", ") | star() + punct(",") ^ empty()),
         middle: star() + punct(", ") | star() + punct(",") ^ empty(),
-        last:   star() + punct("]")
+        last: star() + punct("]"),
     });
     map.insert("list".to_string(), note);
 
     let note =
-        word("func ") + child(0)
-        + punct("(") + child(1) + punct(") { ") + child(2) + punct(" }")
-        | word("func ") + child(0) + punct("(") + child(1) + punct(") {") ^ empty()
-        + word("  ") + child(2) ^ empty()
-        + punct("}")
-        | word("func ") + child(0) + punct("(") ^ empty()
-        + word("  ") + child(1) + punct(")") ^ empty()
-        + punct("{") ^ empty()
-        + word("  ") + child(2) ^ empty()
-        + punct("}");
+        word("func ") + child(0) + punct("(") + child(1) + punct(") { ") + child(2) + punct(" }")
+            | word("func ") + child(0) + punct("(") + child(1) + punct(") {")
+                ^ empty() + word("  ") + child(2)
+                ^ empty() + punct("}")
+            | word("func ") + child(0) + punct("(")
+                ^ empty() + word("  ") + child(1) + punct(")")
+                ^ empty() + punct("{")
+                ^ empty() + word("  ") + child(2)
+                ^ empty() + punct("}");
     map.insert("function".to_string(), note);
 
-    let note =
-        child(0) + punct(" + ") + child(1)
+    let note = child(0) + punct(" + ") + child(1)
         | child(0) ^ punct("+ ") + child(1)
         | child(0) ^ punct("+") ^ child(1);
     map.insert("add".to_string(), note);
@@ -244,12 +234,15 @@ pub fn make_example_tree() -> ExampleTree {
         ExampleTree::new_branch(children.len(), note, children)
     };
 
-    branch("function", vec!(
-        leaf("id", "foo"),
-        branch("args", vec!(
-            leaf("id", "abc"),
-            leaf("id", "def"))),
-        branch("add", vec!(
-            leaf("string", "abcdef"),
-            leaf("string", "abcdef")))))
+    branch(
+        "function",
+        vec![
+            leaf("id", "foo"),
+            branch("args", vec![leaf("id", "abc"), leaf("id", "def")]),
+            branch(
+                "add",
+                vec![leaf("string", "abcdef"), leaf("string", "abcdef")],
+            ),
+        ],
+    )
 }
