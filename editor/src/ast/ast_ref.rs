@@ -19,12 +19,15 @@ pub struct AstRef<'f, 'l> {
 }
 
 impl<'f, 'l> AstRef<'f, 'l> {
-    /// Get the parent node. Returns `None` if we're already at the
-    /// root of the tree.
-    pub fn parent(&self) -> Option<AstRef<'f, 'l>> {
+    /// Get the parent node and this node's index. Returns `None` if we're
+    /// already at the root of the tree.
+    pub fn parent(&self) -> Option<(AstRef<'f, 'l>, usize)> {
         match self.tree_ref.parent() {
             None => None,
-            Some(tree_ref) => Some(AstRef { tree_ref: tree_ref }),
+            Some(tree_ref) => {
+                let index = self.tree_ref.index();
+                Some((AstRef { tree_ref: tree_ref }, index))
+            }
         }
     }
 
@@ -98,7 +101,7 @@ impl<'f, 'l> PrettyDocument for AstRef<'f, 'l> {
         }
     }
 
-    fn parent(&self) -> Option<AstRef<'f, 'l>> {
+    fn parent(&self) -> Option<(AstRef<'f, 'l>, usize)> {
         self.parent()
     }
 

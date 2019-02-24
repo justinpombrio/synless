@@ -14,7 +14,7 @@ pub fn make_example_doc() -> Doc {
 
     let branch = |construct: &str, children: Vec<Doc>| -> Doc {
         let note = notations.get(construct).unwrap().clone();
-        Doc::new_branch(children.len(), note, children)
+        Doc::new_branch(note, children)
     };
 
     branch(

@@ -233,16 +233,7 @@ impl<D, L> Tree<D, L> {
     /// Determine this node's index among its siblings. Returns `0` when at the
     /// root.
     pub fn index(&self) -> usize {
-        let parent_id = match self.forest().parent(self.id) {
-            None => return 0,
-            Some(id) => id,
-        };
-        for (index, &id) in self.forest().children(parent_id).enumerate() {
-            if id == self.id {
-                return index;
-            }
-        }
-        panic!("Tree::index - id {} not found", self.id)
+        self.forest().index(self.id)
     }
 
     /// Determine the number of siblings that this node has, including itself.

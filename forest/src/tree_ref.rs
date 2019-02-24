@@ -133,6 +133,12 @@ impl<'f, D, L> TreeRef<'f, D, L> {
             .into_iter()
     }
 
+    /// Determine this node's index among its siblings. Returns `0` when at the
+    /// root.
+    pub fn index(&self) -> usize {
+        self.forest().index(self.id)
+    }
+
     /// Make a copy of this tree.
     pub fn to_owned_tree(&self) -> Tree<D, L>
     where

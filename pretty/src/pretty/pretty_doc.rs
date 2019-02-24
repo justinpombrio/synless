@@ -16,8 +16,8 @@ use crate::style::Style;
 /// 1. A document that implements PrettyDocument, and
 /// 2. A screen that implements PrettyScreen.
 pub trait PrettyDocument: Sized + Clone {
-    /// The minimum number of children this node can have. (See `grammar::Arity`)
-    fn arity(&self) -> usize;
+    type TextRef : AsRef<str>;
+
     /// This node's parent, together with the index of this node (or `None` if
     /// this is the root node).
     fn parent(&self) -> Option<(Self, usize)>;
@@ -203,12 +203,12 @@ where
     }
     match &lay.layout {
         Empty => Ok(()),
-        Literal(text, style) => render_text(text, lay.region, screen, screen_region, *style),
+        Literal(text, style) => render_text(text.as_ref(), lay.region, screen, screen_region, *style),
         Text(style) => {
             let text = doc
                 .text()
                 .expect("PrettyDocument::render - Expected text, found branch node");
-            render_text(text, lay.region, screen, screen_region, *style)
+            render_text(text.as_ref(), lay.region, screen, screen_region, *style)
         }
         Child(i) => {
             let child = &doc.child(*i);

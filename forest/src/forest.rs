@@ -68,6 +68,20 @@ impl<D, L> RawForest<D, L> {
         }
     }
 
+    pub fn index(&self, id: Id) -> usize {
+        match self.get(id).parent {
+            None => return 0,
+            Some(parent_id) => {
+                for (index, &child_id) in self.children(parent_id).enumerate() {
+                    if child_id == id {
+                        return index;
+                    }
+                }
+            }
+        }
+        panic!("Forest::index - id {} not found", id)
+    }
+
     pub fn is_valid(&self, id: Id) -> bool {
         self.map.get(&id).is_some()
     }

@@ -66,7 +66,7 @@ impl<K: Eq, V> GrowOnlyMap<K, V> {
 #[test]
 fn test_grow_only_map() {
     let mut junk = vec![];
-    let mut map = GrowOnlyMap::new();
+    let map = GrowOnlyMap::new();
 
     map.insert(
         "hello".to_string(),

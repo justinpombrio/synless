@@ -5,7 +5,6 @@ use pretty::{Bounds, Notation, PlainText, PrettyDocument};
 use Node::{Branch, Leaf};
 
 pub struct Doc {
-    arity: usize,
     node: Node,
     notation: Notation,
     bounds: Bounds,
@@ -23,9 +22,8 @@ pub struct DocRef<'t> {
 }
 
 impl Doc {
-    pub fn new_branch(arity: usize, notation: Notation, children: Vec<Doc>) -> Doc {
+    pub fn new_branch(notation: Notation, children: Vec<Doc>) -> Doc {
         let mut tree = Doc {
-            arity: arity,
             node: Branch(children),
             bounds: Bounds::empty(),
             notation: notation,
@@ -36,7 +34,6 @@ impl Doc {
 
     pub fn new_leaf(notation: Notation, contents: &str) -> Doc {
         let mut tree = Doc {
-            arity: 0,
             node: Leaf(contents.to_string()),
             bounds: Bounds::empty(),
             notation: notation,
@@ -89,9 +86,7 @@ fn extend_path(mut path: Vec<usize>, i: usize) -> Vec<usize> {
 }
 
 impl<'t> PrettyDocument for DocRef<'t> {
-    fn arity(&self) -> usize {
-        self.tree().arity
-    }
+    type TextRef = String;
 
     fn parent(&self) -> Option<(DocRef<'t>, usize)> {
         if self.path.is_empty() {
@@ -138,10 +133,10 @@ impl<'t> PrettyDocument for DocRef<'t> {
         self.tree().bounds.clone()
     }
 
-    fn text(&self) -> Option<&str> {
+    fn text(&self) -> Option<String> {
         match &self.tree().node {
             Node::Branch(_) => None,
-            Node::Leaf(s) => Some(s),
+            Node::Leaf(s) => Some(s.to_string()),
         }
     }
 }
