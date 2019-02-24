@@ -1,12 +1,15 @@
-use crate::geometry::Region;
-use crate::notation::Notation;
-use crate::layout::{LayoutRegion, Layout, Bounds, Layouts,
-                    compute_bounds, compute_layouts, text_bounds};
-use super::pretty_screen::PrettyScreen;
+use std::cmp;
+
 use self::Layout::*;
+use super::pretty_screen::PrettyScreen;
+use crate::geometry::{Bound, Pos, Region, Row};
+use crate::layout::{
+    compute_bounds, compute_layouts, text_bounds, Bounds, Layout, LayoutRegion, Layouts,
+};
+use crate::notation::Notation;
+use crate::style::Style;
 
-
-pub trait PrettyDocument : Sized + Clone {
+pub trait PrettyDocument: Sized + Clone {
     /// The minimum number of children this node can have. (See `grammar::Arity`)
     fn arity(&self) -> usize;
     /// This node's parent, together with the index of this node (or `None` if
@@ -29,19 +32,37 @@ pub trait PrettyDocument : Sized + Clone {
 
     /// Pretty-print entire document.
     fn pretty_print<Screen>(&self, screen: &mut Screen) -> Result<(), Screen::Error>
-        where Screen: PrettyScreen
+    where
+        Screen: PrettyScreen,
     {
-        let lay = Layouts::compute(&self.root()).fit_bound(screen.size()?);
+        let bound = Bound::infinite_scroll(screen.size()?.width);
+        let lay = Layouts::compute(&self.root()).fit_bound(bound);
         pp(self, screen, lay)
+    }
+
+    /// Pretty-print the document onto the screen, starting at `line` and going down.
+    fn render<Screen>(&self, line: Row, screen: &mut Screen) -> Result<(), Screen::Error>
+    where
+        Screen: PrettyScreen,
+    {
+        let root = self.root();
+        let screen_region = Region {
+            pos: Pos { row: line, col: 0 },
+            bound: screen.size()?,
+        };
+        let bound = Bound::infinite_scroll(screen.size()?.width);
+        let lay = Layouts::compute(&root).fit_bound(bound);
+        render(&root, screen, screen_region, &lay)
     }
 
     /// Locate the selected node, in the coordinate system of the entire document.
     fn locate_cursor<Screen>(&self, screen: &Screen) -> Result<Region, Screen::Error>
-        where Screen: PrettyScreen
+    where
+        Screen: PrettyScreen,
     {
         // Find the root of the Document, and the path from the root to the
         // selected node.
-        let mut path = vec!();
+        let mut path = vec![];
         let mut root = self.clone();
         while let Some((parent, i)) = root.parent() {
             root = parent;
@@ -62,7 +83,6 @@ pub trait PrettyDocument : Sized + Clone {
         root
     }
 }
-
 
 /// _Compute_ the possible bounds of this node. This is required in order to
 /// pretty-print it. Note that:
@@ -86,33 +106,30 @@ impl Layouts {
 fn child_bounds<Doc: PrettyDocument>(doc: &Doc) -> Vec<Bounds> {
     match doc.text() {
         None => doc.children().iter().map(|child| child.bounds()).collect(),
-        Some(text) => vec!(text_bounds(text))
+        Some(text) => vec![text_bounds(text)],
     }
 }
 
 fn expanded_notation<Doc: PrettyDocument>(doc: &Doc) -> Notation {
     let len = match doc.text() {
-        None       => doc.children().len(),
-        Some(text) => text.chars().count()
+        None => doc.children().len(),
+        Some(text) => text.chars().count(),
     };
     doc.notation().expand(len)
 }
 
-// TODO: shading and highlighting
-fn pp<Doc, Screen>(doc: &Doc, screen: &mut Screen, lay: LayoutRegion)
-                   -> Result<(), Screen::Error>
-    where Screen: PrettyScreen, Doc: PrettyDocument
+fn pp<Doc, Screen>(doc: &Doc, screen: &mut Screen, lay: LayoutRegion) -> Result<(), Screen::Error>
+where
+    Screen: PrettyScreen,
+    Doc: PrettyDocument,
 {
     match lay.layout {
-        Empty => {
-            Ok(())
-        }
-        Literal(text, style) => {
-            screen.print(lay.region.pos, &text, style)
-        }
+        Empty => Ok(()),
+        Literal(text, style) => screen.print(lay.region.pos, &text, style),
         Text(style) => {
-            let text = doc.text()
-                .expect("Expected text while transcribing; found branch node");
+            let text = doc
+                .text()
+                .expect("PrettyDocument::pretty_print - Expected text, found branch node");
             screen.print(lay.region.pos, text, style)
         }
         Child(i) => {
@@ -136,16 +153,85 @@ fn pp<Doc, Screen>(doc: &Doc, screen: &mut Screen, lay: LayoutRegion)
 }
 
 fn loc_cursor<Doc>(doc: &Doc, lay: &LayoutRegion, path: &[usize]) -> Region
-    where Doc: PrettyDocument
+where
+    Doc: PrettyDocument,
 {
     match path {
         [] => lay.region,
         [i, path..] => {
-            let child_region = lay.find_child(*i)
+            let child_region = lay
+                .find_child(*i)
                 .expect("PrettyDocument::locate_cursor - got lost looking for cursor")
                 .region;
             let child_lay = Layouts::compute(&doc.child(*i)).fit_region(child_region);
             loc_cursor(&doc.child(*i), &child_lay, path)
         }
     }
+}
+
+// TODO: shading and highlighting
+fn render<Doc, Screen>(
+    doc: &Doc,
+    screen: &mut Screen,
+    screen_region: Region,
+    lay: &LayoutRegion,
+) -> Result<(), Screen::Error>
+where
+    Doc: PrettyDocument,
+    Screen: PrettyScreen,
+{
+    if !lay.region.overlaps(screen_region) {
+        // It's entirely offscreen. Nothing to show.
+        return Ok(());
+    }
+    match &lay.layout {
+        Empty => Ok(()),
+        Literal(text, style) => render_text(text, lay.region, screen, screen_region, *style),
+        Text(style) => {
+            let text = doc
+                .text()
+                .expect("PrettyDocument::render - Expected text, found branch node");
+            render_text(text, lay.region, screen, screen_region, *style)
+        }
+        Child(i) => {
+            let child = &doc.child(*i);
+            let child_lay = Layouts::compute(child).fit_region(lay.region);
+            pp(child, screen, child_lay)
+        }
+        Concat(box lay1, box lay2) => {
+            render(doc, screen, screen_region, &lay1)?;
+            render(doc, screen, screen_region, &lay2)
+        }
+        Horz(box lay1, box lay2) => {
+            render(doc, screen, screen_region, &lay1)?;
+            render(doc, screen, screen_region, &lay2)
+        }
+        Vert(box lay1, box lay2) => {
+            render(doc, screen, screen_region, &lay1)?;
+            render(doc, screen, screen_region, &lay2)
+        }
+    }
+}
+
+fn render_text<Screen>(
+    text: &str,
+    text_region: Region,
+    screen: &mut Screen,
+    screen_region: Region,
+    style: Style,
+) -> Result<(), Screen::Error>
+where
+    Screen: PrettyScreen,
+{
+    let pos = Pos {
+        row: text_region.pos.row,
+        col: cmp::min(text_region.pos.col, screen_region.pos.col),
+    };
+    let offset = screen_region.pos.col.saturating_sub(text_region.pos.col);
+    let string_offset = text
+        .char_indices()
+        .nth(offset as usize)
+        .expect("PrettyDocument::render - issue with string offset")
+        .0;
+    screen.print(pos, &text[string_offset..], style)
 }
