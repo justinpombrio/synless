@@ -4,12 +4,14 @@ use pretty::{Bounds, Notation, PlainText, PrettyDocument};
 
 use Node::{Branch, Leaf};
 
+#[derive(Clone)]
 pub struct Doc {
     node: Node,
     notation: Notation,
     bounds: Bounds,
 }
 
+#[derive(Clone)]
 pub enum Node {
     Branch(Vec<Doc>),
     Leaf(String),
