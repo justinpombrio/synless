@@ -47,7 +47,7 @@ impl<'l> Ast<'l> {
     }
 
     /// Get the arity of this node, or `None` if this is a leaf node.
-    fn arity(&self) -> Option<Arity> {
+    pub fn arity(&self) -> Option<Arity> {
         if self.tree.is_leaf() {
             return None;
         }

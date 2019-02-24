@@ -52,3 +52,9 @@ pub enum EditorCmd {
     /// In a flexible parent, paste at the end of its children.
     PastePostpend
 }
+
+impl<'l> From<NavCmd> for Command<'l> {
+    fn from(cmd: NavCmd) -> Command<'l> {
+        Command::Nav(cmd)
+    }
+}
