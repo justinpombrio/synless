@@ -1,22 +1,21 @@
-// TODO: use or remove commented code
-
 //! An editable language.
 
 use std::collections::HashMap;
 use std::iter::Iterator;
 
 use crate::construct::{Construct, ConstructName, Sort};
+use utility::GrowOnlyMap;
 
 pub type LanguageName = String;
 
-// TODO: rename to Grammar
-/// The notation and whatnot for a language.
 pub struct Language {
     name: LanguageName,
     constructs: HashMap<ConstructName, Construct>,
     sorts: HashMap<Sort, Vec<ConstructName>>,
     keymap: HashMap<char, ConstructName>,
 }
+
+pub type LanguageSet = GrowOnlyMap<String, Language>;
 
 impl Language {
     pub fn new(name: &str) -> Language {
@@ -67,26 +66,4 @@ impl Language {
     pub fn constructs(&self) -> impl Iterator<Item = &Construct> {
         self.constructs.values()
     }
-}
-
-//#[cfg(test)]
-//use self::example::*;
-
-#[cfg(test)]
-mod example {
-    use super::*;
-    use crate::Arity;
-
-    /// An example language for testing.
-    // TODO: nvm, it's used to test `pretty`.
-    pub fn example_language() -> Language {
-        let mut language = Language::new("TestLang");
-
-        let arity = Arity::Forest(vec!["Expr".to_string(), "Expr".to_string()], None);
-        let construct = Construct::new("plus", "Expr", arity, 'p');
-        language.add(construct);
-
-        language
-    }
-
 }

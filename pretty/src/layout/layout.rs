@@ -276,6 +276,7 @@ impl Lay for LayoutRegion {
     }
 }
 
+/// Precomputed information that helps pretty-print a document.
 #[derive(Clone)]
 pub struct Bounds(BoundSet<()>);
 
@@ -374,6 +375,5 @@ fn lay<L: Lay>(child_bounds: &Vec<Bounds>, notation: &Notation) -> BoundSet<L> {
         }
         Notation::IfEmptyText(_, _) => panic!("lay_out: unexpected IfEmptyText"),
         Notation::Rep(_) => panic!("lay_out: unexpected Repeat"),
-        Notation::Star => panic!("lay_out: unexpected Star"),
     }
 }

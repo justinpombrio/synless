@@ -5,6 +5,7 @@ use crate::forest::{Id, RawForest};
 use crate::tree::{Bookmark, Forest, ReadData, ReadLeaf, Tree};
 
 /// An immutable reference to a node in a tree.
+#[derive(Clone)]
 pub struct TreeRef<'f, D, L> {
     pub(super) forest: &'f Forest<D, L>,
     pub(super) root: Id,
@@ -62,7 +63,7 @@ impl<'f, D, L> TreeRef<'f, D, L> {
     ///
     /// Panics if this is a leaf node.
     pub fn num_children(&self) -> usize {
-        self.forest().children(self.id).len()
+        self.forest().children(self.id).count()
     }
 
     /// Save a bookmark to return to later.
@@ -116,13 +117,33 @@ impl<'f, D, L> TreeRef<'f, D, L> {
     }
 
     /// Obtain an iterator over all of the (direct) children of this node.
-    pub fn children(&self) -> RefChildrenIter<'f, D, L> {
-        let children = self.forest().children(self.id).clone(); // TODO: avoid clone?
-        RefChildrenIter {
-            forest: self.forest,
-            root: self.root,
-            children: children,
-            index: 0,
+    ///
+    /// # Panics
+    ///
+    /// Panics if this is a leaf node.
+    pub fn children(&self) -> impl Iterator<Item = TreeRef<'f, D, L>> {
+        self.forest()
+            .children(self.id)
+            .map(|&child_id| TreeRef {
+                forest: self.forest,
+                root: self.root,
+                id: child_id,
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+    }
+
+    /// Make a copy of this tree.
+    pub fn to_owned_tree(&self) -> Tree<D, L>
+    where
+        D: Clone,
+        L: Clone,
+    {
+        if self.is_leaf() {
+            self.forest.new_leaf(self.leaf().clone())
+        } else {
+            let children = self.children().map(|child| child.to_owned_tree()).collect();
+            self.forest.new_branch(self.data().clone(), children)
         }
     }
 
@@ -130,30 +151,5 @@ impl<'f, D, L> TreeRef<'f, D, L> {
 
     fn forest(&self) -> Ref<'f, RawForest<D, L>> {
         self.forest.read_lock()
-    }
-}
-
-/// An iterator over a tree's children.
-pub struct RefChildrenIter<'f, D: 'f, L: 'f> {
-    forest: &'f Forest<D, L>,
-    root: Id,
-    children: Vec<Id>,
-    index: usize,
-}
-
-impl<'f, D, L> Iterator for RefChildrenIter<'f, D, L> {
-    type Item = TreeRef<'f, D, L>;
-    fn next(&mut self) -> Option<TreeRef<'f, D, L>> {
-        if self.index >= self.children.len() {
-            None
-        } else {
-            let subtree = TreeRef {
-                forest: self.forest,
-                root: self.root,
-                id: self.children[self.index],
-            };
-            self.index += 1;
-            Some(subtree)
-        }
     }
 }

@@ -5,8 +5,9 @@ use std::rc::Rc;
 use std::thread;
 
 use crate::forest::{Id, RawForest};
+use utility::expect;
 
-/// All [Trees](struct.Tree.html) belong to a Forest.
+/// All [Trees](Tree) belong to a Forest.
 ///
 /// It is your responsibility to ensure that Trees are kept with the
 /// Forest they came from. The methods on Trees will panic if you use
@@ -32,7 +33,7 @@ impl<D, L> Clone for Forest<D, L> {
 ///
 /// This value owns the entire tree. When it is dropped, the tree is deleted.
 ///
-/// It also grants write access to the tree. Use [`as_ref`](#method.as_ref) to
+/// It also grants write access to the tree. Use [`borrow`](#method.borrow) to
 /// obtain a shared reference with read-only access.
 ///
 /// All write operations mutably borrow the _entire forest_. While a tree is
@@ -41,7 +42,18 @@ impl<D, L> Clone for Forest<D, L> {
 pub struct Tree<D, L> {
     pub(super) forest: Forest<D, L>,
     pub(super) root: Id, // INVARIANT: This root remains valid despite edits
-    pub(super) id: Id,
+    pub(super) id: Id,   // TODO: Rename to loc or current
+}
+
+// TODO: test
+impl<D, L> Clone for Tree<D, L>
+where
+    D: Clone,
+    L: Clone,
+{
+    fn clone(&self) -> Tree<D, L> {
+        self.borrow().to_owned_tree()
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -78,15 +90,17 @@ impl<D, L> Forest<D, L> {
     }
 
     pub(super) fn write_lock(&self) -> RefMut<RawForest<D, L>> {
-        self.lock
-            .try_borrow_mut()
-            .expect("Failed to obtain write lock for forest.")
+        expect!(
+            self.lock.try_borrow_mut(),
+            "Failed to obtain write lock for forest."
+        )
     }
 
     pub(super) fn read_lock(&self) -> Ref<RawForest<D, L>> {
-        self.lock
-            .try_borrow()
-            .expect("Failed to obtain read lock for forest.")
+        expect!(
+            self.lock.try_borrow(),
+            "Failed to obtain read lock for forest."
+        )
     }
 }
 
@@ -127,7 +141,7 @@ impl<D, L> Tree<D, L> {
     ///
     /// Panics if this is a leaf node.
     pub fn num_children(&self) -> usize {
-        self.forest().children(self.id).len()
+        self.forest().children(self.id).count()
     }
 
     /// Obtain a mutable reference to the data value at this node.
@@ -195,7 +209,7 @@ impl<D, L> Tree<D, L> {
     /// Jump to a previously saved bookmark, as long as that
     /// bookmark's node is present somewhere in this tree. This will
     /// work even if the Tree has been modified since the bookmark was
-    /// created. However, it will return `None` if the bookmark's node
+    /// created. However, it will return `false` if the bookmark's node
     /// has since been deleted, or if it is currently located in a
     /// different tree.
     pub fn goto_bookmark(&mut self, mark: Bookmark) -> bool {
@@ -213,6 +227,32 @@ impl<D, L> Tree<D, L> {
         match self.forest().parent(self.id) {
             None => true,
             Some(_) => false,
+        }
+    }
+
+    /// Determine this node's index among its siblings. Returns `0` when at the
+    /// root.
+    pub fn index(&self) -> usize {
+        let parent_id = match self.forest().parent(self.id) {
+            None => return 0,
+            Some(id) => id,
+        };
+        for (index, &id) in self.forest().children(parent_id).enumerate() {
+            if id == self.id {
+                return index;
+            }
+        }
+        panic!("Tree::index - id {} not found", self.id)
+    }
+
+    /// Determine the number of siblings that this node has, including itself.
+    /// When at the root, returns 1.
+    pub fn num_siblings(&self) -> usize {
+        if let Some(parent_id) = self.forest().parent(self.id) {
+            self.forest().children(parent_id).count()
+        } else {
+            // at root
+            1
         }
     }
 

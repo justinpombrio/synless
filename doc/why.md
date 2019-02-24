@@ -36,9 +36,9 @@ of them stem from the fact that it is, as Doug McIlroy says, a
 
 When a document is represented as text, you can edit it even if your
 editor has no idea what kind of document it is. Sure, you won't get
-syntax highlighting, or code completion, or jump-to-defintion, or any
-of these other nice features. But at least you can _open_ the thing,
-and make a few changes.
+any features like syntax highlighting or code completion or
+jump-to-defintion. But at least you can _open_ it and make a
+few changes.
 
 Further, you know exactly what the editing interface is going to be
 like. You're going to have a cursor at a line and a column, and you're
@@ -68,20 +68,19 @@ That is to say:
 3. Synless _can_, however, save and load documents as text. (Though it does
    so begrudgingly.)
 
-Considering all of the advantages of text, why do I think a good tree
-editor would be superior?
+Considering all of the advantages of text, why might a tree editor still be
+superior?
 
 ### Easier Features and Plugins
 
 When an editor represents documents as text, features such as syntax
 highlighting, automatic indentation, and code completion become a pain
 to implement. They invariably rely on the structure of the code, but
-all that's available is some text. Typically, they'll be hacked
-together with regexes and hope. But
-[regexps aren't parsers](https://stackoverflow.com/questions/1732348/regex-match-open-tags-except-xhtml-self-contained-tags#1732454),
-and hope quickly leaves when you're writing emacs regexps to match
-perl regexps and you're not sure how
-[all the backslashes got there but you think they're multiplying](https://github.com/jrockway/cperl-mode/blob/master/cperl-mode.el#L8224).
+all that's available is the text. Typically, they'll be hacked
+together with regexes. This, however, can
+[quickly get out of hand](https://github.com/jrockway/cperl-mode/blob/master/cperl-mode.el#L8230).
+And you should always remember that
+[regexps aren't parsers](https://stackoverflow.com/questions/1732348/regex-match-open-tags-except-xhtml-self-contained-tags#1732454).
 
 There are of course better approaches than regexes, and editor modes
 and plugins go to admirable lengths to make things work. But they can
@@ -108,6 +107,12 @@ backslash.
 Synless makes all of this irrelevant. String literals can contain
 quote marks and newlines. Why shouldn't they be able to?
 
+(If you think I'm making a mountain out of a molehill, I'll point out that Swift
+went even further than this by adding _custom_ string delimiters, and was proud
+enough to write a
+[blog post](https://ericasadun.com/2018/12/26/swift-5-gives-us-nice-things-custom-string-delimiters/)
+about them.)
+
 ### More Efficient Editing
 
 I predict that Synless will be more efficient than a text editor for
@@ -123,8 +128,8 @@ can't do. So part of my prediction is that this isn't often the case.
 
 **A Question for the Audience (yes, that's you):** I'd like to test
 this, rather than just claiming it without evidence. Do you know
-anywhere I could get a set of program edits as a benchmark? Open a
-github issue.
+anywhere I could get a set of program edits as a benchmark? If you do,
+would you be so kind as to open a github issue for it?
 
 <!--
 ### Config Files
@@ -155,7 +160,7 @@ with a bad syntax than a bad language with a good syntax.
 (To prove my point, I'm a fan of XSLT. If you've seen this
 monstrosity, you'll know I'm serious. It's _incredibly_ verbose and
 clunky. But it allows separating the content of the page from its
-styling in a way that you can't dream of with just html and css, so
+styling in a way that you couldn't dream of with just html and css, so
 I think it's worth it.)
 
 I want to move the discussion away from syntax and toward semantics.

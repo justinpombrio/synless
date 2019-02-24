@@ -43,15 +43,15 @@ impl<D, L> RawForest<D, L> {
         self.get(id).parent
     }
 
-    pub fn children(&self, id: Id) -> &Vec<Id> {
+    pub fn children(&self, id: Id) -> impl Iterator<Item = &Id> {
         match &self.get(id).contents {
             Leaf(_) => panic!("Forest - leaf node has no children!"),
-            Branch(_, children) => children,
+            Branch(_, children) => children.iter(),
         }
     }
 
     pub fn child(&self, id: Id, index: usize) -> Id {
-        match self.children(id).get(index) {
+        match self.children(id).nth(index) {
             None => panic!("Forest - child index out of bounds. id={}, i={}", id, index),
             Some(child) => *child,
         }

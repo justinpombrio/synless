@@ -4,12 +4,15 @@ use crate::style::Style;
 
 use self::Notation::*;
 
+// TODO: fix layout so that these properties hold
+
 /// Describes how to display a syntactic construct.
+
 #[derive(Clone, Debug)]
 pub enum Notation {
     /// Display Nothing
     Empty,
-    /// Display a literal string.
+    /// Display a literal string. Cannot contain a newline.
     Literal(String, Style),
     /// Display a piece of text. Must be used on a texty node.
     Text(Style),
@@ -33,12 +36,7 @@ pub enum Notation {
     Child(usize),
     /// Determines what to display based on the arity of this node.
     /// Used for syntactic constructs that have extendable arity.
-    // TODO: Does this need to be boxed?
     Rep(Box<Repeat>),
-    /// A node with extendable arity can have more children than its
-    /// arity number. Within a `Rep`, `Star` represents the children
-    /// beyond this arity. It does not make sense outside of a `Rep`.
-    Star,
 }
 
 /// Describes how to display the extra children of a syntactic
@@ -49,13 +47,14 @@ pub struct Repeat {
     pub empty: Notation,
     /// If the sequence has length one, use this notation.
     pub lone: Notation,
-    /// If the sequence has length 2 or more, begin with this notation.
-    pub first: Notation,
-    /// If the sequence has length 2 or more, display this notation for
-    /// every node in the sequence except the first and last.
-    pub middle: Notation,
-    /// If the sequence has length 2 or more, end with this notation.
-    pub last: Notation,
+    /// If the sequence has length 2 or more, (left-)fold elements together with this notation.
+    /// `Child(0)` holds the notation so far, while `Child(1)` holds the next child to be folded.
+    // TODO: should this use `Left` and `Right` instead of `Child(0)` and `Child(1)`?
+    pub join: Notation,
+    /// If the sequence has length 2 or more, surround the folded notation with this notation.
+    /// `Child(0)` holds the folded notation.
+    // TODO: should this use `Surrounded` instead of `Child(0)`?
+    pub surround: Notation,
 }
 
 /// Construct `Literal("")`, which displays nothing.
@@ -63,57 +62,55 @@ pub fn empty() -> Notation {
     Literal("".to_string(), Style::plain())
 }
 
-/// Construct a `Literal`.
+/// Construct a [`Literal`](Literal).
 pub fn literal(s: &str, style: Style) -> Notation {
     Literal(s.to_string(), style)
 }
 
-/// Construct a `Text`.
+/// Construct a [`Text`](Text).
 pub fn text(style: Style) -> Notation {
     Text(style)
 }
 
-/// Construct a `NoWrap`.
+/// Construct a [`NoWrap`](NoWrap).
 pub fn no_wrap(note: Notation) -> Notation {
     NoWrap(Box::new(note))
 }
 
-/// Construct a `Child`.
+/// Construct a [`Child`](Child).
 pub fn child(index: usize) -> Notation {
     Child(index)
 }
 
-/// Construct a `Repeat`.
+/// Construct a [`Rep`](Rep).
 pub fn repeat(repeat: Repeat) -> Notation {
     Rep(Box::new(repeat))
 }
 
-/// Construct a `Star` (for use in `Repeat`).
-pub fn star() -> Notation {
-    Star
-}
-
-/// Construct an `IfEmptyText`.
+/// Construct an [`IfEmptyText`](IfEmptyText).
 pub fn if_empty_text(note1: Notation, note2: Notation) -> Notation {
     IfEmptyText(Box::new(note1), Box::new(note2))
 }
 
-/// Construct a `Concat`. You can also use `+` for this.
+/// Construct a [`Concat`](Concat). You can also use
+/// [`+`](enum.Notation.html#impl-Add<Notation>) for this.
 pub fn concat(note1: Notation, note2: Notation) -> Notation {
     Concat(Box::new(note1), Box::new(note2))
 }
 
-/// Construct a `Horz`.
+/// Construct a [`Horz`](Horz).
 pub fn horz(note1: Notation, note2: Notation) -> Notation {
     Horz(Box::new(note1), Box::new(note2))
 }
 
-/// Construct a `Vert`. You can also use `^` for this.
+/// Construct a [`Vert`](Vert). You can also use
+/// [`^`](enum.Notation.html#impl-BitXor<Notation>) for this.
 pub fn vert(note1: Notation, note2: Notation) -> Notation {
     Vert(Box::new(note1), Box::new(note2))
 }
 
-/// Construct a `Choice`. You can also use `|` for this.
+/// Construct a [`Choice`](Choice). You can also use
+/// [`|`](enum.Notation.html#impl-BitOr<Notation>) for this.
 pub fn choice(note1: Notation, note2: Notation) -> Notation {
     Choice(Box::new(note1), Box::new(note2))
 }
@@ -121,7 +118,7 @@ pub fn choice(note1: Notation, note2: Notation) -> Notation {
 impl Add<Notation> for Notation {
     ///
     type Output = Notation;
-    /// Shorthand for `Concat`.
+    /// Shorthand for [`Concat`](Concat).
     fn add(self, other: Notation) -> Notation {
         Concat(Box::new(self), Box::new(other))
     }
@@ -130,7 +127,7 @@ impl Add<Notation> for Notation {
 impl BitXor<Notation> for Notation {
     ///
     type Output = Notation;
-    /// Shorthand for `Vert`.
+    /// Shorthand for [`Vert`](Vert).
     fn bitxor(self, other: Notation) -> Notation {
         Vert(Box::new(self), Box::new(other))
     }
@@ -139,7 +136,7 @@ impl BitXor<Notation> for Notation {
 impl BitOr<Notation> for Notation {
     ///
     type Output = Notation;
-    /// Shorthand for `Choice`.
+    /// Shorthand for [`Choice`](Choice).
     fn bitor(self, other: Notation) -> Notation {
         Choice(Box::new(self), Box::new(other))
     }
@@ -152,38 +149,35 @@ struct NotationExpander {
 impl NotationExpander {
     fn expand(&self, notation: &Notation) -> Notation {
         match notation {
-            &Empty => notation.clone(),
-            &Literal(ref s, style) => Literal(s.clone(), style),
-            &Text(_) => notation.clone(),
-            &Child(_) => notation.clone(),
-            &NoWrap(ref s) => no_wrap(self.expand(s)),
-            &Concat(ref a, ref b) => self.expand(a) + self.expand(b),
-            &Horz(ref a, ref b) => horz(self.expand(a), self.expand(b)),
-            &Vert(ref a, ref b) => self.expand(a) ^ self.expand(b),
-            &Choice(ref a, ref b) => self.expand(a) | self.expand(b),
-            &IfEmptyText(ref a, ref b) => self.expand(if self.len == 0 { a } else { b }),
-            &Rep(ref repeat) => {
-                let &Repeat {
-                    ref empty,
-                    ref lone,
-                    ref first,
-                    ref middle,
-                    ref last,
+            Empty => notation.clone(),
+            Literal(s, style) => Literal(s.clone(), *style),
+            Text(_) => notation.clone(),
+            Child(_) => notation.clone(),
+            NoWrap(s) => no_wrap(self.expand(s)),
+            Concat(a, b) => self.expand(a) + self.expand(b),
+            Horz(a, b) => horz(self.expand(a), self.expand(b)),
+            Vert(a, b) => self.expand(a) ^ self.expand(b),
+            Choice(a, b) => self.expand(a) | self.expand(b),
+            IfEmptyText(a, b) => self.expand(if self.len == 0 { a } else { b }),
+            Rep(repeat) => {
+                let Repeat {
+                    empty,
+                    lone,
+                    join,
+                    surround,
                 } = &**repeat;
                 match self.len {
                     0 => empty.clone(),
-                    1 => lone.clone().replace_star(0),
+                    1 => lone.clone(),
                     _ => {
-                        let mut note = last.replace_star(self.len - 1);
-                        for i in (1..self.len - 1).rev() {
-                            note = middle.replace_star(i) + note;
+                        let mut notation = Child(0);
+                        for i in 1..self.len {
+                            notation = join.replace_child(1, &Child(i)).replace_child(0, &notation);
                         }
-                        note = first.replace_star(0) + note;
-                        note
+                        surround.replace_child(0, &notation)
                     }
                 }
             }
-            &Star { .. } => panic!("Invalid notation: star found outside of repeat"),
         }
     }
 }
@@ -195,20 +189,18 @@ impl Notation {
         NotationExpander { len: len }.expand(self)
     }
 
-    fn replace_star(&self, child: usize) -> Notation {
+    fn replace_child(&self, sought: usize, replacement: &Notation) -> Notation {
+        let (s, r) = (sought, replacement);
         match self {
-            &Empty => Empty,
-            &Literal(_, _) | &Text(_) | &Child(_) => self.clone(),
-            &NoWrap(ref s) => no_wrap(s.replace_star(child)),
-            &Concat(ref a, ref b) => a.replace_star(child) + b.replace_star(child),
-            &Horz(ref a, ref b) => horz(a.replace_star(child), b.replace_star(child)),
-            &Vert(ref a, ref b) => a.replace_star(child) ^ b.replace_star(child),
-            &IfEmptyText(ref a, ref b) => {
-                if_empty_text(a.replace_star(child), b.replace_star(child))
-            }
-            &Choice(ref a, ref b) => a.replace_star(child) | b.replace_star(child),
-            &Star => Child(child),
-            &Rep(_) => panic!("Invalid notation: nested repeats not allowed"),
+            Child(i) if *i == sought => r.clone(),
+            Child(_) | Empty | Literal(_, _) | Text(_) => self.clone(),
+            NoWrap(a) => no_wrap(a.replace_child(s, r)),
+            Concat(a, b) => a.replace_child(s, r) + b.replace_child(s, r),
+            Horz(a, b) => horz(a.replace_child(s, r), b.replace_child(s, r)),
+            Vert(a, b) => a.replace_child(s, r) ^ b.replace_child(s, r),
+            IfEmptyText(a, b) => if_empty_text(a.replace_child(s, r), b.replace_child(s, r)),
+            Choice(a, b) => a.replace_child(s, r) | b.replace_child(s, r),
+            Rep(_) => panic!("Invalid notation: nested repeats not allowed"),
         }
     }
 }

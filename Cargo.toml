@@ -5,12 +5,16 @@ authors = ["justinpombrio <zallambo@gmail.com>"]
 
 [workspace]
 members = [
+  "utility",
   "forest",
   "pretty",
   "language",
-  "frontends"]
+  "frontends",
+  "editor"]
 default-members = [
+  "utility",
   "forest",
   "pretty",
   "language",
-  "frontends"]
+  "frontends",
+  "editor"]

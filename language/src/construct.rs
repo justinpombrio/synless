@@ -2,16 +2,13 @@
 // TODO: use or remove commented code
 
 use lazy_static::lazy_static;
+use std::fmt;
 
 pub type ConstructName = String;
 pub type Sort = String; // "Any" is special
 
 /// A syntactic construct.
-///
-/// For example,
-/// `Construct::new("plus", ForestArity{arity: 2, flexible: false}, some_notation_for_plus)`
-/// might represent binary addition.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Construct {
     pub name: ConstructName,
     pub sort: Sort,
@@ -30,17 +27,62 @@ impl Construct {
     }
 }
 
-#[derive(Debug)]
+/// The sorts of children that a node is allowed to contain.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Arity {
+    /// Designates a pure text node.
     Text,
+    /// Designates a node containing mixed text and trees.
+    /// `Sort` is the sort of trees it may contain.
     Mixed(Sort),
-    Forest(Vec<Sort>, Option<Sort>), // if Some, rest of children have this sort
+    /// Designates a node containing a fixed number of tree children.
+    /// `Vec<Sort>` contains the `Sort`s of each of its children respectively.
+    Fixed(Vec<Sort>),
+    /// Designates a node containing any number of tree children,
+    /// all of the same `Sort`.
+    Flexible(Sort),
+}
+
+impl Arity {
+    pub fn is_text(&self) -> bool {
+        match self {
+            Arity::Text => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_mixed(&self) -> bool {
+        match self {
+            Arity::Mixed(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_fixed(&self) -> bool {
+        match self {
+            Arity::Fixed(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_flexible(&self) -> bool {
+        match self {
+            Arity::Flexible(_) => true,
+            _ => false,
+        }
+    }
+}
+
+impl fmt::Display for Arity {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 lazy_static! {
     /// A hole in the document, for when your program is incomplete.
     pub static ref HOLE: Construct =
-        Construct::new("?", "Any", Arity::Forest(vec!(), None), '?');
+        Construct::new("Hole", "Any", Arity::Fixed(vec!()), '?');
 }
 
 /*
