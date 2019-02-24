@@ -43,7 +43,7 @@ impl TermDemo {
         }
 
         self.println(
-            &format!("Handled all {} events, goodbye!",  self.num_events),
+            &format!("Handled all {} events, goodbye!", self.num_events),
             Style::reverse_color(Color::Base09),
         )?;
         thread::sleep(time::Duration::from_secs(1));

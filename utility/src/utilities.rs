@@ -13,10 +13,8 @@ macro_rules! error {
 
 #[macro_export]
 macro_rules! expect {
-    ($result:expr, $msg:expr) => ({
-        let msg = concat!(
-            "Internal error in Synless!\n",
-            $msg);
+    ($result:expr, $msg:expr) => {{
+        let msg = concat!("Internal error in Synless!\n", $msg);
         $result.expect(msg)
-    });
+    }};
 }

@@ -3,7 +3,7 @@ use crate::ast::Ast;
 pub enum Command<'l> {
     Nav(NavCmd),
     Doc(DocCmd<'l>),
-    Ed(EditorCmd)
+    Ed(EditorCmd),
 }
 
 pub enum NavCmd {
@@ -14,7 +14,7 @@ pub enum NavCmd {
     /// Move cursor to first child
     Child(usize),
     /// Move cursor to parent
-    Parent
+    Parent,
 }
 
 pub enum DocCmd<'l> {
@@ -33,7 +33,7 @@ pub enum DocCmd<'l> {
     /// In a flexible parent, insert at the end of its children.
     InsertPostpend(Ast<'l>),
     /// In a flexible sequence, remove the current node.
-    Remove
+    Remove,
 }
 
 pub enum EditorCmd {
@@ -50,7 +50,7 @@ pub enum EditorCmd {
     /// In a flexible parent, paste at the beginning of its children.
     PastePrepend,
     /// In a flexible parent, paste at the end of its children.
-    PastePostpend
+    PastePostpend,
 }
 
 impl<'l> From<NavCmd> for Command<'l> {

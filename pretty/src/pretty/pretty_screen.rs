@@ -1,6 +1,5 @@
-use crate::geometry::{Bound, Region, Pos};
+use crate::geometry::{Bound, Pos, Region};
 use crate::style::{Shade, Style};
-
 
 /// A "screen" that supports the methods necessary to pretty-print a document.
 ///
@@ -20,12 +19,12 @@ pub trait PrettyScreen {
     /// Shade the background. It is possible that the same position will be
     /// shaded more than once, or will be `.print`ed before being shaded. If so,
     /// the new shade should override the background color, but not the text.
-    fn shade(&mut self, region: Region, shade: Shade)       -> Result<(), Self::Error>;
+    fn shade(&mut self, region: Region, shade: Shade) -> Result<(), Self::Error>;
 
     /// Shade a particular character position. This is used to highlight the
     /// cursor position while in text mode. It should behave the same way as
     /// `.shade` would with a small Region that included just `pos`.
-    fn highlight(&mut self, pos: Pos, style: Style)         -> Result<(), Self::Error>;
+    fn highlight(&mut self, pos: Pos, style: Style) -> Result<(), Self::Error>;
 
     /// If necessary, show the updated screen, e.g. by flipping a double buffer.
     fn show(&mut self) -> Result<(), Self::Error>;

@@ -1,41 +1,38 @@
-use std::ops::Index;
 use std::collections::HashMap;
+use std::ops::Index;
 
-use crate::notation::*;
-use crate::style::{Style, Color};
 use crate::layout::Bounds;
+use crate::notation::*;
 use crate::pretty::pretty_doc::PrettyDocument;
+use crate::style::{Color, Style};
 
 use self::TestNode::{Branch, Leaf};
 
 // TODO: test horz concat
 
-
 pub struct TestTree {
     node: TestNode,
     notation: Notation,
-    bounds: Bounds
+    bounds: Bounds,
 }
 
 pub enum TestNode {
     Branch(Vec<TestTree>),
-    Leaf(String)
+    Leaf(String),
 }
 
 #[derive(Clone)]
 pub struct TestTreeRef<'t> {
     root: &'t TestTree,
-    path: Vec<usize>
+    path: Vec<usize>,
 }
 
 impl TestTree {
-    pub fn new_branch(notation: Notation, children: Vec<TestTree>)
-                      -> TestTree
-    {
+    pub fn new_branch(notation: Notation, children: Vec<TestTree>) -> TestTree {
         let mut tree = TestTree {
             node: Branch(children),
             bounds: Bounds::empty(),
-            notation: notation
+            notation: notation,
         };
         tree.bounds = Bounds::compute(&tree.as_ref());
         tree
@@ -45,7 +42,7 @@ impl TestTree {
         let mut tree = TestTree {
             node: Leaf(contents.to_string()),
             bounds: Bounds::empty(),
-            notation: notation
+            notation: notation,
         };
         tree.bounds = Bounds::compute(&tree.as_ref());
         tree
@@ -54,7 +51,7 @@ impl TestTree {
     pub fn as_ref(&self) -> TestTreeRef {
         TestTreeRef {
             root: self,
-            path: vec!()
+            path: vec![],
         }
     }
 }
@@ -66,8 +63,8 @@ impl<'a> Index<&'a [usize]> for TestTree {
             &[] => self,
             &[i, path..] => match &self.node {
                 TestNode::Branch(children) => children[*i].index(path),
-                TestNode::Leaf(_) => panic!("leaf node")
-            }
+                TestNode::Leaf(_) => panic!("leaf node"),
+            },
         }
     }
 }
@@ -97,7 +94,7 @@ impl<'t> PrettyDocument for TestTreeRef<'t> {
         } else {
             Some(TestTreeRef {
                 root: self.root,
-                path: shrink_path(self.path.clone())
+                path: shrink_path(self.path.clone()),
             })
         }
     }
@@ -105,34 +102,32 @@ impl<'t> PrettyDocument for TestTreeRef<'t> {
     // TODO: panic if index out of bounds
     fn child(&self, i: usize) -> TestTreeRef<'t> {
         match &self.tree().node {
-            TestNode::Branch(_) => {
-                TestTreeRef {
-                    root: self.root,
-                    path: extend_path(self.path.clone(), i)
-                }
-            }
-            TestNode::Leaf(_) => panic!("leaf node")
+            TestNode::Branch(_) => TestTreeRef {
+                root: self.root,
+                path: extend_path(self.path.clone(), i),
+            },
+            TestNode::Leaf(_) => panic!("leaf node"),
         }
     }
-    
+
     fn children(&self) -> Vec<TestTreeRef<'t>> {
         match &self.tree().node {
-            TestNode::Branch(children) => {
-                children.iter().enumerate().map(|(i, _)| {
-                    TestTreeRef {
-                        root: self.root,
-                        path: extend_path(self.path.clone(), i)
-                    }
-                }).collect()
-            }
-            TestNode::Leaf(_) => panic!("leaf node")
+            TestNode::Branch(children) => children
+                .iter()
+                .enumerate()
+                .map(|(i, _)| TestTreeRef {
+                    root: self.root,
+                    path: extend_path(self.path.clone(), i),
+                })
+                .collect(),
+            TestNode::Leaf(_) => panic!("leaf node"),
         }
     }
 
     fn notation(&self) -> &Notation {
         &self.tree().notation
     }
-    
+
     fn bounds(&self) -> Bounds {
         self.tree().bounds.clone()
     }
@@ -140,12 +135,10 @@ impl<'t> PrettyDocument for TestTreeRef<'t> {
     fn text(&self) -> Option<String> {
         match &self.tree().node {
             TestNode::Branch(_) => None,
-            TestNode::Leaf(s)   => Some(s.to_string())
+            TestNode::Leaf(s) => Some(s.to_string()),
         }
     }
 }
-
-
 
 fn make_test_notation() -> HashMap<String, Notation> {
     fn punct(text: &str) -> Notation {
@@ -159,53 +152,50 @@ fn make_test_notation() -> HashMap<String, Notation> {
     }
 
     let mut map = HashMap::new();
-    let note = repeat(Repeat{
-        empty:    empty(),
-        lone:     child(0),
-        join:     child(0) + punct(", ") + child(1),
-        surround: child(0)
-    }) | repeat(Repeat{
-        empty:    empty(),
-        lone:     child(0),
-        join:     child(0) + punct(",") ^ child(1),
-        surround: child(0)
+    let note = repeat(Repeat {
+        empty: empty(),
+        lone: child(0),
+        join: child(0) + punct(", ") + child(1),
+        surround: child(0),
+    }) | repeat(Repeat {
+        empty: empty(),
+        lone: child(0),
+        join: child(0) + punct(",") ^ child(1),
+        surround: child(0),
     });
     map.insert("args".to_string(), note);
 
-    let note = repeat(Repeat{
-        empty:    punct("[]"),
-        lone:     punct("[") + child(0) + punct("]"),
-        join:     child(0) + punct(", ") + child(1),
-        surround: punct("[") + child(0) + punct("]")
-    })| repeat(Repeat{
-        empty:    punct("[]"),
-        lone:     punct("[") + child(0) + punct("]"),
-        join:     child(0) + punct(",") ^ child(1),
-        surround: punct("[") + child(0) + punct("]")
-    })| repeat(Repeat{
-        empty:    punct("[]"),
-        lone:     punct("[") + child(0) + punct("]"),
-        join:     child(0) + punct(", ") + child(1)
-                | child(0) + punct(",") ^ child(1),
-        surround: punct("[") + child(0) + punct("]")
+    let note = repeat(Repeat {
+        empty: punct("[]"),
+        lone: punct("[") + child(0) + punct("]"),
+        join: child(0) + punct(", ") + child(1),
+        surround: punct("[") + child(0) + punct("]"),
+    }) | repeat(Repeat {
+        empty: punct("[]"),
+        lone: punct("[") + child(0) + punct("]"),
+        join: child(0) + punct(",") ^ child(1),
+        surround: punct("[") + child(0) + punct("]"),
+    }) | repeat(Repeat {
+        empty: punct("[]"),
+        lone: punct("[") + child(0) + punct("]"),
+        join: child(0) + punct(", ") + child(1) | child(0) + punct(",") ^ child(1),
+        surround: punct("[") + child(0) + punct("]"),
     });
     map.insert("list".to_string(), note);
 
     let note =
-        word("func ") + child(0)
-        + punct("(") + child(1) + punct(") { ") + child(2) + punct(" }")
-        | word("func ") + child(0) + punct("(") + child(1) + punct(") {") ^ empty()
-        + word("  ") + child(2) ^ empty()
-        + punct("}")
-        | word("func ") + child(0) + punct("(") ^ empty()
-        + word("  ") + child(1) + punct(")") ^ empty()
-        + punct("{") ^ empty()
-        + word("  ") + child(2) ^ empty()
-        + punct("}");
+        word("func ") + child(0) + punct("(") + child(1) + punct(") { ") + child(2) + punct(" }")
+            | word("func ") + child(0) + punct("(") + child(1) + punct(") {")
+                ^ empty() + word("  ") + child(2)
+                ^ empty() + punct("}")
+            | word("func ") + child(0) + punct("(")
+                ^ empty() + word("  ") + child(1) + punct(")")
+                ^ empty() + punct("{")
+                ^ empty() + word("  ") + child(2)
+                ^ empty() + punct("}");
     map.insert("function".to_string(), note);
 
-    let note =
-        child(0) + punct(" + ") + child(1)
+    let note = child(0) + punct(" + ") + child(1)
         | child(0) ^ punct("+ ") + child(1)
         | child(0) ^ punct("+") ^ child(1);
     map.insert("add".to_string(), note);
@@ -220,7 +210,6 @@ fn make_test_notation() -> HashMap<String, Notation> {
 }
 
 pub fn make_test_tree() -> TestTree {
-
     let notations = make_test_notation();
 
     let leaf = |construct: &str, contents: &str| -> TestTree {
@@ -233,12 +222,15 @@ pub fn make_test_tree() -> TestTree {
         TestTree::new_branch(note, children)
     };
 
-    branch("function", vec!(
-        leaf("id", "foo"),
-        branch("args", vec!(
-            leaf("id", "abc"),
-            leaf("id", "def"))),
-        branch("add", vec!(
-            leaf("string", "abcdef"),
-            leaf("string", "abcdef")))))
+    branch(
+        "function",
+        vec![
+            leaf("id", "foo"),
+            branch("args", vec![leaf("id", "abc"), leaf("id", "def")]),
+            branch(
+                "add",
+                vec![leaf("string", "abcdef"), leaf("string", "abcdef")],
+            ),
+        ],
+    )
 }

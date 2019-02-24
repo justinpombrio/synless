@@ -1,25 +1,28 @@
-use std::iter;
 use std::fmt;
+use std::iter;
 
 use crate::geometry::Bound;
 #[cfg(test)]
 use crate::geometry::Col;
 
-
 /// A set of Bounds. If one Bound is strictly smaller than another,
 /// only the smaller one will be kept.
 /// Each Bound may have some related data T.
 #[derive(Clone)]
-pub struct BoundSet<T> where T: Clone {
-    set: Vec<(Bound, T)>
+pub struct BoundSet<T>
+where
+    T: Clone,
+{
+    set: Vec<(Bound, T)>,
 }
 
-impl<T> BoundSet<T> where T: Clone {
+impl<T> BoundSet<T>
+where
+    T: Clone,
+{
     /// Construct an empty BoundSet.
     pub(super) fn new() -> BoundSet<T> {
-        BoundSet {
-            set: vec!()
-        }
+        BoundSet { set: vec![] }
     }
 
     /// Pick the best (i.e., shortest) Bound that fits within the
@@ -29,8 +32,10 @@ impl<T> BoundSet<T> where T: Clone {
             .filter(|(bound, _)| bound.dominates(space))
             .min_by_key(|bound| bound.0.height)
             .unwrap_or_else(|| {
-                panic!("No bound fits within given width {}.\nBoundset: {:?}",
-                       space.width, self)
+                panic!(
+                    "No bound fits within given width {}.\nBoundset: {:?}",
+                    space.width, self
+                )
             })
     }
 
@@ -58,9 +63,10 @@ impl<T> BoundSet<T> where T: Clone {
     /// Combine two boundsets. Produces a boundset whose elements are
     /// `(f(b1, b2), g(t1, t2))`
     /// for all `(b1, t1)` in `set1` and all `(b2, t2)` in `set2`.
-    pub(super) fn combine<F, G>(set1: &BoundSet<T>, set2: &BoundSet<T>, f: F, g: G)
-                                -> BoundSet<T>
-        where F: Fn(Bound, Bound) -> Bound, G: Fn(T, T) -> T
+    pub(super) fn combine<F, G>(set1: &BoundSet<T>, set2: &BoundSet<T>, f: F, g: G) -> BoundSet<T>
+    where
+        F: Fn(Bound, Bound) -> Bound,
+        G: Fn(T, T) -> T,
     {
         let mut set = BoundSet::new();
         for (bound1, val1) in set1.into_iter() {
@@ -87,7 +93,10 @@ impl<T> BoundSet<T> where T: Clone {
     }
 }
 
-impl<T> fmt::Debug for BoundSet<T> where T: Clone {
+impl<T> fmt::Debug for BoundSet<T>
+where
+    T: Clone,
+{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let set: Vec<&Bound> = self.set.iter().map(|(bound, _)| bound).collect();
         write!(f, "{:?}", set)
@@ -95,12 +104,18 @@ impl<T> fmt::Debug for BoundSet<T> where T: Clone {
 }
 
 /// Iterator over Bounds in a BoundSet.
-pub struct BoundIter<'a, T: 'a> where T: Clone {
+pub struct BoundIter<'a, T: 'a>
+where
+    T: Clone,
+{
     set: &'a Vec<(Bound, T)>,
-    i: usize
+    i: usize,
 }
 
-impl<'a, T> Iterator for BoundIter<'a, T> where T: Clone {
+impl<'a, T> Iterator for BoundIter<'a, T>
+where
+    T: Clone,
+{
     type Item = (Bound, T);
     fn next(&mut self) -> Option<(Bound, T)> {
         if self.i >= self.set.len() {
@@ -112,22 +127,27 @@ impl<'a, T> Iterator for BoundIter<'a, T> where T: Clone {
     }
 }
 
-impl<'a, T> iter::IntoIterator for &'a BoundSet<T> where T: Clone {
+impl<'a, T> iter::IntoIterator for &'a BoundSet<T>
+where
+    T: Clone,
+{
     type Item = (Bound, T);
     type IntoIter = BoundIter<'a, T>;
     fn into_iter(self) -> Self::IntoIter {
         BoundIter {
             set: &self.set,
-            i: 0
+            i: 0,
         }
     }
 }
 
 impl<T> iter::FromIterator<(Bound, T)> for BoundSet<T>
-    where T: Clone
+where
+    T: Clone,
 {
     fn from_iter<I>(iter: I) -> BoundSet<T>
-        where I: iter::IntoIterator<Item = (Bound, T)>
+    where
+        I: iter::IntoIterator<Item = (Bound, T)>,
     {
         let mut set = BoundSet::new();
         for (bound, val) in iter.into_iter() {
@@ -137,27 +157,26 @@ impl<T> iter::FromIterator<(Bound, T)> for BoundSet<T>
     }
 }
 
-
-
 #[cfg(test)]
 mod tests {
-    use std::fmt::Write;
     use super::*;
-
+    use std::fmt::Write;
 
     #[test]
     fn test_show_bound() {
-        let r = Bound{
-            width:  10,
+        let r = Bound {
+            width: 10,
             indent: 6,
-            height: 2
+            height: 2,
         };
         let mut s = String::new();
         write!(&mut s, "{:?}", r).unwrap();
-        assert_eq!(s,
-"**********
+        assert_eq!(
+            s,
+            "**********
 **********
-******");
+******"
+        );
     }
 
     #[test]
@@ -165,7 +184,7 @@ mod tests {
         let r = Bound {
             width: 0,
             indent: 0,
-            height: 0
+            height: 0,
         };
         let mut s = String::new();
         write!(&mut s, "{:?}", r).unwrap();
@@ -174,11 +193,31 @@ mod tests {
 
     #[test]
     fn test_domination() {
-        let r_best  = Bound{ width: 10, indent: 6, height: 2 };
-        let r_1     = Bound{ width: 11, indent: 6, height: 2 };
-        let r_2     = Bound{ width: 10, indent: 7, height: 2 };
-        let r_3     = Bound{ width: 10, indent: 6, height: 3 };
-        let r_worst = Bound{ width: 11, indent: 7, height: 3 };
+        let r_best = Bound {
+            width: 10,
+            indent: 6,
+            height: 2,
+        };
+        let r_1 = Bound {
+            width: 11,
+            indent: 6,
+            height: 2,
+        };
+        let r_2 = Bound {
+            width: 10,
+            indent: 7,
+            height: 2,
+        };
+        let r_3 = Bound {
+            width: 10,
+            indent: 6,
+            height: 3,
+        };
+        let r_worst = Bound {
+            width: 11,
+            indent: 7,
+            height: 3,
+        };
         assert!(r_best.dominates(r_best));
         assert!(r_best.dominates(r_worst));
         assert!(r_best.dominates(r_1));

@@ -1,11 +1,11 @@
 use std::convert::AsRef;
 
-use crate::notation::Notation;
-use crate::layout::{LayoutRegion, Layout, Bounds, Layouts,
-                    compute_bounds, compute_layouts, text_bounds};
-use super::pretty_screen::PrettyScreen;
 use self::Layout::*;
-
+use super::pretty_screen::PrettyScreen;
+use crate::layout::{
+    compute_bounds, compute_layouts, text_bounds, Bounds, Layout, LayoutRegion, Layouts,
+};
+use crate::notation::Notation;
 
 /// A "document" that supports the necessary methods to be pretty-printed.
 ///
@@ -13,8 +13,8 @@ use self::Layout::*;
 ///
 /// 1. A document that implements PrettyDocument, and
 /// 2. A screen that implements PrettyScreen.
-pub trait PrettyDocument : Sized + Clone {
-    type TextRef : AsRef<str>;
+pub trait PrettyDocument: Sized + Clone {
+    type TextRef: AsRef<str>;
 
     /// The minimum number of children this node can have. (See `grammar::Arity`)
     fn parent(&self) -> Option<Self>;
@@ -38,14 +38,14 @@ pub trait PrettyDocument : Sized + Clone {
 
     /// Pretty-print entire document.
     fn pretty_print<Screen>(&self, screen: &mut Screen) -> Result<(), Screen::Error>
-        where Screen: PrettyScreen
+    where
+        Screen: PrettyScreen,
     {
         // TODO: wrong
         let lay = Layouts::compute(self).fit_bound(screen.size()?);
         pp(self, screen, lay)
     }
 }
-
 
 impl Bounds {
     /// _Compute_ the possible bounds of this node. This is required in order to
@@ -69,32 +69,30 @@ impl Layouts {
 fn child_bounds<Doc: PrettyDocument>(doc: &Doc) -> Vec<Bounds> {
     match doc.text() {
         None => doc.children().iter().map(|child| child.bounds()).collect(),
-        Some(text) => vec!(text_bounds(text.as_ref()))
+        Some(text) => vec![text_bounds(text.as_ref())],
     }
 }
 
 fn expanded_notation<Doc: PrettyDocument>(doc: &Doc) -> Notation {
     let len = match doc.text() {
-        None       => doc.children().len(),
-        Some(text) => text.as_ref().chars().count()
+        None => doc.children().len(),
+        Some(text) => text.as_ref().chars().count(),
     };
     doc.notation().expand(len)
 }
 
 // TODO: shading and highlighting
-fn pp<Doc, Screen>(doc: &Doc, screen: &mut Screen, lay: LayoutRegion)
-                   -> Result<(), Screen::Error>
-    where Screen: PrettyScreen, Doc: PrettyDocument
+fn pp<Doc, Screen>(doc: &Doc, screen: &mut Screen, lay: LayoutRegion) -> Result<(), Screen::Error>
+where
+    Screen: PrettyScreen,
+    Doc: PrettyDocument,
 {
     match lay.layout {
-        Empty => {
-            Ok(())
-        }
-        Literal(text, style) => {
-            screen.print(lay.region.pos, text.as_ref(), style)
-        }
+        Empty => Ok(()),
+        Literal(text, style) => screen.print(lay.region.pos, text.as_ref(), style),
         Text(style) => {
-            let text = doc.text()
+            let text = doc
+                .text()
                 .expect("Expected text while transcribing; found branch node");
             screen.print(lay.region.pos, text.as_ref(), style)
         }

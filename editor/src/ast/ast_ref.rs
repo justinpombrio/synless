@@ -1,20 +1,21 @@
-use forest::{TreeRef, Bookmark};
-use pretty::{Notation, Bounds, PrettyDocument};
+use forest::{Bookmark, TreeRef};
 use language::Arity;
+use pretty::{Bounds, Notation, PrettyDocument};
 
-use crate::ast::ast::{Node, Ast, ReadText};
-
+use crate::ast::ast::{Ast, Node, ReadText};
 
 impl<'f, 'l> Ast<'l> {
     pub fn borrow(&'f self) -> AstRef<'f, 'l> {
-        AstRef {tree_ref: self.tree.borrow()}
+        AstRef {
+            tree_ref: self.tree.borrow(),
+        }
     }
 }
 
 /// An immutable reference to a node in an AST.
 #[derive(Clone)]
 pub struct AstRef<'f, 'l> {
-    tree_ref: TreeRef<'f, Node<'l>, String>
+    tree_ref: TreeRef<'f, Node<'l>, String>,
 }
 
 impl<'f, 'l> AstRef<'f, 'l> {
@@ -23,7 +24,7 @@ impl<'f, 'l> AstRef<'f, 'l> {
     pub fn parent(&self) -> Option<AstRef<'f, 'l>> {
         match self.tree_ref.parent() {
             None => None,
-            Some(tree_ref) => Some(AstRef {tree_ref: tree_ref})
+            Some(tree_ref) => Some(AstRef { tree_ref: tree_ref }),
         }
     }
 
@@ -37,9 +38,8 @@ impl<'f, 'l> AstRef<'f, 'l> {
     /// # Panics
     ///
     /// Panics if the arity of this node is `Text`.
-    pub fn children(&self) -> impl Iterator<Item=AstRef<'f, 'l>> {
-        self.tree_ref.children()
-            .map(|tr| AstRef {tree_ref: tr})
+    pub fn children(&self) -> impl Iterator<Item = AstRef<'f, 'l>> {
+        self.tree_ref.children().map(|tr| AstRef { tree_ref: tr })
     }
 
     /// Get the `i`th child of a Fixed, Flexible, or Mixed node.
@@ -48,7 +48,9 @@ impl<'f, 'l> AstRef<'f, 'l> {
     ///
     /// Panics if the arity of this node is `Text`.
     pub fn child(&self, i: usize) -> AstRef<'f, 'l> {
-        AstRef {tree_ref: self.tree_ref.child(i)}
+        AstRef {
+            tree_ref: self.tree_ref.child(i),
+        }
     }
 
     /// Get a shared reference to the text at this node.
@@ -71,8 +73,9 @@ impl<'f, 'l> AstRef<'f, 'l> {
     /// return `None` if the bookmark's node has since been deleted, or if it is
     /// currently located in a different tree.
     pub fn lookup_bookmark(&self, mark: Bookmark) -> Option<AstRef<'f, 'l>> {
-        self.tree_ref.lookup_bookmark(mark)
-            .map(|tr| AstRef {tree_ref: tr})
+        self.tree_ref
+            .lookup_bookmark(mark)
+            .map(|tr| AstRef { tree_ref: tr })
     }
 }
 

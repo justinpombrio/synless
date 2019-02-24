@@ -1,5 +1,5 @@
-use std::cell::UnsafeCell;
 use std::borrow::Borrow;
+use std::cell::UnsafeCell;
 use std::sync::Mutex;
 
 /// Like a HashMap, but it can only get bigger.
@@ -22,25 +22,22 @@ pub struct GrowOnlyMap<K, V> {
     // re-allocate. The extra level of indirection will ensure that
     // even though the Box moves, the value V inside it doesn't, thus
     // keeping references to it valid.
-    mutex: Mutex<UnsafeCell<Vec<(K, Box<V>)>>>
+    mutex: Mutex<UnsafeCell<Vec<(K, Box<V>)>>>,
 }
-
 
 impl<K: Eq, V> GrowOnlyMap<K, V> {
     pub fn new() -> GrowOnlyMap<K, V> {
         GrowOnlyMap {
-            mutex: Mutex::new(UnsafeCell::new(vec!()))
+            mutex: Mutex::new(UnsafeCell::new(vec![])),
         }
     }
 
     /// Insert a key-value pair into the map.
-    /// 
+    ///
     /// If the key is already in the map, this will have no effect.
     pub fn insert(&self, key: K, value: V) {
         let cell = expect!(self.mutex.lock(), "GrowOnlyMap: mutex error");
-        let vec = unsafe {
-            &mut *cell.get()
-        };
+        let vec = unsafe { &mut *cell.get() };
         for (k, _) in &*vec {
             if k == &key {
                 return;
@@ -51,12 +48,12 @@ impl<K: Eq, V> GrowOnlyMap<K, V> {
 
     /// Get a reference to the value corresponding to the key.
     pub fn get<Q: ?Sized>(&self, key: &Q) -> Option<&V>
-        where K: Borrow<Q>, Q: Eq
+    where
+        K: Borrow<Q>,
+        Q: Eq,
     {
         let cell = expect!(self.mutex.lock(), "GrowOnlyMap: mutex error");
-        let vec = unsafe {
-            &*cell.get()
-        };
+        let vec = unsafe { &*cell.get() };
         for (k, value) in vec {
             if key == k.borrow() {
                 return Some(value);
@@ -66,25 +63,27 @@ impl<K: Eq, V> GrowOnlyMap<K, V> {
     }
 }
 
-
 #[test]
 fn test_grow_only_map() {
-    let mut junk = vec!();
+    let mut junk = vec![];
     let mut map = GrowOnlyMap::new();
-    
-    map.insert("hello".to_string(),
-               ("hello".to_string(), "hello".to_string()));
+
+    map.insert(
+        "hello".to_string(),
+        ("hello".to_string(), "hello".to_string()),
+    );
     let h1 = &map.get("hello").unwrap().0[1..];
     assert_eq!(h1, "ello");
 
-    map.insert("hello".to_string(),
-               ("hey".to_string(), "hey".to_string()));
+    map.insert("hello".to_string(), ("hey".to_string(), "hey".to_string()));
     let h2 = &map.get("hello").unwrap().0[1..];
     assert_eq!(h1, "ello");
     assert_eq!(h2, "ello");
 
-    map.insert("world".to_string(),
-               ("there".to_string(), "world".to_string()));
+    map.insert(
+        "world".to_string(),
+        ("there".to_string(), "world".to_string()),
+    );
     let t = &map.get("world").unwrap().0;
     let w = &map.get("world").unwrap().1[2..];
     let pair = &map.get("world").unwrap();
@@ -96,8 +95,7 @@ fn test_grow_only_map() {
     assert_eq!(&pair.1, "world");
 
     for _ in 0..100000 {
-        map.insert("stuff".to_string(),
-                   ("s".to_string(), "s".to_string()));
+        map.insert("stuff".to_string(), ("s".to_string(), "s".to_string()));
         junk.push("junk".to_string());
     }
     let s = &map.get("stuff").unwrap().0;

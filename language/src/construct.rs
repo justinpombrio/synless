@@ -1,8 +1,8 @@
 // TODO: fix example
 // TODO: use or remove commented code
 
-use std::fmt;
 use lazy_static::lazy_static;
+use std::fmt;
 
 pub type ConstructName = String;
 pub type Sort = String; // "Any" is special
@@ -10,19 +10,19 @@ pub type Sort = String; // "Any" is special
 /// A syntactic construct.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Construct {
-    pub name:  ConstructName,
-    pub sort:  Sort,
+    pub name: ConstructName,
+    pub sort: Sort,
     pub arity: Arity,
-    pub key:   char
+    pub key: char,
 }
 
 impl Construct {
     pub fn new(name: &str, sort: &str, arity: Arity, key: char) -> Construct {
-        Construct{
+        Construct {
             name: name.to_string(),
             sort: sort.to_string(),
             arity: arity,
-            key: key
+            key: key,
         }
     }
 }
@@ -40,35 +40,35 @@ pub enum Arity {
     Fixed(Vec<Sort>),
     /// Designates a node containing any number of tree children,
     /// all of the same `Sort`.
-    Flexible(Sort)
+    Flexible(Sort),
 }
 
 impl Arity {
     pub fn is_text(&self) -> bool {
         match self {
             Arity::Text => true,
-            _ => false
+            _ => false,
         }
     }
 
     pub fn is_mixed(&self) -> bool {
         match self {
             Arity::Mixed(_) => true,
-            _ => false
+            _ => false,
         }
     }
 
     pub fn is_fixed(&self) -> bool {
         match self {
             Arity::Fixed(_) => true,
-            _ => false
+            _ => false,
         }
     }
 
     pub fn is_flexible(&self) -> bool {
         match self {
             Arity::Flexible(_) => true,
-            _ => false
+            _ => false,
         }
     }
 }

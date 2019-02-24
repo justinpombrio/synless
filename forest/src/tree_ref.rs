@@ -1,16 +1,15 @@
-use std::iter::Iterator;
 use std::cell::Ref;
+use std::iter::Iterator;
 
 use crate::forest::{Id, RawForest};
-use crate::tree::{Tree, Bookmark, Forest, ReadData, ReadLeaf};
-
+use crate::tree::{Bookmark, Forest, ReadData, ReadLeaf, Tree};
 
 /// An immutable reference to a node in a tree.
 #[derive(Clone)]
 pub struct TreeRef<'f, D, L> {
-    pub (super) forest: &'f Forest<D, L>,
-    pub (super) root: Id,
-    pub (super) id: Id
+    pub(super) forest: &'f Forest<D, L>,
+    pub(super) root: Id,
+    pub(super) id: Id,
 }
 
 impl<D, L> Tree<D, L> {
@@ -22,13 +21,12 @@ impl<D, L> Tree<D, L> {
         TreeRef {
             forest: &self.forest,
             root: self.root,
-            id: self.id
+            id: self.id,
         }
     }
 }
 
 impl<'f, D, L> TreeRef<'f, D, L> {
-
     /// Returns `true` if this is a leaf node, and `false` if this is
     /// a branch node.
     pub fn is_leaf(&self) -> bool {
@@ -43,7 +41,7 @@ impl<'f, D, L> TreeRef<'f, D, L> {
     pub fn data(&self) -> ReadData<'f, D, L> {
         ReadData {
             guard: self.forest(),
-            id: self.id
+            id: self.id,
         }
     }
 
@@ -55,7 +53,7 @@ impl<'f, D, L> TreeRef<'f, D, L> {
     pub fn leaf(&self) -> ReadLeaf<'f, D, L> {
         ReadLeaf {
             guard: self.forest(),
-            id: self.id
+            id: self.id,
         }
     }
 
@@ -70,9 +68,7 @@ impl<'f, D, L> TreeRef<'f, D, L> {
 
     /// Save a bookmark to return to later.
     pub fn bookmark(&self) -> Bookmark {
-        Bookmark {
-            id: self.id
-        }
+        Bookmark { id: self.id }
     }
 
     /// Return to a previously saved bookmark, as long as that
@@ -86,7 +82,7 @@ impl<'f, D, L> TreeRef<'f, D, L> {
             Some(TreeRef {
                 forest: self.forest,
                 root: self.root,
-                id: mark.id
+                id: mark.id,
             })
         } else {
             None
@@ -101,8 +97,8 @@ impl<'f, D, L> TreeRef<'f, D, L> {
             Some(parent) => Some(TreeRef {
                 forest: self.forest,
                 root: self.root,
-                id: parent
-            })
+                id: parent,
+            }),
         }
     }
 
@@ -116,7 +112,7 @@ impl<'f, D, L> TreeRef<'f, D, L> {
         TreeRef {
             forest: self.forest,
             root: self.root,
-            id: child
+            id: child,
         }
     }
 
@@ -125,25 +121,28 @@ impl<'f, D, L> TreeRef<'f, D, L> {
     /// # Panics
     ///
     /// Panics if this is a leaf node.
-    pub fn children(&self) -> impl Iterator<Item=TreeRef<'f, D, L>> {
-        self.forest().children(self.id).map(|&child_id| {
-            TreeRef {
+    pub fn children(&self) -> impl Iterator<Item = TreeRef<'f, D, L>> {
+        self.forest()
+            .children(self.id)
+            .map(|&child_id| TreeRef {
                 forest: self.forest,
                 root: self.root,
-                id: child_id
-            }
-        }).collect::<Vec<_>>().into_iter()
+                id: child_id,
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
     }
 
     /// Make a copy of this tree.
     pub fn to_owned_tree(&self) -> Tree<D, L>
-        where D: Clone, L: Clone
+    where
+        D: Clone,
+        L: Clone,
     {
         if self.is_leaf() {
             self.forest.new_leaf(self.leaf().clone())
         } else {
-            let children = self.children()
-                .map(|child| child.to_owned_tree()).collect();
+            let children = self.children().map(|child| child.to_owned_tree()).collect();
             self.forest.new_branch(self.data().clone(), children)
         }
     }

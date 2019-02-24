@@ -1,14 +1,13 @@
 use std::fmt;
 
-use crate::geometry::{Col, Pos, Bound, Region};
-use crate::style::{Shade, Style};
 use super::pretty_screen::PrettyScreen;
-
+use crate::geometry::{Bound, Col, Pos, Region};
+use crate::style::{Shade, Style};
 
 /// Render a document in plain text.
 pub struct PlainText {
     width: usize,
-    lines: Vec<Vec<char>>
+    lines: Vec<Vec<char>>,
 }
 
 impl fmt::Display for PlainText {
@@ -29,13 +28,13 @@ impl PlainText {
     pub fn new(width: usize) -> PlainText {
         PlainText {
             width: width,
-            lines: vec!()
+            lines: vec![],
         }
     }
-    
+
     fn get_mut_line(&mut self, row: usize) -> &mut Vec<char> {
         if self.lines.len() < row + 1 {
-            self.lines.resize(row + 1, vec!());
+            self.lines.resize(row + 1, vec![]);
         }
         &mut self.lines[row as usize]
     }
@@ -45,7 +44,7 @@ impl PlainText {
         if line.len() < col + len {
             line.resize(col + len, ' ');
         }
-        &mut line[col .. col + len]
+        &mut line[col..col + len]
     }
 }
 
@@ -56,28 +55,19 @@ impl PrettyScreen for PlainText {
         Ok(Bound::infinite_scroll(self.width as Col))
     }
 
-    fn print(&mut self, pos: Pos, text: &str, _style: Style)
-             -> Result<(), Self::Error>
-    {
-        let slice = self.get_mut_slice(
-            pos.row as usize,
-            pos.col as usize,
-            text.chars().count());
+    fn print(&mut self, pos: Pos, text: &str, _style: Style) -> Result<(), Self::Error> {
+        let slice = self.get_mut_slice(pos.row as usize, pos.col as usize, text.chars().count());
         for (i, ch) in text.chars().enumerate() {
             slice[i] = ch;
         }
         Ok(())
     }
 
-    fn shade(&mut self, _region: Region, _shade: Shade)
-             -> Result<(), Self::Error>
-    {
+    fn shade(&mut self, _region: Region, _shade: Shade) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn highlight(&mut self, _pos: Pos, _style: Style)
-                 -> Result<(), Self::Error>
-    {
+    fn highlight(&mut self, _pos: Pos, _style: Style) -> Result<(), Self::Error> {
         Ok(())
     }
 

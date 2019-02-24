@@ -1,16 +1,15 @@
 use std::ops::{Deref, DerefMut};
 
-use forest::{Tree, ReadLeaf, WriteLeaf, Bookmark};
+use forest::{Bookmark, ReadLeaf, Tree, WriteLeaf};
+use language::{Arity, Construct, Language};
 use pretty::{Bounds, Notation};
-use language::{Language, Construct, Arity};
-
 
 #[derive(Clone)]
 pub struct Node<'l> {
     pub(super) bounds: Bounds,
     pub(super) language: &'l Language,
     pub(super) construct: &'l Construct,
-    pub(super) notation: &'l Notation
+    pub(super) notation: &'l Notation,
 }
 
 /// An Abstract Syntax Tree.
@@ -34,14 +33,12 @@ pub struct Node<'l> {
 // Many methods here panics if called on a text leaf. Make sure this can't happen.
 #[derive(Clone)]
 pub struct Ast<'l> {
-    pub(super) tree: Tree<Node<'l>, String>
+    pub(super) tree: Tree<Node<'l>, String>,
 }
 
 impl<'l> Ast<'l> {
     pub(super) fn new(tree: Tree<Node<'l>, String>) -> Ast<'l> {
-        let mut ast = Ast {
-            tree: tree
-        };
+        let mut ast = Ast { tree: tree };
         ast.update();
         ast
     }
@@ -100,7 +97,7 @@ impl<'l> Ast<'l> {
                 panic!("Ast::replace_child called on a non-Fixed node")
             }
             Ast {
-                tree: self.tree.replace_child(i, tree.tree)
+                tree: self.tree.replace_child(i, tree.tree),
             }
         } else {
             panic!("Ast::replace_child called on a leaf node");
@@ -140,7 +137,7 @@ impl<'l> Ast<'l> {
                 panic!("Ast::remove_child called on a node that isn't Flexible or Mixed")
             }
             Ast {
-                tree: self.tree.remove_child(i)
+                tree: self.tree.remove_child(i),
             }
         } else {
             panic!("Ast::remove_child called on leaf node");
@@ -178,7 +175,7 @@ impl<'l> Ast<'l> {
         match self.arity() {
             None => panic!("Ast::num_children called on a leaf node"),
             Some(Arity::Text) => panic!("Ast::num_children called on a Text node"),
-            Some(_) => self.tree.num_children()
+            Some(_) => self.tree.num_children(),
         }
     }
 
@@ -224,7 +221,7 @@ impl<'l> Ast<'l> {
     /// Update bounds. This must be called every time the tree is modified!
     ///
     /// # Panics
-    /// 
+    ///
     /// Panics if this is a leaf node.
     fn update(&mut self) {
         let bookmark = self.bookmark();

@@ -1,17 +1,15 @@
 //! This module defines coordinates and shapes used by the rest of the editor.
 
+use std::fmt;
 use std::ops::Add;
 use std::ops::Sub;
-use std::fmt;
-
 
 /// Height, as measured in terminal characters.
 pub type Row = u32;
 /// Width, as measured in terminal characters.
 pub type Col = u16;
 /// Nothing ever needs to be wider than this.
-pub const MAX_WIDTH : Col = 256;
-
+pub const MAX_WIDTH: Col = 256;
 
 /// A character position, typically relative to the screen or the document.
 ///
@@ -19,22 +17,22 @@ pub const MAX_WIDTH : Col = 256;
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub struct Pos {
     pub col: Col,
-    pub row: Row
+    pub row: Row,
 }
 
 impl Pos {
     /// The upper-left corner.
     pub fn zero() -> Pos {
-        Pos{ col: 0, row: 0 }
+        Pos { col: 0, row: 0 }
     }
 }
 
 impl Add<Pos> for Pos {
     type Output = Pos;
     fn add(self, other: Pos) -> Pos {
-        Pos{
+        Pos {
             col: self.col + other.col,
-            row: self.row + other.row
+            row: self.row + other.row,
         }
     }
 }
@@ -45,9 +43,9 @@ impl Sub<Pos> for Pos {
         if self.col < other.col || self.row < other.row {
             panic!("Underflow while subtracting `Pos`s.");
         }
-        Pos{
+        Pos {
             col: self.col - other.col,
-            row: self.row - other.row
+            row: self.row - other.row,
         }
     }
 }
@@ -62,8 +60,6 @@ impl fmt::Debug for Pos {
         write!(f, "{}", self)
     }
 }
-
-
 
 /*
 // Stolen from rust-mustache

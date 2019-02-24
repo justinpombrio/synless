@@ -36,7 +36,7 @@ pub enum Notation {
     Child(usize),
     /// Determines what to display based on the arity of this node.
     /// Used for syntactic constructs that have extendable arity.
-    Rep(Box<Repeat>)
+    Rep(Box<Repeat>),
 }
 
 /// Describes how to display the extra children of a syntactic
@@ -44,17 +44,17 @@ pub enum Notation {
 #[derive(Clone, Debug)]
 pub struct Repeat {
     /// If the sequence is empty, use this notation.
-    pub empty:  Notation,
+    pub empty: Notation,
     /// If the sequence has length one, use this notation.
-    pub lone:   Notation,
+    pub lone: Notation,
     /// If the sequence has length 2 or more, (left-)fold elements together with this notation.
     /// `Child(0)` holds the notation so far, while `Child(1)` holds the next child to be folded.
     // TODO: should this use `Left` and `Right` instead of `Child(0)` and `Child(1)`?
-    pub join:   Notation,
+    pub join: Notation,
     /// If the sequence has length 2 or more, surround the folded notation with this notation.
     /// `Child(0)` holds the folded notation.
     // TODO: should this use `Surrounded` instead of `Child(0)`?
-    pub surround: Notation
+    pub surround: Notation,
 }
 
 /// Construct `Literal("")`, which displays nothing.
@@ -143,41 +143,42 @@ impl BitOr<Notation> for Notation {
 }
 
 struct NotationExpander {
-    len: usize
+    len: usize,
 }
 
 impl NotationExpander {
     fn expand(&self, notation: &Notation) -> Notation {
         match notation {
-            Empty         => notation.clone(),
+            Empty => notation.clone(),
             Literal(s, style) => Literal(s.clone(), *style),
-            Text(_)       => notation.clone(),
-            Child(_)      => notation.clone(),
-            NoWrap(s)     => no_wrap(self.expand(s)),
-            Concat(a, b)  => self.expand(a) + self.expand(b),
-            Horz(a, b)    => horz(self.expand(a), self.expand(b)),
-            Vert(a, b)    => self.expand(a) ^ self.expand(b),
-            Choice(a, b)  => self.expand(a) | self.expand(b),
-            IfEmptyText(a, b) =>
-                self.expand(if self.len == 0 { a } else { b }),
+            Text(_) => notation.clone(),
+            Child(_) => notation.clone(),
+            NoWrap(s) => no_wrap(self.expand(s)),
+            Concat(a, b) => self.expand(a) + self.expand(b),
+            Horz(a, b) => horz(self.expand(a), self.expand(b)),
+            Vert(a, b) => self.expand(a) ^ self.expand(b),
+            Choice(a, b) => self.expand(a) | self.expand(b),
+            IfEmptyText(a, b) => self.expand(if self.len == 0 { a } else { b }),
             Rep(repeat) => {
-                let Repeat{ empty, lone, join, surround} = &**repeat;
+                let Repeat {
+                    empty,
+                    lone,
+                    join,
+                    surround,
+                } = &**repeat;
                 match self.len {
                     0 => empty.clone(),
                     1 => lone.clone(),
                     _ => {
                         let mut notation = Child(0);
-                        for i in 1 .. self.len {
-                            notation = join
-                                .replace_child(1, &Child(i))
-                                .replace_child(0, &notation);
+                        for i in 1..self.len {
+                            notation = join.replace_child(1, &Child(i)).replace_child(0, &notation);
                         }
                         surround.replace_child(0, &notation)
                     }
                 }
             }
         }
-        
     }
 }
 
@@ -185,9 +186,7 @@ impl Notation {
     // Eliminate any Repeats.
     // If the node is texty, `len` is the length of the text.
     pub(crate) fn expand(&self, len: usize) -> Notation {
-        NotationExpander{
-            len: len
-        }.expand(self)
+        NotationExpander { len: len }.expand(self)
     }
 
     fn replace_child(&self, sought: usize, replacement: &Notation) -> Notation {
@@ -195,19 +194,13 @@ impl Notation {
         match self {
             Child(i) if *i == sought => r.clone(),
             Child(_) | Empty | Literal(_, _) | Text(_) => self.clone(),
-            NoWrap(a) =>
-                no_wrap(a.replace_child(s, r)),
-            Concat(a, b) =>
-                a.replace_child(s, r) + b.replace_child(s, r),
-            Horz(a, b) =>
-                horz(a.replace_child(s, r), b.replace_child(s, r)),
-            Vert(a, b) =>
-                a.replace_child(s, r) ^ b.replace_child(s, r),
-            IfEmptyText(a, b) =>
-                if_empty_text(a.replace_child(s, r), b.replace_child(s, r)),
-            Choice(a, b) =>
-                a.replace_child(s, r) | b.replace_child(s, r),
-            Rep(_) => panic!("Invalid notation: nested repeats not allowed")
+            NoWrap(a) => no_wrap(a.replace_child(s, r)),
+            Concat(a, b) => a.replace_child(s, r) + b.replace_child(s, r),
+            Horz(a, b) => horz(a.replace_child(s, r), b.replace_child(s, r)),
+            Vert(a, b) => a.replace_child(s, r) ^ b.replace_child(s, r),
+            IfEmptyText(a, b) => if_empty_text(a.replace_child(s, r), b.replace_child(s, r)),
+            Choice(a, b) => a.replace_child(s, r) | b.replace_child(s, r),
+            Rep(_) => panic!("Invalid notation: nested repeats not allowed"),
         }
     }
 }
