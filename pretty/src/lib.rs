@@ -78,7 +78,6 @@
 #![feature(slice_patterns)]
 #![feature(box_patterns)]
 
-pub mod examples;
 mod geometry;
 mod layout;
 mod notation;
