@@ -2,6 +2,8 @@ use std::ops::Index;
 
 use pretty::{Bounds, Notation, PlainText, PrettyDocument};
 
+// TODO: rename `Doc` to `Tree`. Likewise `DocRef`.
+
 use Node::{Branch, Leaf};
 
 pub struct Doc {

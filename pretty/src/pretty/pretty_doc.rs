@@ -10,13 +10,8 @@ use crate::notation::Notation;
 use crate::style::Style;
 
 /// A "document" that supports the necessary methods to be pretty-printed.
-///
-/// To pretty-print, you need:
-///
-/// 1. A document that implements PrettyDocument, and
-/// 2. A screen that implements PrettyScreen.
 pub trait PrettyDocument: Sized + Clone {
-    type TextRef : AsRef<str>;
+    type TextRef: AsRef<str>;
 
     /// This node's parent, together with the index of this node (or `None` if
     /// this is the root node).
@@ -93,13 +88,6 @@ pub trait PrettyDocument: Sized + Clone {
     }
 }
 
-/// _Compute_ the possible bounds of this node. This is required in order to
-/// pretty-print it. Note that:
-///
-/// 1. This depends on the Notation of this node, plus the Bounds of its
-/// (immediate) children.
-/// 2. This _does not_ depend on the width with which the document will be
-/// pretty-printed.
 impl Bounds {
     /// _Compute_ the possible bounds of this node. This is required in order to
     /// pretty-print it. Note that:
@@ -203,7 +191,9 @@ where
     }
     match &lay.layout {
         Empty => Ok(()),
-        Literal(text, style) => render_text(text.as_ref(), lay.region, screen, screen_region, *style),
+        Literal(text, style) => {
+            render_text(text.as_ref(), lay.region, screen, screen_region, *style)
+        }
         Text(style) => {
             let text = doc
                 .text()

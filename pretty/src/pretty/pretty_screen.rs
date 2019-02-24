@@ -2,11 +2,6 @@ use crate::geometry::{Bound, Pos, Region};
 use crate::style::{Shade, Style};
 
 /// A "screen" that supports the methods necessary to pretty-print a document.
-///
-/// To pretty-print, you need:
-///
-/// 1. A document that implements PrettyDocument, and
-/// 2. A screen that implements PrettyScreen.
 pub trait PrettyScreen {
     type Error;
 
