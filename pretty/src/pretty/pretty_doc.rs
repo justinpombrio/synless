@@ -2,7 +2,7 @@ use std::cmp;
 
 use self::Layout::*;
 use super::pretty_screen::PrettyScreen;
-use crate::geometry::{Bound, Pos, Region, Row};
+use crate::geometry::{Bound, Col, Pos, Region};
 use crate::layout::{
     compute_bounds, compute_layouts, text_bounds, Bounds, Layout, LayoutRegion, Layouts,
 };
@@ -34,33 +34,40 @@ pub trait PrettyDocument: Sized + Clone {
     /// result.**
     fn bounds(&self) -> Bounds;
 
+    // TODO: There can be only one. Rename `render` to `pretty_print` and delete this.
     /// Pretty-print entire document.
     fn pretty_print<Screen>(&self, screen: &mut Screen) -> Result<(), Screen::Error>
     where
         Screen: PrettyScreen,
     {
-        let bound = Bound::infinite_scroll(screen.size()?.width);
+        let bound = Bound::infinite_scroll(screen.region()?.width());
         let lay = Layouts::compute(&self.root()).fit_bound(bound);
         pp(self, screen, lay)
     }
 
-    /// Pretty-print the document onto the screen, starting at `line` and going down.
-    fn render<Screen>(&self, line: Row, screen: &mut Screen) -> Result<(), Screen::Error>
+    /// Render the document onto the screen. This method behaves as if it did
+    /// the following:
+    ///
+    /// 1. Pretty-print the entire document with width `width`.
+    /// 2. Transcribe the portion of the document under the screen onto the
+    /// screen. (Remember that the screen is located at `screen.region()`.)
+    ///
+    /// However, this method is more efficient than that, and does an amount of
+    /// work that is (more or less) proportional to the size of the screen,
+    /// regardless of the size of the document.
+    fn render<Screen>(&self, width: Col, screen: &mut Screen) -> Result<(), Screen::Error>
     where
         Screen: PrettyScreen,
     {
         let root = self.root();
-        let screen_region = Region {
-            pos: Pos { row: line, col: 0 },
-            bound: screen.size()?,
-        };
-        let bound = Bound::infinite_scroll(screen.size()?.width);
+        let bound = Bound::infinite_scroll(width);
         let lay = Layouts::compute(&root).fit_bound(bound);
-        render(&root, screen, screen_region, &lay)
+        render(&root, screen, screen.region()?, &lay)
     }
 
-    /// Locate the selected node, in the coordinate system of the entire document.
-    fn locate_cursor<Screen>(&self, screen: &Screen) -> Result<Region, Screen::Error>
+    /// Find the region covered by this sub-document, when the entire document is
+    /// pretty-printed with the given `width`.
+    fn locate_cursor<Screen>(&self, width: Col) -> Result<Region, Screen::Error>
     where
         Screen: PrettyScreen,
     {
@@ -74,7 +81,7 @@ pub trait PrettyDocument: Sized + Clone {
         }
         path.reverse();
         // Recursively compute the cursor region.
-        let lay = Layouts::compute(&root).fit_bound(screen.size()?);
+        let lay = Layouts::compute(&root).fit_bound(Bound::infinite_scroll(width));
         Ok(loc_cursor(&root, &lay, &path))
     }
 

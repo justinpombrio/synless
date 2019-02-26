@@ -1,12 +1,12 @@
-use crate::geometry::{Bound, Pos, Region};
+use crate::geometry::{Pos, Region};
 use crate::style::{Shade, Style};
 
 /// A "screen" that supports the methods necessary to pretty-print a document.
 pub trait PrettyScreen {
     type Error;
 
-    /// The size of the screen, as a `Bound`.
-    fn size(&self) -> Result<Bound, Self::Error>;
+    /// The size and location of the screen, as a `Region`.
+    fn region(&self) -> Result<Region, Self::Error>;
 
     /// Display text.
     fn print(&mut self, pos: Pos, text: &str, style: Style) -> Result<(), Self::Error>;
