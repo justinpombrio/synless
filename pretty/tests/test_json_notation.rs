@@ -2,7 +2,7 @@
 
 mod common;
 
-use common::{assert_strings_eq, make_example_doc, make_json_doc};
+use common::{assert_strings_eq, make_json_doc};
 
 // TODO: test horz concat
 
@@ -99,76 +99,7 @@ fn test_lay_out_json_30() {
 #[should_panic]
 fn test_lay_out_json_28() {
     // The doc won't fit in 28 characters
+    // Eventually the strings should wrap, so it
     let doc = make_json_doc();
     doc.write(28);
-}
-
-#[test]
-fn test_lay_out_example() {
-    let doc = make_example_doc();
-    assert_eq!(doc.write(80), "func foo(abc, def) { 'abcdef' + 'abcdef' }");
-    assert_eq!(doc.write(42), "func foo(abc, def) { 'abcdef' + 'abcdef' }");
-    assert_eq!(
-        doc.write(41),
-        "func foo(abc, def) { 'abcdef'
-                     + 'abcdef' }"
-    );
-    assert_eq!(
-        doc.write(33),
-        "func foo(abc, def) { 'abcdef'
-                     + 'abcdef' }"
-    );
-    assert_eq!(
-        doc.write(32),
-        "func foo(abc, def) {
-  'abcdef' + 'abcdef'
-}"
-    );
-    assert_eq!(
-        doc.write(21),
-        "func foo(abc, def) {
-  'abcdef' + 'abcdef'
-}"
-    );
-    assert_eq!(
-        doc.write(20),
-        "func foo(abc, def) {
-  'abcdef'
-  + 'abcdef'
-}"
-    );
-    assert_eq!(
-        doc.write(19),
-        "func foo(abc,
-         def) {
-  'abcdef'
-  + 'abcdef'
-}"
-    );
-    assert_eq!(
-        doc.write(15),
-        "func foo(abc,
-         def) {
-  'abcdef'
-  + 'abcdef'
-}"
-    );
-    assert_eq!(
-        doc.write(14),
-        "func foo(
-  abc, def)
-{
-  'abcdef'
-  + 'abcdef'
-}"
-    );
-    assert_eq!(
-        doc.write(12),
-        "func foo(
-  abc, def)
-{
-  'abcdef'
-  + 'abcdef'
-}"
-    );
 }
