@@ -14,13 +14,16 @@ use super::pos::{Col, Row, MAX_WIDTH};
 /// +----------------+   -
 /// |                |   ^
 /// |                |   | height
-/// |                |   ∨
-/// |      +---------+   -
-/// +------+
+/// |                |   |
+/// |      +---------+   ∨
+/// +------+             -
 ///
 /// |<---->|
 ///  indent
 /// </pre>
+///
+/// Valid bounds must have height at least 1, and if their height is 1 then
+/// their width and indent must be equal.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Bound {
     pub width: Col,
@@ -58,7 +61,7 @@ impl Bound {
         if self.height > 30 {
             return write!(f, "[very large bound]");
         }
-        for _ in 0..self.height {
+        for _ in 0..(self.height - 1) {
             write!(f, "{}", ch.to_string().repeat(self.width as usize))?;
             write!(f, "\n")?;
             write!(f, "{}", " ".repeat(indent as usize))?;

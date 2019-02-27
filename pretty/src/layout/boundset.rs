@@ -167,7 +167,7 @@ mod tests {
         let r = Bound {
             width: 10,
             indent: 6,
-            height: 2,
+            height: 3,
         };
         let mut s = String::new();
         write!(&mut s, "{:?}", r).unwrap();
@@ -184,7 +184,7 @@ mod tests {
         let r = Bound {
             width: 0,
             indent: 0,
-            height: 0,
+            height: 1,
         };
         let mut s = String::new();
         write!(&mut s, "{:?}", r).unwrap();
@@ -196,27 +196,27 @@ mod tests {
         let r_best = Bound {
             width: 10,
             indent: 6,
-            height: 2,
+            height: 3,
         };
         let r_1 = Bound {
             width: 11,
             indent: 6,
-            height: 2,
+            height: 3,
         };
         let r_2 = Bound {
             width: 10,
             indent: 7,
-            height: 2,
+            height: 3,
         };
         let r_3 = Bound {
             width: 10,
             indent: 6,
-            height: 3,
+            height: 4,
         };
         let r_worst = Bound {
             width: 11,
             indent: 7,
-            height: 3,
+            height: 4,
         };
         assert!(r_best.dominates(r_best));
         assert!(r_best.dominates(r_worst));

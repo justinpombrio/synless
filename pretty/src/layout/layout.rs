@@ -35,7 +35,7 @@ impl Lay for Bound {
     fn empty() -> Bound {
         Bound {
             width: 0,
-            height: 0,
+            height: 1,
             indent: 0,
         }
     }
@@ -45,14 +45,14 @@ impl Lay for Bound {
         Bound {
             width: width,
             indent: width,
-            height: 0,
+            height: 1,
         }
     }
 
     fn concat(&self, other: Bound) -> Bound {
         Bound {
             width: cmp::max(self.width, self.indent + other.width),
-            height: self.height + other.height,
+            height: self.height + other.height - 1,
             indent: self.indent + other.indent,
         }
     }
@@ -72,7 +72,7 @@ impl Lay for Bound {
     fn vert(&self, other: Bound) -> Bound {
         Bound {
             width: cmp::max(self.width, other.width),
-            height: self.height + other.height + 1,
+            height: self.height + other.height,
             indent: other.indent,
         }
     }
@@ -242,7 +242,7 @@ impl Lay for LayoutRegion {
         let self_lay = self.clone();
         let mut other_lay = other.clone();
         let delta = Pos {
-            row: self.region.height() + 1,
+            row: self.region.height(),
             col: 0,
         };
         other_lay.shift_by(delta);
@@ -365,7 +365,7 @@ fn lay<L: Lay>(child_bounds: &Vec<Bounds>, notation: &Notation) -> BoundSet<L> {
         Notation::NoWrap(note) => {
             let set = lay(child_bounds, note);
             set.into_iter()
-                .filter(|(bound, _)| bound.height == 0)
+                .filter(|(bound, _)| bound.height == 1)
                 .collect()
         }
         Notation::Choice(note1, note2) => {

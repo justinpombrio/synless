@@ -41,7 +41,7 @@ mod layout_tests {
         let expected = Bound {
             width: 24,
             indent: 17,
-            height: 2,
+            height: 3,
         };
         assert_eq!(actual, expected);
     }
@@ -71,7 +71,7 @@ mod layout_tests {
         let expected = Bound {
             width: 12,
             indent: 3,
-            height: 3,
+            height: 4,
         };
         assert_eq!(actual, expected);
     }
@@ -82,7 +82,7 @@ mod layout_tests {
         let expected = Bound {
             width: 3,
             indent: 2,
-            height: 1,
+            height: 2,
         };
         assert_eq!(actual, expected);
         assert_eq!(format!("{:?}", actual), "***\n**");
@@ -94,7 +94,7 @@ mod layout_tests {
         let expected = Bound {
             width: 1,
             indent: 1,
-            height: 0,
+            height: 1,
         };
         assert_eq!(actual, expected);
     }
@@ -105,7 +105,7 @@ mod layout_tests {
         let expected = Bound {
             width: 2,
             indent: 2,
-            height: 0,
+            height: 1,
         };
         assert_eq!(actual, expected);
     }

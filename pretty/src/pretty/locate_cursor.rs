@@ -86,28 +86,28 @@ mod tests {
         let tree = doc.as_ref().child(2).child(0);
         let expected = Region{
             pos: Pos{ row: 2, col: 2 },
-            bound: Bound{ height: 0, width: 8, indent: 8 }
+            bound: Bound{ height: 1, width: 8, indent: 8 }
         };
         assert_eq!(CursorLocator::locate(tree, region), expected);
 
         let tree = doc.as_ref().child(2);
         let expected = Region{
             pos: Pos{ row: 2, col: 2 },
-            bound: Bound{ height: 1, width: 8, indent: 7 }
+            bound: Bound{ height: 2, width: 8, indent: 7 }
         };
         assert_eq!(CursorLocator::locate(tree, region), expected);
 
         let tree = doc.as_ref();
         let expected = Region{
             pos: Pos{ row: 0, col: 0 },
-            bound: Bound{ height: 4, width: 15, indent: 1 }
+            bound: Bound{ height: 5, width: 15, indent: 1 }
         };
         assert_eq!(CursorLocator::locate(tree, region), expected);
 
         let tree = doc.as_ref().child(1);
         let expected = Region{
             pos: Pos{ row: 0, col: 9 },
-            bound: Bound{ height: 1, width: 4, indent: 3 }
+            bound: Bound{ height: 2, width: 4, indent: 3 }
         };
         assert_eq!(CursorLocator::locate(tree, region), expected);
     }

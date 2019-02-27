@@ -50,7 +50,7 @@ impl Region {
             pos: pos,
             bound: Bound {
                 width: 0,
-                height: 0,
+                height: 1,
                 indent: 0,
             },
         }
@@ -62,7 +62,7 @@ impl Region {
             pos: pos,
             bound: Bound {
                 width: 1,
-                height: 0,
+                height: 1,
                 indent: 1,
             },
         }
@@ -96,7 +96,7 @@ impl Region {
             Some(pos) => Some(pos),
             None => match self.last_line().transform(pos) {
                 Some(pos) => Some(Pos {
-                    row: pos.row + self.bound.height,
+                    row: pos.row + self.bound.height - 1,
                     col: pos.col,
                 }),
                 None => None,
@@ -128,7 +128,7 @@ impl Region {
     pub fn end(&self) -> Pos {
         self.pos
             + Pos {
-                row: self.bound.height,
+                row: self.bound.height - 1,
                 col: self.bound.indent,
             }
     }
@@ -141,7 +141,7 @@ impl Region {
     fn body(&self) -> Rect {
         Rect {
             cols: Range(self.pos.col, self.pos.col + self.bound.width),
-            rows: Range(self.pos.row, self.pos.row + self.bound.height),
+            rows: Range(self.pos.row, self.pos.row + self.bound.height - 1),
         }
     }
 
@@ -149,8 +149,8 @@ impl Region {
         Rect {
             cols: Range(self.pos.col, self.pos.col + self.bound.indent),
             rows: Range(
+                self.pos.row + self.bound.height - 1,
                 self.pos.row + self.bound.height,
-                self.pos.row + self.bound.height + 1,
             ),
         }
     }
@@ -162,8 +162,8 @@ impl Region {
                 self.pos.col + self.bound.width,
             ),
             rows: Range(
+                self.pos.row + self.bound.height - 1,
                 self.pos.row + self.bound.height,
-                self.pos.row + self.bound.height + 1,
             ),
         }
     }
@@ -171,7 +171,7 @@ impl Region {
     fn bounding_box(&self) -> Rect {
         Rect {
             cols: Range(self.pos.col, self.pos.col + self.bound.width),
-            rows: Range(self.pos.row, self.pos.row + self.bound.height + 1),
+            rows: Range(self.pos.row, self.pos.row + self.bound.height),
         }
     }
 }
@@ -184,7 +184,7 @@ mod tests {
         pos: Pos { row: 2, col: 3 },
         bound: Bound {
             width: 4,
-            height: 3,
+            height: 4,
             indent: 2,
         },
     };
@@ -193,7 +193,7 @@ mod tests {
         pos: Pos { row: 3, col: 4 },
         bound: Bound {
             width: 3,
-            height: 2,
+            height: 3,
             indent: 2,
         },
     };
@@ -203,7 +203,7 @@ mod tests {
         pos: Pos { row: 3, col: 4 },
         bound: Bound {
             width: 3,
-            height: 2,
+            height: 3,
             indent: 1,
         },
     };
