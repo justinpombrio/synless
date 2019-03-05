@@ -34,17 +34,6 @@ pub trait PrettyDocument: Sized + Clone {
     /// result.**
     fn bounds(&self) -> Bounds;
 
-    // TODO: There can be only one. Rename `render` to `pretty_print` and delete this.
-    /// Pretty-print entire document.
-    fn pretty_print<Screen>(&self, screen: &mut Screen) -> Result<(), Screen::Error>
-    where
-        Screen: PrettyScreen,
-    {
-        let bound = Bound::infinite_scroll(screen.region()?.width());
-        let lay = Layouts::compute(&self.root()).fit_bound(bound);
-        pp(self, screen, lay)
-    }
-
     /// Render the document onto the screen. This method behaves as if it did
     /// the following:
     ///
@@ -55,7 +44,7 @@ pub trait PrettyDocument: Sized + Clone {
     /// However, this method is more efficient than that, and does an amount of
     /// work that is (more or less) proportional to the size of the screen,
     /// regardless of the size of the document.
-    fn render<Screen>(&self, width: Col, screen: &mut Screen) -> Result<(), Screen::Error>
+    fn pretty_print<Screen>(&self, width: Col, screen: &mut Screen) -> Result<(), Screen::Error>
     where
         Screen: PrettyScreen,
     {
@@ -129,41 +118,6 @@ fn expanded_notation<Doc: PrettyDocument>(doc: &Doc) -> Notation {
     doc.notation().expand(len)
 }
 
-// TODO: shading and highlighting
-fn pp<Doc, Screen>(doc: &Doc, screen: &mut Screen, lay: LayoutRegion) -> Result<(), Screen::Error>
-where
-    Screen: PrettyScreen,
-    Doc: PrettyDocument,
-{
-    match lay.layout {
-        Empty => Ok(()),
-        Literal(text, style) => screen.print(lay.region.pos, text.as_ref(), style),
-        Text(style) => {
-            let text = doc
-                .text()
-                .expect("PrettyDocument::pretty_print - Expected text, found branch node");
-            screen.print(lay.region.pos, text.as_ref(), style)
-        }
-        Child(i) => {
-            let child = &doc.child(i);
-            let child_lay = Layouts::compute(child).fit_region(lay.region);
-            pp(child, screen, child_lay)
-        }
-        Concat(box lay1, box lay2) => {
-            pp(doc, screen, lay1)?;
-            pp(doc, screen, lay2)
-        }
-        Horz(box lay1, box lay2) => {
-            pp(doc, screen, lay1)?;
-            pp(doc, screen, lay2)
-        }
-        Vert(box lay1, box lay2) => {
-            pp(doc, screen, lay1)?;
-            pp(doc, screen, lay2)
-        }
-    }
-}
-
 fn loc_cursor<Doc>(doc: &Doc, lay: &LayoutRegion, path: &[usize]) -> Region
 where
     Doc: PrettyDocument,
@@ -210,7 +164,7 @@ where
         Child(i) => {
             let child = &doc.child(*i);
             let child_lay = Layouts::compute(child).fit_region(lay.region);
-            pp(child, screen, child_lay)
+            render(child, screen, screen_region, &child_lay)
         }
         Concat(box lay1, box lay2) => {
             render(doc, screen, screen_region, &lay1)?;
@@ -237,15 +191,32 @@ fn render_text<Screen>(
 where
     Screen: PrettyScreen,
 {
-    let pos = Pos {
-        row: text_region.pos.row,
-        col: cmp::min(text_region.pos.col, screen_region.pos.col),
-    };
-    let offset = screen_region.pos.col.saturating_sub(text_region.pos.col);
-    let string_offset = text
-        .char_indices()
-        .nth(offset as usize)
-        .expect("PrettyDocument::render - issue with string offset")
+    assert!(
+        screen_region.is_rectangular(),
+        "screen region must be rectangular"
+    );
+
+    let start_char = screen_region.pos.col.saturating_sub(text_region.pos.col);
+    let end_char = cmp::min(
+        text_region.width(),
+        screen_region.end().col - text_region.pos.col,
+    );
+
+    let mut chars = text.char_indices();
+
+    let start_byte = chars
+        .nth(start_char as usize)
+        .expect("PrettyDocument::render - issue with string indexing")
         .0;
-    screen.print(pos, &text[string_offset..], style)
+
+    let end_byte = chars
+        .nth((end_char - start_char - 1) as usize)
+        .map(|x| x.0)
+        .unwrap_or(text.len());
+
+    let screen_offset = Pos {
+        row: text_region.pos.row - screen_region.pos.row,
+        col: text_region.pos.col.saturating_sub(screen_region.pos.col),
+    };
+    screen.print(screen_offset, &text[start_byte..end_byte], style)
 }

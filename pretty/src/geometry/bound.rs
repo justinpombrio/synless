@@ -32,6 +32,15 @@ pub struct Bound {
 }
 
 impl Bound {
+    /// Create a new `Bound` with the given rectangular shape.
+    pub fn new_rectangle(num_rows: Row, num_cols: Col) -> Bound {
+        Bound {
+            width: num_cols,
+            height: num_rows,
+            indent: num_cols,
+        }
+    }
+
     /// One Bound dominates another if it is at least as small in all
     /// dimensions.
     pub fn dominates(&self, other: Bound) -> bool {
@@ -53,8 +62,14 @@ impl Bound {
         Bound {
             width: width,
             indent: width,
-            height: Row::max_value(),
+            // leave wiggle-room to avoid overflowing
+            height: Row::max_value() - 1,
         }
+    }
+
+    /// Return true iff this bound is shaped like a rectangle.
+    pub fn is_rectangular(&self) -> bool {
+        self.indent == self.width
     }
 
     pub(crate) fn debug_print(&self, f: &mut fmt::Formatter, ch: char, indent: Col) -> fmt::Result {

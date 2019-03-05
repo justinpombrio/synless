@@ -55,7 +55,9 @@ impl Doc {
 
     pub fn write(&self, width: usize) -> String {
         let mut screen = PlainText::new(width);
-        self.as_ref().pretty_print(&mut screen).unwrap();
+        self.as_ref()
+            .pretty_print(width as u16, &mut screen)
+            .unwrap();
         format!("{}", screen)
     }
 }
