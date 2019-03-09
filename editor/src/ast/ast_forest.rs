@@ -4,6 +4,7 @@ use pretty::Bounds;
 
 use crate::ast::ast::{Ast, Node};
 use crate::notationset::NotationSet;
+use crate::text::Text;
 
 /// All [Asts](Ast) belong to an AstForest.
 ///
@@ -12,7 +13,7 @@ use crate::notationset::NotationSet;
 /// them on a different forest.
 pub struct AstForest<'l> {
     language_set: &'l LanguageSet,
-    forest: Forest<Node<'l>, String>,
+    forest: Forest<Node<'l>, Text>,
 }
 
 impl<'l> AstForest<'l> {
@@ -54,7 +55,7 @@ impl<'l> AstForest<'l> {
                 construct.arity
             )
         }
-        let leaf = self.forest.new_leaf(String::new());
+        let leaf = self.forest.new_leaf(Text::new_inactive());
         Ast::new(self.forest.new_branch(node, vec![leaf]))
     }
 

@@ -3,6 +3,7 @@ use language::Arity;
 use pretty::{Bounds, Notation, PrettyDocument};
 
 use crate::ast::ast::{Ast, Node, ReadText};
+use crate::text::Text;
 
 impl<'f, 'l> Ast<'l> {
     pub fn borrow(&'f self) -> AstRef<'f, 'l> {
@@ -15,7 +16,7 @@ impl<'f, 'l> Ast<'l> {
 /// An immutable reference to a node in an AST.
 #[derive(Clone)]
 pub struct AstRef<'f, 'l> {
-    tree_ref: TreeRef<'f, Node<'l>, String>,
+    tree_ref: TreeRef<'f, Node<'l>, Text>,
 }
 
 impl<'f, 'l> AstRef<'f, 'l> {

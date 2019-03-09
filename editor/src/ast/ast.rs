@@ -1,5 +1,6 @@
 use std::ops::{Deref, DerefMut};
 
+use crate::text::Text;
 use forest::{Bookmark, ReadLeaf, Tree, WriteLeaf};
 use language::{Arity, Construct, Language};
 use pretty::{Bounds, Notation};
@@ -33,11 +34,11 @@ pub struct Node<'l> {
 // Many methods here panics if called on a text leaf. Make sure this can't happen.
 #[derive(Clone)]
 pub struct Ast<'l> {
-    pub(super) tree: Tree<Node<'l>, String>,
+    pub(super) tree: Tree<Node<'l>, Text>,
 }
 
 impl<'l> Ast<'l> {
-    pub(super) fn new(tree: Tree<Node<'l>, String>) -> Ast<'l> {
+    pub(super) fn new(tree: Tree<Node<'l>, Text>) -> Ast<'l> {
         let mut ast = Ast { tree: tree };
         ast.update();
         ast
@@ -265,6 +266,15 @@ pub enum AstKind<'a, 'l> {
     Flexible(FlexibleAst<'a, 'l>),
 }
 
+impl<'a, 'l> AstKind<'a, 'l> {
+    pub fn unwrap_text(self) -> TextAst<'a, 'l> {
+        match self {
+            AstKind::Text(ast) => ast,
+            _ => panic!("expected AstKind::Text"),
+        }
+    }
+}
+
 pub struct TextAst<'a, 'l> {
     ast: &'a mut Ast<'l>,
 }
@@ -323,18 +333,24 @@ impl<'a, 'l> FlexibleAst<'a, 'l> {
     }
 }
 
-pub struct ReadText<'f, 'l>(pub(super) ReadLeaf<'f, Node<'l>, String>);
+pub struct ReadText<'f, 'l>(pub(super) ReadLeaf<'f, Node<'l>, Text>);
 
-impl<'f, 'l> AsRef<str> for ReadText<'f, 'l> {
-    fn as_ref(&self) -> &str {
-        self.0.deref().as_ref()
+impl<'f, 'l> ReadText<'f, 'l> {
+    pub fn as_text_ref(&self) -> &Text {
+        self.0.deref()
     }
 }
 
-pub struct WriteText<'f, 'l>(pub(super) WriteLeaf<'f, Node<'l>, String>);
+impl<'f, 'l> AsRef<str> for ReadText<'f, 'l> {
+    fn as_ref(&self) -> &str {
+        self.0.deref().as_str()
+    }
+}
 
-impl<'f, 'l> AsMut<str> for WriteText<'f, 'l> {
-    fn as_mut(&mut self) -> &mut str {
-        self.0.deref_mut().as_mut_str()
+pub struct WriteText<'f, 'l>(pub(super) WriteLeaf<'f, Node<'l>, Text>);
+
+impl<'f, 'l> AsMut<Text> for WriteText<'f, 'l> {
+    fn as_mut(&mut self) -> &mut Text {
+        self.0.deref_mut()
     }
 }
