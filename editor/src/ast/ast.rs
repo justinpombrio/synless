@@ -67,7 +67,7 @@ impl<'l> Ast<'l> {
     ///
     /// Panics if the arity of this node is not `Text`. Also panics if two
     /// nodes/texts in the forest are borrowed at the same time.
-    pub fn text_mut<'f>(&'f mut self) -> WriteText<'f, 'l> {
+    fn text_mut<'f>(&'f mut self) -> WriteText<'f, 'l> {
         WriteText(self.tree.leaf_mut())
     }
 
@@ -90,11 +90,11 @@ impl<'l> Ast<'l> {
     ///
     /// # Panics
     ///
-    /// Panics if this node's arity is not `Fixed`.
-    pub fn replace_child(&mut self, i: usize, tree: Ast<'l>) -> Ast<'l> {
+    /// Panics if this node's arity is not `Fixed` or `Flexible`.
+    fn replace_child(&mut self, i: usize, tree: Ast<'l>) -> Ast<'l> {
         if let Some(arity) = self.arity() {
-            if !arity.is_fixed() {
-                panic!("Ast::replace_child called on a non-Fixed node")
+            if !arity.is_fixed() && !arity.is_flexible() {
+                panic!("Ast::replace_child called on a node that is neither fixed nor flexible.")
             }
             Ast {
                 tree: self.tree.replace_child(i, tree.tree),
@@ -112,7 +112,7 @@ impl<'l> Ast<'l> {
     ///
     /// Panics if this node's arity is not `Flexible` or `Mixed`, or if `i` is
     /// out of bounds.
-    pub fn insert_child(&mut self, i: usize, tree: Ast<'l>) {
+    fn insert_child(&mut self, i: usize, tree: Ast<'l>) {
         if let Some(arity) = self.arity() {
             if !arity.is_flexible() && !arity.is_mixed() {
                 panic!("Ast::insert_child called on a node that isn't Flexible or Mixed")
@@ -131,7 +131,7 @@ impl<'l> Ast<'l> {
     ///
     /// Panics if this node's arity is not `Flexible` or `Mixed`, or if `i` is
     /// out of bounds.
-    pub fn remove_child(&mut self, i: usize) -> Ast<'l> {
+    fn remove_child(&mut self, i: usize) -> Ast<'l> {
         if let Some(arity) = self.arity() {
             if !arity.is_flexible() && !arity.is_mixed() {
                 panic!("Ast::remove_child called on a node that isn't Flexible or Mixed")
@@ -171,7 +171,7 @@ impl<'l> Ast<'l> {
     /// # Panics
     ///
     /// Panics if the arity of this node is `Text`.
-    pub fn num_children(&self) -> usize {
+    fn num_children(&self) -> usize {
         match self.arity() {
             None => panic!("Ast::num_children called on a leaf node"),
             Some(Arity::Text) => panic!("Ast::num_children called on a Text node"),
@@ -199,7 +199,7 @@ impl<'l> Ast<'l> {
     /// # Panics
     ///
     /// Panics if the arity of this node is `Text`, or if `i` is out of bounds.
-    pub fn goto_child(&mut self, i: usize) {
+    fn goto_child(&mut self, i: usize) {
         self.tree.goto_child(i)
     }
 
@@ -218,6 +218,16 @@ impl<'l> Ast<'l> {
         self.tree.goto_bookmark(mark)
     }
 
+    // Panics if it's a leaf
+    pub fn inner<'a>(&'a mut self) -> AstKind<'a, 'l> {
+        match self.arity().expect("Ast::inner() - at a leaf node") {
+            Arity::Text => AstKind::Text(TextAst { ast: self }),
+            Arity::Fixed(_) => AstKind::Fixed(FixedAst { ast: self }),
+            Arity::Flexible(_) => AstKind::Flexible(FlexibleAst { ast: self }),
+            Arity::Mixed(_) => unimplemented!(),
+        }
+    }
+
     /// Update bounds. This must be called every time the tree is modified!
     ///
     /// # Panics
@@ -231,6 +241,70 @@ impl<'l> Ast<'l> {
             self.tree.data_mut().bounds = Bounds::compute(&self.borrow());
         }
         self.goto_bookmark(bookmark);
+    }
+}
+
+pub enum AstKind<'a, 'l> {
+    Text(TextAst<'a, 'l>),
+    Fixed(FixedAst<'a, 'l>),
+    Flexible(FlexibleAst<'a, 'l>),
+}
+
+pub struct TextAst<'a, 'l> {
+    ast: &'a mut Ast<'l>,
+}
+
+impl<'a, 'l> TextAst<'a, 'l> {
+    pub fn text<'b>(&'b self) -> ReadText<'b, 'l> {
+        self.ast.text()
+    }
+
+    pub fn text_mut<'b>(&'b mut self) -> WriteText<'b, 'l> {
+        self.ast.text_mut()
+    }
+}
+
+pub struct FixedAst<'a, 'l> {
+    ast: &'a mut Ast<'l>,
+}
+
+impl<'a, 'l> FixedAst<'a, 'l> {
+    fn num_children(&self) -> usize {
+        self.ast.num_children()
+    }
+
+    fn goto_child(&mut self, i: usize) {
+        self.ast.goto_child(i)
+    }
+
+    fn replace_child(&mut self, i: usize, tree: Ast<'l>) -> Ast<'l> {
+        self.ast.replace_child(i, tree)
+    }
+}
+
+pub struct FlexibleAst<'a, 'l> {
+    ast: &'a mut Ast<'l>,
+}
+
+impl<'a, 'l> FlexibleAst<'a, 'l> {
+    fn num_children(&self) -> usize {
+        self.ast.num_children()
+    }
+
+    fn goto_child(&mut self, i: usize) {
+        self.ast.goto_child(i)
+    }
+
+    fn replace_child(&mut self, i: usize, tree: Ast<'l>) -> Ast<'l> {
+        self.ast.replace_child(i, tree)
+    }
+
+    fn insert_child(&mut self, i: usize, tree: Ast<'l>) {
+        self.ast.insert_child(i, tree)
+    }
+
+    fn remove_child(&mut self, i: usize) -> Ast<'l> {
+        self.ast.remove_child(i)
     }
 }
 
