@@ -1,6 +1,6 @@
 use std::{iter, mem, vec};
 
-use crate::ast::Ast;
+use crate::ast::{Ast, AstKind};
 use crate::command::{Command, DocCmd, NavCmd};
 
 pub struct UndoGroup<'l> {
@@ -110,8 +110,7 @@ impl<'l> Doc<'l> {
                 if i == 0 {
                     return false;
                 }
-                self.ast.goto_parent();
-                self.ast.goto_child(i - 1);
+                self.ast.goto_sibling(i - 1);
                 vec![NavCmd::Right.into()]
             }
             NavCmd::Right => {
@@ -120,8 +119,7 @@ impl<'l> Doc<'l> {
                 if i + 1 >= n {
                     return false;
                 }
-                self.ast.goto_parent();
-                self.ast.goto_child(i + 1);
+                self.ast.goto_sibling(i + 1);
                 vec![NavCmd::Left.into()]
             }
             NavCmd::Parent => {
@@ -132,17 +130,23 @@ impl<'l> Doc<'l> {
                 self.ast.goto_parent();
                 vec![NavCmd::Child(i).into()]
             }
-            NavCmd::Child(i) => {
-                if self.ast.arity().is_none() // at leaf
-                    || self.ast.arity().unwrap().is_text() // at text wrapper node
-                    || i >= self.ast.num_children()
-                // out of bounds
-                {
-                    return false;
+            NavCmd::Child(i) => match self.ast.inner() {
+                AstKind::Text(_) => return false,
+                AstKind::Fixed(mut ast) => {
+                    if i >= ast.num_children() {
+                        return false;
+                    }
+                    ast.goto_child(i);
+                    vec![NavCmd::Parent.into()]
                 }
-                self.ast.goto_child(i);
-                vec![NavCmd::Parent.into()]
-            }
+                AstKind::Flexible(mut ast) => {
+                    if i >= ast.num_children() {
+                        return false;
+                    }
+                    ast.goto_child(i);
+                    vec![NavCmd::Parent.into()]
+                }
+            },
         };
         self.recent.append(UndoGroup {
             contains_edit: false,

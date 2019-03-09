@@ -98,7 +98,7 @@ impl<'l> Ast<'l> {
             }
             let ast = Ast {
                 tree: self.tree.replace_child(i, tree.tree),
-            }
+            };
             self.update();
             ast
         } else {
@@ -193,6 +193,16 @@ impl<'l> Ast<'l> {
         self.tree.goto_parent()
     }
 
+    /// Go to the i'th child of this node's parent.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the index is out of bounds.
+    pub fn goto_sibling(&mut self, i: usize) {
+        self.tree.goto_parent();
+        self.tree.goto_child(i);
+    }
+
     /// Go to this tree's root.
     pub fn goto_root(&mut self) {
         self.tree.goto_root()
@@ -274,15 +284,15 @@ pub struct FixedAst<'a, 'l> {
 }
 
 impl<'a, 'l> FixedAst<'a, 'l> {
-    fn num_children(&self) -> usize {
+    pub fn num_children(&self) -> usize {
         self.ast.num_children()
     }
 
-    fn goto_child(&mut self, i: usize) {
+    pub fn goto_child(&mut self, i: usize) {
         self.ast.goto_child(i)
     }
 
-    fn replace_child(&mut self, i: usize, tree: Ast<'l>) -> Ast<'l> {
+    pub fn replace_child(&mut self, i: usize, tree: Ast<'l>) -> Ast<'l> {
         self.ast.replace_child(i, tree)
     }
 }
@@ -292,23 +302,23 @@ pub struct FlexibleAst<'a, 'l> {
 }
 
 impl<'a, 'l> FlexibleAst<'a, 'l> {
-    fn num_children(&self) -> usize {
+    pub fn num_children(&self) -> usize {
         self.ast.num_children()
     }
 
-    fn goto_child(&mut self, i: usize) {
+    pub fn goto_child(&mut self, i: usize) {
         self.ast.goto_child(i)
     }
 
-    fn replace_child(&mut self, i: usize, tree: Ast<'l>) -> Ast<'l> {
+    pub fn replace_child(&mut self, i: usize, tree: Ast<'l>) -> Ast<'l> {
         self.ast.replace_child(i, tree)
     }
 
-    fn insert_child(&mut self, i: usize, tree: Ast<'l>) {
+    pub fn insert_child(&mut self, i: usize, tree: Ast<'l>) {
         self.ast.insert_child(i, tree)
     }
 
-    fn remove_child(&mut self, i: usize) -> Ast<'l> {
+    pub fn remove_child(&mut self, i: usize) -> Ast<'l> {
         self.ast.remove_child(i)
     }
 }
