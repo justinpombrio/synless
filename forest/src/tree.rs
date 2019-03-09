@@ -224,9 +224,14 @@ impl<D, L> Tree<D, L> {
     /// Returns `true` if this is the root of the tree, and `false` if
     /// it isn't (and thus this node has a parent).
     pub fn at_root(&self) -> bool {
+        self.forest().parent(self.id).is_none()
+    }
+
+    /// Returns `true` if this node is a child of the root of the tree, and `false` otherwise.
+    pub fn is_parent_at_root(&self) -> bool {
         match self.forest().parent(self.id) {
-            None => true,
-            Some(_) => false,
+            None => false,
+            Some(parent_id) => self.forest().parent(parent_id).is_none(),
         }
     }
 

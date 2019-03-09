@@ -87,7 +87,7 @@ impl<'l> Ast<'l> {
         &self.tree.data().notation
     }
 
-    /// Replace a Fixed node's `i`th child. Returns the replaced child.
+    /// Replace a node's `i`th child. Returns the replaced child.
     ///
     /// # Panics
     ///
@@ -167,6 +167,11 @@ impl<'l> Ast<'l> {
     /// it isn't (and thus this node has a parent).
     pub fn at_root(&self) -> bool {
         self.tree.at_root()
+    }
+
+    /// Return `true` if this node is a child of the root of the tree, and `false` otherwise.
+    pub fn is_parent_at_root(&self) -> bool {
+        self.tree.is_parent_at_root()
     }
 
     /// Return the number of children this node has. For a Fixed node, this is

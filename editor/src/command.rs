@@ -77,20 +77,26 @@ pub enum TextNavCmd {
     TreeMode,
 }
 
+impl<'l> From<TreeCmd<'l>> for Command<'l> {
+    fn from(cmd: TreeCmd<'l>) -> Command<'l> {
+        Command::Tree(cmd)
+    }
+}
+
 impl<'l> From<TreeNavCmd> for Command<'l> {
     fn from(cmd: TreeNavCmd) -> Command<'l> {
         Command::TreeNav(cmd)
     }
 }
 
-impl<'l> From<TextNavCmd> for Command<'l> {
-    fn from(cmd: TextNavCmd) -> Command<'l> {
-        Command::TextNav(cmd)
-    }
-}
-
 impl<'l> From<TextCmd> for Command<'l> {
     fn from(cmd: TextCmd) -> Command<'l> {
         Command::Text(cmd)
+    }
+}
+
+impl<'l> From<TextNavCmd> for Command<'l> {
+    fn from(cmd: TextNavCmd) -> Command<'l> {
+        Command::TextNav(cmd)
     }
 }
