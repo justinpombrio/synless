@@ -96,9 +96,11 @@ impl<'l> Ast<'l> {
             if !arity.is_fixed() && !arity.is_flexible() {
                 panic!("Ast::replace_child called on a node that is neither fixed nor flexible.")
             }
-            Ast {
+            let ast = Ast {
                 tree: self.tree.replace_child(i, tree.tree),
             }
+            self.update();
+            ast
         } else {
             panic!("Ast::replace_child called on a leaf node");
         }
@@ -118,6 +120,7 @@ impl<'l> Ast<'l> {
                 panic!("Ast::insert_child called on a node that isn't Flexible or Mixed")
             }
             self.tree.insert_child(i, tree.tree);
+            self.update();
         } else {
             panic!("Ast::insert_child called on a leaf node");
         }
@@ -136,9 +139,11 @@ impl<'l> Ast<'l> {
             if !arity.is_flexible() && !arity.is_mixed() {
                 panic!("Ast::remove_child called on a node that isn't Flexible or Mixed")
             }
-            Ast {
+            let ast = Ast {
                 tree: self.tree.remove_child(i),
-            }
+            };
+            self.update();
+            ast
         } else {
             panic!("Ast::remove_child called on leaf node");
         }
