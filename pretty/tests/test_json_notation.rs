@@ -3,8 +3,64 @@
 mod common;
 
 use common::{assert_strings_eq, make_json_doc};
+use pretty::{Bound, PlainText, Pos, PrettyDocument, Region};
 
 // TODO: test horz concat
+#[test]
+fn test_pretty_print_small_screen_left() {
+    let doc = make_json_doc();
+    let mut screen = PlainText::new_bounded(Region {
+        pos: Pos { row: 2, col: 4 },
+        bound: Bound::new_rectangle(6, 8),
+    });
+    doc.as_ref().pretty_print(80, &mut screen).unwrap();
+    assert_strings_eq(
+        &screen.to_string(),
+        r#"astName"
+sAlive":
+ge": 27,
+ddress":
+{
+  "stree"#,
+    );
+}
+
+#[test]
+fn test_pretty_print_small_screen_right() {
+    let doc = make_json_doc();
+    let mut screen = PlainText::new_bounded(Region {
+        pos: Pos { row: 7, col: 13 },
+        bound: Bound::new_rectangle(4, 16),
+    });
+    doc.as_ref().pretty_print(80, &mut screen).unwrap();
+    assert_strings_eq(
+        &screen.to_string(),
+        r#"Address": "21 2n
+ "New York",
+: "NY",
+Code": "10021-31"#,
+    );
+}
+
+#[test]
+fn test_pretty_print_small_screen_middle() {
+    let doc = make_json_doc();
+    let mut screen = PlainText::new_bounded(Region::char_region(Pos { row: 1, col: 4 }));
+    doc.as_ref().pretty_print(80, &mut screen).unwrap();
+    assert_strings_eq(&screen.to_string(), "i");
+}
+
+#[test]
+fn test_pretty_print_small_screen_bottom() {
+    let doc = make_json_doc();
+    let mut screen = PlainText::new_bounded(Region {
+        pos: Pos { row: 27, col: 63 },
+        // Go past the bottom right corner of the document
+        bound: Bound::new_rectangle(4, 13),
+    });
+    doc.as_ref().pretty_print(74, &mut screen).unwrap();
+    assert_strings_eq(&screen.to_string(), "longer\"]]]]");
+}
 
 #[test]
 fn test_lay_out_json_80() {

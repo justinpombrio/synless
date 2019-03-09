@@ -138,6 +138,11 @@ impl Region {
         self.end() - self.beginning()
     }
 
+    /// Return true iff this region is shaped like a rectangle.
+    pub fn is_rectangular(&self) -> bool {
+        self.bound.is_rectangular()
+    }
+
     fn body(&self) -> Rect {
         Rect {
             cols: Range(self.pos.col, self.pos.col + self.bound.width),
@@ -250,5 +255,39 @@ mod tests {
         assert_eq!(REGION.overlaps(REGION2), true);
         assert_eq!(REGION.covers(REGION2), false);
         assert_eq!(REGION.covers(REGION3), true);
+    }
+
+    #[test]
+    fn test_region_rectangular() {
+        assert!(Region::char_region(Pos::zero()).is_rectangular());
+
+        // Not sure if an empty region *should* be considered rectangular, but now we'll notice if it changes
+        assert!(Region::empty_region(Pos::zero()).is_rectangular());
+
+        let a = Region {
+            pos: Pos::zero(),
+            bound: Bound {
+                width: 5,
+                height: 2,
+                indent: 5,
+            },
+        };
+        assert!(a.is_rectangular());
+
+        let b = Region {
+            pos: Pos::zero(),
+            bound: Bound {
+                width: 5,
+                height: 2,
+                indent: 4,
+            },
+        };
+        assert!(!b.is_rectangular());
+
+        let c = Region {
+            pos: Pos::zero(),
+            bound: Bound::new_rectangle(4, 5),
+        };
+        assert!(c.is_rectangular());
     }
 }

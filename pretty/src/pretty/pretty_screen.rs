@@ -9,7 +9,7 @@ pub trait PrettyScreen {
     fn region(&self) -> Result<Region, Self::Error>;
 
     /// Display text.
-    fn print(&mut self, pos: Pos, text: &str, style: Style) -> Result<(), Self::Error>;
+    fn print(&mut self, offset: Pos, text: &str, style: Style) -> Result<(), Self::Error>;
 
     /// Shade the background. It is possible that the same position will be
     /// shaded more than once, or will be `.print`ed before being shaded. If so,
