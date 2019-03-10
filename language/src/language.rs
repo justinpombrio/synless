@@ -48,11 +48,8 @@ impl Language {
         self.constructs.insert(construct.name.clone(), construct);
     }
 
-    pub fn lookup_key(&self, key: char) -> Option<&Construct> {
-        match self.keymap.get(&key) {
-            Some(name) => Some(self.lookup_construct(name)),
-            None => None,
-        }
+    pub fn lookup_key(&self, key: char) -> Option<&ConstructName> {
+        self.keymap.get(&key)
     }
 
     pub fn lookup_construct(&self, construct_name: &str) -> &Construct {

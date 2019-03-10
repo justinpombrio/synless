@@ -12,8 +12,8 @@ use termion::raw::{IntoRawMode, RawTerminal};
 use termion::screen::AlternateScreen;
 use termion::style::{Bold, NoBold, NoUnderline, Reset, Underline};
 
-use pretty::{Col, Pos, Row};
-use pretty::{ColorTheme, Rgb, Style};
+use pretty::{Bound, Col, Pos, Region, Row};
+use pretty::{ColorTheme, PrettyScreen, Rgb, Shade, Style};
 
 use crate::frontend::{Event, Frontend};
 
@@ -56,9 +56,37 @@ impl Terminal {
     }
 }
 
-impl Frontend for Terminal {
+impl PrettyScreen for Terminal {
     type Error = io::Error;
 
+    fn region(&self) -> Result<Region, Self::Error> {
+        let (cols, rows) = termion::terminal_size()?;
+        Ok(Region {
+            pos: Pos::zero(),
+            bound: Bound::new_rectangle(rows as u32, cols),
+        })
+    }
+
+    fn print(&mut self, offset: Pos, text: &str, style: Style) -> Result<(), Self::Error> {
+        self.go_to(offset)?;
+        self.apply_style(style)?;
+        self.write(text)
+    }
+
+    fn shade(&mut self, _region: Region, _shade: Shade) -> Result<(), Self::Error> {
+        unimplemented!();
+    }
+
+    fn highlight(&mut self, _pos: Pos, _style: Style) -> Result<(), Self::Error> {
+        unimplemented!();
+    }
+
+    fn show(&mut self) -> Result<(), Self::Error> {
+        self.stdout.flush()
+    }
+}
+
+impl Frontend for Terminal {
     fn new(theme: ColorTheme) -> Result<Terminal, io::Error> {
         let mut term = Terminal {
             stdout: AlternateScreen::from(MouseTerminal::from(stdout().into_raw_mode()?)),
@@ -69,26 +97,11 @@ impl Frontend for Terminal {
         Ok(term)
     }
 
-    fn present(&mut self) -> Result<(), io::Error> {
-        self.stdout.flush()
-    }
-
-    fn print_str(&mut self, text: &str, pos: Pos, style: Style) -> Result<(), io::Error> {
-        self.go_to(pos)?;
-        self.apply_style(style)?;
-        self.write(text)
-    }
-
     fn clear(&mut self) -> Result<(), io::Error> {
         // Reset style before clearing, or the most recently used background
         // color will fill the screen.
         self.write(Reset)?;
         self.write(clear::All)
-    }
-
-    fn size(&self) -> Result<Pos, io::Error> {
-        let (x, y) = termion::terminal_size()?;
-        Ok(size_to_pos(x, y))
     }
 
     fn next_event(&mut self) -> Option<Result<Event, io::Error>> {
@@ -154,13 +167,5 @@ fn coords_to_pos(x: u16, y: u16) -> Pos {
     Pos {
         col: x as Col - 1,
         row: y as Row - 1,
-    }
-}
-
-/// Convert termion's XY size into a synless Pos.
-fn size_to_pos(x: u16, y: u16) -> Pos {
-    Pos {
-        col: x as Col,
-        row: y as Row,
     }
 }

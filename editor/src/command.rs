@@ -2,6 +2,7 @@ use std::fmt;
 
 use crate::ast::Ast;
 
+#[derive(Debug)]
 pub enum CommandGroup<'l> {
     /// Execute all the commands as one group.
     Group(Vec<Command<'l>>),
@@ -106,6 +107,16 @@ impl<'l> From<TextCmd> for Command<'l> {
 impl<'l> From<TextNavCmd> for Command<'l> {
     fn from(cmd: TextNavCmd) -> Command<'l> {
         Command::TextNav(cmd)
+    }
+}
+
+impl<'l, T> From<T> for CommandGroup<'l>
+where
+    T: Into<Command<'l>>,
+{
+    fn from(cmd_like: T) -> CommandGroup<'l> {
+        let cmd: Command = cmd_like.into();
+        CommandGroup::Group(vec![cmd])
     }
 }
 

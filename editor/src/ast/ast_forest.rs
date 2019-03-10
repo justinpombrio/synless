@@ -1,5 +1,5 @@
 use forest::Forest;
-use language::{Arity, Construct, Language, LanguageSet, BUILTIN_CONSTRUCTS};
+use language::{Arity, Construct, ConstructName, Language, LanguageSet, BUILTIN_CONSTRUCTS};
 use pretty::Bounds;
 
 use crate::ast::ast::{Ast, Node};
@@ -23,6 +23,34 @@ impl<'l> AstForest<'l> {
             language_set: language_set,
             forest: Forest::new(),
         }
+    }
+
+    pub fn new_tree_by_name(
+        &self,
+        language: &'l Language,
+        construct_name: &ConstructName,
+        notation_set: &'l NotationSet,
+    ) -> Option<Ast<'l>> {
+        let construct = language.lookup_construct(construct_name);
+        let node = Node {
+            bounds: Bounds::empty(),
+            language,
+            construct,
+            notation: notation_set.lookup(construct_name),
+        };
+        let ast = match &construct.arity {
+            Arity::Fixed(sorts) => {
+                let children = vec![self.new_hole_tree(language, notation_set).tree; sorts.len()];
+                Ast::new(self.forest.new_branch(node, children))
+            }
+            Arity::Flexible(_) => Ast::new(self.forest.new_branch(node, vec![])),
+            Arity::Text => {
+                let leaf = self.forest.new_leaf(Text::new_inactive());
+                Ast::new(self.forest.new_branch(node, vec![leaf]))
+            }
+            _ => unimplemented!(),
+        };
+        Some(ast)
     }
 
     /// Construct a hole in this forest, that represents a gap in the document.

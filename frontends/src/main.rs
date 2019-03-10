@@ -3,7 +3,7 @@ use std::{io, thread, time};
 use termion::event::Key;
 
 use frontends::{Event, Frontend, Terminal};
-use pretty::{Color, ColorTheme, Pos, Row, Style};
+use pretty::{Color, ColorTheme, Pos, PrettyScreen, Row, Style};
 
 fn main() -> Result<(), io::Error> {
     let mut demo = TermDemo::new(20)?;
@@ -127,7 +127,7 @@ impl TermDemo {
     /// Clear everything that was printed to the terminal.
     fn clear(&mut self) -> Result<(), io::Error> {
         self.term.clear()?;
-        self.term.present()?;
+        self.term.show()?;
         self.line = 0;
         Ok(())
     }
@@ -136,20 +136,20 @@ impl TermDemo {
     fn paint(&mut self, pos: Pos) -> Result<(), io::Error> {
         self.term
             .print_char('!', pos, Style::reverse_color(Color::Base0D))?;
-        self.term.present()
+        self.term.show()
     }
 
     /// Print the text on the next line.
     fn println(&mut self, text: &str, style: Style) -> Result<(), io::Error> {
-        self.term.print_str(
-            text,
+        self.term.print(
             Pos {
                 col: 0,
                 row: self.line,
             },
+            text,
             style,
         )?;
         self.line += 1;
-        self.term.present()
+        self.term.show()
     }
 }

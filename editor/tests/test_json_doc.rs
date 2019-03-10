@@ -1,8 +1,4 @@
-mod common;
-
-use common::make_json_lang;
-
-use editor::{AstForest, Command, CommandGroup, Doc, TreeCmd, TreeNavCmd};
+use editor::{make_json_lang, AstForest, Command, CommandGroup, Doc, TreeCmd, TreeNavCmd};
 use pretty::{PlainText, PrettyDocument};
 
 // TODO: expand this into a comprehensive test suite

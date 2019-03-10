@@ -1,4 +1,4 @@
-use editor::NotationSet;
+use crate::NotationSet;
 use language::{Arity, Construct, Language, LanguageSet};
 use pretty::{child, literal, no_wrap, repeat, text, Notation, Repeat, Style};
 
