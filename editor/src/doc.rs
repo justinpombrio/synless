@@ -1,8 +1,9 @@
 use std::{iter, mem, vec};
 
 use crate::ast::{Ast, AstKind, AstRef};
-use crate::command::{Command, DocCmd, EditorCmd, TextCmd, TextNavCmd, TreeCmd, TreeNavCmd};
+use crate::command::{Command, CommandGroup, EditorCmd, TextCmd, TextNavCmd, TreeCmd, TreeNavCmd};
 
+#[derive(Debug)]
 pub struct UndoGroup<'l> {
     contains_edit: bool,
     commands: Vec<Command<'l>>,
@@ -24,6 +25,10 @@ impl<'l> UndoGroup<'l> {
     fn clear(&mut self) {
         self.contains_edit = false;
         self.commands = vec![];
+    }
+
+    fn is_empty(&self) -> bool {
+        self.commands.is_empty()
     }
 }
 
@@ -74,7 +79,6 @@ impl<'l> Doc<'l> {
             recent: UndoGroup::new(),
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
-            // ast: Ast::new(),
             ast: ast,
             mode: Mode::Tree,
         }
@@ -89,15 +93,16 @@ impl<'l> Doc<'l> {
     }
 
     fn undo(&mut self) -> bool {
-        // TODO: Think about error handling if self.recent is none-empty.
-        self.recent.clear(); // It _should_ be empty, but just in case.
+        assert!(self.recent.commands.is_empty());
+        assert!(!self.recent.contains_edit);
         match self.undo_stack.pop() {
             None => false, // Undo stack is empty
             Some(group) => {
-                if !self.execute(group) {
-                    return false;
+                if !self.execute_group(group) {
+                    panic!("Failed to undo")
                 }
                 let recent = self.take_recent();
+                println!("push redo: {:?}", recent);
                 self.redo_stack.push(recent);
                 true
             }
@@ -105,15 +110,16 @@ impl<'l> Doc<'l> {
     }
 
     fn redo(&mut self) -> bool {
-        // TODO: Think about error handling if self.recent is none-empty.
-        self.recent.clear(); // It _should_ be empty, but just in case.
+        assert!(self.recent.commands.is_empty());
+        assert!(!self.recent.contains_edit);
         match self.redo_stack.pop() {
             None => false, // Redo stack is empty
             Some(group) => {
-                if !self.execute(group) {
-                    return false;
+                if !self.execute_group(group) {
+                    panic!("Failed to redo")
                 }
                 let recent = self.take_recent();
+                println!("push undo: {:?}", recent);
                 self.undo_stack.push(recent);
                 true
             }
@@ -122,12 +128,28 @@ impl<'l> Doc<'l> {
 
     fn reset(&mut self) -> bool {
         let recent = self.take_recent();
-        let ok = self.execute(recent);
+        let ok = self.execute_group(recent);
         self.recent.clear();
         ok
     }
 
-    pub fn execute<I>(&mut self, cmds: I) -> bool
+    pub fn execute(&mut self, cmds: CommandGroup<'l>) -> bool {
+        match cmds {
+            CommandGroup::Undo => self.undo(),
+            CommandGroup::Redo => self.redo(),
+            CommandGroup::Group(group) => {
+                let all_ok = self.execute_group(group);
+                let undos = self.take_recent();
+                if !undos.is_empty() {
+                    self.undo_stack.push(undos);
+                }
+                self.redo_stack.clear();
+                all_ok
+            }
+        }
+    }
+
+    fn execute_group<I>(&mut self, cmds: I) -> bool
     where
         I: IntoIterator<Item = Command<'l>>,
     {
@@ -135,7 +157,6 @@ impl<'l> Doc<'l> {
         for cmd in cmds {
             all_ok &= match cmd {
                 Command::Ed(cmd) => self.execute_ed(cmd),
-                Command::Doc(cmd) => self.execute_doc(cmd),
                 Command::Tree(cmd) => self.execute_tree(cmd),
                 Command::TreeNav(cmd) => self.execute_tree_nav(cmd),
                 Command::Text(cmd) => self.execute_text(cmd),
@@ -147,24 +168,6 @@ impl<'l> Doc<'l> {
 
     fn execute_ed(&mut self, _cmd: EditorCmd) -> bool {
         unimplemented!();
-    }
-
-    fn execute_doc(&mut self, cmd: DocCmd) -> bool {
-        let undos = match cmd {
-            DocCmd::Undo => {
-                self.undo(); // TODO: warn if false
-                vec![]
-            }
-            DocCmd::Redo => {
-                self.redo(); // TODO: warn if false
-                vec![]
-            }
-        };
-        self.recent.append(UndoGroup {
-            contains_edit: true,
-            commands: undos,
-        });
-        true
     }
 
     fn execute_tree(&mut self, cmd: TreeCmd<'l>) -> bool {

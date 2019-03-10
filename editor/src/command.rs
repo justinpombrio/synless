@@ -1,14 +1,26 @@
+use std::fmt;
+
 use crate::ast::Ast;
 
+pub enum CommandGroup<'l> {
+    /// Execute all the commands as one group.
+    Group(Vec<Command<'l>>),
+    /// Undo the last group.
+    Undo,
+    /// Redo the last group.
+    Redo,
+}
+
+#[derive(Debug)]
 pub enum Command<'l> {
     Ed(EditorCmd),
-    Doc(DocCmd),
     Tree(TreeCmd<'l>),
     TreeNav(TreeNavCmd),
     Text(TextCmd),
     TextNav(TextNavCmd),
 }
 
+#[derive(Debug)]
 pub enum EditorCmd {
     /// Cut onto the clipboard.
     Cut,
@@ -26,13 +38,6 @@ pub enum EditorCmd {
     PastePostpend,
 }
 
-pub enum DocCmd {
-    /// Undo the last operation
-    Undo,
-    /// Redo the last undone operation
-    Redo,
-}
-
 pub enum TreeCmd<'l> {
     /// Replace the current node.
     Replace(Ast<'l>),
@@ -48,6 +53,7 @@ pub enum TreeCmd<'l> {
     Remove,
 }
 
+#[derive(Debug)]
 pub enum TreeNavCmd {
     /// Move cursor to left sibling
     Left,
@@ -59,6 +65,7 @@ pub enum TreeNavCmd {
     Parent,
 }
 
+#[derive(Debug)]
 pub enum TextCmd {
     /// Insert the given character at the cursor position
     InsertChar(char),
@@ -68,6 +75,7 @@ pub enum TextCmd {
     DeleteCharForward,
 }
 
+#[derive(Debug)]
 pub enum TextNavCmd {
     /// Move cursor left one character
     Left,
@@ -98,5 +106,19 @@ impl<'l> From<TextCmd> for Command<'l> {
 impl<'l> From<TextNavCmd> for Command<'l> {
     fn from(cmd: TextNavCmd) -> Command<'l> {
         Command::TextNav(cmd)
+    }
+}
+
+impl<'l> fmt::Debug for TreeCmd<'l> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let name = match self {
+            TreeCmd::InsertAfter(_) => "InsertAfter",
+            TreeCmd::InsertBefore(_) => "InsertBefore",
+            TreeCmd::InsertPrepend(_) => "InsertPrepend",
+            TreeCmd::InsertPostpend(_) => "InsertPostpend",
+            TreeCmd::Replace(_) => "Replace",
+            TreeCmd::Remove => "Remove",
+        };
+        write!(f, "TreeCmd::{}", name)
     }
 }
