@@ -94,6 +94,36 @@ fn test_json_undo_redo() {
     assert_render(&doc, "[true, null, []]");
 }
 
+#[test]
+fn test_json_string() {
+    let (lang_set, note_set) = make_json_lang();
+    let forest = AstForest::new(&lang_set);
+    let lang = lang_set.get("json").unwrap();
+
+    let mut doc = Doc::new(
+        "MyTestDoc",
+        forest.new_fixed_tree(lang, lang.lookup_construct("Root"), &note_set),
+    );
+
+    assert!(doc.execute(CommandGroup::Group(vec![Command::TreeNav(
+        TreeNavCmd::Child(0)
+    ),])));
+
+    assert!(
+        doc.execute(CommandGroup::Group(vec![Command::Tree(TreeCmd::Replace(
+            forest.new_flexible_tree(&lang, lang.lookup_construct("list"), &note_set,)
+        )),]))
+    );
+
+    assert!(doc.execute(CommandGroup::Group(vec![Command::Tree(
+        TreeCmd::InsertPrepend(forest.new_text_tree(
+            &lang,
+            lang.lookup_construct("string"),
+            &note_set,
+        ))
+    ),])));
+}
+
 fn assert_render(doc: &Doc, rendered: &str) {
     let width: u16 = 80;
     let mut screen = PlainText::new(width as usize);
