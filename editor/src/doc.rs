@@ -1,6 +1,6 @@
 use std::{iter, mem, vec};
 
-use crate::ast::{Ast, AstKind};
+use crate::ast::{Ast, AstKind, AstRef};
 use crate::command::{Command, DocCmd, EditorCmd, TextCmd, TextNavCmd, TreeCmd, TreeNavCmd};
 
 pub struct UndoGroup<'l> {
@@ -68,6 +68,22 @@ pub struct Doc<'l> {
 }
 
 impl<'l> Doc<'l> {
+    pub fn new(name: &str, ast: Ast<'l>) -> Self {
+        Doc {
+            name: name.to_owned(),
+            recent: UndoGroup::new(),
+            undo_stack: Vec::new(),
+            redo_stack: Vec::new(),
+            // ast: Ast::new(),
+            ast: ast,
+            mode: Mode::Tree,
+        }
+    }
+
+    pub fn ast_ref<'f>(&'f self) -> AstRef<'f, 'l> {
+        self.ast.borrow()
+    }
+
     fn take_recent(&mut self) -> UndoGroup<'l> {
         mem::replace(&mut self.recent, UndoGroup::new())
     }
@@ -111,7 +127,7 @@ impl<'l> Doc<'l> {
         ok
     }
 
-    fn execute<I>(&mut self, cmds: I) -> bool
+    pub fn execute<I>(&mut self, cmds: I) -> bool
     where
         I: IntoIterator<Item = Command<'l>>,
     {

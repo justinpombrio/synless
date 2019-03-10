@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::iter::Iterator;
 
-use crate::construct::{Construct, ConstructName, Sort};
+use crate::construct::{Construct, ConstructName, Sort, BUILTIN_CONSTRUCTS};
 use utility::GrowOnlyMap;
 
 pub type LanguageName = String;
@@ -56,10 +56,13 @@ impl Language {
     pub fn lookup_construct(&self, construct_name: &str) -> &Construct {
         match self.constructs.get(construct_name) {
             Some(con) => con,
-            None => panic!(
-                "Could not find construct named {} in language.",
-                construct_name
-            ),
+            None => match BUILTIN_CONSTRUCTS.get(construct_name) {
+                None => panic!(
+                    "Could not find construct named {} in language.",
+                    construct_name
+                ),
+                Some(con) => con,
+            },
         }
     }
 
