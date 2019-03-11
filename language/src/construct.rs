@@ -2,6 +2,7 @@
 // TODO: use or remove commented code
 
 use lazy_static::lazy_static;
+use std::collections::HashMap;
 use std::fmt;
 
 pub type ConstructName = String;
@@ -80,9 +81,18 @@ impl fmt::Display for Arity {
 }
 
 lazy_static! {
-    /// A hole in the document, for when your program is incomplete.
-    pub static ref HOLE: Construct =
-        Construct::new("Hole", "Any", Arity::Fixed(vec!()), '?');
+    // A hole in the document, for when your program is incomplete.
+    pub static ref BUILTIN_CONSTRUCTS: HashMap<ConstructName, Construct> = vec![
+        (
+            "Hole".to_owned(),
+            Construct::new("Hole", "Any", Arity::Fixed(vec!()), '?')
+        ),
+        // TODO no key?
+        (
+            "Root".to_owned(),
+            Construct::new("Root", "Root", Arity::Fixed(vec!["Any".into()]), '!')
+        )
+    ].into_iter().collect();
 }
 
 /*

@@ -1,11 +1,21 @@
+use lazy_static::lazy_static;
 use std::collections::HashMap;
 
 use language::{ConstructName, Language, LanguageName};
-use pretty::Notation;
+use pretty::{child, literal, Notation, Style};
 
 pub struct NotationSet {
     name: LanguageName,
     notations: HashMap<ConstructName, Notation>,
+}
+
+lazy_static! {
+    /// A hole in the document, for when your program is incomplete.
+    pub static ref BUILTIN_NOTATIONS: HashMap<ConstructName, Notation> =
+        vec![
+            ("Hole".into(), literal("?", Style::plain())),
+            ("Root".into(), child(0)),
+        ].into_iter().collect();
 }
 
 impl NotationSet {
@@ -23,10 +33,14 @@ impl NotationSet {
 
     pub fn lookup(&self, construct: &ConstructName) -> &Notation {
         match self.notations.get(construct) {
-            None => panic!(
-                "Construct {} not found in notation set for {}",
-                construct, self.name
-            ),
+            None => match BUILTIN_NOTATIONS.get(construct) {
+                None => panic!(
+                    "Construct {} not found in notation set for {}",
+                    construct, self.name
+                ),
+                Some(notation) => notation,
+            },
+
             Some(notation) => notation,
         }
     }
