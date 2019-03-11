@@ -43,7 +43,7 @@ enum Mode {
 }
 
 impl Mode {
-    fn is_tree(&self) -> bool {
+    fn is_tree_mode(&self) -> bool {
         match self {
             Mode::Tree => true,
             _ => false,
@@ -152,32 +152,29 @@ impl<'l> Doc<'l> {
     }
 
     fn execute_tree(&mut self, cmd: TreeCmd<'l>) -> bool {
-        if !self.mode.is_tree() {
+        if !self.mode.is_tree_mode() {
             // return false;
             panic!("tried to execute tree command in text mode")
         }
         let undos = match cmd {
             TreeCmd::Replace(new_ast) => {
-                let i = self.ast.index();
-                self.ast.goto_parent();
-                let old_ast = match self.ast.inner() {
+                let i = self.ast.goto_parent();
+                match self.ast.inner() {
                     AstKind::Fixed(mut fixed) => {
                         let old_ast = fixed.replace_child(i, new_ast);
                         fixed.goto_child(i);
-                        old_ast
+                        vec![TreeCmd::Replace(old_ast).into()]
                     }
                     AstKind::Flexible(mut flexible) => {
                         let old_ast = flexible.replace_child(i, new_ast);
                         flexible.goto_child(i);
-                        old_ast
+                        vec![TreeCmd::Replace(old_ast).into()]
                     }
                     _ => panic!("how can a parent not be fixed or flexible?"),
-                };
-                vec![TreeCmd::Replace(old_ast).into()]
+                }
             }
             TreeCmd::Remove => {
-                let i = self.ast.index();
-                self.ast.goto_parent();
+                let i = self.ast.goto_parent();
                 match self.ast.inner() {
                     AstKind::Fixed(mut fixed) => {
                         // Oops, go back, we can't delete something from a fixed node.
@@ -240,7 +237,7 @@ impl<'l> Doc<'l> {
     }
 
     fn execute_tree_nav(&mut self, cmd: TreeNavCmd) -> bool {
-        if !self.mode.is_tree() {
+        if !self.mode.is_tree_mode() {
             // return false;
             panic!("tried to execute tree navigation command in text mode")
         }
@@ -267,8 +264,7 @@ impl<'l> Doc<'l> {
                     // User should never be able to select the root node
                     return false;
                 }
-                let i = self.ast.index();
-                self.ast.goto_parent();
+                let i = self.ast.goto_parent();
                 vec![TreeNavCmd::Child(i).into()]
             }
             TreeNavCmd::Child(i) => match self.ast.inner() {
@@ -311,21 +307,19 @@ impl<'l> Doc<'l> {
                 vec![TextCmd::DeleteCharBackward.into()]
             }
             TextCmd::DeleteCharForward => {
-                let deleted = if let Some(c) = ast.text_mut().as_mut().delete_forward(char_index) {
-                    c
+                if let Some(c) = ast.text_mut().as_mut().delete_forward(char_index) {
+                    vec![TextCmd::InsertChar(c).into()]
                 } else {
                     return false;
-                };
-                vec![TextCmd::InsertChar(deleted).into()]
+                }
             }
             TextCmd::DeleteCharBackward => {
-                let deleted = if let Some(c) = ast.text_mut().as_mut().delete_backward(char_index) {
-                    c
+                if let Some(c) = ast.text_mut().as_mut().delete_backward(char_index) {
+                    self.mode = Mode::Text(char_index - 1);
+                    vec![TextCmd::InsertChar(c).into()]
                 } else {
                     return false;
-                };
-                self.mode = Mode::Text(char_index - 1);
-                vec![TextCmd::InsertChar(deleted).into()]
+                }
             }
         };
         self.recent.append(UndoGroup {
@@ -401,8 +395,7 @@ impl<'l> Doc<'l> {
     /// undo the insertion.
     fn insert_sibling(&mut self, before: bool, new_ast: Ast<'l>) -> (bool, Vec<Command<'l>>) {
         let index_offset = if before { 0 } else { 1 };
-        let i = self.ast.index();
-        self.ast.goto_parent();
+        let i = self.ast.goto_parent();
         match self.ast.inner() {
             AstKind::Fixed(mut fixed) => {
                 // Oops, go back, we can't insert something into a fixed node.

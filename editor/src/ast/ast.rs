@@ -165,8 +165,8 @@ impl<'l> Ast<'l> {
 
     /// Returns `true` if this is the root of the tree, and `false` if
     /// it isn't (and thus this node has a parent).
-    pub fn at_root(&self) -> bool {
-        self.tree.at_root()
+    pub fn is_at_root(&self) -> bool {
+        self.tree.is_at_root()
     }
 
     /// Return `true` if this node is a child of the root of the tree, and `false` otherwise.
@@ -190,12 +190,13 @@ impl<'l> Ast<'l> {
         }
     }
 
-    /// Go to the parent of this node.
+    /// Go to the parent of this node. Returns this node's index among its
+    /// siblings (so that you can return to it later).
     ///
     /// # Panics
     ///
     /// Panics if this is the root of the tree, and there is no parent.
-    pub fn goto_parent(&mut self) {
+    pub fn goto_parent(&mut self) -> usize {
         self.tree.goto_parent()
     }
 
@@ -257,7 +258,7 @@ impl<'l> Ast<'l> {
     fn update(&mut self) {
         let bookmark = self.bookmark();
         self.tree.data_mut().bounds = Bounds::compute(&self.borrow());
-        while !self.at_root() {
+        while !self.is_at_root() {
             self.goto_parent();
             self.tree.data_mut().bounds = Bounds::compute(&self.borrow());
         }
