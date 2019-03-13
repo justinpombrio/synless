@@ -41,7 +41,9 @@ impl Language {
             .unwrap()
             .push(construct.name.clone());
         // Insert key
-        self.keymap.insert(construct.key, construct.name.clone());
+        if let Some(key) = construct.key {
+            self.keymap.insert(key, construct.name.clone());
+        }
         // Insert construct
         self.constructs.insert(construct.name.clone(), construct);
     }

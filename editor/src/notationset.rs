@@ -10,7 +10,7 @@ pub struct NotationSet {
 }
 
 lazy_static! {
-    /// Built-in notations that can appear in any document.
+    /// Notations for built-in constructs that can appear in any document.
     pub static ref BUILTIN_NOTATIONS: HashMap<ConstructName, Notation> =
         vec![
             ("Hole".to_string(), literal("?", Style::plain())),

@@ -14,11 +14,11 @@ pub struct Construct {
     pub name: ConstructName,
     pub sort: Sort,
     pub arity: Arity,
-    pub key: char,
+    pub key: Option<char>,
 }
 
 impl Construct {
-    pub fn new(name: &str, sort: &str, arity: Arity, key: char) -> Construct {
+    pub fn new(name: &str, sort: &str, arity: Arity, key: Option<char>) -> Construct {
         Construct {
             name: name.to_string(),
             sort: sort.to_string(),
@@ -81,16 +81,15 @@ impl fmt::Display for Arity {
 }
 
 lazy_static! {
-    // A hole in the document, for when your program is incomplete.
+    /// Built-in constructs that can appear in any document.
     pub static ref BUILTIN_CONSTRUCTS: HashMap<ConstructName, Construct> = vec![
         (
             "Hole".to_owned(),
-            Construct::new("Hole", "Any", Arity::Fixed(vec!()), '?')
+            Construct::new("Hole", "Any", Arity::Fixed(vec!()), Some('?'))
         ),
-        // TODO no key?
         (
             "Root".to_owned(),
-            Construct::new("Root", "Root", Arity::Fixed(vec!["Any".into()]), '!')
+            Construct::new("Root", "Root", Arity::Fixed(vec!["Any".into()]), None)
         )
     ].into_iter().collect();
 }
