@@ -98,9 +98,7 @@ impl<'l> Doc<'l> {
         match self.undo_stack.pop() {
             None => false, // Undo stack is empty
             Some(group) => {
-                if !self.execute_group(group) {
-                    panic!("Failed to undo")
-                }
+                self.execute_group(group).expect("Failed to undo");
                 let recent = self.take_recent();
                 self.redo_stack.push(recent);
                 true
@@ -114,9 +112,7 @@ impl<'l> Doc<'l> {
         match self.redo_stack.pop() {
             None => false, // Redo stack is empty
             Some(group) => {
-                if !self.execute_group(group) {
-                    panic!("Failed to redo")
-                }
+                self.execute_group(group).expect("Failed to redo");
                 let recent = self.take_recent();
                 self.undo_stack.push(recent);
                 true
@@ -124,19 +120,12 @@ impl<'l> Doc<'l> {
         }
     }
 
-    fn reset(&mut self) -> bool {
-        let recent = self.take_recent();
-        let ok = self.execute_group(recent);
-        self.recent.clear();
-        ok
-    }
-
     pub fn execute(&mut self, cmds: CommandGroup<'l>) -> bool {
         match cmds {
             CommandGroup::Undo => self.undo(),
             CommandGroup::Redo => self.redo(),
             CommandGroup::Group(group) => {
-                let all_ok = self.execute_group(group);
+                let all_ok = self.execute_group(group).is_ok();
                 let undos = self.take_recent();
                 if !undos.is_empty() {
                     self.undo_stack.push(undos);
@@ -147,28 +136,28 @@ impl<'l> Doc<'l> {
         }
     }
 
-    fn execute_group<I>(&mut self, cmds: I) -> bool
+    fn execute_group<I>(&mut self, cmds: I) -> Result<(), ()>
     where
         I: IntoIterator<Item = Command<'l>>,
     {
-        let mut all_ok = true;
         for cmd in cmds {
-            all_ok &= match cmd {
-                Command::Ed(cmd) => self.execute_ed(cmd),
-                Command::Tree(cmd) => self.execute_tree(cmd),
-                Command::TreeNav(cmd) => self.execute_tree_nav(cmd),
-                Command::Text(cmd) => self.execute_text(cmd),
-                Command::TextNav(cmd) => self.execute_text_nav(cmd),
-            }
+            let undos = match cmd {
+                Command::Ed(cmd) => self.execute_ed(cmd)?,
+                Command::Tree(cmd) => self.execute_tree(cmd)?,
+                Command::TreeNav(cmd) => self.execute_tree_nav(cmd)?,
+                Command::Text(cmd) => self.execute_text(cmd)?,
+                Command::TextNav(cmd) => self.execute_text_nav(cmd)?,
+            };
+            self.recent.append(undos);
         }
-        all_ok
+        Ok(())
     }
 
-    fn execute_ed(&mut self, _cmd: EditorCmd) -> bool {
+    fn execute_ed(&mut self, _cmd: EditorCmd) -> Result<UndoGroup<'l>, ()> {
         unimplemented!();
     }
 
-    fn execute_tree(&mut self, cmd: TreeCmd<'l>) -> bool {
+    fn execute_tree(&mut self, cmd: TreeCmd<'l>) -> Result<UndoGroup<'l>, ()> {
         if !self.mode.is_tree_mode() {
             // return false;
             panic!("tried to execute tree command in text mode")
@@ -196,7 +185,7 @@ impl<'l> Doc<'l> {
                     AstKind::Fixed(mut fixed) => {
                         // Oops, go back, we can't delete something from a fixed node.
                         fixed.goto_child(i);
-                        return false;
+                        return Err(());
                     }
                     AstKind::Flexible(mut flexible) => {
                         let old_ast = flexible.remove_child(i);
@@ -217,31 +206,18 @@ impl<'l> Doc<'l> {
                     _ => panic!("how can a parent not be fixed or flexible?"),
                 }
             }
-            TreeCmd::InsertBefore(new_ast) => match self.insert_sibling(true, new_ast) {
-                Ok(undo) => undo,
-                Err(()) => return false,
-            },
-            TreeCmd::InsertAfter(new_ast) => match self.insert_sibling(false, new_ast) {
-                Ok(undo) => undo,
-                Err(()) => return false,
-            },
-            TreeCmd::InsertPrepend(new_ast) => match self.insert_child_at_edge(true, new_ast) {
-                Ok(undo) => undo,
-                Err(()) => return false,
-            },
-            TreeCmd::InsertPostpend(new_ast) => match self.insert_child_at_edge(false, new_ast) {
-                Ok(undo) => undo,
-                Err(()) => return false,
-            },
+            TreeCmd::InsertBefore(new_ast) => self.insert_sibling(true, new_ast)?,
+            TreeCmd::InsertAfter(new_ast) => self.insert_sibling(false, new_ast)?,
+            TreeCmd::InsertPrepend(new_ast) => self.insert_child_at_edge(true, new_ast)?,
+            TreeCmd::InsertPostpend(new_ast) => self.insert_child_at_edge(false, new_ast)?,
         };
-        self.recent.append(UndoGroup {
+        Ok(UndoGroup {
             contains_edit: true,
             commands: undos,
-        });
-        true
+        })
     }
 
-    fn execute_tree_nav(&mut self, cmd: TreeNavCmd) -> bool {
+    fn execute_tree_nav(&mut self, cmd: TreeNavCmd) -> Result<UndoGroup<'l>, ()> {
         if !self.mode.is_tree_mode() {
             // TODO: once there's scripting or user-defined keybindings,
             // this needs to be a gentler error.
@@ -251,7 +227,7 @@ impl<'l> Doc<'l> {
             TreeNavCmd::Left => {
                 let i = self.ast.index();
                 if i == 0 {
-                    return false;
+                    return Err(());
                 }
                 self.ast.goto_sibling(i - 1);
                 vec![TreeNavCmd::Right.into()]
@@ -260,7 +236,7 @@ impl<'l> Doc<'l> {
                 let i = self.ast.index();
                 let n = self.ast.num_siblings();
                 if i + 1 >= n {
-                    return false;
+                    return Err(());
                 }
                 self.ast.goto_sibling(i + 1);
                 vec![TreeNavCmd::Left.into()]
@@ -268,7 +244,7 @@ impl<'l> Doc<'l> {
             TreeNavCmd::Parent => {
                 if self.ast.is_parent_at_root() {
                     // User should never be able to select the root node
-                    return false;
+                    return Err(());
                 }
                 let i = self.ast.goto_parent();
                 vec![TreeNavCmd::Child(i).into()]
@@ -282,28 +258,27 @@ impl<'l> Doc<'l> {
                 }
                 AstKind::Fixed(mut ast) => {
                     if i >= ast.num_children() {
-                        return false;
+                        return Err(());
                     }
                     ast.goto_child(i);
                     vec![TreeNavCmd::Parent.into()]
                 }
                 AstKind::Flexible(mut ast) => {
                     if i >= ast.num_children() {
-                        return false;
+                        return Err(());
                     }
                     ast.goto_child(i);
                     vec![TreeNavCmd::Parent.into()]
                 }
             },
         };
-        self.recent.append(UndoGroup {
+        Ok(UndoGroup {
             contains_edit: false,
             commands: undos,
-        });
-        true
+        })
     }
 
-    fn execute_text(&mut self, cmd: TextCmd) -> bool {
+    fn execute_text(&mut self, cmd: TextCmd) -> Result<UndoGroup<'l>, ()> {
         let mut ast = self.ast.inner().unwrap_text();
         let char_index = self.mode.unwrap_text_pos();
         let undos = match cmd {
@@ -316,7 +291,7 @@ impl<'l> Doc<'l> {
                 if let Some(c) = ast.text_mut().as_mut().delete_forward(char_index) {
                     vec![TextCmd::InsertChar(c).into()]
                 } else {
-                    return false;
+                    return Err(());
                 }
             }
             TextCmd::DeleteCharBackward => {
@@ -324,31 +299,30 @@ impl<'l> Doc<'l> {
                     self.mode = Mode::Text(char_index - 1);
                     vec![TextCmd::InsertChar(c).into()]
                 } else {
-                    return false;
+                    return Err(());
                 }
             }
         };
-        self.recent.append(UndoGroup {
+        Ok(UndoGroup {
             contains_edit: true,
             commands: undos,
-        });
-        true
+        })
     }
 
-    fn execute_text_nav(&mut self, cmd: TextNavCmd) -> bool {
+    fn execute_text_nav(&mut self, cmd: TextNavCmd) -> Result<UndoGroup<'l>, ()> {
         let char_index = self.mode.unwrap_text_pos();
         let mut ast = self.ast.inner().unwrap_text();
         let undos = match cmd {
             TextNavCmd::Left => {
                 if char_index == 0 {
-                    return false;
+                    return Err(());
                 }
                 self.mode = Mode::Text(char_index - 1);
                 vec![TextNavCmd::Right.into()]
             }
             TextNavCmd::Right => {
                 if char_index >= ast.text().as_text_ref().num_chars() {
-                    return false;
+                    return Err(());
                 }
                 self.mode = Mode::Text(char_index + 1);
                 vec![TextNavCmd::Left.into()]
@@ -360,11 +334,10 @@ impl<'l> Doc<'l> {
                 vec![TreeNavCmd::Child(char_index).into()]
             }
         };
-        self.recent.append(UndoGroup {
+        Ok(UndoGroup {
             contains_edit: false,
             commands: undos,
-        });
-        true
+        })
     }
 
     /// If `at_start` is true, insert the new ast as the first child of this
