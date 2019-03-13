@@ -411,7 +411,11 @@ impl<'l> Doc<'l> {
             AstKind::Flexible(mut flexible) => {
                 flexible.insert_child(insertion_index, new_ast);
                 flexible.goto_child(insertion_index);
-                Ok(vec![TreeCmd::Remove.into()])
+                if before && i != 0 {
+                    Ok(vec![TreeNavCmd::Right.into(), TreeCmd::Remove.into()])
+                } else {
+                    Ok(vec![TreeCmd::Remove.into()])
+                }
             }
             _ => panic!("how can a parent not be fixed or flexible?"),
         }

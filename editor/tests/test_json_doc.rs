@@ -100,5 +100,5 @@ fn assert_render(doc: &Doc, rendered: &str) {
     let width: u16 = 80;
     let mut screen = PlainText::new(width as usize);
     doc.ast_ref().pretty_print(width, &mut screen).unwrap();
-    assert_eq!(rendered, screen.to_string())
+    assert_eq!(screen.to_string(), rendered)
 }
