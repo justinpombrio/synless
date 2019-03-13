@@ -66,7 +66,8 @@ impl Text {
     ///
     /// # Panics
     ///
-    /// Panics if the `Text` is inactive or the index is greater than the number of characters in the text.
+    /// Panics if the `Text` is inactive or the index is greater than the number
+    /// of characters in the text.
     pub fn insert(&mut self, char_index: usize, character: char) {
         match self {
             Text::Active(active_text) => active_text.insert(char_index, character),
@@ -74,11 +75,13 @@ impl Text {
         }
     }
 
-    /// Remove and return the character at the given index, or None if the index is equal to the number of characters in the text.
+    /// Remove and return the character at the given index, or `None` if the index
+    /// is equal to the number of characters in the text.
     ///
     /// # Panics
     ///
-    /// Panics if the `Text` is inactive or the index is greater than the number of characters in the text.
+    /// Panics if the `Text` is inactive or the index is greater than the number
+    /// of characters in the text.
     pub fn delete_forward(&mut self, char_index: usize) -> Option<char> {
         match self {
             Text::Active(active_text) => active_text.delete_forward(char_index),
@@ -86,11 +89,13 @@ impl Text {
         }
     }
 
-    /// Remove and return the character immediately before the given index, or None if the index is 0.
+    /// Remove and return the character immediately before the given index, or
+    /// `None` if the index is 0.
     ///
     /// # Panics
     ///
-    /// Panics if the `Text` is inactive or the index is greater than the number of characters in the text.
+    /// Panics if the `Text` is inactive or the index is greater than the number
+    /// of characters in the text.
     pub fn delete_backward(&mut self, char_index: usize) -> Option<char> {
         if let Text::Active(active_text) = self {
             active_text.delete_backward(char_index)
@@ -104,15 +109,6 @@ impl AsRef<str> for Text {
     fn as_ref(&self) -> &str {
         match self {
             Text::Active(s) => &s.0,
-            Text::Inactive(s) => s,
-        }
-    }
-}
-
-impl AsMut<str> for Text {
-    fn as_mut(&mut self) -> &mut str {
-        match self {
-            Text::Active(s) => &mut s.0,
             Text::Inactive(s) => s,
         }
     }
@@ -135,6 +131,7 @@ impl ActiveText {
         if char_index == 0 {
             return None;
         }
+        // This exact index makes `String` panic rather than `byte_index`.
         if char_index == self.num_chars() + 1 {
             panic!("ActiveText::delete_backward - character index is out of range")
         }

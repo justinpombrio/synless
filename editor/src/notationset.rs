@@ -10,11 +10,11 @@ pub struct NotationSet {
 }
 
 lazy_static! {
-    /// A hole in the document, for when your program is incomplete.
+    /// Built-in notations that can appear in any document.
     pub static ref BUILTIN_NOTATIONS: HashMap<ConstructName, Notation> =
         vec![
-            ("Hole".into(), literal("?", Style::plain())),
-            ("Root".into(), child(0)),
+            ("Hole".to_string(), literal("?", Style::plain())),
+            ("Root".to_string(), child(0)),
         ].into_iter().collect();
 }
 
