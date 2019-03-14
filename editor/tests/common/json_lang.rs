@@ -1,7 +1,6 @@
 use editor::NotationSet;
 use language::{Arity, Construct, Language, LanguageSet};
 use pretty::{child, literal, no_wrap, repeat, text, Notation, Repeat, Style};
-// use std::collections::HashMap;
 
 pub fn make_json_lang() -> (LanguageSet, NotationSet) {
     let notations = vec![
@@ -15,27 +14,33 @@ pub fn make_json_lang() -> (LanguageSet, NotationSet) {
         ("key".into(), json_key()),
         ("entry".into(), json_dict_entry()),
     ];
-    let value = "ValueSort";
-    let entry = "EntrySort";
-    let key = "KeySort";
-    // let dict = "DictSort";
     let constructs = vec![
-        // TODO no key for root?
-        Construct::new("string", value, Arity::Text, 's'),
-        Construct::new("number", value, Arity::Text, 'n'),
-        Construct::new("true", value, Arity::Fixed(Vec::new()), 't'),
-        Construct::new("false", value, Arity::Fixed(Vec::new()), 'f'),
-        Construct::new("null", value, Arity::Fixed(Vec::new()), 'x'),
-        Construct::new("list", value, Arity::Flexible(value.into()), 'l'),
-        Construct::new("dict", value, Arity::Flexible(entry.into()), 'd'),
-        Construct::new("key", key, Arity::Text, 'k'),
+        Construct::new("string", "Value", Arity::Text, Some('s')),
+        Construct::new("number", "Value", Arity::Text, Some('n')),
+        Construct::new("true", "Value", Arity::Fixed(Vec::new()), Some('t')),
+        Construct::new("false", "Value", Arity::Fixed(Vec::new()), Some('f')),
+        Construct::new("null", "Value", Arity::Fixed(Vec::new()), Some('x')),
+        Construct::new(
+            "list",
+            "Value",
+            Arity::Flexible("Value".to_string()),
+            Some('l'),
+        ),
+        Construct::new(
+            "dict",
+            "Value",
+            Arity::Flexible("Entry".to_string()),
+            Some('d'),
+        ),
+        Construct::new("key", "Key", Arity::Text, Some('k')),
         Construct::new(
             "entry",
-            entry,
-            Arity::Fixed(vec![key.into(), value.into()]),
-            'e',
+            "Entry",
+            Arity::Fixed(vec!["Key".to_string(), "Value".to_string()]),
+            Some('e'),
         ),
     ];
+    // TODO: some of this boilerplate should get abstracted out
     let mut lang = Language::new("json");
     for construct in constructs {
         lang.add(construct);

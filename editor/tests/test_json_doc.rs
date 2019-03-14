@@ -13,7 +13,7 @@ fn test_json_undo_redo() {
 
     let mut doc = Doc::new(
         "MyTestDoc",
-        forest.new_fixed_tree(lang, lang.lookup_construct("Root"), &note_set),
+        forest.new_fixed_tree(lang, lang.lookup_construct("root"), &note_set),
     );
 
     assert!(doc.execute(CommandGroup::Group(vec![Command::TreeNav(

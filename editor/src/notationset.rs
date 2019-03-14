@@ -13,8 +13,8 @@ lazy_static! {
     /// Notations for built-in constructs that can appear in any document.
     pub static ref BUILTIN_NOTATIONS: HashMap<ConstructName, Notation> =
         vec![
-            ("Hole".to_string(), literal("?", Style::plain())),
-            ("Root".to_string(), child(0)),
+            ("hole".to_string(), literal("?", Style::plain())),
+            ("root".to_string(), child(0)),
         ].into_iter().collect();
 }
 
@@ -74,7 +74,7 @@ mod example {
         let mut language = Language::new("TestLang");
 
         let arity = Arity::Fixed(vec!["Expr".to_string(), "Expr".to_string()]);
-        let construct = Construct::new("plus", "Expr", arity, 'p');
+        let construct = Construct::new("plus", "Expr", arity, Some('p'));
         language.add(construct);
         let plus_notation = child(0) + punct(" + ") + child(1) | child(0) ^ punct("+ ") + child(1);
 

@@ -84,12 +84,12 @@ lazy_static! {
     /// Built-in constructs that can appear in any document.
     pub static ref BUILTIN_CONSTRUCTS: HashMap<ConstructName, Construct> = vec![
         (
-            "Hole".to_owned(),
-            Construct::new("Hole", "Any", Arity::Fixed(vec!()), Some('?'))
+            "hole".to_owned(),
+            Construct::new("hole", "Any", Arity::Fixed(vec!()), Some('?'))
         ),
         (
-            "Root".to_owned(),
-            Construct::new("Root", "Root", Arity::Fixed(vec!["Any".into()]), None)
+            "root".to_owned(),
+            Construct::new("root", "root", Arity::Fixed(vec!["Any".into()]), None)
         )
     ].into_iter().collect();
 }
