@@ -195,6 +195,9 @@ where
         screen_region.is_rectangular(),
         "screen region must be rectangular"
     );
+    if text.is_empty() {
+        return Ok(()); // not much to show!
+    }
 
     let start_char = screen_region.pos.col.saturating_sub(text_region.pos.col);
     let end_char = cmp::min(
