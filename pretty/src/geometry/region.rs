@@ -143,14 +143,14 @@ impl Region {
         self.bound.is_rectangular()
     }
 
-    fn body(&self) -> Rect {
+    pub fn body(&self) -> Rect {
         Rect {
             cols: Range(self.pos.col, self.pos.col + self.bound.width),
             rows: Range(self.pos.row, self.pos.row + self.bound.height - 1),
         }
     }
 
-    fn last_line(&self) -> Rect {
+    pub fn last_line(&self) -> Rect {
         Rect {
             cols: Range(self.pos.col, self.pos.col + self.bound.indent),
             rows: Range(

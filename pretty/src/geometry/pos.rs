@@ -14,7 +14,7 @@ pub const MAX_WIDTH: Col = 256;
 /// A character position, typically relative to the screen or the document.
 ///
 /// The origin is in the upper left, and is `(0, 0)`. I.e., this is 0-indexed.
-#[derive(PartialEq, Eq, Clone, Copy)]
+#[derive(PartialEq, Eq, Clone, Copy, Hash, Ord, PartialOrd)]
 pub struct Pos {
     pub col: Col,
     pub row: Row,
