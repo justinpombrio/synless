@@ -288,19 +288,20 @@ impl<'l> Doc<'l> {
                 vec![TextCmd::DeleteCharBackward.into()]
             }
             TextCmd::DeleteCharForward => {
-                if let Some(c) = ast.text_mut().as_mut().delete_forward(char_index) {
-                    vec![TextCmd::InsertChar(c).into()]
-                } else {
+                let text_len = ast.text().as_text_ref().num_chars();
+                if char_index == text_len {
                     return Err(());
                 }
+                let c = ast.text_mut().as_mut().delete(char_index);
+                vec![TextCmd::InsertChar(c).into()]
             }
             TextCmd::DeleteCharBackward => {
-                if let Some(c) = ast.text_mut().as_mut().delete_backward(char_index) {
-                    self.mode = Mode::Text(char_index - 1);
-                    vec![TextCmd::InsertChar(c).into()]
-                } else {
+                if char_index == 0 {
                     return Err(());
                 }
+                let c = ast.text_mut().as_mut().delete(char_index - 1);
+                self.mode = Mode::Text(char_index - 1);
+                vec![TextCmd::InsertChar(c).into()]
             }
         };
         Ok(UndoGroup {

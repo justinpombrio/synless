@@ -75,32 +75,16 @@ impl Text {
         }
     }
 
-    /// Remove and return the character at the given index, or `None` if the index
-    /// is equal to the number of characters in the text.
+    /// Remove and return the character at the given index.
     ///
     /// # Panics
     ///
     /// Panics if the `Text` is inactive or the index is greater than the number
     /// of characters in the text.
-    pub fn delete_forward(&mut self, char_index: usize) -> Option<char> {
+    pub fn delete(&mut self, char_index: usize) -> char {
         match self {
-            Text::Active(active_text) => active_text.delete_forward(char_index),
-            _ => panic!("Text::delete_forward - tried to edit inactive text"),
-        }
-    }
-
-    /// Remove and return the character immediately before the given index, or
-    /// `None` if the index is 0.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the `Text` is inactive or the index is greater than the number
-    /// of characters in the text.
-    pub fn delete_backward(&mut self, char_index: usize) -> Option<char> {
-        if let Text::Active(active_text) = self {
-            active_text.delete_backward(char_index)
-        } else {
-            panic!("Text::delete_backward - tried to edit inactive text")
+            Text::Active(active_text) => active_text.delete(char_index),
+            _ => panic!("Text::delete - tried to edit inactive text"),
         }
     }
 }
@@ -119,24 +103,9 @@ impl ActiveText {
         self.0.chars().count()
     }
 
-    fn delete_forward(&mut self, char_index: usize) -> Option<char> {
-        if char_index == self.num_chars() {
-            return None;
-        }
+    fn delete(&mut self, char_index: usize) -> char {
         // If char_index is larger than that, let byte_index() panic!
-        Some(self.0.remove(self.byte_index(char_index)))
-    }
-
-    fn delete_backward(&mut self, char_index: usize) -> Option<char> {
-        if char_index == 0 {
-            return None;
-        }
-        // This exact index makes `String` panic rather than `byte_index`.
-        if char_index == self.num_chars() + 1 {
-            panic!("ActiveText::delete_backward - character index is out of range")
-        }
-        // If char_index is larger than that, let byte_index() panic!
-        Some(self.0.remove(self.byte_index(char_index - 1)))
+        self.0.remove(self.byte_index(char_index))
     }
 
     fn insert(&mut self, char_index: usize, character: char) {
@@ -191,64 +160,29 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "ActiveText::delete_backward - character index is out of range")]
-    fn test_active_invalid_delete_backward() {
+    #[should_panic(expected = "ActiveText::byte_index - character index is out of range")]
+    fn test_active_invalid_delete() {
         let mut t = Text::new_inactive();
         t.activate();
-        t.delete_backward(1);
+        t.delete(1);
     }
 
     #[test]
     #[should_panic(expected = "ActiveText::byte_index - character index is out of range")]
-    fn test_active_invalid_delete_backward2() {
-        let mut t = Text::new_inactive();
-        t.activate();
-        t.delete_backward(2);
-    }
-
-    #[test]
-    #[should_panic(expected = "ActiveText::delete_backward - character index is out of range")]
-    fn test_active_invalid_delete_backward3() {
+    fn test_active_invalid_delete2() {
         let mut t = Text::new_inactive();
         t.activate();
         t.insert(0, 'a');
-        t.delete_backward(2);
+        t.delete(2);
     }
 
     #[test]
     #[should_panic(expected = "ActiveText::byte_index - character index is out of range")]
-    fn test_active_invalid_delete_forward() {
-        let mut t = Text::new_inactive();
-        t.activate();
-        t.delete_forward(1);
-    }
-
-    #[test]
-    #[should_panic(expected = "ActiveText::byte_index - character index is out of range")]
-    fn test_active_invalid_delete_forward2() {
+    fn test_active_invalid_delete3() {
         let mut t = Text::new_inactive();
         t.activate();
         t.insert(0, 'a');
-        t.delete_forward(2);
-    }
-
-    #[test]
-    #[should_panic(expected = "ActiveText::byte_index - character index is out of range")]
-    fn test_active_invalid_delete_forward3() {
-        let mut t = Text::new_inactive();
-        t.activate();
-        t.insert(0, 'a');
-        t.delete_forward(3);
-    }
-
-    #[test]
-    #[should_panic(expected = "Text::delete_forward - tried to edit inactive text")]
-    fn test_inactivate() {
-        let mut t = Text::new_inactive();
-        t.activate();
-        t.insert(0, 'a');
-        t.inactivate();
-        t.delete_forward(0);
+        t.delete(3);
     }
 
     #[test]
@@ -258,49 +192,45 @@ mod tests {
         t.insert(0, 'b');
         t.insert(0, 'a');
         t.insert(2, 'd');
-        assert_eq!("abd", t.as_str());
+        assert_eq!(t.as_str(), "abd");
+        assert_eq!(t.num_chars(), 3);
+        assert_eq!(t.as_str(), "abd");
+        assert_eq!(t.num_chars(), 3);
 
         t.insert(2, 'c');
-        assert_eq!("abcd", t.as_str());
+        assert_eq!(t.as_str(), "abcd");
 
         t.insert(4, 'e');
-        assert_eq!("abcde", t.as_str());
+        assert_eq!(t.as_str(), "abcde");
 
         t.inactivate();
-        assert_eq!(5, t.num_chars());
+        assert_eq!(t.num_chars(), 5);
+        assert_eq!(t.as_str(), "abcde");
         t.activate();
-        assert_eq!(5, t.num_chars());
+        assert_eq!(t.num_chars(), 5);
+        assert_eq!(t.as_str(), "abcde");
 
-        assert_eq!(Some('c'), t.delete_forward(2));
-        assert_eq!("abde", t.as_str());
+        assert_eq!(t.delete(2), 'c');
+        assert_eq!(t.as_str(), "abde");
 
-        assert_eq!(Some('b'), t.delete_backward(2));
-        assert_eq!("ade", t.as_str());
+        assert_eq!(t.delete(1), 'b');
+        assert_eq!(t.as_str(), "ade");
 
-        assert_eq!(Some('a'), t.delete_forward(0));
-        assert_eq!("de", t.as_str());
+        assert_eq!(t.delete(0), 'a');
+        assert_eq!(t.num_chars(), 2);
+        assert_eq!(t.as_str(), "de");
 
-        assert_eq!(None, t.delete_backward(0));
-        assert_eq!("de", t.as_str());
-        assert_eq!(None, t.delete_forward(2));
-        assert_eq!("de", t.as_str());
+        assert_eq!(t.delete(1), 'e');
+        assert_eq!(t.as_str(), "d");
+        assert_eq!(t.num_chars(), 1);
 
-        assert_eq!(Some('e'), t.delete_backward(2));
-        assert_eq!("d", t.as_str());
-
-        assert_eq!(Some('d'), t.delete_backward(1));
-        assert_eq!("", t.as_str());
-
-        assert_eq!(None, t.delete_backward(0));
-        assert_eq!("", t.as_str());
+        assert_eq!(t.delete(0), 'd');
+        assert_eq!(t.num_chars(), 0);
+        assert_eq!(t.as_str(), "");
 
         t.insert(0, 'a');
-        assert_eq!(Some('a'), t.delete_forward(0));
-        assert_eq!("", t.as_str());
-
-        assert_eq!(None, t.delete_forward(0));
-        assert_eq!("", t.as_str());
-
-        assert_eq!(0, t.num_chars());
+        assert_eq!(t.delete(0), 'a');
+        assert_eq!(t.as_str(), "");
+        assert_eq!(t.num_chars(), 0);
     }
 }

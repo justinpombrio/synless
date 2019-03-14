@@ -5,6 +5,8 @@ use common::make_json_lang;
 use editor::{AstForest, Command, CommandGroup, Doc, TreeCmd, TreeNavCmd};
 use pretty::{PlainText, PrettyDocument};
 
+// TODO: expand this into a comprehensive test suite
+
 #[test]
 fn test_json_undo_redo() {
     let (lang_set, note_set) = make_json_lang();
