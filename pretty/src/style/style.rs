@@ -111,10 +111,22 @@ impl Style {
     }
 }
 
+impl Default for Style {
+    fn default() -> Self {
+        Style::plain()
+    }
+}
+
 impl Shade {
     /// Typically pure black, the most ordinary shade.
     pub fn background() -> Shade {
         Shade(usize::max_value())
+    }
+}
+
+impl Default for Shade {
+    fn default() -> Self {
+        Shade::background()
     }
 }
 
