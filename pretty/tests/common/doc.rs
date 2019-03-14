@@ -1,6 +1,6 @@
 use std::ops::Index;
 
-use pretty::{Bounds, Notation, PlainText, PrettyDocument};
+use pretty::{Bounds, Notation, PrettyDocument};
 
 // TODO: rename `Doc` to `Tree`. Likewise `DocRef`.
 
@@ -51,14 +51,6 @@ impl Doc {
             root: self,
             path: vec![],
         }
-    }
-
-    pub fn write(&self, width: usize) -> String {
-        let mut screen = PlainText::new(width);
-        self.as_ref()
-            .pretty_print(width as u16, &mut screen)
-            .unwrap();
-        format!("{}", screen)
     }
 }
 

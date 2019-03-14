@@ -6,6 +6,26 @@ use common::{assert_strings_eq, make_json_doc};
 use pretty::{Bound, PlainText, Pos, PrettyDocument, Region};
 
 // TODO: test horz concat
+
+#[test]
+fn test_pretty_print_very_small_screen_left() {
+    let doc = make_json_doc();
+    let mut screen = PlainText::new_bounded(Region {
+        pos: Pos { row: 2, col: 4 },
+        bound: Bound::new_rectangle(6, 6),
+    });
+    doc.as_ref().pretty_print(80, &mut screen).unwrap();
+    assert_strings_eq(
+        &screen.to_string(),
+        r#"astNam
+sAlive
+ge": 2
+ddress
+{
+  "str"#,
+    );
+}
+
 #[test]
 fn test_pretty_print_small_screen_left() {
     let doc = make_json_doc();
@@ -65,9 +85,11 @@ fn test_pretty_print_small_screen_bottom() {
 #[test]
 fn test_lay_out_json_80() {
     let doc = make_json_doc();
+    let mut screen = PlainText::new(80);
+    doc.as_ref().pretty_print(80, &mut screen).unwrap();
 
     assert_strings_eq(
-        &doc.write(80),
+        &screen.to_string(),
         r#"{
   "firstName": "John",
   "lastName": "Smith",
@@ -103,9 +125,11 @@ fn test_lay_out_json_80() {
 #[test]
 fn test_lay_out_json_30() {
     let doc = make_json_doc();
+    let mut screen = PlainText::new(30);
+    doc.as_ref().pretty_print(30, &mut screen).unwrap();
 
     assert_strings_eq(
-        &doc.write(30),
+        &screen.to_string(),
         r#"{
   "firstName": "John",
   "lastName": "Smith",
@@ -155,7 +179,8 @@ fn test_lay_out_json_30() {
 #[should_panic]
 fn test_lay_out_json_28() {
     // The doc won't fit in 28 characters
-    // Eventually the strings should wrap, so it
+    // Eventually the strings should wrap, and it should stop panicking.
     let doc = make_json_doc();
-    doc.write(28);
+    let mut screen = PlainText::new(28);
+    doc.as_ref().pretty_print(28, &mut screen).unwrap();
 }
