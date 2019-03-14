@@ -1,9 +1,13 @@
 //! Render to and receive events from the terminal emulator.
 
+mod screen_buf;
+mod term_error;
+use screen_buf::{ScreenBuf, ScreenOp};
+pub use term_error::Error;
+
 use std::fmt::Display;
 use std::io::{self, stdin, stdout, Stdin, Stdout, Write};
 
-use termion::clear;
 use termion::color::{Bg, Fg, Rgb as TermionRgb};
 use termion::cursor;
 use termion::event;
@@ -26,6 +30,7 @@ pub struct Terminal {
     stdout: AlternateScreen<MouseTerminal<RawTerminal<Stdout>>>,
     events: input::Events<Stdin>,
     color_theme: ColorTheme,
+    buf: ScreenBuf,
 }
 
 impl Terminal {
@@ -57,7 +62,7 @@ impl Terminal {
 }
 
 impl PrettyScreen for Terminal {
-    type Error = io::Error;
+    type Error = Error;
 
     fn region(&self) -> Result<Region, Self::Error> {
         let (cols, rows) = termion::terminal_size()?;
@@ -68,43 +73,52 @@ impl PrettyScreen for Terminal {
     }
 
     fn print(&mut self, offset: Pos, text: &str, style: Style) -> Result<(), Self::Error> {
-        self.go_to(offset)?;
-        self.apply_style(style)?;
-        self.write(text)
+        self.buf.write_str(offset, text, style)
     }
 
-    fn shade(&mut self, _region: Region, _shade: Shade) -> Result<(), Self::Error> {
-        unimplemented!();
+    fn shade(&mut self, region: Region, shade: Shade) -> Result<(), Self::Error> {
+        self.buf.shade_region(region, shade)
     }
 
-    fn highlight(&mut self, _pos: Pos, _style: Style) -> Result<(), Self::Error> {
-        unimplemented!();
+    fn highlight(&mut self, pos: Pos, style: Style) -> Result<(), Self::Error> {
+        self.buf.set_style(pos, style)
     }
 
     fn show(&mut self) -> Result<(), Self::Error> {
-        self.stdout.flush()
+        self.write(Reset)?;
+        let changes: Vec<_> = self.buf.drain_changes().collect();
+        for op in changes {
+            match op {
+                ScreenOp::Goto(pos) => self.go_to(pos)?,
+                ScreenOp::Apply(style) => self.apply_style(style)?,
+                ScreenOp::Print(ch) => self.write(ch)?,
+            }
+        }
+        self.stdout.flush()?;
+        Ok(())
     }
 }
 
 impl Frontend for Terminal {
-    fn new(theme: ColorTheme) -> Result<Terminal, io::Error> {
+    fn new(theme: ColorTheme) -> Result<Terminal, Self::Error> {
         let mut term = Terminal {
             stdout: AlternateScreen::from(MouseTerminal::from(stdout().into_raw_mode()?)),
             events: stdin().events(),
             color_theme: theme,
+            buf: ScreenBuf::new(),
         };
+        let size = term.size()?;
+        term.buf.resize(size);
         term.write(cursor::Hide)?;
         Ok(term)
     }
 
-    fn clear(&mut self) -> Result<(), io::Error> {
-        // Reset style before clearing, or the most recently used background
-        // color will fill the screen.
-        self.write(Reset)?;
-        self.write(clear::All)
+    fn clear(&mut self) -> Result<(), Self::Error> {
+        self.buf.clear();
+        self.show()
     }
 
-    fn next_event(&mut self) -> Option<Result<Event, io::Error>> {
+    fn next_event(&mut self) -> Option<Result<Event, Self::Error>> {
         match self.events.next() {
             Some(Ok(event::Event::Key(key))) => Some(Ok(KeyEvent(key))),
             Some(Ok(event::Event::Mouse(event::MouseEvent::Press(
@@ -113,35 +127,10 @@ impl Frontend for Terminal {
                 y,
             )))) => Some(Ok(MouseEvent(coords_to_pos(x, y)))),
             Some(Ok(_)) => self.next_event(),
-            Some(Err(err)) => Some(Err(err)),
+            Some(Err(err)) => Some(Err(err.into())),
             None => None,
         }
     }
-
-    /*
-    /// Fill in a Region of the screen with the given
-    /// background shade (and empty forground).
-    fn shade_region(&mut self, region: Region, shade: Shade) {
-        let fg = self.color_theme.shade(shade);
-        let bg = self.color_theme.shade(shade);
-        let emph = self.color_theme.emph(Style::plain());
-
-        let init_col   = region.pos.col as usize;
-        let indent_col = (region.pos.col + region.indent()) as usize;
-        let end_col    = (region.pos.col + region.width()) as usize;
-        let init_row   = region.pos.row as usize;
-        let end_row    = (region.pos.row + region.height()) as usize;
-
-        for col in init_col .. end_col {
-            for row in init_row .. end_row {
-                self.rust_box.print_char(col, row, emph, fg, bg, ' ');
-            }
-        }
-        for col in init_col .. indent_col {
-            self.rust_box.print_char(col, end_row, emph, fg, bg, ' ');
-        }
-    }
-     */
 }
 
 impl Drop for Terminal {

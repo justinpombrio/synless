@@ -4,7 +4,7 @@ use std::{io, thread, time};
 
 use termion::event::Key;
 
-use frontends::{Event, Frontend, Terminal};
+use frontends::{terminal, Event, Frontend, Terminal};
 use pretty::{Color, ColorTheme, Pos, PrettyDocument, PrettyScreen, Style};
 
 use editor::{make_json_lang, Ast, AstForest, CommandGroup, Doc, NotationSet, TreeCmd, TreeNavCmd};
@@ -28,11 +28,18 @@ enum Error {
     UnknownKey(char),
     UnknownEvent,
     Io(io::Error),
+    Term(terminal::Error),
 }
 
 impl From<io::Error> for Error {
     fn from(e: io::Error) -> Error {
         Error::Io(e)
+    }
+}
+
+impl From<terminal::Error> for Error {
+    fn from(e: terminal::Error) -> Error {
+        Error::Term(e)
     }
 }
 
@@ -93,7 +100,7 @@ impl Ed {
         self.redisplay().unwrap();
     }
 
-    fn print_messages(&mut self, num_recent: usize) -> Result<(), io::Error> {
+    fn print_messages(&mut self, num_recent: usize) -> Result<(), Error> {
         let size = self.term.size()?;
         for (i, msg) in self.messages.iter().rev().take(num_recent).enumerate() {
             let pos = Pos {
@@ -106,7 +113,7 @@ impl Ed {
         Ok(())
     }
 
-    fn redisplay(&mut self) -> Result<(), io::Error> {
+    fn redisplay(&mut self) -> Result<(), Error> {
         self.term.clear()?;
         let size = self.term.size()?;
         self.doc
@@ -114,7 +121,8 @@ impl Ed {
             .pretty_print(size.col, &mut self.term)
             .unwrap();
         self.print_messages(10)?;
-        self.term.show()
+        self.term.show()?;
+        Ok(())
     }
 
     fn handle_event(&mut self) -> Result<bool, Error> {

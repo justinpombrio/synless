@@ -1,11 +1,11 @@
-use std::{io, thread, time};
+use std::{thread, time};
 
 use termion::event::Key;
 
-use frontends::{Event, Frontend, Terminal};
-use pretty::{Color, ColorTheme, Pos, PrettyScreen, Row, Style};
+use frontends::{terminal, Event, Frontend, Terminal};
+use pretty::{Bound, Color, ColorTheme, Pos, PrettyScreen, Region, Row, Shade, Style};
 
-fn main() -> Result<(), io::Error> {
+fn main() -> Result<(), terminal::Error> {
     let mut demo = TermDemo::new(20)?;
     demo.run()?;
     drop(demo);
@@ -24,7 +24,7 @@ struct TermDemo {
 }
 
 impl TermDemo {
-    fn new(num_events: usize) -> Result<Self, io::Error> {
+    fn new(num_events: usize) -> Result<Self, terminal::Error> {
         Ok(Self {
             num_events,
             line: 0,
@@ -33,7 +33,7 @@ impl TermDemo {
     }
 
     /// Respond to some key/mouse events, then quit.
-    fn run(&mut self) -> Result<(), io::Error> {
+    fn run(&mut self) -> Result<(), terminal::Error> {
         self.intro()?;
         for _ in 0..self.num_events {
             if !self.handle_event()? {
@@ -52,7 +52,7 @@ impl TermDemo {
     }
 
     /// Print an intro message explaining how the demo will work.
-    fn intro(&mut self) -> Result<(), io::Error> {
+    fn intro(&mut self) -> Result<(), terminal::Error> {
         self.println(
             "This is a demo of terminal frontend features.",
             Style::plain(),
@@ -76,7 +76,7 @@ impl TermDemo {
     }
 
     /// Wait for an event, then handle it. Return false if we should quit.
-    fn handle_event(&mut self) -> Result<bool, io::Error> {
+    fn handle_event(&mut self) -> Result<bool, terminal::Error> {
         match self.term.next_event() {
             Some(Ok(Event::MouseEvent(pos))) => {
                 self.paint(pos)?;
@@ -99,10 +99,23 @@ impl TermDemo {
                     Style::reverse_color(Color::Base0E),
                 )?;
             }
+            Some(Ok(Event::KeyEvent(Key::Char('r')))) => {
+                let region = Region {
+                    pos: Pos { row: 10, col: 1 },
+                    bound: Bound {
+                        width: 5,
+                        height: 3,
+                        indent: 2,
+                    },
+                };
+                self.term.shade(region, Shade(0))?;
+                self.term.show()?;
+            }
+
             Some(Ok(Event::KeyEvent(Key::Char(c)))) => {
                 self.println(
                     &format!("got character: {}", c),
-                    Style::reverse_color(Color::Base0B),
+                    Style::color(Color::Base0C),
                 )?;
             }
             Some(Ok(Event::KeyEvent(ev))) => {
@@ -125,7 +138,7 @@ impl TermDemo {
     }
 
     /// Clear everything that was printed to the terminal.
-    fn clear(&mut self) -> Result<(), io::Error> {
+    fn clear(&mut self) -> Result<(), terminal::Error> {
         self.term.clear()?;
         self.term.show()?;
         self.line = 0;
@@ -133,14 +146,15 @@ impl TermDemo {
     }
 
     /// Draw a blue '!' at the given position.
-    fn paint(&mut self, pos: Pos) -> Result<(), io::Error> {
+    fn paint(&mut self, pos: Pos) -> Result<(), terminal::Error> {
         self.term
-            .print_char('!', pos, Style::reverse_color(Color::Base0D))?;
+            .print_char('!', pos, Style::color(Color::Base0D))?;
+        self.term.highlight(pos, Style::color(Color::Base0C))?;
         self.term.show()
     }
 
     /// Print the text on the next line.
-    fn println(&mut self, text: &str, style: Style) -> Result<(), io::Error> {
+    fn println(&mut self, text: &str, style: Style) -> Result<(), terminal::Error> {
         self.term.print(
             Pos {
                 col: 0,
