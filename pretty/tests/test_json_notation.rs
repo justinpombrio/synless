@@ -30,7 +30,14 @@ fn test_pretty_print_long_list() {
     let doc = make_long_json_list();
     let mut screen = PlainText::new(80);
     doc.as_ref().pretty_print(80, &mut screen).unwrap();
-    assert!(true);
+    assert_strings_eq(
+        &screen.to_string(),
+        r#"[true, false, true, true, false, true, false, true, true, false, true,
+ false, true, true, false, true, false, true, false, true, true,
+ false, true, false, true, true, false, true, false, true, true,
+ false, true, false, true, false, true, true, false, true, false,
+ true, true, false, true, false, true, true, false, true, false]"#,
+    );
 }
 
 #[test]

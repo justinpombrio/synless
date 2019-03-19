@@ -86,11 +86,6 @@ where
         let bound = Bound::infinite_scroll(width);
         self.fit_bound(bound)
     }
-
-    #[cfg(test)]
-    pub(super) fn first(&self) -> (Bound, T) {
-        self.set[0].clone()
-    }
 }
 
 impl<T> fmt::Debug for BoundSet<T>

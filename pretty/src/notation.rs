@@ -37,6 +37,10 @@ pub enum Notation {
     /// Determines what to display based on the arity of this node.
     /// Used for syntactic constructs that have extendable arity.
     Rep(Box<Repeat>),
+    /// (For internal use.)
+    WithMemoized(Box<Notation>, Box<Notation>),
+    /// (For internal use.)
+    Memoized,
 }
 
 /// Describes how to display the extra children of a syntactic
@@ -159,6 +163,8 @@ impl NotationExpander {
             Vert(a, b) => self.expand(a) ^ self.expand(b),
             Choice(a, b) => self.expand(a) | self.expand(b),
             IfEmptyText(a, b) => self.expand(if self.len == 0 { a } else { b }),
+            WithMemoized(a, b) => WithMemoized(Box::new(self.expand(a)), Box::new(self.expand(b))),
+            Memoized => Memoized,
             Rep(repeat) => {
                 let Repeat {
                     empty,
@@ -172,7 +178,12 @@ impl NotationExpander {
                     _ => {
                         let mut notation = Child(0);
                         for i in 1..self.len {
-                            notation = join.replace_child(1, &Child(i)).replace_child(0, &notation);
+                            notation = WithMemoized(
+                                Box::new(notation),
+                                Box::new(
+                                    join.replace_child(1, &Child(i)).replace_child(0, &Memoized),
+                                ),
+                            );
                         }
                         surround.replace_child(0, &notation)
                     }
@@ -200,6 +211,11 @@ impl Notation {
             Vert(a, b) => a.replace_child(s, r) ^ b.replace_child(s, r),
             IfEmptyText(a, b) => if_empty_text(a.replace_child(s, r), b.replace_child(s, r)),
             Choice(a, b) => a.replace_child(s, r) | b.replace_child(s, r),
+            WithMemoized(a, b) => WithMemoized(
+                Box::new(a.replace_child(s, r)),
+                Box::new(b.replace_child(s, r)),
+            ),
+            Memoized => Memoized,
             Rep(_) => panic!("Invalid notation: nested repeats not allowed"),
         }
     }
