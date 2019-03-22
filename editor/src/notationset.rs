@@ -1,11 +1,21 @@
+use lazy_static::lazy_static;
 use std::collections::HashMap;
 
 use language::{ConstructName, Language, LanguageName};
-use pretty::Notation;
+use pretty::{child, literal, Notation, Style};
 
 pub struct NotationSet {
     name: LanguageName,
     notations: HashMap<ConstructName, Notation>,
+}
+
+lazy_static! {
+    /// Notations for built-in constructs that can appear in any document.
+    pub static ref BUILTIN_NOTATIONS: HashMap<ConstructName, Notation> =
+        vec![
+            ("hole".to_string(), literal("?", Style::plain())),
+            ("root".to_string(), child(0)),
+        ].into_iter().collect();
 }
 
 impl NotationSet {
@@ -23,10 +33,14 @@ impl NotationSet {
 
     pub fn lookup(&self, construct: &ConstructName) -> &Notation {
         match self.notations.get(construct) {
-            None => panic!(
-                "Construct {} not found in notation set for {}",
-                construct, self.name
-            ),
+            None => match BUILTIN_NOTATIONS.get(construct) {
+                None => panic!(
+                    "Construct {} not found in notation set for {}",
+                    construct, self.name
+                ),
+                Some(notation) => notation,
+            },
+
             Some(notation) => notation,
         }
     }
@@ -60,7 +74,7 @@ mod example {
         let mut language = Language::new("TestLang");
 
         let arity = Arity::Fixed(vec!["Expr".to_string(), "Expr".to_string()]);
-        let construct = Construct::new("plus", "Expr", arity, 'p');
+        let construct = Construct::new("plus", "Expr", arity, Some('p'));
         language.add(construct);
         let plus_notation = child(0) + punct(" + ") + child(1) | child(0) ^ punct("+ ") + child(1);
 

@@ -223,10 +223,15 @@ impl<D, L> Tree<D, L> {
 
     /// Returns `true` if this is the root of the tree, and `false` if
     /// it isn't (and thus this node has a parent).
-    pub fn at_root(&self) -> bool {
+    pub fn is_at_root(&self) -> bool {
+        self.forest().parent(self.id).is_none()
+    }
+
+    /// Returns `true` if this node is a child of the root of the tree, and `false` otherwise.
+    pub fn is_parent_at_root(&self) -> bool {
         match self.forest().parent(self.id) {
-            None => true,
-            Some(_) => false,
+            None => false,
+            Some(parent_id) => self.forest().parent(parent_id).is_none(),
         }
     }
 
@@ -252,17 +257,20 @@ impl<D, L> Tree<D, L> {
         self.id = self.root;
     }
 
-    /// Go to the parent of this node.
+    /// Go to the parent of this node. Returns this node's index among its
+    /// siblings (so that you can return to it later).
     ///
     /// # Panics
     ///
     /// Panics if this is the root of the tree, and there is no parent.
-    pub fn goto_parent(&mut self) {
+    pub fn goto_parent(&mut self) -> usize {
+        let index = self.forest().index(self.id);
         let id = self
             .forest()
             .parent(self.id)
             .expect("Forest - root node has no parent!");
         self.id = id;
+        index
     }
 
     /// Go to the `i`th child of this branch node.

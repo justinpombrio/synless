@@ -103,9 +103,9 @@ mod forest_tests {
     fn test_at_root_mut() {
         let forest: Forest<&'static str, &'static str> = Forest::new();
         let mut tree = family(&forest);
-        assert!(tree.at_root());
+        assert!(tree.is_at_root());
         tree.goto_child(1);
-        assert!(!tree.at_root());
+        assert!(!tree.is_at_root());
     }
 
     #[test]
@@ -314,10 +314,10 @@ mod forest_tests {
             assert_eq!(*tree.data(), 22);
             assert_eq!(tree.num_children(), 1);
             // Navigate
-            assert!(!tree.at_root());
+            assert!(!tree.is_at_root());
             tree.goto_parent();
             let mark0 = tree.bookmark();
-            assert!(tree.at_root());
+            assert!(tree.is_at_root());
 
             // Cut
             let mut snip = tree.remove_child(1);
@@ -358,7 +358,7 @@ mod forest_tests {
             let mark3767 = tree.bookmark();
             *tree.leaf_mut() = 376;
             assert_eq!(*tree.leaf(), 376);
-            assert!(!tree.at_root());
+            assert!(!tree.is_at_root());
             tree.goto_parent();
             assert!(!tree.is_leaf());
             //  tree: 0+
