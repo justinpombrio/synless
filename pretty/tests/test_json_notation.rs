@@ -2,7 +2,7 @@
 
 mod common;
 
-use common::{assert_strings_eq, make_json_doc};
+use common::{assert_strings_eq, make_json_doc, make_long_json_list};
 use pretty::{Bound, PlainText, Pos, PrettyDocument, Region};
 
 // TODO: test horz concat
@@ -42,6 +42,21 @@ ge": 27,
 ddress":
 {
   "stree"#,
+    );
+}
+
+#[test]
+fn test_pretty_print_long_list() {
+    let doc = make_long_json_list();
+    let mut screen = PlainText::new(80);
+    doc.as_ref().pretty_print(80, &mut screen).unwrap();
+    assert_strings_eq(
+        &screen.to_string(),
+        r#"[true, false, true, true, false, true, false, true, true, false, true,
+ false, true, true, false, true, false, true, false, true, true,
+ false, true, false, true, true, false, true, false, true, true,
+ false, true, false, true, false, true, true, false, true, false,
+ true, true, false, true, false, true, true, false, true, false]"#,
     );
 }
 

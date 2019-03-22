@@ -286,8 +286,8 @@ impl Bounds {
     }
 
     #[cfg(test)]
-    pub(crate) fn first(&self) -> Bound {
-        self.0.first().0
+    pub(crate) fn fit_width(&self, width: Col) -> Bound {
+        self.0.fit_width(width).0
     }
 }
 
@@ -312,13 +312,13 @@ impl Layouts {
 pub struct Layouts(BoundSet<LayoutRegion>);
 
 // If the node is texty, `child_bounds` should be a singleton vec of the text bounds.
-pub fn compute_layouts(child_bounds: &Vec<Bounds>, notation: &Notation) -> Layouts {
-    Layouts(lay(child_bounds, notation))
+pub fn compute_layouts(child_bounds: &[Bounds], notation: &Notation) -> Layouts {
+    Layouts(lay(child_bounds, None, notation))
 }
 
 // If the node is texty, `child_bounds` should be a singleton vec of the text bounds.
-pub fn compute_bounds(child_bounds: &Vec<Bounds>, notation: &Notation) -> Bounds {
-    Bounds(lay(child_bounds, notation))
+pub fn compute_bounds(child_bounds: &[Bounds], notation: &Notation) -> Bounds {
+    Bounds(lay(child_bounds, None, notation))
 }
 
 pub fn text_bounds(text: &str) -> Bounds {
@@ -328,7 +328,11 @@ pub fn text_bounds(text: &str) -> Bounds {
     ))
 }
 
-fn lay<L: Lay>(child_bounds: &Vec<Bounds>, notation: &Notation) -> BoundSet<L> {
+fn lay<L: Lay>(
+    child_bounds: &[Bounds],
+    memo: Option<&BoundSet<L>>,
+    notation: &Notation,
+) -> BoundSet<L> {
     match notation {
         Notation::Empty => BoundSet::singleton(Bound::empty(), L::empty()),
         Notation::Literal(s, style) => {
@@ -345,34 +349,42 @@ fn lay<L: Lay>(child_bounds: &Vec<Bounds>, notation: &Notation) -> BoundSet<L> {
             .map(|(bound, ())| (bound, L::child(*index, bound)))
             .collect(),
         Notation::Concat(note1, note2) => BoundSet::combine(
-            &lay(child_bounds, note1),
-            &lay(child_bounds, note2),
+            &lay(child_bounds, memo, note1),
+            &lay(child_bounds, memo, note2),
             |b1, b2| b1.concat(b2),
             |v1, v2| v1.concat(v2),
         ),
         Notation::Horz(note1, note2) => BoundSet::combine(
-            &lay(child_bounds, note1),
-            &lay(child_bounds, note2),
+            &lay(child_bounds, memo, note1),
+            &lay(child_bounds, memo, note2),
             |b1, b2| b1.horz(b2),
             |v1, v2| v1.horz(v2),
         ),
         Notation::Vert(note1, note2) => BoundSet::combine(
-            &lay(child_bounds, note1),
-            &lay(child_bounds, note2),
+            &lay(child_bounds, memo, note1),
+            &lay(child_bounds, memo, note2),
             |b1, b2| b1.vert(b2),
             |v1, v2| v1.vert(v2),
         ),
         Notation::NoWrap(note) => {
-            let set = lay(child_bounds, note);
+            let set = lay(child_bounds, memo, note);
             set.into_iter()
                 .filter(|(bound, _)| bound.height == 1)
                 .collect()
         }
         Notation::Choice(note1, note2) => {
-            let set1 = lay(child_bounds, note1);
-            let set2 = lay(child_bounds, note2);
+            let set1 = lay(child_bounds, memo, note1);
+            let set2 = lay(child_bounds, memo, note2);
             set1.into_iter().chain(set2.into_iter()).collect()
         }
+        Notation::WithMemoized(note1, note2) => {
+            let bounds = lay(child_bounds, memo, note1);
+            lay(child_bounds, Some(&bounds), note2)
+        }
+        Notation::Memoized => match memo {
+            None => panic!("lay_out: unexpected Memoized"),
+            Some(boundset) => boundset.clone(),
+        },
         Notation::IfEmptyText(_, _) => panic!("lay_out: unexpected IfEmptyText"),
         Notation::Rep(_) => panic!("lay_out: unexpected Repeat"),
     }

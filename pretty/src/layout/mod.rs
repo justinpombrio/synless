@@ -67,7 +67,7 @@ mod layout_tests {
 
     #[test]
     fn test_bound() {
-        let actual = example_notation().bound(vec![], 0).first();
+        let actual = example_notation().bound(vec![], 0).fit_width(80);
         let expected = Bound {
             width: 12,
             indent: 3,
@@ -78,7 +78,7 @@ mod layout_tests {
 
     #[test]
     fn test_bound_2() {
-        let actual = (lit("abc") ^ lit("de")).bound(vec![], 0).first();
+        let actual = (lit("abc") ^ lit("de")).bound(vec![], 0).fit_width(80);
         let expected = Bound {
             width: 3,
             indent: 2,
@@ -90,7 +90,9 @@ mod layout_tests {
 
     #[test]
     fn test_bound_3() {
-        let actual = if_empty_text(lit("a"), lit("bc")).bound(vec![], 0).first();
+        let actual = if_empty_text(lit("a"), lit("bc"))
+            .bound(vec![], 0)
+            .fit_width(80);
         let expected = Bound {
             width: 1,
             indent: 1,
@@ -101,7 +103,9 @@ mod layout_tests {
 
     #[test]
     fn test_bound_4() {
-        let actual = if_empty_text(lit("a"), lit("bc")).bound(vec![], 1).first();
+        let actual = if_empty_text(lit("a"), lit("bc"))
+            .bound(vec![], 1)
+            .fit_width(80);
         let expected = Bound {
             width: 2,
             indent: 2,
