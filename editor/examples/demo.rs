@@ -107,8 +107,16 @@ impl Ed {
                 row: size.row - (num_recent - i) as u32,
                 col: 0,
             };
-            self.term
-                .print(pos, msg, Style::reverse_color(Color::Base09))?;
+            let result = self
+                .term
+                .print(pos, msg, Style::reverse_color(Color::Base09));
+
+            // For this demo, just ignore out of bounds errors. The real editor
+            // shouldn't ever try to print out of bounds.
+            match result {
+                Err(terminal::Error::OutOfBounds) | Ok(()) => (),
+                other_err => other_err?,
+            };
         }
         Ok(())
     }
