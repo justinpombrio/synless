@@ -25,7 +25,7 @@ impl<'l> AstForest<'l> {
         }
     }
 
-    pub fn new_tree_by_name(
+    pub fn new_tree(
         &self,
         language: &'l Language,
         construct_name: &ConstructName,
