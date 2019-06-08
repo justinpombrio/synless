@@ -9,6 +9,9 @@ use super::Error;
 #[derive(Debug)]
 pub struct ScreenBuf {
     cells: Vec<Vec<CharCell>>,
+    // This should always contain the number of rows and cols requested by the
+    // user (eg. 0-by-5), even if `cells` is empty.
+    size: Pos,
 }
 
 /// Represents a single character on a screen, with style properties.
@@ -38,7 +41,10 @@ pub struct ScreenBufIter<'a> {
 
 impl ScreenBuf {
     pub fn new() -> Self {
-        ScreenBuf { cells: Vec::new() }
+        ScreenBuf {
+            cells: Vec::new(),
+            size: Pos::zero(),
+        }
     }
 
     /// Get `ScreenOp` instructions that describe all changes to the screen buffer since the last time this method was called.
@@ -55,11 +61,15 @@ impl ScreenBuf {
         let mut row = Vec::new();
         row.resize_with(size.col as usize, Default::default);
         self.cells.resize(size.row as usize, row);
+        self.size = size;
     }
 
     pub fn clear(&mut self) {
-        let size = self.size();
-        self.resize(size);
+        self.resize(self.size);
+    }
+
+    pub fn size(&self) -> Pos {
+        self.size
     }
 
     pub fn write_str(&mut self, pos: Pos, s: &str, style: Style) -> Result<(), Error> {
@@ -115,13 +125,6 @@ impl ScreenBuf {
             .get_mut(pos.row as usize)
             .and_then(|row| row.get_mut(pos.col as usize))
             .ok_or(Error::OutOfBounds)
-    }
-
-    pub fn size(&self) -> Pos {
-        Pos {
-            row: self.cells.len() as u32,
-            col: self.cells.get(0).map(|row| row.len()).unwrap_or(0) as u16,
-        }
     }
 
     fn next_pos(&self, old_pos: Pos) -> Option<Pos> {
