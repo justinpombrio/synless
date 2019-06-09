@@ -1,4 +1,4 @@
-use pretty::{Pos, Rect, Region};
+use pretty::{Pos, Region};
 use pretty::{Shade, Style};
 
 use super::Error;
@@ -83,17 +83,10 @@ impl ScreenBuf {
     }
 
     pub fn shade_region(&mut self, region: Region, shade: Shade) -> Result<(), Error> {
-        let mut shade_rect = |rect: Rect| {
-            for r in rect.rows.0..rect.rows.1 {
-                for c in rect.cols.0..rect.cols.1 {
-                    let pos = Pos { row: r, col: c };
-                    self.set_shade(pos, shade)?;
-                }
-            }
-            Ok(())
-        };
-        shade_rect(region.body())?;
-        shade_rect(region.last_line())
+        for pos in region.positions() {
+            self.set_shade(pos, shade)?;
+        }
+        Ok(())
     }
 
     pub fn set_style(&mut self, pos: Pos, style: Style) -> Result<(), Error> {
