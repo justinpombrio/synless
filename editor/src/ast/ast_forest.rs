@@ -48,7 +48,7 @@ impl<'l> AstForest<'l> {
                 let leaf = self.forest.new_leaf(Text::new_inactive());
                 Ast::new(self.forest.new_branch(node, vec![leaf]))
             }
-            _ => unimplemented!(),
+            Arity::Mixed(..) => unimplemented!("Mixed-arity trees"),
         };
         Some(ast)
     }
