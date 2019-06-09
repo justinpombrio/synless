@@ -25,7 +25,7 @@ struct CharCell {
 }
 
 /// Instructions for how to update a terminal.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ScreenOp {
     Print(char),
     Apply(Style),
@@ -227,5 +227,209 @@ impl<'a> Iterator for ScreenBufIter<'a> {
         // Finally, print the character itself and mark that it's been redisplayed.
         self.buf.get_mut(pos).unwrap().needs_redisplay = false;
         Some(ScreenOp::Print(self.buf.get(pos).unwrap().ch))
+    }
+}
+
+#[cfg(test)]
+mod screen_buf_tests {
+    use super::*;
+    use pretty::{Bound, Color, Pos, Region, Shade, Style};
+
+    fn assert_out_of_bounds(result: Result<(), Error>) {
+        match result {
+            Err(Error::OutOfBounds) => (),
+            x => panic!("expected OutOfBounds error, got {:?}", x),
+        }
+    }
+
+    fn assert_resized(buf: &mut ScreenBuf, size: Pos, good_pos: &[Pos], bad_pos: &[Pos]) {
+        buf.resize(size);
+        assert_eq!(buf.size(), size);
+        for &pos in good_pos {
+            buf.set_shade(pos, Shade::background()).expect(&format!(
+                "pos {} out-of-bounds of buf with size {}",
+                pos, size
+            ));
+        }
+        for &pos in bad_pos {
+            assert_out_of_bounds(buf.set_shade(pos, Shade::background()));
+        }
+    }
+
+    #[test]
+    fn test_resize() {
+        let c0r1 = Pos { col: 0, row: 1 };
+        let c1r0 = Pos { col: 1, row: 0 };
+        let c1r1 = Pos { col: 1, row: 1 };
+        let c5r8 = Pos { col: 5, row: 8 };
+        let c5r7 = Pos { col: 5, row: 7 };
+        let c4r7 = Pos { col: 4, row: 7 };
+        let c4r8 = Pos { col: 4, row: 8 };
+
+        let mut buf = ScreenBuf::new();
+        assert_eq!(buf.size(), Pos::zero());
+        assert_out_of_bounds(buf.set_shade(Pos::zero(), Shade::background()));
+
+        assert_resized(&mut buf, Pos::zero(), &[], &[Pos::zero(), c1r0, c0r1]);
+        assert_resized(&mut buf, c1r0, &[], &[Pos::zero(), c1r0, c0r1]);
+        assert_resized(&mut buf, c0r1, &[], &[Pos::zero(), c1r0, c0r1]);
+        assert_resized(&mut buf, c1r1, &[Pos::zero()], &[c1r0, c0r1, c1r1]);
+        assert_resized(
+            &mut buf,
+            c5r8,
+            &[Pos::zero(), c1r0, c0r1, c1r1, c4r7],
+            &[c5r8, c4r8, c5r7],
+        );
+        assert_resized(&mut buf, c1r1, &[Pos::zero()], &[c1r0, c0r1, c1r1]);
+    }
+
+    #[test]
+    fn test_screen_op_output() {
+        let style1 = Style::color(Color::Base09);
+        let style2 = Style::color(Color::Base0C);
+
+        let mut buf = ScreenBuf::new();
+        buf.resize(Pos { col: 3, row: 4 });
+
+        buf.write_str(Pos { col: 1, row: 0 }, "foobar", style1)
+            .unwrap();
+
+        buf.write_str(Pos { col: 0, row: 1 }, "OB", style2).unwrap();
+
+        buf.write_str(Pos { col: 2, row: 3 }, "$", Style::default())
+            .unwrap();
+
+        let mut actual_ops: Vec<_> = buf.drain_changes().collect();
+
+        assert_eq!(
+            actual_ops,
+            vec![
+                ScreenOp::Goto(Pos::zero()),
+                ScreenOp::Apply(Style::default()),
+                ScreenOp::Print(' '),
+                ScreenOp::Apply(style1),
+                ScreenOp::Print('f'),
+                ScreenOp::Print('o'),
+                ScreenOp::Apply(style2),
+                ScreenOp::Print('O'),
+                ScreenOp::Print('B'),
+                ScreenOp::Apply(style1),
+                ScreenOp::Print('a'),
+                ScreenOp::Print('r'),
+                ScreenOp::Apply(Style::default()),
+                ScreenOp::Print(' '),
+                ScreenOp::Print(' '),
+                ScreenOp::Print(' '),
+                ScreenOp::Print(' '),
+                ScreenOp::Print('$'),
+            ]
+        );
+
+        actual_ops = buf.drain_changes().collect();
+        assert!(actual_ops.is_empty());
+
+        buf.set_style(Pos { col: 0, row: 2 }, style2).unwrap();
+        buf.set_char_with_style(Pos { col: 2, row: 3 }, '!', Style::default())
+            .unwrap();
+
+        actual_ops = buf.drain_changes().collect();
+        assert_eq!(
+            actual_ops,
+            vec![
+                ScreenOp::Goto(Pos { col: 0, row: 2 }),
+                ScreenOp::Apply(style2),
+                ScreenOp::Print('r'),
+                ScreenOp::Goto(Pos { col: 2, row: 3 }),
+                ScreenOp::Apply(Style::default()),
+                ScreenOp::Print('!'),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_shade_region() {
+        let style1 = Style::color(Color::Base09);
+        let style2 = Style::color(Color::Base0C);
+        let cursor = Shade(0);
+
+        let mut buf = ScreenBuf::new();
+        buf.resize(Pos { col: 4, row: 3 });
+
+        // Write something with some style and the default background shade.
+        buf.write_str(Pos::zero(), "0123456789ab", style1).unwrap();
+
+        let actual_ops: Vec<_> = buf.drain_changes().collect();
+        assert_eq!(
+            actual_ops,
+            vec![
+                ScreenOp::Goto(Pos::zero()),
+                ScreenOp::Apply(style1),
+                ScreenOp::Print('0'),
+                ScreenOp::Print('1'),
+                ScreenOp::Print('2'),
+                ScreenOp::Print('3'),
+                ScreenOp::Print('4'),
+                ScreenOp::Print('5'),
+                ScreenOp::Print('6'),
+                ScreenOp::Print('7'),
+                ScreenOp::Print('8'),
+                ScreenOp::Print('9'),
+                ScreenOp::Print('a'),
+                ScreenOp::Print('b'),
+            ]
+        );
+
+        // Change background to cursor-shade in some region
+        buf.shade_region(
+            Region {
+                pos: Pos { col: 1, row: 1 },
+                bound: Bound {
+                    width: 3,
+                    height: 2,
+                    indent: 1,
+                },
+            },
+            cursor,
+        )
+        .unwrap();
+
+        // Ensure that the shade overrides the original style within the cursor region
+        let actual_ops: Vec<_> = buf.drain_changes().collect();
+        assert_eq!(
+            actual_ops,
+            vec![
+                ScreenOp::Goto(Pos { col: 1, row: 1 }),
+                ScreenOp::Apply(Style {
+                    shade: cursor,
+                    ..style1
+                }),
+                ScreenOp::Print('5'),
+                ScreenOp::Print('6'),
+                ScreenOp::Print('7'),
+                ScreenOp::Goto(Pos { col: 1, row: 2 }),
+                ScreenOp::Print('9'),
+            ]
+        );
+
+        // Add new text with a different style, overlapping the cursor region
+        buf.write_str(Pos { col: 0, row: 1 }, "xyz", style2)
+            .unwrap();
+
+        // Ensure that the shade overrides the new style within the cursor region
+        let actual_ops: Vec<_> = buf.drain_changes().collect();
+        assert_eq!(
+            actual_ops,
+            vec![
+                ScreenOp::Goto(Pos { col: 0, row: 1 }),
+                ScreenOp::Apply(style2),
+                ScreenOp::Print('x'),
+                ScreenOp::Apply(Style {
+                    shade: cursor,
+                    ..style2
+                }),
+                ScreenOp::Print('y'),
+                ScreenOp::Print('z'),
+            ]
+        );
     }
 }
