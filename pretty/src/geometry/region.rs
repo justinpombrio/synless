@@ -151,6 +151,10 @@ impl Region {
     }
 
     pub fn last_line(&self) -> Rect {
+        // There should probably never be a region with height 0, since even empty regions have
+        // height 1. If there was, this method would return a very wrong row range.
+        assert!(self.bound.height != 0);
+
         Rect {
             cols: Range(self.pos.col, self.pos.col + self.bound.indent),
             rows: Range(
