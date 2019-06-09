@@ -73,10 +73,11 @@ impl ScreenBuf {
     }
 
     pub fn write_str(&mut self, pos: Pos, s: &str, style: Style) -> Result<(), Error> {
-        let mut char_pos = pos;
+        let mut maybe_pos = Ok(pos);
         for ch in s.chars() {
-            self.set_char_with_style(char_pos, ch, style)?;
-            char_pos = self.next_pos(char_pos).ok_or(Error::OutOfBounds)?;
+            let p = maybe_pos?;
+            self.set_char_with_style(p, ch, style)?;
+            maybe_pos = self.next_pos(p).ok_or(Error::OutOfBounds);
         }
         Ok(())
     }
