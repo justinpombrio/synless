@@ -63,3 +63,17 @@ where
         write!(f, "{}-{}", self.0, self.1)
     }
 }
+
+/// Allow Range to be used in a for-loop by converting it to the std lib's range
+/// type, which is an iterator.
+impl<N> IntoIterator for Range<N>
+where
+    N: ::std::iter::Step,
+{
+    type Item = N;
+    type IntoIter = ::std::ops::Range<N>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0..self.1
+    }
+}

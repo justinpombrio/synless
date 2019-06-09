@@ -164,6 +164,11 @@ impl Region {
         }
     }
 
+    /// Return an iterator over every position within this region.
+    pub fn positions(&self) -> impl Iterator<Item = Pos> {
+        self.body().positions().chain(self.last_line().positions())
+    }
+
     fn negative_space(&self) -> Rect {
         Rect {
             cols: Range(
@@ -293,5 +298,55 @@ mod tests {
             bound: Bound::new_rectangle(4, 5),
         };
         assert!(c.is_rectangular());
+    }
+
+    #[test]
+    fn test_region_pos_iter() {
+        assert!(Region::empty_region(Pos::zero())
+            .positions()
+            .next()
+            .is_none());
+
+        assert_eq!(
+            Region::char_region(Pos::zero())
+                .positions()
+                .map(|pos| (pos.row, pos.col))
+                .collect::<Vec<_>>(),
+            vec![(0, 0),]
+        );
+
+        let rect_region = Region {
+            pos: Pos::zero(),
+            bound: Bound {
+                width: 3,
+                height: 2,
+                indent: 3,
+            },
+        };
+
+        assert_eq!(
+            rect_region
+                .positions()
+                .map(|pos| (pos.row, pos.col))
+                .collect::<Vec<_>>(),
+            vec![(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2),]
+        );
+
+        assert_eq!(
+            REGION2
+                .positions()
+                .map(|pos| (pos.row, pos.col))
+                .collect::<Vec<_>>(),
+            vec![
+                (3, 4),
+                (3, 5),
+                (3, 6),
+                (4, 4),
+                (4, 5),
+                (4, 6),
+                (5, 4),
+                (5, 5),
+            ]
+        );
     }
 }
