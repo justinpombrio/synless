@@ -34,6 +34,14 @@ pub struct Terminal {
 }
 
 impl Terminal {
+    pub fn update_size(&mut self) -> Result<Pos, Error> {
+        let size = self.size()?;
+        if size != self.buf.size() {
+            self.buf.resize(size);
+        }
+        Ok(size)
+    }
+
     fn write<T: Display>(&mut self, thing: T) -> Result<(), io::Error> {
         write!(self.stdout, "{}", thing)
     }

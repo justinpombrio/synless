@@ -122,7 +122,7 @@ impl Ed {
     }
 
     fn redisplay(&mut self) -> Result<(), Error> {
-        let size = self.term.size()?;
+        let size = self.term.update_size()?;
         self.doc
             .ast_ref()
             .pretty_print(size.col, &mut self.term)
