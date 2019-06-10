@@ -50,6 +50,31 @@ struct Ed {
     forest: AstForest<'static>,
     term: Terminal,
     messages: Vec<String>,
+    stack: Vec<Thing<'static>>,
+}
+
+enum Thing<'l> {
+    Tree(Ast<'l>),
+    Usize(usize),
+    InsertAfter,
+    InsertBefore,
+    InsertPrepend,
+    InsertPostpend,
+    Replace,
+    Remove,
+    Left,
+    Right,
+    Parent,
+    Child,
+    // Cut,
+    // Copy,
+    // PasteReplace,
+    // PasteBefore,
+    // PasteAfter,
+    // PastePrepend,
+    // PastePostpend,
+    Undo,
+    Redo,
 }
 
 impl Ed {
@@ -69,6 +94,7 @@ impl Ed {
             forest,
             term: Terminal::new(ColorTheme::default_dark())?,
             messages: Vec::new(),
+            stack: Vec::new(),
         };
 
         // Add some json stuff to the document, as an example
@@ -134,21 +160,32 @@ impl Ed {
 
     fn handle_event(&mut self) -> Result<bool, Error> {
         match self.term.next_event() {
-            Some(Ok(Event::KeyEvent(Key::Right))) => self.exec(TreeNavCmd::Right),
-            Some(Ok(Event::KeyEvent(Key::Left))) => self.exec(TreeNavCmd::Left),
-            Some(Ok(Event::KeyEvent(Key::Up))) => self.exec(TreeNavCmd::Parent),
-            Some(Ok(Event::KeyEvent(Key::Down))) => self.exec(TreeNavCmd::Child(0)),
-            Some(Ok(Event::KeyEvent(Key::Char('u')))) => self.exec(CommandGroup::Undo),
-            Some(Ok(Event::KeyEvent(Key::Char('r')))) => self.exec(CommandGroup::Redo),
+            Some(Ok(Event::KeyEvent(Key::Right))) => self.push(Thing::Right),
+            Some(Ok(Event::KeyEvent(Key::Left))) => self.push(Thing::Left),
+            Some(Ok(Event::KeyEvent(Key::Up))) => self.push(Thing::Parent),
+            Some(Ok(Event::KeyEvent(Key::Down))) => {
+                self.push(Thing::Usize(0));
+                self.push(Thing::Child);
+            }
+            Some(Ok(Event::KeyEvent(Key::Backspace))) => self.push(Thing::Remove),
+            Some(Ok(Event::KeyEvent(Key::Char('u')))) => self.push(Thing::Undo),
+            Some(Ok(Event::KeyEvent(Key::Ctrl('r')))) => self.push(Thing::Redo),
             Some(Ok(Event::KeyEvent(Key::Char('i')))) => {
-                self.msg("select node type to insert after...");
                 let node = self.handle_node_selection()?;
-                self.exec(TreeCmd::InsertAfter(node))
+                self.push(Thing::Tree(node));
+                self.push(Thing::InsertAfter);
             }
             Some(Ok(Event::KeyEvent(Key::Char('o')))) => {
                 self.msg("select node type to postpend...");
                 let node = self.handle_node_selection()?;
-                self.exec(TreeCmd::InsertPostpend(node))
+                self.push(Thing::Tree(node));
+                self.push(Thing::InsertPostpend)
+            }
+            Some(Ok(Event::KeyEvent(Key::Char('r')))) => {
+                self.msg("select node type to replace with...");
+                let node = self.handle_node_selection()?;
+                self.push(Thing::Tree(node));
+                self.push(Thing::Replace)
             }
             Some(Ok(Event::KeyEvent(Key::Char('q')))) => {
                 self.msg("Quitting, goodbye!");
@@ -173,6 +210,59 @@ impl Ed {
             Event::KeyEvent(Key::Char(c)) => self.node_by_key(c).ok_or(Error::UnknownKey(c)),
             Event::KeyEvent(Key::Ctrl('c')) => panic!("got ctrl-c"),
             _ => Err(Error::UnknownEvent),
+        }
+    }
+
+    fn pop_tree(&mut self) -> Ast<'static> {
+        if let Some(Thing::Tree(tree)) = self.stack.pop() {
+            tree
+        } else {
+            panic!("expected tree on stack")
+        }
+    }
+
+    fn pop_usize(&mut self) -> usize {
+        if let Some(Thing::Usize(num)) = self.stack.pop() {
+            num
+        } else {
+            panic!("expected usize on stack")
+        }
+    }
+
+    fn push(&mut self, thing: Thing<'static>) {
+        match thing {
+            Thing::Tree(..) => self.stack.push(thing),
+            Thing::Usize(..) => self.stack.push(thing),
+            Thing::Remove => self.exec(TreeCmd::Remove),
+            Thing::InsertAfter => {
+                let tree = self.pop_tree();
+                self.exec(TreeCmd::InsertAfter(tree));
+            }
+            Thing::InsertBefore => {
+                let tree = self.pop_tree();
+                self.exec(TreeCmd::InsertBefore(tree));
+            }
+            Thing::InsertPrepend => {
+                let tree = self.pop_tree();
+                self.exec(TreeCmd::InsertPrepend(tree));
+            }
+            Thing::InsertPostpend => {
+                let tree = self.pop_tree();
+                self.exec(TreeCmd::InsertPostpend(tree));
+            }
+            Thing::Replace => {
+                let tree = self.pop_tree();
+                self.exec(TreeCmd::Replace(tree));
+            }
+            Thing::Left => self.exec(TreeNavCmd::Left),
+            Thing::Right => self.exec(TreeNavCmd::Right),
+            Thing::Parent => self.exec(TreeNavCmd::Parent),
+            Thing::Child => {
+                let index = self.pop_usize();
+                self.exec(TreeNavCmd::Child(index));
+            }
+            Thing::Undo => self.exec(CommandGroup::Undo),
+            Thing::Redo => self.exec(CommandGroup::Redo),
         }
     }
 
