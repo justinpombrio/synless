@@ -122,7 +122,6 @@ impl Ed {
     }
 
     fn redisplay(&mut self) -> Result<(), Error> {
-        self.term.clear()?;
         let size = self.term.size()?;
         self.doc
             .ast_ref()

@@ -8,35 +8,58 @@ use super::Error;
 /// the screen to reflect those changes.
 #[derive(Debug)]
 pub struct ScreenBuf {
-    cells: Vec<Vec<CharCell>>,
-    // This should always contain the number of rows and cols requested by the
-    // user (eg. 0-by-5), even if `cells` is empty.
+    /// Grid of characters covering the screen.
+    cells: Vec<Vec<DoubleCharCell>>,
+    /// This should always contain the number of rows and cols requested by the
+    /// user (eg. 0-by-5), even if `cells` is empty.
     size: Pos,
 }
 
 /// Represents a single character on a screen, with style properties.
-/// It keeps track of whether it has changed since the last time the ScreenBuf was redisplayed.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 struct CharCell {
     ch: char,
     shade: Shade,
     style: Style, // TODO except background is ignored?
-    needs_redisplay: bool,
+}
+
+/// Stores both the new unprinted state of a character, and the old state that was last printed to the screen.
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+struct DoubleCharCell {
+    new: CharCell,
+    /// None if unknown (eg. because it's never been printed or the screen was just resized)
+    old: Option<CharCell>,
 }
 
 /// Instructions for how to update a terminal.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ScreenOp {
+    /// Print a character at the current cursor position, and advance the cursor by 1.
     Print(char),
+    /// Set a persistent style that will apply to anything printed, until a new style is applied.
     Apply(Style),
+    /// Set the cursor position.
     Goto(Pos),
+}
+
+/// States of the ScreenBufIter
+enum State {
+    FindDirty,
+    CheckStyle,
+    PrintChar,
 }
 
 /// An iterator that produces instructions for updating a screen to match changes in a ScreenBuf.
 pub struct ScreenBufIter<'a> {
     buf: &'a mut ScreenBuf,
+    /// The last style applied to the screen. It will persist until a new style is applied.
     current_style: Option<Style>,
-    cursor_pos: Option<Pos>,
+    /// If we haven't ever explicitly set the cursor position yet, consider it unknown.
+    cursor_pos_unknown: bool,
+    /// Which cell the iterator is considering
+    pos: Option<Pos>,
+    /// Which action the iterator should do next
+    next_state: State,
 }
 
 impl ScreenBuf {
@@ -52,7 +75,9 @@ impl ScreenBuf {
         ScreenBufIter {
             buf: self,
             current_style: None,
-            cursor_pos: None,
+            pos: None,
+            cursor_pos_unknown: true,
+            next_state: State::FindDirty,
         }
     }
 
@@ -106,7 +131,7 @@ impl ScreenBuf {
         Ok(())
     }
 
-    fn get(&self, pos: Pos) -> Result<CharCell, Error> {
+    fn get(&self, pos: Pos) -> Result<DoubleCharCell, Error> {
         self.cells
             .get(pos.row as usize)
             .and_then(|row| row.get(pos.col as usize))
@@ -114,7 +139,7 @@ impl ScreenBuf {
             .ok_or(Error::OutOfBounds)
     }
 
-    fn get_mut(&mut self, pos: Pos) -> Result<&mut CharCell, Error> {
+    fn get_mut(&mut self, pos: Pos) -> Result<&mut DoubleCharCell, Error> {
         self.cells
             .get_mut(pos.row as usize)
             .and_then(|row| row.get_mut(pos.col as usize))
@@ -146,31 +171,41 @@ impl ScreenBuf {
 }
 
 impl CharCell {
-    fn set_char(&mut self, ch: char) {
-        if self.ch != ch {
-            self.needs_redisplay = true;
-            self.ch = ch;
-        }
-    }
-
-    fn set_style(&mut self, style: Style) {
-        if self.style != style {
-            self.needs_redisplay = true;
-            self.style = style;
-        }
-    }
-
-    fn set_shade(&mut self, shade: Shade) {
-        if self.shade != shade {
-            self.needs_redisplay = true;
-            self.shade = shade;
-        }
-    }
-
-    fn get_shaded_style(&self) -> Style {
+    fn shaded_style(&self) -> Style {
         let mut style = self.style;
         style.shade = self.shade;
         style
+    }
+}
+
+impl DoubleCharCell {
+    fn set_char(&mut self, ch: char) {
+        self.new.ch = ch;
+    }
+
+    fn set_style(&mut self, style: Style) {
+        self.new.style = style;
+    }
+
+    fn set_shade(&mut self, shade: Shade) {
+        self.new.shade = shade;
+    }
+
+    fn get(&self) -> CharCell {
+        self.new
+    }
+
+    fn mark(&mut self) {
+        self.old = Some(self.new);
+        self.new = CharCell::default();
+    }
+
+    fn is_dirty(&self) -> bool {
+        if let Some(old) = self.old {
+            self.new != old
+        } else {
+            true
+        }
     }
 }
 
@@ -180,33 +215,58 @@ impl Default for CharCell {
             ch: ' ',
             shade: Shade::default(),
             style: Style::default(),
-            needs_redisplay: true,
         }
     }
 }
 
-impl<'a> Iterator for ScreenBufIter<'a> {
-    type Item = ScreenOp;
-    fn next(&mut self) -> Option<ScreenOp> {
-        // Start where we left off last time `next()` was called, or at the beginning of the buffer.
-        let mut pos = self.cursor_pos.unwrap_or(Pos::zero());
+impl<'a> ScreenBufIter<'a> {
+    fn advance(&mut self) -> Option<Pos> {
+        if let Some(p) = self.pos {
+            self.buf.get_mut(p).unwrap().mark();
+            self.pos = Some(self.buf.next_pos(p)?);
+        } else {
+            // Start at the beginning
+            self.pos = Some(Pos::zero())
+        }
+        self.pos
+    }
 
-        // Look for the next cell that needs to be redisplayed.
-        let mut steps = 0;
-        while !self.buf.get(pos).unwrap().needs_redisplay {
-            pos = self.buf.next_pos(pos)?;
-            steps += 1;
+    fn pos(&self) -> Pos {
+        self.pos
+            .expect("position not defined until you advance() to the first cell")
+    }
+
+    fn cell(&self) -> CharCell {
+        self.buf.get(self.pos()).unwrap().get()
+    }
+
+    fn at_dirty_cell(&self) -> bool {
+        self.buf.get(self.pos()).unwrap().is_dirty()
+    }
+
+    fn find_dirty(&mut self) -> Option<Option<ScreenOp>> {
+        // Look for the next cell after this one that needs to be redisplayed.
+        self.advance()?;
+
+        let mut jumped = false;
+        while !self.at_dirty_cell() {
+            self.advance()?;
+            jumped = true;
         }
 
         // Check if we need to explicitly jump the cursor to this position.
-        let cursor_pos_was_unknown = self.cursor_pos.replace(pos).is_none();
-        if steps > 1 || cursor_pos_was_unknown {
-            return Some(ScreenOp::Goto(pos));
-        }
-        let pos = pos; // immutable now
+        let op = if jumped || self.cursor_pos_unknown {
+            self.cursor_pos_unknown = false;
+            Some(ScreenOp::Goto(self.pos()))
+        } else {
+            None
+        };
+        Some(op)
+    }
 
-        // Check if it has a different style than the last character we printed.
-        let style = self.buf.get(pos).unwrap().get_shaded_style();
+    fn check_style(&mut self) -> Option<ScreenOp> {
+        // Check if it has a different style than the last one we applied.
+        let style = self.cell().shaded_style();
         let style_changed = match self.current_style {
             None => true,
             Some(s) => s != style,
@@ -214,12 +274,51 @@ impl<'a> Iterator for ScreenBufIter<'a> {
 
         if style_changed {
             self.current_style = Some(style);
-            return Some(ScreenOp::Apply(style));
+            assert!(!self.cursor_pos_unknown);
+            Some(ScreenOp::Apply(style))
+        } else {
+            None
         }
+    }
 
-        // Finally, print the character itself and mark that it's been redisplayed.
-        self.buf.get_mut(pos).unwrap().needs_redisplay = false;
-        Some(ScreenOp::Print(self.buf.get(pos).unwrap().ch))
+    fn print_char(&mut self) -> ScreenOp {
+        // Finally, print the character itself
+        assert!(!self.cursor_pos_unknown);
+        ScreenOp::Print(self.cell().ch)
+    }
+}
+
+impl<'a> Iterator for ScreenBufIter<'a> {
+    type Item = ScreenOp;
+    fn next(&mut self) -> Option<ScreenOp> {
+        loop {
+            match self.next_state {
+                State::FindDirty => {
+                    self.next_state = State::CheckStyle;
+                    match self.find_dirty() {
+                        Some(Some(op)) => {
+                            return Some(op);
+                        }
+                        Some(None) => (), // No Goto op needed, continue to next state
+                        None => {
+                            // Done! Reached the end of the buffer.
+                            return None;
+                        }
+                    }
+                }
+                State::CheckStyle => {
+                    self.next_state = State::PrintChar;
+                    let op = self.check_style();
+                    if op.is_some() {
+                        return op;
+                    }
+                }
+                State::PrintChar => {
+                    self.next_state = State::FindDirty;
+                    return Some(self.print_char());
+                }
+            }
+        }
     }
 }
 
@@ -277,7 +376,127 @@ mod screen_buf_tests {
     }
 
     #[test]
-    fn test_screen_op_output() {
+    fn test_simple() {
+        let style1 = Style::color(Color::Base09);
+        let mut buf = ScreenBuf::new();
+        buf.resize(Pos { col: 3, row: 2 });
+
+        let pos = Pos { col: 2, row: 0 };
+        buf.write_str(pos, "x", style1).unwrap();
+        let mut actual_ops: Vec<_> = buf.drain_changes().collect();
+        assert_eq!(
+            actual_ops,
+            vec![
+                ScreenOp::Goto(Pos::zero()),
+                ScreenOp::Apply(Style::default()),
+                ScreenOp::Print(' '),
+                ScreenOp::Print(' '),
+                ScreenOp::Apply(style1),
+                ScreenOp::Print('x'),
+                ScreenOp::Apply(Style::default()),
+                ScreenOp::Print(' '),
+                ScreenOp::Print(' '),
+                ScreenOp::Print(' '),
+            ]
+        );
+        actual_ops = buf.drain_changes().collect();
+        assert_eq!(
+            actual_ops,
+            vec![
+                ScreenOp::Goto(pos),
+                ScreenOp::Apply(Style::default()),
+                ScreenOp::Print(' '),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_no_change() {
+        let style1 = Style::color(Color::Base09);
+        let mut buf = ScreenBuf::new();
+        buf.resize(Pos { col: 3, row: 2 });
+
+        let pos = Pos { col: 2, row: 0 };
+        buf.write_str(pos, "x", style1).unwrap();
+        let mut actual_ops: Vec<_> = buf.drain_changes().collect();
+
+        assert_eq!(
+            actual_ops,
+            vec![
+                ScreenOp::Goto(Pos::zero()),
+                ScreenOp::Apply(Style::default()),
+                ScreenOp::Print(' '),
+                ScreenOp::Print(' '),
+                ScreenOp::Apply(style1),
+                ScreenOp::Print('x'),
+                ScreenOp::Apply(Style::default()),
+                ScreenOp::Print(' '),
+                ScreenOp::Print(' '),
+                ScreenOp::Print(' '),
+            ]
+        );
+
+        // Print same thing as before
+        buf.write_str(pos, "x", style1).unwrap();
+        actual_ops = buf.drain_changes().collect();
+        assert_eq!(actual_ops, vec![]);
+    }
+
+    #[test]
+    fn test_shorten() {
+        let style1 = Style::color(Color::Base09);
+        let mut buf = ScreenBuf::new();
+        buf.resize(Pos { col: 3, row: 1 });
+
+        buf.write_str(Pos::zero(), "xyz", style1).unwrap();
+        let mut actual_ops: Vec<_> = buf.drain_changes().collect();
+        assert_eq!(
+            actual_ops,
+            vec![
+                ScreenOp::Goto(Pos::zero()),
+                ScreenOp::Apply(style1),
+                ScreenOp::Print('x'),
+                ScreenOp::Print('y'),
+                ScreenOp::Print('z'),
+            ]
+        );
+
+        buf.write_str(Pos::zero(), "xy", style1).unwrap();
+        actual_ops = buf.drain_changes().collect();
+        assert_eq!(
+            actual_ops,
+            vec![
+                ScreenOp::Goto(Pos { col: 2, row: 0 }),
+                ScreenOp::Apply(Style::default()),
+                ScreenOp::Print(' '),
+            ]
+        );
+
+        buf.write_str(Pos::zero(), "x", style1).unwrap();
+        actual_ops = buf.drain_changes().collect();
+        assert_eq!(
+            actual_ops,
+            vec![
+                ScreenOp::Goto(Pos { col: 1, row: 0 }),
+                ScreenOp::Apply(Style::default()),
+                ScreenOp::Print(' '),
+            ]
+        );
+
+        buf.write_str(Pos::zero(), "xy", style1).unwrap();
+        actual_ops = buf.drain_changes().collect();
+        assert_eq!(
+            actual_ops,
+            vec![
+                ScreenOp::Goto(Pos { col: 1, row: 0 }),
+                ScreenOp::Apply(style1),
+                ScreenOp::Print('y'),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_complex() {
         let style1 = Style::color(Color::Base09);
         let style2 = Style::color(Color::Base0C);
 
@@ -317,9 +536,22 @@ mod screen_buf_tests {
                 ScreenOp::Print('$'),
             ]
         );
-
         actual_ops = buf.drain_changes().collect();
-        assert!(actual_ops.is_empty());
+        assert_eq!(
+            actual_ops,
+            vec![
+                ScreenOp::Goto(Pos { col: 1, row: 0 }),
+                ScreenOp::Apply(Style::default()),
+                ScreenOp::Print(' '),
+                ScreenOp::Print(' '),
+                ScreenOp::Print(' '),
+                ScreenOp::Print(' '),
+                ScreenOp::Print(' '),
+                ScreenOp::Print(' '),
+                ScreenOp::Goto(Pos { col: 2, row: 3 }),
+                ScreenOp::Print(' '),
+            ]
+        );
 
         buf.set_style(Pos { col: 0, row: 2 }, style2).unwrap();
         buf.set_char_with_style(Pos { col: 2, row: 3 }, '!', Style::default())
@@ -331,7 +563,7 @@ mod screen_buf_tests {
             vec![
                 ScreenOp::Goto(Pos { col: 0, row: 2 }),
                 ScreenOp::Apply(style2),
-                ScreenOp::Print('r'),
+                ScreenOp::Print(' '),
                 ScreenOp::Goto(Pos { col: 2, row: 3 }),
                 ScreenOp::Apply(Style::default()),
                 ScreenOp::Print('!'),
@@ -372,19 +604,17 @@ mod screen_buf_tests {
             ]
         );
 
-        // Change background to cursor-shade in some region
-        buf.shade_region(
-            Region {
-                pos: Pos { col: 1, row: 1 },
-                bound: Bound {
-                    width: 3,
-                    height: 2,
-                    indent: 1,
-                },
+        // Rewrite it, but change background to cursor-shade in some region
+        let region = Region {
+            pos: Pos { col: 1, row: 1 },
+            bound: Bound {
+                width: 3,
+                height: 2,
+                indent: 1,
             },
-            cursor,
-        )
-        .unwrap();
+        };
+        buf.write_str(Pos::zero(), "0123456789ab", style1).unwrap();
+        buf.shade_region(region, cursor).unwrap();
 
         // Ensure that the shade overrides the original style within the cursor region
         let actual_ops: Vec<_> = buf.drain_changes().collect();
@@ -405,6 +635,8 @@ mod screen_buf_tests {
         );
 
         // Add new text with a different style, overlapping the cursor region
+        buf.write_str(Pos::zero(), "0123456789ab", style1).unwrap();
+        buf.shade_region(region, cursor).unwrap();
         buf.write_str(Pos { col: 0, row: 1 }, "xyz", style2)
             .unwrap();
 
