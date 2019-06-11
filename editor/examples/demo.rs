@@ -1,4 +1,5 @@
 use lazy_static::lazy_static;
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::{io, thread, time};
 
@@ -51,11 +52,17 @@ struct Ed {
     term: Terminal,
     messages: Vec<String>,
     stack: Vec<Thing<'static>>,
+    keymaps: HashMap<String, Keymap<'static>>,
+    keymap_stack: Vec<String>,
 }
 
+#[derive(Clone)]
 enum Thing<'l> {
     Tree(Ast<'l>),
     Usize(usize),
+    MapName(String),
+    NodeName(String),
+    Message(String),
     InsertAfter,
     InsertBefore,
     InsertPrepend,
@@ -75,6 +82,94 @@ enum Thing<'l> {
     // PastePostpend,
     Undo,
     Redo,
+    SelectNode,
+    PushMap,
+    PopMap,
+    Echo,
+    NodeByName,
+}
+
+#[derive(Clone)]
+struct Prog<'l>(Vec<Thing<'l>>);
+
+impl<'l> Prog<'l> {
+    fn new(thing: Thing<'l>) -> Self {
+        Prog(vec![thing])
+    }
+}
+
+struct Keymap<'l>(HashMap<Key, Prog<'l>>);
+
+impl<'l> Keymap<'l> {
+    fn normal() -> Self {
+        let map = vec![
+            (Key::Char('u'), Prog::new(Thing::Undo)),
+            (Key::Ctrl('r'), Prog::new(Thing::Redo)),
+            (Key::Right, Prog::new(Thing::Right)),
+            (Key::Left, Prog::new(Thing::Left)),
+            (Key::Up, Prog::new(Thing::Parent)),
+            (Key::Backspace, Prog::new(Thing::Remove)),
+            (Key::Down, Prog(vec![Thing::Usize(0), Thing::Child])),
+            (
+                Key::Char('i'),
+                Prog(vec![Thing::SelectNode, Thing::InsertAfter]),
+            ),
+            (
+                Key::Char('o'),
+                Prog(vec![Thing::SelectNode, Thing::InsertPostpend]),
+            ),
+            (
+                Key::Char('r'),
+                Prog(vec![Thing::SelectNode, Thing::Replace]),
+            ),
+            (
+                Key::Char(' '),
+                Prog(vec![
+                    Thing::Message("entering speed-bool mode!".into()),
+                    Thing::Echo,
+                    Thing::MapName("space".into()),
+                    Thing::PushMap,
+                ]),
+            ),
+        ]
+        .into_iter()
+        .collect();
+
+        Keymap(map)
+    }
+
+    fn space() -> Self {
+        let map = vec![
+            (
+                Key::Char('t'),
+                Prog(vec![
+                    Thing::NodeName("true".into()),
+                    Thing::NodeByName,
+                    Thing::InsertAfter,
+                ]),
+            ),
+            (
+                Key::Char('f'),
+                Prog(vec![
+                    Thing::NodeName("false".into()),
+                    Thing::NodeByName,
+                    Thing::InsertAfter,
+                ]),
+            ),
+            (
+                Key::Char(' '),
+                Prog(vec![
+                    Thing::Message("leaving speed-bool mode!".into()),
+                    Thing::Echo,
+                    Thing::PopMap,
+                ]),
+            ),
+        ]
+        .into_iter()
+        .collect();
+
+        Keymap(map)
+    }
 }
 
 impl Ed {
@@ -88,6 +183,9 @@ impl Ed {
             forest.new_fixed_tree(lang, lang.lookup_construct("root"), &NOTE_SET),
         );
 
+        let mut maps = HashMap::new();
+        maps.insert("normal".to_string(), Keymap::normal());
+        maps.insert("space".to_string(), Keymap::space());
         let mut ed = Ed {
             doc,
             lang_name,
@@ -95,6 +193,8 @@ impl Ed {
             term: Terminal::new(ColorTheme::default_dark())?,
             messages: Vec::new(),
             stack: Vec::new(),
+            keymaps: maps,
+            keymap_stack: vec!["normal".to_string()],
         };
 
         // Add some json stuff to the document, as an example
@@ -158,35 +258,18 @@ impl Ed {
         Ok(())
     }
 
+    fn lookup_key(&self, key: Key) -> Option<Prog<'static>> {
+        let name = self.keymap_stack.last().expect("no active keymap");
+        self.keymaps
+            .get(name)
+            .expect("unknown keymap name")
+            .0
+            .get(&key)
+            .cloned()
+    }
+
     fn handle_event(&mut self) -> Result<bool, Error> {
         match self.term.next_event() {
-            Some(Ok(Event::KeyEvent(Key::Right))) => self.push(Thing::Right),
-            Some(Ok(Event::KeyEvent(Key::Left))) => self.push(Thing::Left),
-            Some(Ok(Event::KeyEvent(Key::Up))) => self.push(Thing::Parent),
-            Some(Ok(Event::KeyEvent(Key::Down))) => {
-                self.push(Thing::Usize(0));
-                self.push(Thing::Child);
-            }
-            Some(Ok(Event::KeyEvent(Key::Backspace))) => self.push(Thing::Remove),
-            Some(Ok(Event::KeyEvent(Key::Char('u')))) => self.push(Thing::Undo),
-            Some(Ok(Event::KeyEvent(Key::Ctrl('r')))) => self.push(Thing::Redo),
-            Some(Ok(Event::KeyEvent(Key::Char('i')))) => {
-                let node = self.handle_node_selection()?;
-                self.push(Thing::Tree(node));
-                self.push(Thing::InsertAfter);
-            }
-            Some(Ok(Event::KeyEvent(Key::Char('o')))) => {
-                self.msg("select node type to postpend...");
-                let node = self.handle_node_selection()?;
-                self.push(Thing::Tree(node));
-                self.push(Thing::InsertPostpend)
-            }
-            Some(Ok(Event::KeyEvent(Key::Char('r')))) => {
-                self.msg("select node type to replace with...");
-                let node = self.handle_node_selection()?;
-                self.push(Thing::Tree(node));
-                self.push(Thing::Replace)
-            }
             Some(Ok(Event::KeyEvent(Key::Char('q')))) => {
                 self.msg("Quitting, goodbye!");
                 thread::sleep(time::Duration::from_secs(1));
@@ -198,6 +281,17 @@ impl Ed {
             Some(Err(err)) => {
                 self.msg(&format!("got error: {:?}", err));
             }
+            Some(Ok(Event::KeyEvent(key))) => {
+                let prog = self.lookup_key(key);
+                if let Some(prog) = prog {
+                    for thing in prog.0 {
+                        self.push(thing);
+                    }
+                } else {
+                    self.msg(&format!("unknown key: {:?}", key));
+                }
+            }
+
             _ => {
                 self.msg(&format!("unexpected event, or no event"));
             }
@@ -229,10 +323,57 @@ impl Ed {
         }
     }
 
+    fn pop_map_name(&mut self) -> String {
+        if let Some(Thing::MapName(s)) = self.stack.pop() {
+            s
+        } else {
+            panic!("expected map name on stack")
+        }
+    }
+
+    fn pop_node_name(&mut self) -> String {
+        if let Some(Thing::NodeName(s)) = self.stack.pop() {
+            s
+        } else {
+            panic!("expected node name on stack")
+        }
+    }
+
+    fn pop_message(&mut self) -> String {
+        if let Some(Thing::Message(s)) = self.stack.pop() {
+            s
+        } else {
+            panic!("expected message on stack")
+        }
+    }
+
     fn push(&mut self, thing: Thing<'static>) {
         match thing {
             Thing::Tree(..) => self.stack.push(thing),
             Thing::Usize(..) => self.stack.push(thing),
+            Thing::MapName(..) => self.stack.push(thing),
+            Thing::NodeName(..) => self.stack.push(thing),
+            Thing::Message(..) => self.stack.push(thing),
+            Thing::Echo => {
+                let message = self.pop_message();
+                self.msg(&message);
+            }
+            Thing::SelectNode => {
+                let node = self.handle_node_selection().unwrap();
+                self.push(Thing::Tree(node));
+            }
+            Thing::NodeByName => {
+                let name = self.pop_node_name();
+                let node = self.node_by_name(&name);
+                self.push(Thing::Tree(node));
+            }
+            Thing::PushMap => {
+                let name = self.pop_map_name();
+                self.keymap_stack.push(name);
+            }
+            Thing::PopMap => {
+                self.keymap_stack.pop();
+            }
             Thing::Remove => self.exec(TreeCmd::Remove),
             Thing::InsertAfter => {
                 let tree = self.pop_tree();
