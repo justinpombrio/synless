@@ -1,6 +1,6 @@
 use lazy_static::lazy_static;
 use std::collections::HashMap;
-use std::fmt::Debug;
+use std::fmt::{self, Debug};
 use std::{io, thread, time};
 
 use termion::event::Key;
@@ -10,6 +10,12 @@ use pretty::{Color, ColorTheme, Pos, PrettyDocument, PrettyScreen, Style};
 
 use editor::{make_json_lang, Ast, AstForest, CommandGroup, Doc, NotationSet, TreeCmd, TreeNavCmd};
 use language::{LanguageName, LanguageSet};
+
+mod keymap;
+mod prog;
+
+use keymap::Keymap;
+use prog::{Prog, Thing};
 
 lazy_static! {
     pub static ref LANG_SET: LanguageSet = make_json_lang().0;
@@ -56,122 +62,6 @@ struct Ed {
     keymap_stack: Vec<String>,
 }
 
-#[derive(Clone)]
-enum Thing<'l> {
-    Tree(Ast<'l>),
-    Usize(usize),
-    MapName(String),
-    NodeName(String),
-    Message(String),
-    InsertAfter,
-    InsertBefore,
-    InsertPrepend,
-    InsertPostpend,
-    Replace,
-    Remove,
-    Left,
-    Right,
-    Parent,
-    Child,
-    // Cut,
-    // Copy,
-    // PasteReplace,
-    // PasteBefore,
-    // PasteAfter,
-    // PastePrepend,
-    // PastePostpend,
-    Undo,
-    Redo,
-    SelectNode,
-    PushMap,
-    PopMap,
-    Echo,
-    NodeByName,
-}
-
-#[derive(Clone)]
-struct Prog<'l>(Vec<Thing<'l>>);
-
-impl<'l> Prog<'l> {
-    fn new(thing: Thing<'l>) -> Self {
-        Prog(vec![thing])
-    }
-}
-
-struct Keymap<'l>(HashMap<Key, Prog<'l>>);
-
-impl<'l> Keymap<'l> {
-    fn normal() -> Self {
-        let map = vec![
-            (Key::Char('u'), Prog::new(Thing::Undo)),
-            (Key::Ctrl('r'), Prog::new(Thing::Redo)),
-            (Key::Right, Prog::new(Thing::Right)),
-            (Key::Left, Prog::new(Thing::Left)),
-            (Key::Up, Prog::new(Thing::Parent)),
-            (Key::Backspace, Prog::new(Thing::Remove)),
-            (Key::Down, Prog(vec![Thing::Usize(0), Thing::Child])),
-            (
-                Key::Char('i'),
-                Prog(vec![Thing::SelectNode, Thing::InsertAfter]),
-            ),
-            (
-                Key::Char('o'),
-                Prog(vec![Thing::SelectNode, Thing::InsertPostpend]),
-            ),
-            (
-                Key::Char('r'),
-                Prog(vec![Thing::SelectNode, Thing::Replace]),
-            ),
-            (
-                Key::Char(' '),
-                Prog(vec![
-                    Thing::Message("entering speed-bool mode!".into()),
-                    Thing::Echo,
-                    Thing::MapName("space".into()),
-                    Thing::PushMap,
-                ]),
-            ),
-        ]
-        .into_iter()
-        .collect();
-
-        Keymap(map)
-    }
-
-    fn space() -> Self {
-        let map = vec![
-            (
-                Key::Char('t'),
-                Prog(vec![
-                    Thing::NodeName("true".into()),
-                    Thing::NodeByName,
-                    Thing::InsertAfter,
-                ]),
-            ),
-            (
-                Key::Char('f'),
-                Prog(vec![
-                    Thing::NodeName("false".into()),
-                    Thing::NodeByName,
-                    Thing::InsertAfter,
-                ]),
-            ),
-            (
-                Key::Char(' '),
-                Prog(vec![
-                    Thing::Message("leaving speed-bool mode!".into()),
-                    Thing::Echo,
-                    Thing::PopMap,
-                ]),
-            ),
-        ]
-        .into_iter()
-        .collect();
-
-        Keymap(map)
-    }
-}
-
 impl Ed {
     fn new() -> Result<Self, Error> {
         let forest = AstForest::new(&LANG_SET);
@@ -212,6 +102,7 @@ impl Ed {
         self.msg(
             "welcome! i: insert, o: insert_postpend, t: true, f: false, l: list, u: undo, r: redo, arrows for navigation",
         );
+        self.msg(&self.active_keymap().summary());
         loop {
             if !self.handle_event()? {
                 break;
@@ -257,15 +148,13 @@ impl Ed {
         self.term.show()?;
         Ok(())
     }
+    fn active_keymap(&self) -> &Keymap<'static> {
+        let name = self.keymap_stack.last().expect("no active keymap");
+        self.keymaps.get(name).expect("unknown keymap name")
+    }
 
     fn lookup_key(&self, key: Key) -> Option<Prog<'static>> {
-        let name = self.keymap_stack.last().expect("no active keymap");
-        self.keymaps
-            .get(name)
-            .expect("unknown keymap name")
-            .0
-            .get(&key)
-            .cloned()
+        self.active_keymap().0.get(&key).cloned()
     }
 
     fn handle_event(&mut self) -> Result<bool, Error> {
@@ -284,7 +173,7 @@ impl Ed {
             Some(Ok(Event::KeyEvent(key))) => {
                 let prog = self.lookup_key(key);
                 if let Some(prog) = prog {
-                    for thing in prog.0 {
+                    for thing in prog.words {
                         self.push(thing);
                     }
                 } else {
@@ -370,9 +259,11 @@ impl Ed {
             Thing::PushMap => {
                 let name = self.pop_map_name();
                 self.keymap_stack.push(name);
+                self.msg(&self.active_keymap().summary());
             }
             Thing::PopMap => {
                 self.keymap_stack.pop();
+                self.msg(&self.active_keymap().summary());
             }
             Thing::Remove => self.exec(TreeCmd::Remove),
             Thing::InsertAfter => {
@@ -413,7 +304,7 @@ impl Ed {
     {
         let name = format!("{:?}", cmd);
         if self.doc.execute(cmd.into()) {
-            self.msg(&format!("OK: {}", name))
+            // self.msg(&format!("OK: {}", name))
         } else {
             self.msg(&format!("FAIL: {}", name))
         }
@@ -431,5 +322,34 @@ impl Ed {
         let lang = LANG_SET.get(&self.lang_name).unwrap();
         let name = lang.lookup_key(key)?;
         self.forest.new_tree(lang, &name, &NOTE_SET)
+    }
+}
+
+impl<'l> fmt::Display for Thing<'l> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Thing::Tree(..) => write!(f, "Tree"),
+            Thing::Usize(n) => write!(f, "{}", n),
+            Thing::MapName(s) => write!(f, "MapName(\"{}\")", s),
+            Thing::NodeName(s) => write!(f, "NodeName(\"{}\")", s),
+            Thing::Message(s) => write!(f, "Message(\"{}\")", s),
+            Thing::Echo => write!(f, "Echo"),
+            Thing::SelectNode => write!(f, "SelectNode"),
+            Thing::NodeByName => write!(f, "NodeByName"),
+            Thing::PushMap => write!(f, "PushMap"),
+            Thing::PopMap => write!(f, "PopMap"),
+            Thing::Remove => write!(f, "Remove"),
+            Thing::InsertAfter => write!(f, "InsertAfter"),
+            Thing::InsertBefore => write!(f, "InsertBefore"),
+            Thing::InsertPrepend => write!(f, "InsertPrepend"),
+            Thing::InsertPostpend => write!(f, "InsertPostpend"),
+            Thing::Replace => write!(f, "Replace"),
+            Thing::Left => write!(f, "Left"),
+            Thing::Right => write!(f, "Right"),
+            Thing::Parent => write!(f, "Parent"),
+            Thing::Child => write!(f, "Child"),
+            Thing::Undo => write!(f, "Undo"),
+            Thing::Redo => write!(f, "Redo"),
+        }
     }
 }
