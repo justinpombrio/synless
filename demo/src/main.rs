@@ -6,7 +6,8 @@ use std::{thread, time};
 use termion::event::Key;
 
 use editor::{
-    make_json_lang, Ast, AstForest, CommandGroup, Doc, NotationSet, TextCmd, TreeCmd, TreeNavCmd,
+    make_json_lang, Ast, AstForest, CommandGroup, Doc, EditorCmd, NotationSet, TextCmd, TreeCmd,
+    TreeNavCmd,
 };
 use frontends::{terminal, Event, Frontend, Terminal};
 use language::{LanguageName, LanguageSet};
@@ -48,6 +49,7 @@ struct Ed {
     keymap_stack: Vec<String>,
     keymap_lang_name: LanguageName,
     kmap_doc: Doc<'static>,
+    cut_stack: Vec<Ast<'static>>,
 }
 
 impl Ed {
@@ -99,6 +101,7 @@ impl Ed {
             keymap_lang_name: kmap_lang_name,
             keymap_stack: vec!["normal".to_string()],
             kmap_doc,
+            cut_stack: Vec::new(),
         };
 
         // Add some json stuff to the document, as an example
@@ -295,6 +298,22 @@ impl Ed {
             }
             Word::Undo => self.exec(CommandGroup::Undo),
             Word::Redo => self.exec(CommandGroup::Redo),
+            Word::Cut => self.cut(),
+            Word::PasteAfter => {
+                if let Some(tree) = self.cut_stack.pop() {
+                    // TODO if the insert fails, we'll lose the tree forever...
+                    self.exec(TreeCmd::InsertAfter(tree))
+                }
+            }
+        }
+    }
+
+    fn cut(&mut self) {
+        match self.doc.execute(EditorCmd::Cut.into()) {
+            Ok(asts) => {
+                self.cut_stack.extend(asts);
+            }
+            Err(..) => self.msg("FAIL: couldn't cut!"),
         }
     }
 
@@ -303,7 +322,7 @@ impl Ed {
         T: Debug + Into<CommandGroup<'static>>,
     {
         let name = format!("{:?}", cmd);
-        if !self.doc.execute(cmd.into()) {
+        if !self.doc.execute(cmd.into()).is_ok() {
             self.msg(&format!("FAIL: {}", name))
         }
     }
@@ -313,7 +332,7 @@ impl Ed {
         T: Debug + Into<CommandGroup<'static>>,
     {
         let name = format!("{:?}", cmd);
-        if !self.kmap_doc.execute(cmd.into()) {
+        if !self.kmap_doc.execute(cmd.into()).is_ok() {
             self.msg(&format!("FAIL(kmap): {}", name))
         }
     }

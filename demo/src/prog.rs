@@ -30,11 +30,11 @@ pub enum Word<'l> {
     Right,
     Parent,
     Child,
-    // Cut,
+    Cut,
     // Copy,
     // PasteReplace,
     // PasteBefore,
-    // PasteAfter,
+    PasteAfter,
     // PastePrepend,
     // PastePostpend,
     Undo,
@@ -145,6 +145,8 @@ impl<'l> fmt::Display for Word<'l> {
             Word::Child => write!(f, "Child"),
             Word::Undo => write!(f, "Undo"),
             Word::Redo => write!(f, "Redo"),
+            Word::Cut => write!(f, "Cut"),
+            Word::PasteAfter => write!(f, "PasteAfter"),
         }
     }
 }
