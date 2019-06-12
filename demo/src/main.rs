@@ -1,7 +1,7 @@
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::fmt::Debug;
-use std::{io, thread, time};
+use std::{thread, time};
 
 use termion::event::Key;
 
@@ -13,10 +13,12 @@ use language::{LanguageName, LanguageSet};
 use pretty::{Color, ColorTheme, Pos, PrettyDocument, PrettyScreen, Shade, Style};
 use utility::GrowOnlyMap;
 
+mod error;
 mod keymap;
 mod keymap_lang;
 mod prog;
 
+use error::Error;
 use keymap::Keymap;
 use keymap_lang::make_keymap_lang;
 use prog::{Prog, Stack, Word};
@@ -32,26 +34,6 @@ fn main() -> Result<(), Error> {
     drop(ed);
     println!("Exited alternate screen. Your cursor should be visible again.");
     Ok(())
-}
-
-#[derive(Debug)]
-enum Error {
-    UnknownKey(char),
-    UnknownEvent,
-    Io(io::Error),
-    Term(terminal::Error),
-}
-
-impl From<io::Error> for Error {
-    fn from(e: io::Error) -> Error {
-        Error::Io(e)
-    }
-}
-
-impl From<terminal::Error> for Error {
-    fn from(e: terminal::Error) -> Error {
-        Error::Term(e)
-    }
 }
 
 /// Demonstrate a basic interactive tree editor
