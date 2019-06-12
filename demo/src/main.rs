@@ -5,11 +5,11 @@ use std::{io, thread, time};
 
 use termion::event::Key;
 
-use frontends::{terminal, Event, Frontend, Terminal};
-use pretty::{Color, ColorTheme, Pos, PrettyDocument, PrettyScreen, Style};
-
 use editor::{make_json_lang, Ast, AstForest, CommandGroup, Doc, NotationSet, TreeCmd, TreeNavCmd};
+use frontends::{terminal, Event, Frontend, Terminal};
 use language::{LanguageName, LanguageSet};
+use pretty::{Color, ColorTheme, Pos, PrettyDocument, PrettyScreen, Style};
+use utility::GrowOnlyMap;
 
 mod keymap;
 mod keymap_lang;
@@ -20,9 +20,8 @@ use keymap_lang::make_keymap_lang;
 use prog::{Prog, Stack, Word};
 
 lazy_static! {
-    pub static ref LANG_SET: LanguageSet = make_json_lang().0;
-    pub static ref JSON_NOTE_SET: NotationSet = make_json_lang().1;
-    pub static ref KM_NOTE_SET: NotationSet = make_keymap_lang().1;
+    pub static ref LANG_SET: LanguageSet = LanguageSet::new();
+    pub static ref NOTE_SETS: GrowOnlyMap<LanguageName, NotationSet> = GrowOnlyMap::new();
 }
 
 fn main() -> Result<(), Error> {
@@ -63,52 +62,75 @@ struct Ed {
     stack: Stack<'static>,
     keymaps: HashMap<String, Keymap<'static>>,
     keymap_stack: Vec<String>,
+    keymap_lang_name: LanguageName,
     kmap_doc: Doc<'static>,
 }
 
 impl Ed {
     fn new() -> Result<Self, Error> {
-        LANG_SET.insert("keymap".to_owned(), make_keymap_lang().0);
-        let forest = AstForest::new(&LANG_SET);
-        let lang_name = "json".into();
-        let lang = LANG_SET.get("json").unwrap();
-        let kmap_lang = LANG_SET.get("keymap").unwrap();
+        let (json_lang, json_notes) = make_json_lang();
+        let (kmap_lang, kmap_notes) = make_keymap_lang();
+        let json_lang_name = json_lang.name().to_string();
+        let kmap_lang_name = kmap_lang.name().to_string();
 
+        LANG_SET.insert(json_lang_name.clone(), json_lang);
+        LANG_SET.insert(kmap_lang_name.clone(), kmap_lang);
+        NOTE_SETS.insert(json_lang_name.clone(), json_notes);
+        NOTE_SETS.insert(kmap_lang_name.clone(), kmap_notes);
+
+        let forest = AstForest::new(&LANG_SET);
+
+        let json_lang = LANG_SET.get(&json_lang_name).unwrap();
         let doc = Doc::new(
-            "MyDemoDoc",
-            forest.new_fixed_tree(lang, lang.lookup_construct("root"), &JSON_NOTE_SET),
+            "DemoJsonDoc",
+            forest.new_fixed_tree(
+                json_lang,
+                json_lang.lookup_construct("root"),
+                NOTE_SETS.get(&json_lang_name).unwrap(),
+            ),
         );
+
+        let kmap_lang = LANG_SET.get(&kmap_lang_name).unwrap();
         let kmap_doc = Doc::new(
             "KeymapSummaryDoc",
-            forest.new_fixed_tree(kmap_lang, kmap_lang.lookup_construct("root"), &KM_NOTE_SET),
+            forest.new_fixed_tree(
+                kmap_lang,
+                kmap_lang.lookup_construct("root"),
+                NOTE_SETS.get(&kmap_lang_name).unwrap(),
+            ),
         );
 
         let mut maps = HashMap::new();
         maps.insert("normal".to_string(), Keymap::normal());
         maps.insert("space".to_string(), Keymap::space());
+
         let mut ed = Ed {
             doc,
-            lang_name,
+            lang_name: json_lang_name,
             forest,
             term: Terminal::new(ColorTheme::default_dark())?,
             messages: Vec::new(),
             stack: Stack::new(),
             keymaps: maps,
+            keymap_lang_name: kmap_lang_name,
             keymap_stack: vec!["normal".to_string()],
             kmap_doc,
         };
 
         // Add some json stuff to the document, as an example
         ed.exec(TreeNavCmd::Child(0));
-        let node = ed.node_by_name("list");
-        ed.exec(TreeCmd::Replace(node));
-        let node = ed.node_by_name("true");
-        ed.exec(TreeCmd::InsertPrepend(node));
+        ed.exec(TreeCmd::Replace(ed.node_by_name("list", &ed.lang_name)));
+        ed.exec(TreeCmd::InsertPrepend(
+            ed.node_by_name("true", &ed.lang_name),
+        ));
 
-        ed.exec_kmap(TreeNavCmd::Child(0));
-        ed.exec_kmap(TreeCmd::Replace(ed.kmap_node_by_name("dict")));
-        ed.exec_kmap(TreeCmd::InsertPrepend(ed.kmap_node_by_name("dict")));
-        ed.exec_kmap(TreeCmd::InsertPrepend(ed.kmap_node_by_name("entry")));
+        // ed.exec_kmap(TreeNavCmd::Child(0));
+        // ed.exec_kmap(TreeCmd::Replace(
+        //     ed.node_by_name("dict", &ed.keymap_lang_name),
+        // ));
+        // ed.exec_kmap(TreeCmd::InsertPrepend(
+        //     ed.node_by_name("entry", &ed.keymap_lang_name),
+        // ));
         ed.messages.clear();
 
         Ok(ed)
@@ -161,10 +183,10 @@ impl Ed {
             .pretty_print(size.col, &mut self.term)
             .unwrap();
 
-        self.kmap_doc
-            .ast_ref()
-            .pretty_print(size.col, &mut self.term)
-            .unwrap();
+        // self.kmap_doc
+        //     .ast_ref()
+        //     .pretty_print(size.col, &mut self.term)
+        //     .unwrap();
 
         self.print_messages(10)?;
         self.term.show()?;
@@ -213,7 +235,9 @@ impl Ed {
 
     fn handle_node_selection(&mut self) -> Result<Ast<'static>, Error> {
         match self.term.next_event().expect("no event")? {
-            Event::KeyEvent(Key::Char(c)) => self.node_by_key(c).ok_or(Error::UnknownKey(c)),
+            Event::KeyEvent(Key::Char(c)) => self
+                .node_by_key(c, &self.lang_name)
+                .ok_or(Error::UnknownKey(c)),
             Event::KeyEvent(Key::Ctrl('c')) => panic!("got ctrl-c"),
             _ => Err(Error::UnknownEvent),
         }
@@ -236,7 +260,7 @@ impl Ed {
             }
             Word::NodeByName => {
                 let name = self.stack.pop_node_name();
-                let node = self.node_by_name(&name);
+                let node = self.node_by_name(&name, &self.lang_name);
                 self.push(Word::Tree(node));
             }
             Word::PushMap => {
@@ -286,9 +310,7 @@ impl Ed {
         T: Debug + Into<CommandGroup<'static>>,
     {
         let name = format!("{:?}", cmd);
-        if self.doc.execute(cmd.into()) {
-            // self.msg(&format!("OK: {}", name))
-        } else {
+        if !self.doc.execute(cmd.into()) {
             self.msg(&format!("FAIL: {}", name))
         }
     }
@@ -298,33 +320,23 @@ impl Ed {
         T: Debug + Into<CommandGroup<'static>>,
     {
         let name = format!("{:?}", cmd);
-        if self.kmap_doc.execute(cmd.into()) {
-            // self.msg(&format!("OK: {}", name))
-        } else {
-            self.msg(&format!("FAIL: {}", name))
+        if !self.kmap_doc.execute(cmd.into()) {
+            self.msg(&format!("FAIL(kmap): {}", name))
         }
     }
 
-    fn node_by_name(&self, name: &str) -> Ast<'static> {
-        let name = name.to_owned();
-        let lang = LANG_SET.get(&self.lang_name).unwrap();
+    fn node_by_name(&self, name: &str, lang_name: &LanguageName) -> Ast<'static> {
+        let name = name.to_string();
+        let lang = LANG_SET.get(lang_name).unwrap();
+        let notes = NOTE_SETS.get(lang_name).unwrap();
         self.forest
-            .new_tree(lang, &name, &JSON_NOTE_SET)
+            .new_tree(lang, &name, notes)
             .expect("unknown node name")
     }
 
-    fn kmap_node_by_name(&self, name: &str) -> Ast<'static> {
-        let name = name.to_owned();
-        let lang_name: LanguageName = "keymap".into();
-        let lang = LANG_SET.get(&lang_name).unwrap();
-        self.forest
-            .new_tree(lang, &name, &KM_NOTE_SET)
-            .expect("unknown node name")
-    }
-
-    fn node_by_key(&self, key: char) -> Option<Ast<'static>> {
-        let lang = LANG_SET.get(&self.lang_name).unwrap();
+    fn node_by_key(&self, key: char, lang_name: &LanguageName) -> Option<Ast<'static>> {
+        let lang = LANG_SET.get(lang_name).unwrap();
         let name = lang.lookup_key(key)?;
-        self.forest.new_tree(lang, &name, &JSON_NOTE_SET)
+        Some(self.node_by_name(name, lang_name))
     }
 }
