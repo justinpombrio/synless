@@ -242,6 +242,14 @@ impl Ed {
             Word::NodeName(..) => self.stack.push(word),
             Word::Message(..) => self.stack.push(word),
             Word::Char(..) => self.stack.push(word),
+            Word::Quote(..) => self.stack.push(word),
+            Word::Apply => {
+                let word = self.stack.pop_quote();
+                self.push(word);
+            }
+            Word::Swap => {
+                self.stack.swap();
+            }
             Word::Echo => {
                 let message = self.stack.pop_message();
                 self.msg(&message);
