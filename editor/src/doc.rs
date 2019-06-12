@@ -171,6 +171,7 @@ impl<'l> Doc<'l> {
         }
         let (undos, ast) = match cmd {
             EditorCmd::Cut => self.remove(true)?,
+            EditorCmd::Copy => (Vec::new(), Some(self.ast.clone())),
             _ => unimplemented!(),
         };
 
