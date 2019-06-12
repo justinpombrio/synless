@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::iter;
 use termion::event::Key;
 
 use crate::prog::{Prog, Word};
@@ -29,6 +30,16 @@ impl<'l> Keymap<'l> {
                         ),
                     )
                 })
+                .chain(iter::once((
+                    Key::Esc,
+                    Prog::named(
+                        "Cancel",
+                        &[
+                            Word::Pop, // get rid of the quoted command on the stack
+                            Word::PopMap,
+                        ],
+                    ),
+                )))
                 .collect(),
         )
     }
@@ -150,7 +161,7 @@ impl<'l> Keymap<'l> {
                     ],
                 ),
             ),
-            (Key::Char(' '), Prog::named("Exit", &[Word::PopMap])),
+            (Key::Esc, Prog::named("Exit", &[Word::PopMap])),
         ]
         .into_iter()
         .collect();

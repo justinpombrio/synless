@@ -273,6 +273,9 @@ impl Ed {
             Word::Swap => {
                 self.stack.swap();
             }
+            Word::Pop => {
+                self.stack.pop();
+            }
             Word::Echo => {
                 let message = self.stack.pop_message();
                 self.msg(&message);

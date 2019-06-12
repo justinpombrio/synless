@@ -24,6 +24,7 @@ pub enum Word<'l> {
     // stack manipulation:
     Swap,
     Apply,
+    Pop,
 
     // editor-specific:
     PushMap,
@@ -76,6 +77,10 @@ impl<'l> Stack<'l> {
 
     pub fn push(&mut self, word: Word<'l>) {
         self.0.push(word);
+    }
+
+    pub fn pop(&mut self) -> Word<'l> {
+        self.0.pop().expect("Pop: no words on stack")
     }
 
     pub fn swap(&mut self) {
