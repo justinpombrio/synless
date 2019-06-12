@@ -47,8 +47,9 @@ struct Ed {
     stack: Stack<'static>,
     keymaps: HashMap<String, Keymap<'static>>,
     keymap_stack: Vec<String>,
-    keymap_lang_name: LanguageName,
-    kmap_doc: Doc<'static>,
+    // keymap_lang_name: LanguageName,
+    // kmap_doc: Doc<'static>,
+    keymap_summary: String,
     cut_stack: Vec<Ast<'static>>,
 }
 
@@ -76,15 +77,15 @@ impl Ed {
             ),
         );
 
-        let kmap_lang = LANG_SET.get(&kmap_lang_name).unwrap();
-        let kmap_doc = Doc::new(
-            "KeymapSummaryDoc",
-            forest.new_fixed_tree(
-                kmap_lang,
-                kmap_lang.lookup_construct("root"),
-                NOTE_SETS.get(&kmap_lang_name).unwrap(),
-            ),
-        );
+        // let kmap_lang = LANG_SET.get(&kmap_lang_name).unwrap();
+        // let kmap_doc = Doc::new(
+        //     "KeymapSummaryDoc",
+        //     forest.new_fixed_tree(
+        //         kmap_lang,
+        //         kmap_lang.lookup_construct("root"),
+        //         NOTE_SETS.get(&kmap_lang_name).unwrap(),
+        //     ),
+        // );
 
         let mut maps = HashMap::new();
         maps.insert("normal".to_string(), Keymap::normal());
@@ -99,11 +100,15 @@ impl Ed {
             messages: Vec::new(),
             stack: Stack::new(),
             keymaps: maps,
-            keymap_lang_name: kmap_lang_name,
-            keymap_stack: vec!["normal".to_string()],
-            kmap_doc,
+            // keymap_lang_name: kmap_lang_name,
+            // kmap_doc,
+            keymap_stack: Vec::new(),
+            keymap_summary: String::new(),
             cut_stack: Vec::new(),
         };
+        // Set initial keymap
+        ed.push(Word::MapName("normal".into()));
+        ed.push(Word::PushMap);
 
         // Add some json stuff to the document, as an example
         ed.exec(TreeNavCmd::Child(0));
@@ -125,15 +130,11 @@ impl Ed {
     }
 
     fn run(&mut self) -> Result<(), Error> {
-        self.msg(
-            "welcome! i: insert, o: insert_postpend, t: true, f: false, l: list, u: undo, r: redo, arrows for navigation",
-        );
-        self.msg(&self.active_keymap().summary());
         loop {
+            self.redisplay()?;
             if !self.handle_event()? {
                 break;
             }
-            self.redisplay()?;
         }
         Ok(())
     }
@@ -143,16 +144,44 @@ impl Ed {
         self.redisplay().unwrap();
     }
 
+    fn print_keymap_summary(&mut self) -> Result<(), Error> {
+        let size = self.term.size()?;
+        let offset = Pos {
+            row: size.row / 2,
+            col: 0,
+        };
+        self.term.print(
+            offset,
+            self.keymap_stack.last().expect("no active keymap"),
+            Style::reverse_color(Color::Base0B),
+        )?;
+        self.term.print(
+            offset + Pos { row: 1, col: 0 },
+            &self.keymap_summary,
+            Style::color(Color::Base0B),
+        )?;
+        Ok(())
+    }
+
     fn print_messages(&mut self, num_recent: usize) -> Result<(), Error> {
         let size = self.term.size()?;
+        self.term
+            .print(
+                Pos {
+                    row: size.row - (num_recent + 1) as u32,
+                    col: 0,
+                },
+                "Messages:",
+                Style::reverse_color(Color::Base0C),
+            )
+            .is_ok();
+
         for (i, msg) in self.messages.iter().rev().take(num_recent).enumerate() {
             let pos = Pos {
                 row: size.row - (num_recent - i) as u32,
                 col: 0,
             };
-            let result = self
-                .term
-                .print(pos, msg, Style::reverse_color(Color::Base09));
+            let result = self.term.print(pos, msg, Style::color(Color::Base0C));
 
             // For this demo, just ignore out of bounds errors. The real editor
             // shouldn't ever try to print out of bounds.
@@ -180,7 +209,8 @@ impl Ed {
         //     .pretty_print(size.col, &mut self.term)
         //     .unwrap();
 
-        self.print_messages(10)?;
+        self.print_messages(5)?;
+        self.print_keymap_summary()?;
         self.term.show()?;
         Ok(())
     }
@@ -188,6 +218,10 @@ impl Ed {
     fn active_keymap(&self) -> &Keymap<'static> {
         let name = self.keymap_stack.last().expect("no active keymap");
         self.keymaps.get(name).expect("unknown keymap name")
+    }
+
+    fn update_keymap_summary(&mut self) {
+        self.keymap_summary = self.active_keymap().summary();
     }
 
     fn lookup_key(&self, key: Key) -> Option<Prog<'static>> {
@@ -253,11 +287,11 @@ impl Ed {
             Word::PushMap => {
                 let name = self.stack.pop_map_name();
                 self.keymap_stack.push(name);
-                self.msg(&self.active_keymap().summary());
+                self.update_keymap_summary();
             }
             Word::PopMap => {
                 self.keymap_stack.pop();
-                self.msg(&self.active_keymap().summary());
+                self.update_keymap_summary();
             }
             Word::Remove => self.exec(TreeCmd::Remove),
             Word::InsertChar => {
@@ -352,15 +386,15 @@ impl Ed {
         }
     }
 
-    fn exec_kmap<T>(&mut self, cmd: T)
-    where
-        T: Debug + Into<CommandGroup<'static>>,
-    {
-        let name = format!("{:?}", cmd);
-        if !self.kmap_doc.execute(cmd.into()).is_ok() {
-            self.msg(&format!("FAIL(kmap): {}", name))
-        }
-    }
+    // fn exec_kmap<T>(&mut self, cmd: T)
+    // where
+    //     T: Debug + Into<CommandGroup<'static>>,
+    // {
+    //     let name = format!("{:?}", cmd);
+    //     if !self.kmap_doc.execute(cmd.into()).is_ok() {
+    //         self.msg(&format!("FAIL(kmap): {}", name))
+    //     }
+    // }
 
     fn node_by_name(&self, name: &str, lang_name: &LanguageName) -> Ast<'static> {
         let name = name.to_string();
