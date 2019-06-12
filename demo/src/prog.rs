@@ -1,5 +1,7 @@
 use editor::Ast;
 
+use language::{ConstructName, LanguageName};
+
 #[derive(Clone)]
 pub struct Prog<'l> {
     pub words: Vec<Word<'l>>,
@@ -15,7 +17,7 @@ pub enum Word<'l> {
     Usize(usize),
     Char(char),
     MapName(String),
-    NodeName(String),
+    LangConstruct(LanguageName, ConstructName),
     Message(String),
     Quote(Box<Word<'l>>),
 
@@ -24,7 +26,6 @@ pub enum Word<'l> {
     Apply,
 
     // editor-specific:
-    SelectNode,
     PushMap,
     PopMap,
     NodeByName,
@@ -108,11 +109,11 @@ impl<'l> Stack<'l> {
         }
     }
 
-    pub fn pop_node_name(&mut self) -> String {
-        if let Some(Word::NodeName(s)) = self.0.pop() {
-            s
+    pub fn pop_lang_construct(&mut self) -> (LanguageName, ConstructName) {
+        if let Some(Word::LangConstruct(lang_name, construct_name)) = self.0.pop() {
+            (lang_name, construct_name)
         } else {
-            panic!("expected node name on stack")
+            panic!("expected language construct on stack")
         }
     }
 
@@ -131,6 +132,7 @@ impl<'l> Stack<'l> {
             panic!("expected char on stack")
         }
     }
+
     pub fn pop_quote(&mut self) -> Word<'l> {
         if let Some(Word::Quote(word)) = self.0.pop() {
             *word

@@ -2,10 +2,37 @@ use std::collections::HashMap;
 use termion::event::Key;
 
 use crate::prog::{Prog, Word};
+use language::{Language, LanguageName};
 
 pub struct Keymap<'l>(pub HashMap<Key, Prog<'l>>);
 
 impl<'l> Keymap<'l> {
+    pub fn node(lang: &Language) -> Self {
+        Keymap(
+            lang.keymap()
+                .iter()
+                .map(|(&ch, construct_name)| {
+                    (
+                        Key::Char(ch),
+                        Prog::named(
+                            construct_name,
+                            &[
+                                // Push the new node onto the stack, and then
+                                // apply the quoted command (eg. InsertAfter)
+                                // that was already on the top of the stack.
+                                Word::LangConstruct(lang.name().into(), construct_name.to_owned()),
+                                Word::NodeByName,
+                                Word::Swap,
+                                Word::Apply,
+                                Word::PopMap,
+                            ],
+                        ),
+                    )
+                })
+                .collect(),
+        )
+    }
+
     pub fn normal() -> Self {
         let map = vec![
             (Key::Char('d'), Prog::single(Word::Cut)),
@@ -31,23 +58,58 @@ impl<'l> Keymap<'l> {
             ),
             (
                 Key::Char('i'),
-                Prog::named("InsertAfter", &[Word::SelectNode, Word::InsertAfter]),
+                Prog::named(
+                    "InsertAfter",
+                    &[
+                        Word::InsertAfter.quote(),
+                        Word::MapName("node".into()),
+                        Word::PushMap,
+                    ],
+                ),
             ),
             (
                 Key::Char('I'),
-                Prog::named("InsertBefore", &[Word::SelectNode, Word::InsertBefore]),
+                Prog::named(
+                    "InsertBefore",
+                    &[
+                        Word::InsertBefore.quote(),
+                        Word::MapName("node".into()),
+                        Word::PushMap,
+                    ],
+                ),
             ),
             (
                 Key::Char('o'),
-                Prog::named("InsertPostpend", &[Word::SelectNode, Word::InsertPostpend]),
+                Prog::named(
+                    "InsertPostpend",
+                    &[
+                        Word::InsertPostpend.quote(),
+                        Word::MapName("node".into()),
+                        Word::PushMap,
+                    ],
+                ),
             ),
             (
                 Key::Char('O'),
-                Prog::named("InsertPrepend", &[Word::SelectNode, Word::InsertPrepend]),
+                Prog::named(
+                    "InsertPrepend",
+                    &[
+                        Word::InsertPrepend.quote(),
+                        Word::MapName("node".into()),
+                        Word::PushMap,
+                    ],
+                ),
             ),
             (
                 Key::Char('r'),
-                Prog::named("Replace", &[Word::SelectNode, Word::Replace]),
+                Prog::named(
+                    "Replace",
+                    &[
+                        Word::Replace.quote(),
+                        Word::MapName("node".into()),
+                        Word::PushMap,
+                    ],
+                ),
             ),
             (
                 Key::Char(' '),
@@ -69,13 +131,14 @@ impl<'l> Keymap<'l> {
     }
 
     pub fn space() -> Self {
+        let lang: LanguageName = "json".into();
         let map = vec![
             (
                 Key::Char('t'),
                 Prog::named(
                     "True",
                     &[
-                        Word::NodeName("true".into()),
+                        Word::LangConstruct(lang.clone(), "true".into()),
                         Word::NodeByName,
                         Word::InsertAfter,
                     ],
@@ -86,7 +149,7 @@ impl<'l> Keymap<'l> {
                 Prog::named(
                     "False",
                     &[
-                        Word::NodeName("false".into()),
+                        Word::LangConstruct(lang, "false".into()),
                         Word::NodeByName,
                         Word::InsertAfter,
                     ],

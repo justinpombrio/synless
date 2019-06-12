@@ -89,6 +89,7 @@ impl Ed {
         let mut maps = HashMap::new();
         maps.insert("normal".to_string(), Keymap::normal());
         maps.insert("space".to_string(), Keymap::space());
+        maps.insert("node".to_string(), Keymap::node(json_lang));
 
         let mut ed = Ed {
             doc,
@@ -224,22 +225,12 @@ impl Ed {
         Ok(true)
     }
 
-    fn handle_node_selection(&mut self) -> Result<Ast<'static>, Error> {
-        match self.term.next_event().expect("no event")? {
-            Event::KeyEvent(Key::Char(c)) => self
-                .node_by_key(c, &self.lang_name)
-                .ok_or(Error::UnknownKey(c)),
-            Event::KeyEvent(Key::Ctrl('c')) => panic!("got ctrl-c"),
-            _ => Err(Error::UnknownEvent),
-        }
-    }
-
     fn push(&mut self, word: Word<'static>) {
         match word {
             Word::Tree(..) => self.stack.push(word),
             Word::Usize(..) => self.stack.push(word),
             Word::MapName(..) => self.stack.push(word),
-            Word::NodeName(..) => self.stack.push(word),
+            Word::LangConstruct(..) => self.stack.push(word),
             Word::Message(..) => self.stack.push(word),
             Word::Char(..) => self.stack.push(word),
             Word::Quote(..) => self.stack.push(word),
@@ -254,13 +245,9 @@ impl Ed {
                 let message = self.stack.pop_message();
                 self.msg(&message);
             }
-            Word::SelectNode => {
-                let node = self.handle_node_selection().unwrap();
-                self.push(Word::Tree(node));
-            }
             Word::NodeByName => {
-                let name = self.stack.pop_node_name();
-                let node = self.node_by_name(&name, &self.lang_name);
+                let (lang_name, construct_name) = self.stack.pop_lang_construct();
+                let node = self.node_by_name(&construct_name, &lang_name);
                 self.push(Word::Tree(node));
             }
             Word::PushMap => {
@@ -382,11 +369,5 @@ impl Ed {
         self.forest
             .new_tree(lang, &name, notes)
             .expect("unknown node name")
-    }
-
-    fn node_by_key(&self, key: char, lang_name: &LanguageName) -> Option<Ast<'static>> {
-        let lang = LANG_SET.get(lang_name).unwrap();
-        let name = lang.lookup_key(key)?;
-        Some(self.node_by_name(name, lang_name))
     }
 }
