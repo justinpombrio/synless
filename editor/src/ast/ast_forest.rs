@@ -1,4 +1,4 @@
-use forest::{Forest, Tree};
+use forest::Forest;
 use language::{Arity, Construct, ConstructName, Language, LanguageSet, BUILTIN_CONSTRUCTS};
 use pretty::Bounds;
 
@@ -40,7 +40,7 @@ impl<'l> AstForest<'l> {
         };
         let ast = match &construct.arity {
             Arity::Fixed(sorts) => {
-                let children = self.new_hole_trees(sorts.len(), language, notation_set);
+                let children = vec![self.new_hole_tree(language, notation_set).tree; sorts.len()];
                 Ast::new(self.forest.new_branch(node, children))
             }
             Arity::Flexible(_) => Ast::new(self.forest.new_branch(node, vec![])),
@@ -111,7 +111,7 @@ impl<'l> AstForest<'l> {
                 a
             ),
         };
-        let children = self.new_hole_trees(arity, language, notation_set);
+        let children = vec![self.new_hole_tree(language, notation_set).tree; arity];
         Ast::new(self.forest.new_branch(node, children))
     }
 
@@ -155,18 +155,5 @@ impl<'l> AstForest<'l> {
             )
         }
         Ast::new(self.forest.new_branch(node, vec![]))
-    }
-
-    fn new_hole_trees(
-        &self,
-        count: usize,
-        language: &'l Language,
-        notation_set: &'l NotationSet,
-    ) -> Vec<Tree<Node<'l>, Text>> {
-        let mut list = Vec::new();
-        for _ in 0..count {
-            list.push(self.new_hole_tree(language, notation_set).tree);
-        }
-        list
     }
 }
