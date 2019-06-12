@@ -135,6 +135,20 @@ impl<D, L> Tree<D, L> {
         }
     }
 
+    /// Obtain a shared reference to the leaf value which is the sole child of this node.
+    ///
+    /// # Panics
+    ///
+    /// Panics if this is not a branch node with one leaf child.
+    pub fn child_leaf(&self) -> ReadLeaf<D, L> {
+        assert_eq!(self.num_children(), 1);
+        let id = self.forest().child(self.id, 0);
+        ReadLeaf {
+            guard: self.forest(),
+            id,
+        }
+    }
+
     /// Returns the number of children this node has.
     ///
     /// # Panics
@@ -165,6 +179,20 @@ impl<D, L> Tree<D, L> {
         WriteLeaf {
             guard: self.forest_mut(),
             id: self.id,
+        }
+    }
+
+    /// Obtain a mutable reference to the leaf value which is the sole child of this node.
+    ///
+    /// # Panics
+    ///
+    /// Panics if this is not a branch node with one leaf child.
+    pub fn child_leaf_mut(&self) -> WriteLeaf<D, L> {
+        assert_eq!(self.num_children(), 1);
+        let id = self.forest().child(self.id, 0);
+        WriteLeaf {
+            guard: self.forest_mut(),
+            id,
         }
     }
 
