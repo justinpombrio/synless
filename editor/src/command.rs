@@ -110,6 +110,12 @@ impl<'l> From<TextNavCmd> for Command<'l> {
     }
 }
 
+impl<'l> From<EditorCmd> for Command<'l> {
+    fn from(cmd: EditorCmd) -> Command<'l> {
+        Command::Ed(cmd)
+    }
+}
+
 impl<'l, T> From<T> for CommandGroup<'l>
 where
     T: Into<Command<'l>>,

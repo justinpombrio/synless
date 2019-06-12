@@ -97,57 +97,64 @@ impl<'l> Doc<'l> {
         mem::replace(&mut self.recent, UndoGroup::new())
     }
 
-    fn undo(&mut self) -> bool {
+    fn undo(&mut self) -> Result<(), ()> {
         assert!(self.recent.commands.is_empty());
         assert!(!self.recent.contains_edit);
         match self.undo_stack.pop() {
-            None => false, // Undo stack is empty
+            None => Err(()), // Undo stack is empty
             Some(group) => {
                 self.execute_group(group).expect("Failed to undo");
                 let recent = self.take_recent();
                 self.redo_stack.push(recent);
-                true
+                Ok(())
             }
         }
     }
 
-    fn redo(&mut self) -> bool {
+    fn redo(&mut self) -> Result<(), ()> {
         assert!(self.recent.commands.is_empty());
         assert!(!self.recent.contains_edit);
         match self.redo_stack.pop() {
-            None => false, // Redo stack is empty
+            None => Err(()), // Redo stack is empty
             Some(group) => {
                 self.execute_group(group).expect("Failed to redo");
                 let recent = self.take_recent();
                 self.undo_stack.push(recent);
-                true
+                Ok(())
             }
         }
     }
 
-    pub fn execute(&mut self, cmds: CommandGroup<'l>) -> bool {
+    pub fn execute(&mut self, cmds: CommandGroup<'l>) -> Result<Vec<Ast<'l>>, ()> {
         match cmds {
-            CommandGroup::Undo => self.undo(),
-            CommandGroup::Redo => self.redo(),
+            CommandGroup::Undo => self.undo().map(|_| Vec::new()),
+            CommandGroup::Redo => self.redo().map(|_| Vec::new()),
             CommandGroup::Group(group) => {
-                let all_ok = self.execute_group(group).is_ok();
+                let result = self.execute_group(group);
                 let undos = self.take_recent();
                 if !undos.is_empty() {
                     self.undo_stack.push(undos);
                 }
                 self.redo_stack.clear();
-                all_ok
+                result
             }
         }
     }
 
-    fn execute_group<I>(&mut self, cmds: I) -> Result<(), ()>
+    fn execute_group<I>(&mut self, cmds: I) -> Result<Vec<Ast<'l>>, ()>
     where
         I: IntoIterator<Item = Command<'l>>,
     {
+        let mut asts = Vec::new();
         for cmd in cmds {
             let undos = match cmd {
-                Command::Ed(cmd) => self.execute_ed(cmd)?,
+                Command::Ed(cmd) => {
+                    let (undos, ast) = self.execute_ed(cmd)?;
+                    if let Some(ast) = ast {
+                        asts.push(ast);
+                    }
+                    undos
+                }
                 Command::Tree(cmd) => self.execute_tree(cmd)?,
                 Command::TreeNav(cmd) => self.execute_tree_nav(cmd)?,
                 Command::Text(cmd) => self.execute_text(cmd)?,
@@ -155,11 +162,23 @@ impl<'l> Doc<'l> {
             };
             self.recent.append(undos);
         }
-        Ok(())
+        Ok(asts)
     }
 
-    fn execute_ed(&mut self, _cmd: EditorCmd) -> Result<UndoGroup<'l>, ()> {
-        unimplemented!();
+    fn execute_ed(&mut self, cmd: EditorCmd) -> Result<(UndoGroup<'l>, Option<Ast<'l>>), ()> {
+        if !self.mode.is_tree() {
+            panic!("tried to execute editor command in text mode")
+        }
+        let (undos, ast) = match cmd {
+            EditorCmd::Cut => self.remove(true)?,
+            _ => unimplemented!(),
+        };
+
+        let group = UndoGroup {
+            contains_edit: true,
+            commands: undos,
+        };
+        Ok((group, ast))
     }
 
     fn execute_tree(&mut self, cmd: TreeCmd<'l>) -> Result<UndoGroup<'l>, ()> {
@@ -185,31 +204,8 @@ impl<'l> Doc<'l> {
                 }
             }
             TreeCmd::Remove => {
-                let i = self.ast.goto_parent();
-                match self.ast.inner() {
-                    AstKind::Fixed(mut fixed) => {
-                        // Oops, go back, we can't delete something from a fixed node.
-                        fixed.goto_child(i);
-                        return Err(());
-                    }
-                    AstKind::Flexible(mut flexible) => {
-                        let old_ast = flexible.remove_child(i);
-                        let num_children = flexible.num_children();
-                        if num_children == 0 {
-                            // Stay at the childless parent
-                            vec![TreeCmd::InsertPrepend(old_ast).into()]
-                        } else if i == 0 {
-                            // We removed the first child, so to undo must insert before.
-                            flexible.goto_child(0);
-                            vec![TreeCmd::InsertBefore(old_ast).into()]
-                        } else {
-                            // Go to the left.
-                            flexible.goto_child(i - 1);
-                            vec![TreeCmd::InsertAfter(old_ast).into()]
-                        }
-                    }
-                    _ => panic!("how can a parent not be fixed or flexible?"),
-                }
+                let (undos, _ast) = self.remove(false)?;
+                undos
             }
             TreeCmd::InsertBefore(new_ast) => self.insert_sibling(true, new_ast)?,
             TreeCmd::InsertAfter(new_ast) => self.insert_sibling(false, new_ast)?,
@@ -395,6 +391,44 @@ impl<'l> Doc<'l> {
                 } else {
                     Ok(vec![TreeCmd::Remove.into()])
                 }
+            }
+            _ => panic!("how can a parent not be fixed or flexible?"),
+        }
+    }
+
+    /// Used for both cutting and deleting. If return_original is true, cut the
+    /// selected Ast, return the original Ast, and return Undo commands
+    /// containing a _copy_ of the Ast. Otherwise, return None and use the
+    /// original Ast in the Undo commands.
+    fn remove(&mut self, return_original: bool) -> Result<(Vec<Command<'l>>, Option<Ast<'l>>), ()> {
+        let i = self.ast.goto_parent();
+        match self.ast.inner() {
+            AstKind::Fixed(mut fixed) => {
+                // Oops, go back, we can't delete something from a fixed node.
+                fixed.goto_child(i);
+                Err(())
+            }
+            AstKind::Flexible(mut flexible) => {
+                let old_ast = flexible.remove_child(i);
+                let (undo_ast, returned_ast) = if return_original {
+                    (old_ast.clone(), Some(old_ast))
+                } else {
+                    (old_ast, None)
+                };
+                let num_children = flexible.num_children();
+                let undos = if num_children == 0 {
+                    // Stay at the childless parent
+                    vec![TreeCmd::InsertPrepend(undo_ast).into()]
+                } else if i == 0 {
+                    // We removed the first child, so to undo must insert before.
+                    flexible.goto_child(0);
+                    vec![TreeCmd::InsertBefore(undo_ast).into()]
+                } else {
+                    // Go to the left.
+                    flexible.goto_child(i - 1);
+                    vec![TreeCmd::InsertAfter(undo_ast).into()]
+                };
+                Ok((undos, returned_ast))
             }
             _ => panic!("how can a parent not be fixed or flexible?"),
         }

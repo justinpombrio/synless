@@ -20,11 +20,12 @@ fn test_json_undo_redo() {
         forest.new_fixed_tree(lang, lang.lookup_construct("root"), &note_set),
     );
 
-    assert!(doc.execute(CommandGroup::Group(vec![Command::TreeNav(
-        TreeNavCmd::Child(0)
-    ),])));
+    doc.execute(CommandGroup::Group(vec![Command::TreeNav(
+        TreeNavCmd::Child(0),
+    )]))
+    .unwrap();
 
-    assert!(doc.execute(CommandGroup::Group(vec![
+    doc.execute(CommandGroup::Group(vec![
         Command::Tree(TreeCmd::Replace(forest.new_flexible_tree(
             &lang,
             lang.lookup_construct("list"),
@@ -35,68 +36,72 @@ fn test_json_undo_redo() {
             lang.lookup_construct("true"),
             &note_set,
         ))),
-    ])));
+    ]))
+    .unwrap();
 
-    assert!(doc.execute(CommandGroup::Group(vec![Command::Tree(
+    doc.execute(CommandGroup::Group(vec![Command::Tree(
         TreeCmd::InsertAfter(forest.new_fixed_tree(
             &lang,
             lang.lookup_construct("null"),
-            &note_set
-        ),)
-    )])));
+            &note_set,
+        )),
+    )]))
+    .unwrap();
     assert_render(&doc, "[true, null]");
 
-    assert!(doc.execute(CommandGroup::Group(vec![Command::Tree(
+    doc.execute(CommandGroup::Group(vec![Command::Tree(
         TreeCmd::InsertBefore(forest.new_fixed_tree(
             &lang,
             lang.lookup_construct("false"),
-            &note_set
-        ),)
-    )])));
+            &note_set,
+        )),
+    )]))
+    .unwrap();
     assert_render(&doc, "[true, false, null]");
 
-    assert!(doc.execute(CommandGroup::Undo));
+    doc.execute(CommandGroup::Undo).unwrap();
     assert_render(&doc, "[true, null]");
 
-    assert!(doc.execute(CommandGroup::Undo));
+    doc.execute(CommandGroup::Undo).unwrap();
     assert_render(&doc, "[true]");
 
-    assert!(doc.execute(CommandGroup::Redo));
+    doc.execute(CommandGroup::Redo).unwrap();
     assert_render(&doc, "[true, null]");
 
-    assert!(doc.execute(CommandGroup::Redo));
+    doc.execute(CommandGroup::Redo).unwrap();
     assert_render(&doc, "[true, false, null]");
 
-    assert!(doc.execute(CommandGroup::Undo));
+    doc.execute(CommandGroup::Undo).unwrap();
     assert_render(&doc, "[true, null]");
 
-    assert!(doc.execute(CommandGroup::Group(vec![Command::Tree(
+    doc.execute(CommandGroup::Group(vec![Command::Tree(
         TreeCmd::InsertAfter(
             // forest.new_fixed_tree(&lang, lang.lookup_construct("false"), &note_set),
-            forest.new_flexible_tree(&lang, lang.lookup_construct("list"), &note_set,)
-        )
-    )])));
+            forest.new_flexible_tree(&lang, lang.lookup_construct("list"), &note_set),
+        ),
+    )]))
+    .unwrap();
     assert_render(&doc, "[true, null, []]");
 
-    assert!(doc.execute(CommandGroup::Undo));
+    doc.execute(CommandGroup::Undo).unwrap();
     assert_render(&doc, "[true, null]");
 
-    assert!(doc.execute(CommandGroup::Undo));
+    doc.execute(CommandGroup::Undo).unwrap();
     assert_render(&doc, "[true]");
 
-    assert!(doc.execute(CommandGroup::Undo));
+    doc.execute(CommandGroup::Undo).unwrap();
     assert_render(&doc, "?");
 
-    assert!(doc.execute(CommandGroup::Redo));
+    doc.execute(CommandGroup::Redo).unwrap();
     assert_render(&doc, "[true]");
 
-    assert!(doc.execute(CommandGroup::Redo));
+    doc.execute(CommandGroup::Redo).unwrap();
     assert_render(&doc, "[true, null]");
 
-    assert!(doc.execute(CommandGroup::Redo));
+    doc.execute(CommandGroup::Redo).unwrap();
     assert_render(&doc, "[true, null, []]");
 
-    assert!(!doc.execute(CommandGroup::Redo));
+    assert!(doc.execute(CommandGroup::Redo).is_err());
     assert_render(&doc, "[true, null, []]");
 }
 
@@ -114,41 +119,46 @@ fn test_json_string() {
         forest.new_fixed_tree(&lang, lang.lookup_construct("root"), &note_set),
     );
 
-    assert!(doc.execute(CommandGroup::Group(vec![Command::TreeNav(
-        TreeNavCmd::Child(0)
-    ),])));
+    doc.execute(CommandGroup::Group(vec![Command::TreeNav(
+        TreeNavCmd::Child(0),
+    )]))
+    .unwrap();
 
-    assert!(
-        doc.execute(CommandGroup::Group(vec![Command::Tree(TreeCmd::Replace(
-            forest.new_flexible_tree(&lang, lang.lookup_construct("list"), &note_set,)
-        )),]))
-    );
+    doc.execute(CommandGroup::Group(vec![Command::Tree(TreeCmd::Replace(
+        forest.new_flexible_tree(&lang, lang.lookup_construct("list"), &note_set),
+    ))]))
+    .unwrap();
 
-    assert!(doc.execute(CommandGroup::Group(vec![Command::Tree(
+    doc.execute(CommandGroup::Group(vec![Command::Tree(
         TreeCmd::InsertPrepend(forest.new_text_tree(
             &lang,
             lang.lookup_construct("string"),
             &note_set,
-        ))
-    ),])));
+        )),
+    )]))
+    .unwrap();
 
     assert!(doc.is_tree_mode());
 
-    assert!(doc.execute(CommandGroup::Group(vec![Command::TreeNav(
-        TreeNavCmd::Child(0)
-    ),])));
+    doc.execute(CommandGroup::Group(vec![Command::TreeNav(
+        TreeNavCmd::Child(0),
+    )]))
+    .unwrap();
     assert!(!doc.is_tree_mode());
-    assert!(doc.execute(CommandGroup::Group(vec![Command::TextNav(
-        TextNavCmd::TreeMode
-    ),])));
+    doc.execute(CommandGroup::Group(vec![Command::TextNav(
+        TextNavCmd::TreeMode,
+    )]))
+    .unwrap();
     assert!(doc.is_tree_mode());
-    assert!(doc.execute(CommandGroup::Group(vec![Command::TreeNav(
-        TreeNavCmd::Child(0)
-    ),])));
+    doc.execute(CommandGroup::Group(vec![Command::TreeNav(
+        TreeNavCmd::Child(0),
+    )]))
+    .unwrap();
     assert!(!doc.is_tree_mode());
-    assert!(doc.execute(CommandGroup::Group(vec![Command::Text(
-        TextCmd::InsertChar('a')
-    ),])));
+    doc.execute(CommandGroup::Group(vec![Command::Text(
+        TextCmd::InsertChar('a'),
+    )]))
+    .unwrap();
     assert_render(&doc, "\"a\"");
 }
 
