@@ -1,11 +1,14 @@
 [package]
-name = "editor"
+name = "demo"
 version = "0.1.0"
-authors = ["Justin <zallambo@gmail.com>"]
+authors = ["e-matteson <e.r.matteson@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+editor = { path = "../editor" }
 forest = { path = "../forest" }
 pretty = { path = "../pretty" }
 language = { path  = "../language" }
+frontends = { path = "../frontends"}
 lazy_static = "*"
+termion = "1.5"

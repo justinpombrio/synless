@@ -1,7 +1,7 @@
 [package]
 name = "synless"
 version = "0.0.1"
-authors = ["justinpombrio <zallambo@gmail.com>"]
+authors = ["justinpombrio <zallambo@gmail.com>", "e-matteson <e.r.matteson@gmail.com>"]
 
 [workspace]
 members = [
@@ -10,11 +10,13 @@ members = [
   "pretty",
   "language",
   "frontends",
-  "editor"]
+  "editor",
+  "demo"]
 default-members = [
   "utility",
   "forest",
   "pretty",
   "language",
   "frontends",
-  "editor"]
+  "editor",
+  "demo"]
