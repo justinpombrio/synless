@@ -8,6 +8,10 @@ pub struct Keymap<'l>(pub HashMap<Key, Prog<'l>>);
 impl<'l> Keymap<'l> {
     pub fn normal() -> Self {
         let map = vec![
+            (
+                Key::Char('a'),
+                Prog::named("TypeA", &[Word::Char('a'), Word::InsertChar]),
+            ),
             (Key::Char('u'), Prog::single(Word::Undo)),
             (Key::Ctrl('r'), Prog::single(Word::Redo)),
             (Key::Right, Prog::single(Word::Right)),

@@ -15,9 +15,11 @@ pub struct Stack<'l>(Vec<Word<'l>>);
 pub enum Word<'l> {
     Tree(Ast<'l>),
     Usize(usize),
+    Char(char),
     MapName(String),
     NodeName(String),
     Message(String),
+    InsertChar,
     InsertAfter,
     InsertBefore,
     InsertPrepend,
@@ -107,6 +109,13 @@ impl<'l> Stack<'l> {
             panic!("expected message on stack")
         }
     }
+    pub fn pop_char(&mut self) -> char {
+        if let Some(Word::Char(ch)) = self.0.pop() {
+            ch
+        } else {
+            panic!("expected char on stack")
+        }
+    }
 }
 
 impl<'l> fmt::Display for Word<'l> {
@@ -114,6 +123,7 @@ impl<'l> fmt::Display for Word<'l> {
         match self {
             Word::Tree(..) => write!(f, "Tree"),
             Word::Usize(n) => write!(f, "{}", n),
+            Word::Char(ch) => write!(f, "{}", ch),
             Word::MapName(s) => write!(f, "MapName(\"{}\")", s),
             Word::NodeName(s) => write!(f, "NodeName(\"{}\")", s),
             Word::Message(s) => write!(f, "Message(\"{}\")", s),
@@ -123,6 +133,7 @@ impl<'l> fmt::Display for Word<'l> {
             Word::PushMap => write!(f, "PushMap"),
             Word::PopMap => write!(f, "PopMap"),
             Word::Remove => write!(f, "Remove"),
+            Word::InsertChar => write!(f, "InsertChar"),
             Word::InsertAfter => write!(f, "InsertAfter"),
             Word::InsertBefore => write!(f, "InsertBefore"),
             Word::InsertPrepend => write!(f, "InsertPrepend"),

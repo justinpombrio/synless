@@ -5,7 +5,9 @@ use std::{io, thread, time};
 
 use termion::event::Key;
 
-use editor::{make_json_lang, Ast, AstForest, CommandGroup, Doc, NotationSet, TreeCmd, TreeNavCmd};
+use editor::{
+    make_json_lang, Ast, AstForest, CommandGroup, Doc, NotationSet, TextCmd, TreeCmd, TreeNavCmd,
+};
 use frontends::{terminal, Event, Frontend, Terminal};
 use language::{LanguageName, LanguageSet};
 use pretty::{Color, ColorTheme, Pos, PrettyDocument, PrettyScreen, Shade, Style};
@@ -254,6 +256,7 @@ impl Ed {
             Word::MapName(..) => self.stack.push(word),
             Word::NodeName(..) => self.stack.push(word),
             Word::Message(..) => self.stack.push(word),
+            Word::Char(..) => self.stack.push(word),
             Word::Echo => {
                 let message = self.stack.pop_message();
                 self.msg(&message);
@@ -277,6 +280,10 @@ impl Ed {
                 self.msg(&self.active_keymap().summary());
             }
             Word::Remove => self.exec(TreeCmd::Remove),
+            Word::InsertChar => {
+                let ch = self.stack.pop_char();
+                self.exec(TextCmd::InsertChar(ch));
+            }
             Word::InsertAfter => {
                 let tree = self.stack.pop_tree();
                 self.exec(TreeCmd::InsertAfter(tree));
