@@ -1,4 +1,6 @@
-use editor::{make_json_lang, AstForest, Command, CommandGroup, Doc, TreeCmd, TreeNavCmd};
+use editor::{
+    make_json_lang, AstForest, Command, CommandGroup, Doc, TextCmd, TextNavCmd, TreeCmd, TreeNavCmd,
+};
 use language::LanguageSet;
 use pretty::{PlainText, PrettyDocument};
 
@@ -129,6 +131,25 @@ fn test_json_string() {
             &note_set,
         ))
     ),])));
+
+    assert!(doc.is_tree_mode());
+
+    assert!(doc.execute(CommandGroup::Group(vec![Command::TreeNav(
+        TreeNavCmd::Child(0)
+    ),])));
+    assert!(!doc.is_tree_mode());
+    assert!(doc.execute(CommandGroup::Group(vec![Command::TextNav(
+        TextNavCmd::TreeMode
+    ),])));
+    assert!(doc.is_tree_mode());
+    assert!(doc.execute(CommandGroup::Group(vec![Command::TreeNav(
+        TreeNavCmd::Child(0)
+    ),])));
+    assert!(!doc.is_tree_mode());
+    assert!(doc.execute(CommandGroup::Group(vec![Command::Text(
+        TextCmd::InsertChar('a')
+    ),])));
+    assert_render(&doc, "\"a\"");
 }
 
 fn assert_render(doc: &Doc, rendered: &str) {
