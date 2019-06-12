@@ -68,4 +68,8 @@ impl Language {
     pub fn constructs(&self) -> impl Iterator<Item = &Construct> {
         self.constructs.values()
     }
+
+    pub fn keymap(&self) -> &HashMap<char, ConstructName> {
+        &self.keymap
+    }
 }
