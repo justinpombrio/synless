@@ -52,7 +52,24 @@ where
     L: Clone,
 {
     fn clone(&self) -> Tree<D, L> {
-        self.borrow().to_owned_tree()
+        if self.is_leaf() {
+            self.forest.new_leaf(self.leaf().to_owned())
+        } else {
+            let old_child_ids: Vec<_> =
+                self.forest.read_lock().children(self.id).cloned().collect();
+
+            let new_children: Vec<_> = old_child_ids
+                .into_iter()
+                .map(|id| {
+                    let old = Tree::new(&self.forest, id);
+                    let new = old.clone();
+                    mem::forget(old); // don't delete it from the forest!
+                    new
+                })
+                .collect();
+            let data = self.data().clone();
+            self.forest.new_branch(data, new_children)
+        }
     }
 }
 
