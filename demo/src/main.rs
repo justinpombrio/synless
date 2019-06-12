@@ -8,7 +8,7 @@ use termion::event::Key;
 use editor::{make_json_lang, Ast, AstForest, CommandGroup, Doc, NotationSet, TreeCmd, TreeNavCmd};
 use frontends::{terminal, Event, Frontend, Terminal};
 use language::{LanguageName, LanguageSet};
-use pretty::{Color, ColorTheme, Pos, PrettyDocument, PrettyScreen, Style};
+use pretty::{Color, ColorTheme, Pos, PrettyDocument, PrettyScreen, Shade, Style};
 use utility::GrowOnlyMap;
 
 mod keymap;
@@ -178,10 +178,14 @@ impl Ed {
 
     fn redisplay(&mut self) -> Result<(), Error> {
         let size = self.term.update_size()?;
+
         self.doc
             .ast_ref()
             .pretty_print(size.col, &mut self.term)
             .unwrap();
+
+        let cursor_region = self.doc.ast_ref().locate_cursor::<Terminal>(size.col)?;
+        self.term.shade(cursor_region, Shade(0))?;
 
         // self.kmap_doc
         //     .ast_ref()
