@@ -1,47 +1,44 @@
 use std::collections::HashMap;
 use termion::event::Key;
 
-use crate::prog::{Prog, Thing};
+use crate::prog::{Prog, Word};
 
 pub struct Keymap<'l>(pub HashMap<Key, Prog<'l>>);
 
 impl<'l> Keymap<'l> {
     pub fn normal() -> Self {
         let map = vec![
-            (Key::Char('u'), Prog::single(Thing::Undo)),
-            (Key::Ctrl('r'), Prog::single(Thing::Redo)),
-            (Key::Right, Prog::single(Thing::Right)),
-            (Key::Left, Prog::single(Thing::Left)),
-            (Key::Up, Prog::single(Thing::Parent)),
-            (Key::Backspace, Prog::single(Thing::Remove)),
+            (Key::Char('u'), Prog::single(Word::Undo)),
+            (Key::Ctrl('r'), Prog::single(Word::Redo)),
+            (Key::Right, Prog::single(Word::Right)),
+            (Key::Left, Prog::single(Word::Left)),
+            (Key::Up, Prog::single(Word::Parent)),
+            (Key::Backspace, Prog::single(Word::Remove)),
             (
                 Key::Down,
-                Prog::named("Child", &[Thing::Usize(0), Thing::Child]),
+                Prog::named("Child", &[Word::Usize(0), Word::Child]),
             ),
             (
                 Key::Char('i'),
-                Prog::named("InsertAfter", &[Thing::SelectNode, Thing::InsertAfter]),
+                Prog::named("InsertAfter", &[Word::SelectNode, Word::InsertAfter]),
             ),
             (
                 Key::Char('o'),
-                Prog::named(
-                    "InsertPostpend",
-                    &[Thing::SelectNode, Thing::InsertPostpend],
-                ),
+                Prog::named("InsertPostpend", &[Word::SelectNode, Word::InsertPostpend]),
             ),
             (
                 Key::Char('r'),
-                Prog::named("Replace", &[Thing::SelectNode, Thing::Replace]),
+                Prog::named("Replace", &[Word::SelectNode, Word::Replace]),
             ),
             (
                 Key::Char(' '),
                 Prog::named(
                     "SpeedMode",
                     &[
-                        Thing::Message("entering speed-bool mode!".into()),
-                        Thing::Echo,
-                        Thing::MapName("space".into()),
-                        Thing::PushMap,
+                        Word::Message("entering speed-bool mode!".into()),
+                        Word::Echo,
+                        Word::MapName("space".into()),
+                        Word::PushMap,
                     ],
                 ),
             ),
@@ -59,9 +56,9 @@ impl<'l> Keymap<'l> {
                 Prog::named(
                     "True",
                     &[
-                        Thing::NodeName("true".into()),
-                        Thing::NodeByName,
-                        Thing::InsertAfter,
+                        Word::NodeName("true".into()),
+                        Word::NodeByName,
+                        Word::InsertAfter,
                     ],
                 ),
             ),
@@ -70,9 +67,9 @@ impl<'l> Keymap<'l> {
                 Prog::named(
                     "False",
                     &[
-                        Thing::NodeName("false".into()),
-                        Thing::NodeByName,
-                        Thing::InsertAfter,
+                        Word::NodeName("false".into()),
+                        Word::NodeByName,
+                        Word::InsertAfter,
                     ],
                 ),
             ),
@@ -81,9 +78,9 @@ impl<'l> Keymap<'l> {
                 Prog::named(
                     "Exit",
                     &[
-                        Thing::Message("leaving speed-bool mode!".into()),
-                        Thing::Echo,
-                        Thing::PopMap,
+                        Word::Message("leaving speed-bool mode!".into()),
+                        Word::Echo,
+                        Word::PopMap,
                     ],
                 ),
             ),

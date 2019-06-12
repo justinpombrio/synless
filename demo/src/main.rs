@@ -17,7 +17,7 @@ mod prog;
 
 use keymap::Keymap;
 use keymap_lang::make_keymap_lang;
-use prog::{Prog, Thing};
+use prog::{Prog, Word};
 
 lazy_static! {
     pub static ref LANG_SET: LanguageSet = make_json_lang().0;
@@ -60,7 +60,7 @@ struct Ed {
     forest: AstForest<'static>,
     term: Terminal,
     messages: Vec<String>,
-    stack: Vec<Thing<'static>>,
+    stack: Vec<Word<'static>>,
     keymaps: HashMap<String, Keymap<'static>>,
     keymap_stack: Vec<String>,
     kmap_doc: Doc<'static>,
@@ -196,8 +196,8 @@ impl Ed {
             Some(Ok(Event::KeyEvent(key))) => {
                 let prog = self.lookup_key(key);
                 if let Some(prog) = prog {
-                    for thing in prog.words {
-                        self.push(thing);
+                    for word in prog.words {
+                        self.push(word);
                     }
                 } else {
                     self.msg(&format!("unknown key: {:?}", key));
@@ -220,7 +220,7 @@ impl Ed {
     }
 
     fn pop_tree(&mut self) -> Ast<'static> {
-        if let Some(Thing::Tree(tree)) = self.stack.pop() {
+        if let Some(Word::Tree(tree)) = self.stack.pop() {
             tree
         } else {
             panic!("expected tree on stack")
@@ -228,7 +228,7 @@ impl Ed {
     }
 
     fn pop_usize(&mut self) -> usize {
-        if let Some(Thing::Usize(num)) = self.stack.pop() {
+        if let Some(Word::Usize(num)) = self.stack.pop() {
             num
         } else {
             panic!("expected usize on stack")
@@ -236,7 +236,7 @@ impl Ed {
     }
 
     fn pop_map_name(&mut self) -> String {
-        if let Some(Thing::MapName(s)) = self.stack.pop() {
+        if let Some(Word::MapName(s)) = self.stack.pop() {
             s
         } else {
             panic!("expected map name on stack")
@@ -244,7 +244,7 @@ impl Ed {
     }
 
     fn pop_node_name(&mut self) -> String {
-        if let Some(Thing::NodeName(s)) = self.stack.pop() {
+        if let Some(Word::NodeName(s)) = self.stack.pop() {
             s
         } else {
             panic!("expected node name on stack")
@@ -252,72 +252,72 @@ impl Ed {
     }
 
     fn pop_message(&mut self) -> String {
-        if let Some(Thing::Message(s)) = self.stack.pop() {
+        if let Some(Word::Message(s)) = self.stack.pop() {
             s
         } else {
             panic!("expected message on stack")
         }
     }
 
-    fn push(&mut self, thing: Thing<'static>) {
-        match thing {
-            Thing::Tree(..) => self.stack.push(thing),
-            Thing::Usize(..) => self.stack.push(thing),
-            Thing::MapName(..) => self.stack.push(thing),
-            Thing::NodeName(..) => self.stack.push(thing),
-            Thing::Message(..) => self.stack.push(thing),
-            Thing::Echo => {
+    fn push(&mut self, word: Word<'static>) {
+        match word {
+            Word::Tree(..) => self.stack.push(word),
+            Word::Usize(..) => self.stack.push(word),
+            Word::MapName(..) => self.stack.push(word),
+            Word::NodeName(..) => self.stack.push(word),
+            Word::Message(..) => self.stack.push(word),
+            Word::Echo => {
                 let message = self.pop_message();
                 self.msg(&message);
             }
-            Thing::SelectNode => {
+            Word::SelectNode => {
                 let node = self.handle_node_selection().unwrap();
-                self.push(Thing::Tree(node));
+                self.push(Word::Tree(node));
             }
-            Thing::NodeByName => {
+            Word::NodeByName => {
                 let name = self.pop_node_name();
                 let node = self.node_by_name(&name);
-                self.push(Thing::Tree(node));
+                self.push(Word::Tree(node));
             }
-            Thing::PushMap => {
+            Word::PushMap => {
                 let name = self.pop_map_name();
                 self.keymap_stack.push(name);
                 self.msg(&self.active_keymap().summary());
             }
-            Thing::PopMap => {
+            Word::PopMap => {
                 self.keymap_stack.pop();
                 self.msg(&self.active_keymap().summary());
             }
-            Thing::Remove => self.exec(TreeCmd::Remove),
-            Thing::InsertAfter => {
+            Word::Remove => self.exec(TreeCmd::Remove),
+            Word::InsertAfter => {
                 let tree = self.pop_tree();
                 self.exec(TreeCmd::InsertAfter(tree));
             }
-            Thing::InsertBefore => {
+            Word::InsertBefore => {
                 let tree = self.pop_tree();
                 self.exec(TreeCmd::InsertBefore(tree));
             }
-            Thing::InsertPrepend => {
+            Word::InsertPrepend => {
                 let tree = self.pop_tree();
                 self.exec(TreeCmd::InsertPrepend(tree));
             }
-            Thing::InsertPostpend => {
+            Word::InsertPostpend => {
                 let tree = self.pop_tree();
                 self.exec(TreeCmd::InsertPostpend(tree));
             }
-            Thing::Replace => {
+            Word::Replace => {
                 let tree = self.pop_tree();
                 self.exec(TreeCmd::Replace(tree));
             }
-            Thing::Left => self.exec(TreeNavCmd::Left),
-            Thing::Right => self.exec(TreeNavCmd::Right),
-            Thing::Parent => self.exec(TreeNavCmd::Parent),
-            Thing::Child => {
+            Word::Left => self.exec(TreeNavCmd::Left),
+            Word::Right => self.exec(TreeNavCmd::Right),
+            Word::Parent => self.exec(TreeNavCmd::Parent),
+            Word::Child => {
                 let index = self.pop_usize();
                 self.exec(TreeNavCmd::Child(index));
             }
-            Thing::Undo => self.exec(CommandGroup::Undo),
-            Thing::Redo => self.exec(CommandGroup::Redo),
+            Word::Undo => self.exec(CommandGroup::Undo),
+            Word::Redo => self.exec(CommandGroup::Redo),
         }
     }
 
