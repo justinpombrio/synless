@@ -8,6 +8,8 @@ pub struct Prog<'l> {
     pub name: Option<String>,
 }
 
+pub struct Stack<'l>(Vec<Word<'l>>);
+
 #[allow(dead_code)]
 #[derive(Clone)]
 pub enum Word<'l> {
@@ -53,6 +55,56 @@ impl<'l> Prog<'l> {
         Prog {
             words: words.into(),
             name: Some(name.to_owned()),
+        }
+    }
+}
+
+impl<'l> Stack<'l> {
+    pub fn new() -> Self {
+        Stack(Vec::new())
+    }
+
+    pub fn push(&mut self, word: Word<'l>) {
+        self.0.push(word);
+    }
+
+    pub fn pop_tree(&mut self) -> Ast<'l> {
+        if let Some(Word::Tree(tree)) = self.0.pop() {
+            tree
+        } else {
+            panic!("expected tree on stack")
+        }
+    }
+
+    pub fn pop_usize(&mut self) -> usize {
+        if let Some(Word::Usize(num)) = self.0.pop() {
+            num
+        } else {
+            panic!("expected usize on stack")
+        }
+    }
+
+    pub fn pop_map_name(&mut self) -> String {
+        if let Some(Word::MapName(s)) = self.0.pop() {
+            s
+        } else {
+            panic!("expected map name on stack")
+        }
+    }
+
+    pub fn pop_node_name(&mut self) -> String {
+        if let Some(Word::NodeName(s)) = self.0.pop() {
+            s
+        } else {
+            panic!("expected node name on stack")
+        }
+    }
+
+    pub fn pop_message(&mut self) -> String {
+        if let Some(Word::Message(s)) = self.0.pop() {
+            s
+        } else {
+            panic!("expected message on stack")
         }
     }
 }

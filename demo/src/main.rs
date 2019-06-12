@@ -17,7 +17,7 @@ mod prog;
 
 use keymap::Keymap;
 use keymap_lang::make_keymap_lang;
-use prog::{Prog, Word};
+use prog::{Prog, Stack, Word};
 
 lazy_static! {
     pub static ref LANG_SET: LanguageSet = make_json_lang().0;
@@ -60,7 +60,7 @@ struct Ed {
     forest: AstForest<'static>,
     term: Terminal,
     messages: Vec<String>,
-    stack: Vec<Word<'static>>,
+    stack: Stack<'static>,
     keymaps: HashMap<String, Keymap<'static>>,
     keymap_stack: Vec<String>,
     kmap_doc: Doc<'static>,
@@ -92,7 +92,7 @@ impl Ed {
             forest,
             term: Terminal::new(ColorTheme::default_dark())?,
             messages: Vec::new(),
-            stack: Vec::new(),
+            stack: Stack::new(),
             keymaps: maps,
             keymap_stack: vec!["normal".to_string()],
             kmap_doc,
@@ -219,46 +219,6 @@ impl Ed {
         }
     }
 
-    fn pop_tree(&mut self) -> Ast<'static> {
-        if let Some(Word::Tree(tree)) = self.stack.pop() {
-            tree
-        } else {
-            panic!("expected tree on stack")
-        }
-    }
-
-    fn pop_usize(&mut self) -> usize {
-        if let Some(Word::Usize(num)) = self.stack.pop() {
-            num
-        } else {
-            panic!("expected usize on stack")
-        }
-    }
-
-    fn pop_map_name(&mut self) -> String {
-        if let Some(Word::MapName(s)) = self.stack.pop() {
-            s
-        } else {
-            panic!("expected map name on stack")
-        }
-    }
-
-    fn pop_node_name(&mut self) -> String {
-        if let Some(Word::NodeName(s)) = self.stack.pop() {
-            s
-        } else {
-            panic!("expected node name on stack")
-        }
-    }
-
-    fn pop_message(&mut self) -> String {
-        if let Some(Word::Message(s)) = self.stack.pop() {
-            s
-        } else {
-            panic!("expected message on stack")
-        }
-    }
-
     fn push(&mut self, word: Word<'static>) {
         match word {
             Word::Tree(..) => self.stack.push(word),
@@ -267,7 +227,7 @@ impl Ed {
             Word::NodeName(..) => self.stack.push(word),
             Word::Message(..) => self.stack.push(word),
             Word::Echo => {
-                let message = self.pop_message();
+                let message = self.stack.pop_message();
                 self.msg(&message);
             }
             Word::SelectNode => {
@@ -275,12 +235,12 @@ impl Ed {
                 self.push(Word::Tree(node));
             }
             Word::NodeByName => {
-                let name = self.pop_node_name();
+                let name = self.stack.pop_node_name();
                 let node = self.node_by_name(&name);
                 self.push(Word::Tree(node));
             }
             Word::PushMap => {
-                let name = self.pop_map_name();
+                let name = self.stack.pop_map_name();
                 self.keymap_stack.push(name);
                 self.msg(&self.active_keymap().summary());
             }
@@ -290,30 +250,30 @@ impl Ed {
             }
             Word::Remove => self.exec(TreeCmd::Remove),
             Word::InsertAfter => {
-                let tree = self.pop_tree();
+                let tree = self.stack.pop_tree();
                 self.exec(TreeCmd::InsertAfter(tree));
             }
             Word::InsertBefore => {
-                let tree = self.pop_tree();
+                let tree = self.stack.pop_tree();
                 self.exec(TreeCmd::InsertBefore(tree));
             }
             Word::InsertPrepend => {
-                let tree = self.pop_tree();
+                let tree = self.stack.pop_tree();
                 self.exec(TreeCmd::InsertPrepend(tree));
             }
             Word::InsertPostpend => {
-                let tree = self.pop_tree();
+                let tree = self.stack.pop_tree();
                 self.exec(TreeCmd::InsertPostpend(tree));
             }
             Word::Replace => {
-                let tree = self.pop_tree();
+                let tree = self.stack.pop_tree();
                 self.exec(TreeCmd::Replace(tree));
             }
             Word::Left => self.exec(TreeNavCmd::Left),
             Word::Right => self.exec(TreeNavCmd::Right),
             Word::Parent => self.exec(TreeNavCmd::Parent),
             Word::Child => {
-                let index = self.pop_usize();
+                let index = self.stack.pop_usize();
                 self.exec(TreeNavCmd::Child(index));
             }
             Word::Undo => self.exec(CommandGroup::Undo),
