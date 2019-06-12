@@ -116,7 +116,7 @@ impl<'l> Keymap<'l> {
             let prog_name = if let Some(ref name) = prog.name {
                 name.to_string()
             } else if prog.words.len() == 1 {
-                format!("{}", prog.words[0])
+                format!("{:?}", prog.words[0])
             } else {
                 "...".into()
             };

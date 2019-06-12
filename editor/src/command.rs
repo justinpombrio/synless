@@ -1,5 +1,3 @@
-use std::fmt;
-
 use crate::ast::Ast;
 
 #[derive(Debug)]
@@ -39,6 +37,7 @@ pub enum EditorCmd {
     PastePostpend,
 }
 
+#[derive(Debug)]
 pub enum TreeCmd<'l> {
     /// Replace the current node.
     Replace(Ast<'l>),
@@ -123,19 +122,5 @@ where
     fn from(cmd_like: T) -> CommandGroup<'l> {
         let cmd: Command = cmd_like.into();
         CommandGroup::Group(vec![cmd])
-    }
-}
-
-impl<'l> fmt::Debug for TreeCmd<'l> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let name = match self {
-            TreeCmd::InsertAfter(_) => "InsertAfter",
-            TreeCmd::InsertBefore(_) => "InsertBefore",
-            TreeCmd::InsertPrepend(_) => "InsertPrepend",
-            TreeCmd::InsertPostpend(_) => "InsertPostpend",
-            TreeCmd::Replace(_) => "Replace",
-            TreeCmd::Remove => "Remove",
-        };
-        write!(f, "TreeCmd::{}", name)
     }
 }
