@@ -33,7 +33,7 @@ impl<'l> Keymap<'l> {
         )
     }
 
-    pub fn normal() -> Self {
+    pub fn tree() -> Self {
         let map = vec![
             (Key::Char('d'), Prog::single(Word::Cut)),
             (Key::Char('y'), Prog::single(Word::Copy)),
@@ -114,13 +114,8 @@ impl<'l> Keymap<'l> {
             (
                 Key::Char(' '),
                 Prog::named(
-                    "SpeedMode",
-                    &[
-                        Word::Message("entering speed-bool mode!".into()),
-                        Word::Echo,
-                        Word::MapName("space".into()),
-                        Word::PushMap,
-                    ],
+                    "SpeedBoolMode",
+                    &[Word::MapName("speed_bool".into()), Word::PushMap],
                 ),
             ),
         ]
@@ -130,7 +125,7 @@ impl<'l> Keymap<'l> {
         Keymap(map)
     }
 
-    pub fn space() -> Self {
+    pub fn speed_bool() -> Self {
         let lang: LanguageName = "json".into();
         let map = vec![
             (
@@ -155,17 +150,7 @@ impl<'l> Keymap<'l> {
                     ],
                 ),
             ),
-            (
-                Key::Char(' '),
-                Prog::named(
-                    "Exit",
-                    &[
-                        Word::Message("leaving speed-bool mode!".into()),
-                        Word::Echo,
-                        Word::PopMap,
-                    ],
-                ),
-            ),
+            (Key::Char(' '), Prog::named("Exit", &[Word::PopMap])),
         ]
         .into_iter()
         .collect();

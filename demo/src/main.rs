@@ -88,8 +88,8 @@ impl Ed {
         // );
 
         let mut maps = HashMap::new();
-        maps.insert("normal".to_string(), Keymap::normal());
-        maps.insert("space".to_string(), Keymap::space());
+        maps.insert("tree".to_string(), Keymap::tree());
+        maps.insert("speed_bool".to_string(), Keymap::speed_bool());
         maps.insert("node".to_string(), Keymap::node(json_lang));
 
         let mut ed = Ed {
@@ -107,7 +107,7 @@ impl Ed {
             cut_stack: Vec::new(),
         };
         // Set initial keymap
-        ed.push(Word::MapName("normal".into()));
+        ed.push(Word::MapName("tree".into()));
         ed.push(Word::PushMap);
 
         // Add some json stuff to the document, as an example
@@ -150,11 +150,9 @@ impl Ed {
             row: size.row / 2,
             col: 0,
         };
-        self.term.print(
-            offset,
-            self.keymap_stack.last().expect("no active keymap"),
-            Style::reverse_color(Color::Base0B),
-        )?;
+        let map_path = self.keymap_stack.join("→");
+        self.term
+            .print(offset, &map_path, Style::reverse_color(Color::Base0B))?;
         self.term.print(
             offset + Pos { row: 1, col: 0 },
             &self.keymap_summary,
@@ -171,7 +169,7 @@ impl Ed {
                     row: size.row - (num_recent + 1) as u32,
                     col: 0,
                 },
-                "Messages:",
+                "messages:",
                 Style::reverse_color(Color::Base0C),
             )
             .is_ok();
