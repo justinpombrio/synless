@@ -299,10 +299,31 @@ impl Ed {
             Word::Undo => self.exec(CommandGroup::Undo),
             Word::Redo => self.exec(CommandGroup::Redo),
             Word::Cut => self.cut(),
+            Word::Copy => self.copy(),
             Word::PasteAfter => {
                 if let Some(tree) = self.cut_stack.pop() {
                     // TODO if the insert fails, we'll lose the tree forever...
                     self.exec(TreeCmd::InsertAfter(tree))
+                }
+            }
+            Word::PasteBefore => {
+                if let Some(tree) = self.cut_stack.pop() {
+                    self.exec(TreeCmd::InsertBefore(tree))
+                }
+            }
+            Word::PastePrepend => {
+                if let Some(tree) = self.cut_stack.pop() {
+                    self.exec(TreeCmd::InsertPrepend(tree))
+                }
+            }
+            Word::PastePostpend => {
+                if let Some(tree) = self.cut_stack.pop() {
+                    self.exec(TreeCmd::InsertPostpend(tree))
+                }
+            }
+            Word::PasteReplace => {
+                if let Some(tree) = self.cut_stack.pop() {
+                    self.exec(TreeCmd::Replace(tree))
                 }
             }
         }
@@ -314,6 +335,15 @@ impl Ed {
                 self.cut_stack.extend(asts);
             }
             Err(..) => self.msg("FAIL: couldn't cut!"),
+        }
+    }
+
+    fn copy(&mut self) {
+        match self.doc.execute(EditorCmd::Copy.into()) {
+            Ok(asts) => {
+                self.cut_stack.extend(asts);
+            }
+            Err(..) => self.msg("FAIL: couldn't copy!"),
         }
     }
 

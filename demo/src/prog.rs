@@ -10,7 +10,6 @@ pub struct Prog<'l> {
 
 pub struct Stack<'l>(Vec<Word<'l>>);
 
-#[allow(dead_code)]
 #[derive(Clone)]
 pub enum Word<'l> {
     Tree(Ast<'l>),
@@ -31,12 +30,12 @@ pub enum Word<'l> {
     Parent,
     Child,
     Cut,
-    // Copy,
-    // PasteReplace,
-    // PasteBefore,
+    Copy,
+    PasteReplace,
+    PasteBefore,
     PasteAfter,
-    // PastePrepend,
-    // PastePostpend,
+    PastePrepend,
+    PastePostpend,
     Undo,
     Redo,
     SelectNode,
@@ -146,7 +145,12 @@ impl<'l> fmt::Display for Word<'l> {
             Word::Undo => write!(f, "Undo"),
             Word::Redo => write!(f, "Redo"),
             Word::Cut => write!(f, "Cut"),
+            Word::Copy => write!(f, "Copy"),
             Word::PasteAfter => write!(f, "PasteAfter"),
+            Word::PasteBefore => write!(f, "PasteBefore"),
+            Word::PastePrepend => write!(f, "PastePrepend"),
+            Word::PastePostpend => write!(f, "PastePostpend"),
+            Word::PasteReplace => write!(f, "PasteReplace"),
         }
     }
 }

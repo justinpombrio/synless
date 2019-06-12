@@ -9,7 +9,12 @@ impl<'l> Keymap<'l> {
     pub fn normal() -> Self {
         let map = vec![
             (Key::Char('d'), Prog::single(Word::Cut)),
+            (Key::Char('y'), Prog::single(Word::Copy)),
             (Key::Char('p'), Prog::single(Word::PasteAfter)),
+            (Key::Char('P'), Prog::single(Word::PasteBefore)),
+            (Key::Ctrl('p'), Prog::single(Word::PastePrepend)),
+            (Key::Alt('p'), Prog::single(Word::PastePostpend)),
+            (Key::Char('R'), Prog::single(Word::PasteReplace)),
             (
                 Key::Char('a'),
                 Prog::named("TypeA", &[Word::Char('a'), Word::InsertChar]),
@@ -29,8 +34,16 @@ impl<'l> Keymap<'l> {
                 Prog::named("InsertAfter", &[Word::SelectNode, Word::InsertAfter]),
             ),
             (
+                Key::Char('I'),
+                Prog::named("InsertBefore", &[Word::SelectNode, Word::InsertBefore]),
+            ),
+            (
                 Key::Char('o'),
                 Prog::named("InsertPostpend", &[Word::SelectNode, Word::InsertPostpend]),
+            ),
+            (
+                Key::Char('O'),
+                Prog::named("InsertPrepend", &[Word::SelectNode, Word::InsertPrepend]),
             ),
             (
                 Key::Char('r'),
