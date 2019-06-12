@@ -1,13 +1,17 @@
 use editor::{make_json_lang, AstForest, Command, CommandGroup, Doc, TreeCmd, TreeNavCmd};
+use language::LanguageSet;
 use pretty::{PlainText, PrettyDocument};
 
 // TODO: expand this into a comprehensive test suite
 
 #[test]
 fn test_json_undo_redo() {
-    let (lang_set, note_set) = make_json_lang();
+    let (lang, note_set) = make_json_lang();
+    let name = lang.name().to_string();
+    let lang_set = LanguageSet::new();
+    lang_set.insert(name.clone(), lang);
     let forest = AstForest::new(&lang_set);
-    let lang = lang_set.get("json").unwrap();
+    let lang = lang_set.get(&name).unwrap();
 
     let mut doc = Doc::new(
         "MyTestDoc",
@@ -96,13 +100,16 @@ fn test_json_undo_redo() {
 
 #[test]
 fn test_json_string() {
-    let (lang_set, note_set) = make_json_lang();
+    let (lang, note_set) = make_json_lang();
+    let name = lang.name().to_string();
+    let lang_set = LanguageSet::new();
+    lang_set.insert(name.clone(), lang);
     let forest = AstForest::new(&lang_set);
-    let lang = lang_set.get("json").unwrap();
+    let lang = lang_set.get(&name).unwrap();
 
     let mut doc = Doc::new(
         "MyTestDoc",
-        forest.new_fixed_tree(lang, lang.lookup_construct("root"), &note_set),
+        forest.new_fixed_tree(&lang, lang.lookup_construct("root"), &note_set),
     );
 
     assert!(doc.execute(CommandGroup::Group(vec![Command::TreeNav(
