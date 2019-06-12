@@ -1,7 +1,6 @@
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::fmt::Debug;
-use std::{thread, time};
 
 use termion::event::Key;
 
@@ -31,8 +30,9 @@ lazy_static! {
 
 fn main() -> Result<(), Error> {
     let mut ed = Ed::new()?;
-    ed.run()?;
+    let err = ed.run();
     drop(ed);
+    println!("Error: {:?}", err);
     println!("Exited alternate screen. Your cursor should be visible again.");
     Ok(())
 }
@@ -107,41 +107,30 @@ impl Ed {
             cut_stack: Vec::new(),
         };
         // Set initial keymap
-        ed.push(Word::MapName("tree".into()));
-        ed.push(Word::PushMap);
+        ed.push(Word::MapName("tree".into()))?;
+        ed.push(Word::PushMap)?;
 
-        // Add some json stuff to the document, as an example
-        ed.exec(TreeNavCmd::Child(0));
-        ed.exec(TreeCmd::Replace(ed.node_by_name("list", &ed.lang_name)));
-        ed.exec(TreeCmd::InsertPrepend(
-            ed.node_by_name("true", &ed.lang_name),
-        ));
+        // Add an empty list to the document
+        ed.push(Word::Usize(0))?;
+        ed.push(Word::Child)?;
+        ed.push(Word::LangConstruct(ed.lang_name.clone(), "list".into()))?;
+        ed.push(Word::NodeByName)?;
+        ed.push(Word::Replace)?;
 
-        // ed.exec_kmap(TreeNavCmd::Child(0));
-        // ed.exec_kmap(TreeCmd::Replace(
-        //     ed.node_by_name("dict", &ed.keymap_lang_name),
-        // ));
-        // ed.exec_kmap(TreeCmd::InsertPrepend(
-        //     ed.node_by_name("entry", &ed.keymap_lang_name),
-        // ));
         ed.messages.clear();
-
         Ok(ed)
     }
 
     fn run(&mut self) -> Result<(), Error> {
         loop {
             self.redisplay()?;
-            if !self.handle_event()? {
-                break;
-            }
+            self.handle_event()?;
         }
-        Ok(())
     }
 
-    fn msg(&mut self, msg: &str) {
+    fn msg(&mut self, msg: &str) -> Result<(), Error> {
         self.messages.push(msg.to_owned());
-        self.redisplay().unwrap();
+        self.redisplay()
     }
 
     fn print_keymap_summary(&mut self) -> Result<(), Error> {
@@ -197,7 +186,7 @@ impl Ed {
         self.doc
             .ast_ref()
             .pretty_print(size.col, &mut self.term)
-            .unwrap();
+            .expect("failed to pretty-print document");
 
         let cursor_region = self.doc.ast_ref().locate_cursor::<Terminal>(size.col)?;
         self.term.shade(cursor_region, Shade(0))?;
@@ -213,52 +202,49 @@ impl Ed {
         Ok(())
     }
 
-    fn active_keymap(&self) -> &Keymap<'static> {
-        let name = self.keymap_stack.last().expect("no active keymap");
-        self.keymaps.get(name).expect("unknown keymap name")
+    fn active_keymap(&self) -> Result<&Keymap<'static>, Error> {
+        let name = self.keymap_stack.last().ok_or(Error::NoKeymap)?;
+        self.keymaps
+            .get(name)
+            .ok_or_else(|| Error::UnknownKeymap(name.to_owned()))
     }
 
-    fn update_keymap_summary(&mut self) {
-        self.keymap_summary = self.active_keymap().summary();
+    fn update_keymap_summary(&mut self) -> Result<(), Error> {
+        Ok(self.keymap_summary = self.active_keymap()?.summary())
     }
 
-    fn lookup_key(&self, key: Key) -> Option<Prog<'static>> {
-        self.active_keymap().0.get(&key).cloned()
+    fn lookup_key(&self, key: Key) -> Result<Prog<'static>, Error> {
+        self.active_keymap()?
+            .0
+            .get(&key)
+            .cloned()
+            .ok_or(Error::UnknownKey(key))
     }
 
-    fn handle_event(&mut self) -> Result<bool, Error> {
-        match self.term.next_event() {
-            Some(Ok(Event::KeyEvent(Key::Char('q')))) => {
-                self.msg("Quitting, goodbye!");
-                thread::sleep(time::Duration::from_secs(1));
-                return Ok(false);
-            }
-            Some(Ok(Event::KeyEvent(Key::Ctrl('c')))) => {
-                return Ok(false);
-            }
-            Some(Err(err)) => {
-                self.msg(&format!("got error: {:?}", err));
-            }
-            Some(Ok(Event::KeyEvent(key))) => {
-                let prog = self.lookup_key(key);
-                if let Some(prog) = prog {
-                    for word in prog.words {
-                        self.push(word);
-                    }
-                } else {
-                    self.msg(&format!("unknown key: {:?}", key));
-                }
-            }
-
-            _ => {
-                self.msg(&format!("unexpected event, or no event"));
-            }
+    fn handle_key(&mut self, key: Key) -> Result<(), Error> {
+        let prog = self.lookup_key(key)?;
+        for word in prog.words {
+            self.push(word)?;
         }
-        Ok(true)
+        Ok(())
     }
 
-    fn push(&mut self, word: Word<'static>) {
-        match word {
+    fn handle_event(&mut self) -> Result<(), Error> {
+        match self.term.next_event() {
+            Some(Ok(Event::KeyEvent(Key::Ctrl('c')))) => Err(Error::KeyboardInterrupt),
+            Some(Ok(Event::KeyEvent(key))) => {
+                if let Err(err) = self.handle_key(key) {
+                    self.msg(&format!("Error: {:?}", err))?;
+                }
+                Ok(())
+            }
+            Some(Err(err)) => Err(err.into()),
+            _ => Err(Error::UnknownEvent),
+        }
+    }
+
+    fn push(&mut self, word: Word<'static>) -> Result<(), Error> {
+        Ok(match word {
             Word::Tree(..) => self.stack.push(word),
             Word::Usize(..) => self.stack.push(word),
             Word::MapName(..) => self.stack.push(word),
@@ -267,142 +253,139 @@ impl Ed {
             Word::Char(..) => self.stack.push(word),
             Word::Quote(..) => self.stack.push(word),
             Word::Apply => {
-                let word = self.stack.pop_quote();
-                self.push(word);
+                let word = self.stack.pop_quote()?;
+                self.push(word)?;
             }
             Word::Swap => {
-                self.stack.swap();
+                self.stack.swap()?;
             }
             Word::Pop => {
-                self.stack.pop();
+                self.stack.pop()?;
             }
             Word::Echo => {
-                let message = self.stack.pop_message();
-                self.msg(&message);
+                let message = self.stack.pop_message()?;
+                self.msg(&message)?;
             }
             Word::NodeByName => {
-                let (lang_name, construct_name) = self.stack.pop_lang_construct();
-                let node = self.node_by_name(&construct_name, &lang_name);
-                self.push(Word::Tree(node));
+                let (lang_name, construct_name) = self.stack.pop_lang_construct()?;
+                let node = self.node_by_name(&construct_name, &lang_name)?;
+                self.push(Word::Tree(node))?;
             }
             Word::PushMap => {
-                let name = self.stack.pop_map_name();
+                let name = self.stack.pop_map_name()?;
                 self.keymap_stack.push(name);
-                self.update_keymap_summary();
+                self.update_keymap_summary()?;
             }
             Word::PopMap => {
                 self.keymap_stack.pop();
-                self.update_keymap_summary();
+                self.update_keymap_summary()?;
             }
-            Word::Remove => self.exec(TreeCmd::Remove),
+            Word::Remove => self.exec(TreeCmd::Remove)?,
             Word::InsertChar => {
-                let ch = self.stack.pop_char();
-                self.exec(TextCmd::InsertChar(ch));
+                let ch = self.stack.pop_char()?;
+                self.exec(TextCmd::InsertChar(ch))?;
             }
             Word::InsertAfter => {
-                let tree = self.stack.pop_tree();
-                self.exec(TreeCmd::InsertAfter(tree));
+                let tree = self.stack.pop_tree()?;
+                self.exec(TreeCmd::InsertAfter(tree))?;
             }
             Word::InsertBefore => {
-                let tree = self.stack.pop_tree();
-                self.exec(TreeCmd::InsertBefore(tree));
+                let tree = self.stack.pop_tree()?;
+                self.exec(TreeCmd::InsertBefore(tree))?;
             }
             Word::InsertPrepend => {
-                let tree = self.stack.pop_tree();
-                self.exec(TreeCmd::InsertPrepend(tree));
+                let tree = self.stack.pop_tree()?;
+                self.exec(TreeCmd::InsertPrepend(tree))?;
             }
             Word::InsertPostpend => {
-                let tree = self.stack.pop_tree();
-                self.exec(TreeCmd::InsertPostpend(tree));
+                let tree = self.stack.pop_tree()?;
+                self.exec(TreeCmd::InsertPostpend(tree))?;
             }
             Word::Replace => {
-                let tree = self.stack.pop_tree();
-                self.exec(TreeCmd::Replace(tree));
+                let tree = self.stack.pop_tree()?;
+                self.exec(TreeCmd::Replace(tree))?;
             }
-            Word::Left => self.exec(TreeNavCmd::Left),
-            Word::Right => self.exec(TreeNavCmd::Right),
-            Word::Parent => self.exec(TreeNavCmd::Parent),
+            Word::Left => self.exec(TreeNavCmd::Left)?,
+            Word::Right => self.exec(TreeNavCmd::Right)?,
+            Word::Parent => self.exec(TreeNavCmd::Parent)?,
             Word::Child => {
-                let index = self.stack.pop_usize();
-                self.exec(TreeNavCmd::Child(index));
+                let index = self.stack.pop_usize()?;
+                self.exec(TreeNavCmd::Child(index))?;
             }
-            Word::Undo => self.exec(CommandGroup::Undo),
-            Word::Redo => self.exec(CommandGroup::Redo),
-            Word::Cut => self.cut(),
-            Word::Copy => self.copy(),
+            Word::Undo => self.exec(CommandGroup::Undo)?,
+            Word::Redo => self.exec(CommandGroup::Redo)?,
+            Word::Cut => {
+                let asts = self.exec_return(EditorCmd::Cut)?;
+                self.cut_stack.extend(asts)
+            }
+            Word::Copy => {
+                let asts = self.exec_return(EditorCmd::Copy)?;
+                self.cut_stack.extend(asts)
+            }
             Word::PasteAfter => {
                 if let Some(tree) = self.cut_stack.pop() {
                     // TODO if the insert fails, we'll lose the tree forever...
-                    self.exec(TreeCmd::InsertAfter(tree))
+                    self.exec(TreeCmd::InsertAfter(tree))?
                 }
             }
             Word::PasteBefore => {
                 if let Some(tree) = self.cut_stack.pop() {
-                    self.exec(TreeCmd::InsertBefore(tree))
+                    self.exec(TreeCmd::InsertBefore(tree))?
                 }
             }
             Word::PastePrepend => {
                 if let Some(tree) = self.cut_stack.pop() {
-                    self.exec(TreeCmd::InsertPrepend(tree))
+                    self.exec(TreeCmd::InsertPrepend(tree))?
                 }
             }
             Word::PastePostpend => {
                 if let Some(tree) = self.cut_stack.pop() {
-                    self.exec(TreeCmd::InsertPostpend(tree))
+                    self.exec(TreeCmd::InsertPostpend(tree))?
                 }
             }
             Word::PasteReplace => {
                 if let Some(tree) = self.cut_stack.pop() {
-                    self.exec(TreeCmd::Replace(tree))
+                    self.exec(TreeCmd::Replace(tree))?
                 }
             }
-        }
+        })
     }
 
-    fn cut(&mut self) {
-        match self.doc.execute(EditorCmd::Cut.into()) {
-            Ok(asts) => {
-                self.cut_stack.extend(asts);
-            }
-            Err(..) => self.msg("FAIL: couldn't cut!"),
-        }
-    }
-
-    fn copy(&mut self) {
-        match self.doc.execute(EditorCmd::Copy.into()) {
-            Ok(asts) => {
-                self.cut_stack.extend(asts);
-            }
-            Err(..) => self.msg("FAIL: couldn't copy!"),
-        }
-    }
-
-    fn exec<T>(&mut self, cmd: T)
+    fn exec_return<T>(&mut self, cmd: T) -> Result<Vec<Ast<'static>>, Error>
     where
         T: Debug + Into<CommandGroup<'static>>,
     {
         let name = format!("{:?}", cmd);
-        if !self.doc.execute(cmd.into()).is_ok() {
-            self.msg(&format!("FAIL: {}", name))
-        }
+        self.doc
+            .execute(cmd.into())
+            .map_err(|_| Error::DocExec(name))
     }
 
-    // fn exec_kmap<T>(&mut self, cmd: T)
-    // where
-    //     T: Debug + Into<CommandGroup<'static>>,
-    // {
-    //     let name = format!("{:?}", cmd);
-    //     if !self.kmap_doc.execute(cmd.into()).is_ok() {
-    //         self.msg(&format!("FAIL(kmap): {}", name))
-    //     }
-    // }
+    fn exec<T>(&mut self, cmd: T) -> Result<(), Error>
+    where
+        T: Debug + Into<CommandGroup<'static>>,
+    {
+        self.exec_return(cmd).map(|_asts| ())
+    }
 
-    fn node_by_name(&self, name: &str, lang_name: &LanguageName) -> Ast<'static> {
-        let name = name.to_string();
-        let lang = LANG_SET.get(lang_name).unwrap();
-        let notes = NOTE_SETS.get(lang_name).unwrap();
+    fn node_by_name(
+        &self,
+        construct_name: &str,
+        lang_name: &LanguageName,
+    ) -> Result<Ast<'static>, Error> {
+        let construct_name = construct_name.to_string();
+        let lang = LANG_SET
+            .get(lang_name)
+            .ok_or_else(|| Error::UnknownLang(lang_name.to_owned()))?;
+        let notes = NOTE_SETS
+            .get(lang_name)
+            .ok_or_else(|| Error::UnknownLang(lang_name.to_owned()))?;
+
         self.forest
-            .new_tree(lang, &name, notes)
-            .expect("unknown node name")
+            .new_tree(lang, &construct_name, notes)
+            .ok_or_else(|| Error::UnknownConstruct {
+                construct: construct_name.to_owned(),
+                lang: lang_name.to_owned(),
+            })
     }
 }

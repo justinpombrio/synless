@@ -2,6 +2,8 @@ use editor::Ast;
 
 use language::{ConstructName, LanguageName};
 
+use crate::error::Error;
+
 #[derive(Clone)]
 pub struct Prog<'l> {
     pub words: Vec<Word<'l>>,
@@ -10,6 +12,7 @@ pub struct Prog<'l> {
 
 pub struct Stack<'l>(Vec<Word<'l>>);
 
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub enum Word<'l> {
     // data:
@@ -79,70 +82,71 @@ impl<'l> Stack<'l> {
         self.0.push(word);
     }
 
-    pub fn pop(&mut self) -> Word<'l> {
-        self.0.pop().expect("Pop: no words on stack")
+    pub fn pop(&mut self) -> Result<Word<'l>, Error> {
+        self.0.pop().ok_or(Error::EmptyStack)
     }
 
-    pub fn swap(&mut self) {
-        let first = self.0.pop().expect("Swap: no words on stack");
-        let second = self.0.pop().expect("Swap: only 1 word on stack");
-        self.0.push(first);
-        self.0.push(second);
+    pub fn swap(&mut self) -> Result<(), Error> {
+        let first = self.pop()?;
+        let second = self.pop()?;
+        self.push(first);
+        self.push(second);
+        Ok(())
     }
 
-    pub fn pop_tree(&mut self) -> Ast<'l> {
-        if let Some(Word::Tree(tree)) = self.0.pop() {
-            tree
+    pub fn pop_tree(&mut self) -> Result<Ast<'l>, Error> {
+        if let Word::Tree(tree) = self.pop()? {
+            Ok(tree)
         } else {
-            panic!("expected tree on stack")
+            Err(Error::ExpectedWord("Tree".into()))
         }
     }
 
-    pub fn pop_usize(&mut self) -> usize {
-        if let Some(Word::Usize(num)) = self.0.pop() {
-            num
+    pub fn pop_usize(&mut self) -> Result<usize, Error> {
+        if let Word::Usize(num) = self.pop()? {
+            Ok(num)
         } else {
-            panic!("expected usize on stack")
+            Err(Error::ExpectedWord("Usize".into()))
         }
     }
 
-    pub fn pop_map_name(&mut self) -> String {
-        if let Some(Word::MapName(s)) = self.0.pop() {
-            s
+    pub fn pop_map_name(&mut self) -> Result<String, Error> {
+        if let Word::MapName(s) = self.pop()? {
+            Ok(s)
         } else {
-            panic!("expected map name on stack")
+            Err(Error::ExpectedWord("MapName".into()))
         }
     }
 
-    pub fn pop_lang_construct(&mut self) -> (LanguageName, ConstructName) {
-        if let Some(Word::LangConstruct(lang_name, construct_name)) = self.0.pop() {
-            (lang_name, construct_name)
+    pub fn pop_lang_construct(&mut self) -> Result<(LanguageName, ConstructName), Error> {
+        if let Word::LangConstruct(lang_name, construct_name) = self.pop()? {
+            Ok((lang_name, construct_name))
         } else {
-            panic!("expected language construct on stack")
+            Err(Error::ExpectedWord("LangConstruct".into()))
         }
     }
 
-    pub fn pop_message(&mut self) -> String {
-        if let Some(Word::Message(s)) = self.0.pop() {
-            s
+    pub fn pop_message(&mut self) -> Result<String, Error> {
+        if let Word::Message(s) = self.pop()? {
+            Ok(s)
         } else {
-            panic!("expected message on stack")
+            Err(Error::ExpectedWord("Message".into()))
         }
     }
 
-    pub fn pop_char(&mut self) -> char {
-        if let Some(Word::Char(ch)) = self.0.pop() {
-            ch
+    pub fn pop_char(&mut self) -> Result<char, Error> {
+        if let Word::Char(ch) = self.pop()? {
+            Ok(ch)
         } else {
-            panic!("expected char on stack")
+            Err(Error::ExpectedWord("Char".into()))
         }
     }
 
-    pub fn pop_quote(&mut self) -> Word<'l> {
-        if let Some(Word::Quote(word)) = self.0.pop() {
-            *word
+    pub fn pop_quote(&mut self) -> Result<Word<'l>, Error> {
+        if let Word::Quote(word) = self.pop()? {
+            Ok(*word)
         } else {
-            panic!("expected quote on stack")
+            Err(Error::ExpectedWord("Quote".into()))
         }
     }
 }

@@ -1,10 +1,24 @@
-use frontends::terminal;
 use std::io;
+use termion::event::Key;
+
+use frontends::terminal;
+use language::{ConstructName, LanguageName};
 
 #[derive(Debug)]
 pub enum Error {
-    UnknownKey(char),
+    UnknownKey(Key),
+    UnknownKeymap(String),
+    NoKeymap,
     UnknownEvent,
+    KeyboardInterrupt,
+    UnknownLang(LanguageName),
+    UnknownConstruct {
+        construct: ConstructName,
+        lang: LanguageName,
+    },
+    ExpectedWord(String),
+    EmptyStack,
+    DocExec(String),
     Io(io::Error),
     Term(terminal::Error),
 }
