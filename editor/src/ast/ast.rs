@@ -1,3 +1,4 @@
+use std::fmt;
 use std::ops::{Deref, DerefMut};
 
 use crate::text::Text;
@@ -263,6 +264,14 @@ impl<'l> Ast<'l> {
             self.tree.data_mut().bounds = Bounds::compute(&self.borrow());
         }
         self.goto_bookmark(bookmark);
+    }
+}
+
+impl<'l> fmt::Debug for Ast<'l> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // The contents of Ast are complicated, but it should implement Debug so
+        // that we can derive Debug for structs containing Asts.
+        write!(f, "Ast")
     }
 }
 
