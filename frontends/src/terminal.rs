@@ -34,6 +34,8 @@ pub struct Terminal {
 }
 
 impl Terminal {
+    // TODO make this private and call it from `start_frame()`, after adding
+    // that to the PrettyScreen trait.
     pub fn update_size(&mut self) -> Result<Pos, Error> {
         let size = self.size()?;
         if size != self.buf.size() {
