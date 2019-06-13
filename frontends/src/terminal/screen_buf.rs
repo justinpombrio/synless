@@ -62,6 +62,12 @@ pub struct ScreenBufIter<'a> {
     next_state: State,
 }
 
+enum FindDirtyResult {
+    AtEnd,
+    GotoDirty(ScreenOp),
+    AtDirty,
+}
+
 impl ScreenBuf {
     pub fn new() -> Self {
         ScreenBuf {
@@ -244,24 +250,27 @@ impl<'a> ScreenBufIter<'a> {
         self.buf.get(self.pos()).unwrap().is_dirty()
     }
 
-    fn find_dirty(&mut self) -> Option<Option<ScreenOp>> {
+    fn find_dirty(&mut self) -> FindDirtyResult {
         // Look for the next cell after this one that needs to be redisplayed.
-        self.advance()?;
+        if self.advance().is_none() {
+            return FindDirtyResult::AtEnd;
+        }
 
         let mut jumped = false;
         while !self.at_dirty_cell() {
-            self.advance()?;
+            if self.advance().is_none() {
+                return FindDirtyResult::AtEnd;
+            }
             jumped = true;
         }
 
         // Check if we need to explicitly jump the cursor to this position.
-        let op = if jumped || self.cursor_pos_unknown {
+        if jumped || self.cursor_pos_unknown {
             self.cursor_pos_unknown = false;
-            Some(ScreenOp::Goto(self.pos()))
+            FindDirtyResult::GotoDirty(ScreenOp::Goto(self.pos()))
         } else {
-            None
-        };
-        Some(op)
+            FindDirtyResult::AtDirty
+        }
     }
 
     fn check_style(&mut self) -> Option<ScreenOp> {
@@ -296,11 +305,11 @@ impl<'a> Iterator for ScreenBufIter<'a> {
                 State::FindDirty => {
                     self.next_state = State::CheckStyle;
                     match self.find_dirty() {
-                        Some(Some(op)) => {
+                        FindDirtyResult::GotoDirty(op) => {
                             return Some(op);
                         }
-                        Some(None) => (), // No Goto op needed, continue to next state
-                        None => {
+                        FindDirtyResult::AtDirty => (), // No Goto op needed, continue to next state
+                        FindDirtyResult::AtEnd => {
                             // Done! Reached the end of the buffer.
                             return None;
                         }
