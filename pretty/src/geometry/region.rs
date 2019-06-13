@@ -143,14 +143,14 @@ impl Region {
         self.bound.is_rectangular()
     }
 
-    pub fn body(&self) -> Rect {
+    fn body(&self) -> Rect {
         Rect {
             cols: Range(self.pos.col, self.pos.col + self.bound.width),
             rows: Range(self.pos.row, self.pos.row + self.bound.height - 1),
         }
     }
 
-    pub fn last_line(&self) -> Rect {
+    fn last_line(&self) -> Rect {
         // There should probably never be a region with height 0, since even empty regions have
         // height 1. If there was, this method would return a very wrong row range.
         assert!(self.bound.height != 0);
