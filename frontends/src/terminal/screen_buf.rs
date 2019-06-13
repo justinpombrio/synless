@@ -54,11 +54,15 @@ pub struct ScreenBufIter<'a> {
     buf: &'a mut ScreenBuf,
     /// The last style applied to the screen. It will persist until a new style is applied.
     current_style: Option<Style>,
-    /// If we haven't ever explicitly set the cursor position yet, consider it unknown.
-    cursor_pos_unknown: bool,
-    /// Which cell the iterator is considering
+    /// On the very first iteration, we don't know where the terminal cursor is
+    /// yet. We have to set it after we find the first dirty character cell,
+    /// before printing the character.
+    on_first_iteration: bool,
+    /// Which cell the iterator is considering (NOT the position of the
+    /// terminal's cursor). None means the iterator has just been constructed
+    /// and is pointing to immediately before the first cell of the ScreenBuf.
     pos: Option<Pos>,
-    /// Which action the iterator should do next
+    /// Which action the iterator should do next.
     next_state: State,
 }
 
@@ -82,7 +86,7 @@ impl ScreenBuf {
             buf: self,
             current_style: None,
             pos: None,
-            cursor_pos_unknown: true,
+            on_first_iteration: true,
             next_state: State::FindDirty,
         }
     }
@@ -238,8 +242,9 @@ impl<'a> ScreenBufIter<'a> {
     }
 
     fn pos(&self) -> Pos {
+        // If pos is None, the iterator is still _before_ the first cell, and not _at_ any cell.
         self.pos
-            .expect("position not defined until you advance() to the first cell")
+            .expect("position not defined until advance() is called")
     }
 
     fn cell(&self) -> CharCell {
@@ -265,8 +270,8 @@ impl<'a> ScreenBufIter<'a> {
         }
 
         // Check if we need to explicitly jump the cursor to this position.
-        if jumped || self.cursor_pos_unknown {
-            self.cursor_pos_unknown = false;
+        if jumped || self.on_first_iteration {
+            self.on_first_iteration = false;
             FindDirtyResult::GotoDirty(ScreenOp::Goto(self.pos()))
         } else {
             FindDirtyResult::AtDirty
@@ -283,7 +288,7 @@ impl<'a> ScreenBufIter<'a> {
 
         if style_changed {
             self.current_style = Some(style);
-            assert!(!self.cursor_pos_unknown);
+            assert!(!self.on_first_iteration);
             Some(ScreenOp::Apply(style))
         } else {
             None
@@ -292,7 +297,7 @@ impl<'a> ScreenBufIter<'a> {
 
     fn print_char(&mut self) -> ScreenOp {
         // Finally, print the character itself
-        assert!(!self.cursor_pos_unknown);
+        assert!(!self.on_first_iteration);
         ScreenOp::Print(self.cell().ch)
     }
 }
