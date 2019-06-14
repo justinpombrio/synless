@@ -35,6 +35,17 @@ impl Rect {
             (_, _) => None,
         }
     }
+
+    /// Return an iterator over every position within this rectangle.
+    pub fn positions(&self) -> impl Iterator<Item = Pos> {
+        let mut v = Vec::new();
+        for r in self.rows {
+            for c in self.cols {
+                v.push(Pos { row: r, col: c });
+            }
+        }
+        v.into_iter()
+    }
 }
 
 impl fmt::Display for Rect {
@@ -145,5 +156,23 @@ mod tests {
         assert_eq!(SQUARE.covers(RECT), false);
         assert_eq!(SQUARE.covers(BIG), false);
         assert_eq!(SQUARE.covers(TINY), false);
+    }
+
+    #[test]
+    fn test_rect_pos_iter() {
+        let positions: Vec<_> = RECT.positions().map(|pos| (pos.row, pos.col)).collect();
+        assert_eq!(
+            positions,
+            vec![
+                (2, 1),
+                (2, 2),
+                (2, 3),
+                (2, 4),
+                (3, 1),
+                (3, 2),
+                (3, 3),
+                (3, 4),
+            ]
+        );
     }
 }

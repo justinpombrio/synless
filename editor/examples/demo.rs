@@ -122,8 +122,7 @@ impl Ed {
     }
 
     fn redisplay(&mut self) -> Result<(), Error> {
-        self.term.clear()?;
-        let size = self.term.size()?;
+        let size = self.term.update_size()?;
         self.doc
             .ast_ref()
             .pretty_print(size.col, &mut self.term)
@@ -193,13 +192,13 @@ impl Ed {
         let name = name.to_owned();
         let lang = LANG_SET.get(&self.lang_name).unwrap();
         self.forest
-            .new_tree_by_name(lang, &name, &NOTE_SET)
+            .new_tree(lang, &name, &NOTE_SET)
             .expect("unknown node name")
     }
 
     fn node_by_key(&self, key: char) -> Option<Ast<'static>> {
         let lang = LANG_SET.get(&self.lang_name).unwrap();
         let name = lang.lookup_key(key)?;
-        self.forest.new_tree_by_name(lang, &name, &NOTE_SET)
+        self.forest.new_tree(lang, &name, &NOTE_SET)
     }
 }
