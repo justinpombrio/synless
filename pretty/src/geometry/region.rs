@@ -44,6 +44,13 @@ impl Add<Pos> for Region {
 }
 
 impl Region {
+    pub fn new_rectangle(pos: Pos, size: Pos) -> Region {
+        Region {
+            pos,
+            bound: Bound::new_rectangle(size.row, size.col),
+        }
+    }
+
     /// The empty region at a particular location.
     pub fn empty_region(pos: Pos) -> Region {
         Region {
@@ -298,6 +305,10 @@ mod tests {
             bound: Bound::new_rectangle(4, 5),
         };
         assert!(c.is_rectangular());
+
+        let d = Region::new_rectangle(Pos::zero(), Pos { row: 4, col: 5 });
+        assert!(d.is_rectangular());
+        assert_eq!(c, d);
     }
 
     #[test]
