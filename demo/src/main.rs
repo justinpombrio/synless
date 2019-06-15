@@ -135,14 +135,15 @@ impl Ed {
 
     fn print_keymap_summary(&mut self) -> Result<(), Error> {
         let size = self.term.size()?;
+
+        let mut screen = self.term.screen()?;
         let offset = Pos {
             row: size.row / 2,
             col: 0,
         };
         let map_path = self.keymap_stack.join("→");
-        self.term
-            .print(offset, &map_path, Style::reverse_color(Color::Base0B))?;
-        self.term.print(
+        screen.print(offset, &map_path, Style::reverse_color(Color::Base0B))?;
+        screen.print(
             offset + Pos { row: 1, col: 0 },
             &self.keymap_summary,
             Style::color(Color::Base0B),
@@ -152,7 +153,8 @@ impl Ed {
 
     fn print_messages(&mut self, num_recent: usize) -> Result<(), Error> {
         let size = self.term.size()?;
-        self.term
+        let mut screen = self.term.screen()?;
+        screen
             .print(
                 Pos {
                     row: size.row - (num_recent + 1) as u32,
@@ -168,7 +170,7 @@ impl Ed {
                 row: size.row - (num_recent - i) as u32,
                 col: 0,
             };
-            let result = self.term.print(pos, msg, Style::color(Color::Base0C));
+            let result = screen.print(pos, msg, Style::color(Color::Base0C));
 
             // For this demo, just ignore out of bounds errors. The real editor
             // shouldn't ever try to print out of bounds.
@@ -181,24 +183,25 @@ impl Ed {
     }
 
     fn redisplay(&mut self) -> Result<(), Error> {
-        let size = self.term.update_size()?;
-
+        self.term.start_frame()?;
+        let size = self.term.size()?;
+        let mut screen = self.term.screen()?;
         self.doc
             .ast_ref()
-            .pretty_print(size.col, &mut self.term)
+            .pretty_print(size.col, &mut screen)
             .expect("failed to pretty-print document");
 
-        let cursor_region = self.doc.ast_ref().locate_cursor::<Terminal>(size.col)?;
-        self.term.shade(cursor_region, Shade(0))?;
+        let cursor_region = self.doc.ast_ref().locate_cursor(size.col);
+        screen.shade(cursor_region, Shade(0))?;
 
         // self.kmap_doc
         //     .ast_ref()
-        //     .pretty_print(size.col, &mut self.term)
+        //     .pretty_print(size.col, &mut screen)
         //     .unwrap();
 
         self.print_messages(5)?;
         self.print_keymap_summary()?;
-        self.term.show()?;
+        self.term.show_frame()?;
         Ok(())
     }
 

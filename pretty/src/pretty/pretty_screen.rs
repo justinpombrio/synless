@@ -20,7 +20,4 @@ pub trait PrettyScreen {
     /// cursor position while in text mode. It should behave the same way as
     /// `.shade` would with a small Region that included just `pos`.
     fn highlight(&mut self, pos: Pos, style: Style) -> Result<(), Self::Error>;
-
-    /// If necessary, show the updated screen, e.g. by flipping a double buffer.
-    fn show(&mut self) -> Result<(), Self::Error>;
 }

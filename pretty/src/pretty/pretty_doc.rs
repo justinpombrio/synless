@@ -56,10 +56,7 @@ pub trait PrettyDocument: Sized + Clone {
 
     /// Find the region covered by this sub-document, when the entire document is
     /// pretty-printed with the given `width`.
-    fn locate_cursor<Screen>(&self, width: Col) -> Result<Region, Screen::Error>
-    where
-        Screen: PrettyScreen,
-    {
+    fn locate_cursor(&self, width: Col) -> Region {
         // Find the root of the Document, and the path from the root to the
         // selected node.
         let mut path = vec![];
@@ -71,7 +68,7 @@ pub trait PrettyDocument: Sized + Clone {
         path.reverse();
         // Recursively compute the cursor region.
         let lay = Layouts::compute(&root).fit_bound(Bound::infinite_scroll(width));
-        Ok(loc_cursor(&root, &lay, &path))
+        loc_cursor(&root, &lay, &path)
     }
 
     /// Goto the root of the document.

@@ -82,8 +82,4 @@ impl PrettyScreen for PlainText {
     fn highlight(&mut self, _pos: Pos, _style: Style) -> Result<(), Self::Error> {
         Ok(())
     }
-
-    fn show(&mut self) -> Result<(), Self::Error> {
-        Ok(())
-    }
 }

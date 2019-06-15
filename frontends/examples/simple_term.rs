@@ -34,18 +34,24 @@ impl TermDemo {
 
     /// Respond to some key/mouse events, then quit.
     fn run(&mut self) -> Result<(), terminal::Error> {
+        self.term.start_frame()?;
         self.intro()?;
+        self.term.show_frame()?;
         for _ in 0..self.num_events {
-            if !self.handle_event()? {
-                // We quit early.
+            self.term.start_frame()?;
+            let quit_early = !self.handle_event()?;
+            self.term.show_frame()?;
+            if quit_early {
                 return Ok(());
             }
         }
 
+        self.term.start_frame()?;
         self.println(
             &format!("Handled all {} events, goodbye!", self.num_events),
             Style::reverse_color(Color::Base09),
         )?;
+        self.term.show_frame()?;
         thread::sleep(time::Duration::from_secs(1));
 
         Ok(())
@@ -57,6 +63,7 @@ impl TermDemo {
             "This is a demo of terminal frontend features.",
             Style::plain(),
         )?;
+
         self.println("Click to paint!", Style::color(Color::Base08))?;
         self.println(
             "Type q to quit, c to clear screen, or s to print size.",
@@ -89,9 +96,6 @@ impl TermDemo {
                 thread::sleep(time::Duration::from_secs(1));
                 return Ok(false);
             }
-            Some(Ok(Event::KeyEvent(Key::Char('c')))) => {
-                self.clear()?;
-            }
             Some(Ok(Event::KeyEvent(Key::Char('s')))) => {
                 let size = self.term.size()?;
                 self.println(
@@ -108,8 +112,8 @@ impl TermDemo {
                         indent: 2,
                     },
                 };
-                self.term.shade(region, Shade(0))?;
-                self.term.show()?;
+                let mut screen = self.term.screen()?;
+                screen.shade(region, Shade(0))?;
             }
 
             Some(Ok(Event::KeyEvent(Key::Char(c)))) => {
@@ -137,25 +141,17 @@ impl TermDemo {
         Ok(true)
     }
 
-    /// Clear everything that was printed to the terminal.
-    fn clear(&mut self) -> Result<(), terminal::Error> {
-        self.term.clear()?;
-        self.term.show()?;
-        self.line = 0;
-        Ok(())
-    }
-
     /// Draw a blue '!' at the given position.
     fn paint(&mut self, pos: Pos) -> Result<(), terminal::Error> {
-        self.term
-            .print_char('!', pos, Style::color(Color::Base0D))?;
-        self.term.highlight(pos, Style::color(Color::Base0C))?;
-        self.term.show()
+        let mut screen = self.term.screen()?;
+        screen.print(pos, "!", Style::color(Color::Base0D))?;
+        screen.highlight(pos, Style::color(Color::Base0C))
     }
 
     /// Print the text on the next line.
     fn println(&mut self, text: &str, style: Style) -> Result<(), terminal::Error> {
-        self.term.print(
+        let mut screen = self.term.screen()?;
+        screen.print(
             Pos {
                 col: 0,
                 row: self.line,
@@ -164,6 +160,6 @@ impl TermDemo {
             style,
         )?;
         self.line += 1;
-        self.term.show()
+        Ok(())
     }
 }
