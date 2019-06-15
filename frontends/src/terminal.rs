@@ -16,7 +16,7 @@ use termion::raw::{IntoRawMode, RawTerminal};
 use termion::screen::AlternateScreen;
 use termion::style::{Bold, NoBold, NoUnderline, Reset, Underline};
 
-use pretty::{Col, ColorTheme, Pos, Region, Rgb, Row, Shade, Style};
+use pretty::{Bound, Col, ColorTheme, Pos, PrettyScreen, Region, Rgb, Row, Shade, Style};
 
 use crate::frontend::{Event, Frontend};
 
@@ -74,6 +74,27 @@ impl Terminal {
     }
 }
 
+impl PrettyScreen for Terminal {
+    type Error = Error;
+
+    fn bound(&self) -> Result<Bound, Self::Error> {
+        let size = self.size()?;
+        Ok(Bound::new_rectangle(size.row, size.col))
+    }
+
+    fn print(&mut self, pos: Pos, text: &str, style: Style) -> Result<(), Self::Error> {
+        self.buf.write_str(pos, text, style)
+    }
+
+    fn highlight(&mut self, pos: Pos, style: Style) -> Result<(), Self::Error> {
+        self.buf.set_style(pos, style)
+    }
+
+    fn shade(&mut self, region: Region, shade: Shade) -> Result<(), Self::Error> {
+        self.buf.shade_region(region, shade)
+    }
+}
+
 impl Frontend for Terminal {
     type Error = Error;
 
@@ -102,18 +123,6 @@ impl Frontend for Terminal {
             Some(Err(err)) => Some(Err(err.into())),
             None => None,
         }
-    }
-
-    fn print_str(&mut self, pos: Pos, text: &str, style: Style) -> Result<(), Self::Error> {
-        self.buf.write_str(pos, text, style)
-    }
-
-    fn style_region(&mut self, region: Region, style: Style) -> Result<(), Self::Error> {
-        self.buf.style_region(region, style)
-    }
-
-    fn shade_region(&mut self, region: Region, shade: Shade) -> Result<(), Self::Error> {
-        self.buf.shade_region(region, shade)
     }
 
     /// Return the current size of the screen buffer, without checking the

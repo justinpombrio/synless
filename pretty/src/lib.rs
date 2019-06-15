@@ -22,5 +22,6 @@ pub use self::notation::{
     child, choice, concat, empty, horz, if_empty_text, literal, no_wrap, repeat, text, vert,
     Notation, Repeat,
 };
+
 pub use self::pretty::{PlainText, PrettyDocument, PrettyScreen};
 pub use self::style::{Color, ColorTheme, Emph, Rgb, Shade, Style};

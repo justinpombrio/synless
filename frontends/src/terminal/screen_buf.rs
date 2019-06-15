@@ -120,11 +120,8 @@ impl ScreenBuf {
         Ok(())
     }
 
-    pub fn style_region(&mut self, region: Region, style: Style) -> Result<(), Error> {
-        for pos in region.positions() {
-            self.get_mut(pos)?.set_style(style);
-        }
-        Ok(())
+    pub fn set_style(&mut self, pos: Pos, style: Style) -> Result<(), Error> {
+        Ok(self.get_mut(pos)?.set_style(style))
     }
 
     fn set_char_with_style(&mut self, pos: Pos, ch: char, style: Style) -> Result<(), Error> {
@@ -561,8 +558,7 @@ mod screen_buf_tests {
             ]
         );
 
-        buf.style_region(Region::char_region(Pos { col: 0, row: 2 }), style2)
-            .unwrap();
+        buf.set_style(Pos { col: 0, row: 2 }, style2).unwrap();
         buf.set_char_with_style(Pos { col: 2, row: 3 }, '!', Style::default())
             .unwrap();
 

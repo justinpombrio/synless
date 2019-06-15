@@ -185,19 +185,19 @@ impl Ed {
     fn redisplay(&mut self) -> Result<(), Error> {
         self.term.start_frame()?;
         let size = self.term.size()?;
+
+        // TODO pick which part of the doc to display, based on the cursor
+        // position, instead of always showing the top!
+        let doc_pos = Pos::zero();
+
         let mut screen = self.term.screen()?;
         self.doc
             .ast_ref()
-            .pretty_print(size.col, &mut screen)
+            .pretty_print(size.col, &mut screen, doc_pos)
             .expect("failed to pretty-print document");
 
         let cursor_region = self.doc.ast_ref().locate_cursor(size.col);
         screen.shade(cursor_region, Shade(0))?;
-
-        // self.kmap_doc
-        //     .ast_ref()
-        //     .pretty_print(size.col, &mut screen)
-        //     .unwrap();
 
         self.print_messages(5)?;
         self.print_keymap_summary()?;

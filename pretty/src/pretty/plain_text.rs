@@ -6,7 +6,7 @@ use crate::style::{Shade, Style};
 
 /// Render a document in plain text.
 pub struct PlainText {
-    region: Region,
+    bound: Bound,
     lines: Vec<Vec<char>>,
 }
 
@@ -25,21 +25,18 @@ impl fmt::Display for PlainText {
 }
 
 impl PlainText {
-    /// Render the _entire document_, with the given width.
+    /// Construct a screen with the given width and unbounded height.
     pub fn new(width: usize) -> PlainText {
         PlainText {
-            region: Region {
-                pos: Pos::zero(),
-                bound: Bound::infinite_scroll(width as Col),
-            },
+            bound: Bound::infinite_scroll(width as Col),
             lines: vec![],
         }
     }
 
-    /// Render the given region of the document.
-    pub fn new_bounded(region: Region) -> PlainText {
+    /// Construct a screen with the given width, height, and indent.
+    pub fn new_bounded(bound: Bound) -> PlainText {
         PlainText {
-            region: region,
+            bound,
             lines: vec![],
         }
     }
@@ -63,8 +60,8 @@ impl PlainText {
 impl PrettyScreen for PlainText {
     type Error = fmt::Error;
 
-    fn region(&self) -> Result<Region, Self::Error> {
-        Ok(self.region)
+    fn bound(&self) -> Result<Bound, Self::Error> {
+        Ok(self.bound)
     }
 
     fn print(&mut self, pos: Pos, text: &str, _style: Style) -> Result<(), Self::Error> {
