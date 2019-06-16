@@ -1,6 +1,6 @@
 use std::fmt;
 
-use super::pretty_screen::PrettyWindow;
+use super::pretty_window::PrettyWindow;
 use crate::geometry::{Bound, Col, Pos, Region};
 use crate::style::{Shade, Style};
 

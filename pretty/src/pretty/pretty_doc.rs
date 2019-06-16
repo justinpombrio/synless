@@ -1,7 +1,7 @@
 use std::cmp;
 
 use self::Layout::*;
-use super::pretty_screen::{PrettyPane, PrettyWindow};
+use super::pretty_window::{PrettyPane, PrettyWindow};
 use crate::geometry::{Bound, Col, Pos, Region};
 use crate::layout::{
     compute_bounds, compute_layouts, text_bounds, Bounds, Layout, LayoutRegion, Layouts,
