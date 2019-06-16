@@ -1,6 +1,6 @@
 use std::fmt;
 
-use super::pretty_screen::PrettyScreen;
+use super::pretty_screen::PrettyWindow;
 use crate::geometry::{Bound, Col, Pos, Region};
 use crate::style::{Shade, Style};
 
@@ -57,7 +57,7 @@ impl PlainText {
     }
 }
 
-impl PrettyScreen for PlainText {
+impl PrettyWindow for PlainText {
     type Error = fmt::Error;
 
     fn bound(&self) -> Result<Bound, Self::Error> {

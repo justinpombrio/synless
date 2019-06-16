@@ -4,7 +4,7 @@
 //! To pretty-print, you need:
 //!
 //! 1. A document that implements [`PrettyDocument`], and
-//! 2. A screen that implements [`PrettyScreen`].
+//! 2. Something that implements [`PrettyWindow`], to print it to.
 
 #![feature(slice_patterns)]
 #![feature(box_patterns)]
@@ -23,5 +23,5 @@ pub use self::notation::{
     Notation, Repeat,
 };
 
-pub use self::pretty::{PlainText, PrettyDocument, PrettyScreen};
+pub use self::pretty::{PlainText, PrettyDocument, PrettyWindow};
 pub use self::style::{Color, ColorTheme, Emph, Rgb, Shade, Style};

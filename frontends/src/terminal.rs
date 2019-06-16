@@ -16,7 +16,7 @@ use termion::raw::{IntoRawMode, RawTerminal};
 use termion::screen::AlternateScreen;
 use termion::style::{Bold, NoBold, NoUnderline, Reset, Underline};
 
-use pretty::{Bound, Col, ColorTheme, Pos, PrettyScreen, Region, Rgb, Row, Shade, Style};
+use pretty::{Bound, Col, ColorTheme, Pos, PrettyWindow, Region, Rgb, Row, Shade, Style};
 
 use crate::frontend::{Event, Frontend};
 
@@ -74,7 +74,7 @@ impl Terminal {
     }
 }
 
-impl PrettyScreen for Terminal {
+impl PrettyWindow for Terminal {
     type Error = Error;
 
     fn bound(&self) -> Result<Bound, Self::Error> {

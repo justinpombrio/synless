@@ -1,7 +1,7 @@
 use std::cmp;
 
 use self::Layout::*;
-use super::pretty_screen::{PrettyScreen, ScreenRegion};
+use super::pretty_screen::{PrettyPane, PrettyWindow};
 use crate::geometry::{Bound, Col, Pos, Region};
 use crate::layout::{
     compute_bounds, compute_layouts, text_bounds, Bounds, Layout, LayoutRegion, Layouts,
@@ -34,33 +34,33 @@ pub trait PrettyDocument: Sized + Clone {
     /// result.**
     fn bounds(&self) -> Bounds;
 
-    /// Render the document onto the screen. This method behaves as if it did
+    /// Render the document onto a `PrettyPane`. This method behaves as if it did
     /// the following:
     ///
     /// 1. Pretty-print the entire document with width `width`.
-    /// 2. Position the document under the screen, aligning `doc_pos` with the screen's upper left corner.
-    /// 3. Render the portion of the document under the screen onto the screen.
+    /// 2. Position the document under the `PrettyPane`, aligning `doc_pos` with the `PrettyPane`'s upper left corner.
+    /// 3. Render the portion of the document under the `PrettyPane` onto the `PrettyPane`.
     ///
     /// However, this method is more efficient than that, and does an amount of
-    /// work that is (more or less) proportional to the size of the screen,
+    /// work that is (more or less) proportional to the size of the `PrettyPane`,
     /// regardless of the size of the document.
-    fn pretty_print<'a, Screen>(
+    fn pretty_print<'a, T>(
         &self,
         width: Col,
-        screen: &mut ScreenRegion<'a, Screen>,
+        pane: &mut PrettyPane<'a, T>,
         doc_pos: Pos,
-    ) -> Result<(), Screen::Error>
+    ) -> Result<(), T::Error>
     where
-        Screen: PrettyScreen,
+        T: PrettyWindow,
     {
         let root = self.root();
         let bound = Bound::infinite_scroll(width);
         let lay = Layouts::compute(&root).fit_bound(bound);
         let doc_region = Region {
             pos: doc_pos,
-            bound: screen.bound(),
+            bound: pane.bound(),
         };
-        render(&root, screen, doc_region, &lay)
+        render(&root, pane, doc_region, &lay)
     }
 
     /// Find the region covered by this sub-document, when the entire document is
@@ -142,15 +142,15 @@ where
 }
 
 // TODO: shading and highlighting
-fn render<'a, Doc, Screen>(
+fn render<'a, Doc, Win>(
     doc: &Doc,
-    screen: &mut ScreenRegion<'a, Screen>,
+    pane: &mut PrettyPane<'a, Win>,
     doc_region: Region,
     lay: &LayoutRegion,
-) -> Result<(), Screen::Error>
+) -> Result<(), Win::Error>
 where
     Doc: PrettyDocument,
-    Screen: PrettyScreen,
+    Win: PrettyWindow,
 {
     if !lay.region.overlaps(doc_region) {
         // It's entirely offscreen. Nothing to show.
@@ -158,46 +158,46 @@ where
     }
     match &lay.layout {
         Empty => Ok(()),
-        Literal(text, style) => render_text(text.as_ref(), lay.region, screen, doc_region, *style),
+        Literal(text, style) => render_text(text.as_ref(), lay.region, pane, doc_region, *style),
         Text(style) => {
             let text = doc
                 .text()
                 .expect("PrettyDocument::render - Expected text, found branch node");
-            render_text(text.as_ref(), lay.region, screen, doc_region, *style)
+            render_text(text.as_ref(), lay.region, pane, doc_region, *style)
         }
         Child(i) => {
             let child = &doc.child(*i);
             let child_lay = Layouts::compute(child).fit_region(lay.region);
-            render(child, screen, doc_region, &child_lay)
+            render(child, pane, doc_region, &child_lay)
         }
         Concat(box lay1, box lay2) => {
-            render(doc, screen, doc_region, &lay1)?;
-            render(doc, screen, doc_region, &lay2)
+            render(doc, pane, doc_region, &lay1)?;
+            render(doc, pane, doc_region, &lay2)
         }
         Horz(box lay1, box lay2) => {
-            render(doc, screen, doc_region, &lay1)?;
-            render(doc, screen, doc_region, &lay2)
+            render(doc, pane, doc_region, &lay1)?;
+            render(doc, pane, doc_region, &lay2)
         }
         Vert(box lay1, box lay2) => {
-            render(doc, screen, doc_region, &lay1)?;
-            render(doc, screen, doc_region, &lay2)
+            render(doc, pane, doc_region, &lay1)?;
+            render(doc, pane, doc_region, &lay2)
         }
     }
 }
 
-fn render_text<'a, Screen>(
+fn render_text<'a, Win>(
     text: &str,
     text_region: Region,
-    screen: &mut ScreenRegion<'a, Screen>,
+    pane: &mut PrettyPane<'a, Win>,
     doc_region: Region,
     style: Style,
-) -> Result<(), Screen::Error>
+) -> Result<(), Win::Error>
 where
-    Screen: PrettyScreen,
+    Win: PrettyWindow,
 {
     assert!(
         doc_region.is_rectangular(),
-        "doc region must be rectangular"
+        "can't render a non-rectangular region of text in a document"
     );
     if text.is_empty() {
         return Ok(()); // not much to show!
@@ -225,5 +225,5 @@ where
         row: text_region.pos.row - doc_region.pos.row,
         col: text_region.pos.col.saturating_sub(doc_region.pos.col),
     };
-    screen.print(screen_offset, &text[start_byte..end_byte], style)
+    pane.print(screen_offset, &text[start_byte..end_byte], style)
 }

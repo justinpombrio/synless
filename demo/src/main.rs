@@ -10,7 +10,7 @@ use editor::{
 };
 use frontends::{terminal, Event, Frontend, Terminal};
 use language::{LanguageName, LanguageSet};
-use pretty::{Color, ColorTheme, Pos, PrettyDocument, PrettyScreen, Shade, Style};
+use pretty::{Color, ColorTheme, Pos, PrettyDocument, PrettyWindow, Shade, Style};
 use utility::GrowOnlyMap;
 
 mod error;
@@ -136,14 +136,15 @@ impl Ed {
     fn print_keymap_summary(&mut self) -> Result<(), Error> {
         let size = self.term.size()?;
 
-        let mut screen = self.term.screen()?;
         let offset = Pos {
             row: size.row / 2,
             col: 0,
         };
         let map_path = self.keymap_stack.join("→");
-        screen.print(offset, &map_path, Style::reverse_color(Color::Base0B))?;
-        screen.print(
+        let mut pane = self.term.pane()?;
+        pane.pretty_pane()
+            .print(offset, &map_path, Style::reverse_color(Color::Base0B))?;
+        pane.pretty_pane().print(
             offset + Pos { row: 1, col: 0 },
             &self.keymap_summary,
             Style::color(Color::Base0B),
@@ -153,8 +154,8 @@ impl Ed {
 
     fn print_messages(&mut self, num_recent: usize) -> Result<(), Error> {
         let size = self.term.size()?;
-        let mut screen = self.term.screen()?;
-        screen
+        let mut pane = self.term.pane()?;
+        pane.pretty_pane()
             .print(
                 Pos {
                     row: size.row - (num_recent + 1) as u32,
@@ -170,7 +171,9 @@ impl Ed {
                 row: size.row - (num_recent - i) as u32,
                 col: 0,
             };
-            let result = screen.print(pos, msg, Style::color(Color::Base0C));
+            let result = pane
+                .pretty_pane()
+                .print(pos, msg, Style::color(Color::Base0C));
 
             // For this demo, just ignore out of bounds errors. The real editor
             // shouldn't ever try to print out of bounds.
@@ -190,14 +193,14 @@ impl Ed {
         // position, instead of always showing the top!
         let doc_pos = Pos::zero();
 
-        let mut screen = self.term.screen()?;
+        let mut pane = self.term.pane()?;
         self.doc
             .ast_ref()
-            .pretty_print(size.col, &mut screen, doc_pos)
+            .pretty_print(size.col, &mut pane.pretty_pane(), doc_pos)
             .expect("failed to pretty-print document");
 
         let cursor_region = self.doc.ast_ref().locate_cursor(size.col);
-        screen.shade(cursor_region, Shade(0))?;
+        pane.pretty_pane().shade(cursor_region, Shade(0))?;
 
         self.print_messages(5)?;
         self.print_keymap_summary()?;

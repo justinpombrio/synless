@@ -3,7 +3,7 @@
 mod common;
 
 use common::{assert_strings_eq, make_json_doc, make_long_json_list};
-use pretty::{Bound, PlainText, Pos, PrettyDocument, PrettyScreen, Region};
+use pretty::{Bound, PlainText, Pos, PrettyDocument, PrettyWindow, Region};
 
 // TODO: test horz concat
 
@@ -11,11 +11,12 @@ use pretty::{Bound, PlainText, Pos, PrettyDocument, PrettyScreen, Region};
 fn test_pretty_print_very_small_screen_left() {
     let doc = make_json_doc();
     let doc_pos = Pos { row: 2, col: 4 };
-    let mut plain = PlainText::new_bounded(Bound::new_rectangle(6, 6));
-    let mut screen = plain.screen().unwrap();
-    doc.as_ref().pretty_print(80, &mut screen, doc_pos).unwrap();
+    let mut window = PlainText::new_bounded(Bound::new_rectangle(6, 6));
+    doc.as_ref()
+        .pretty_print(80, &mut window.pane().unwrap().pretty_pane(), doc_pos)
+        .unwrap();
     assert_strings_eq(
-        &plain.to_string(),
+        &window.to_string(),
         r#"astNam
 sAlive
 ge": 2
@@ -29,11 +30,12 @@ ddress
 fn test_pretty_print_small_screen_left() {
     let doc = make_json_doc();
     let doc_pos = Pos { row: 2, col: 4 };
-    let mut plain = PlainText::new_bounded(Bound::new_rectangle(6, 8));
-    let mut screen = plain.screen().unwrap();
-    doc.as_ref().pretty_print(80, &mut screen, doc_pos).unwrap();
+    let mut window = PlainText::new_bounded(Bound::new_rectangle(6, 8));
+    doc.as_ref()
+        .pretty_print(80, &mut window.pane().unwrap().pretty_pane(), doc_pos)
+        .unwrap();
     assert_strings_eq(
-        &plain.to_string(),
+        &window.to_string(),
         r#"astName"
 sAlive":
 ge": 27,
@@ -46,13 +48,13 @@ ddress":
 #[test]
 fn test_pretty_print_long_list() {
     let doc = make_long_json_list();
-    let mut screen = PlainText::new(80);
+    let mut window = PlainText::new(80);
     let doc_pos = Pos::zero();
     doc.as_ref()
-        .pretty_print(80, &mut screen.screen().unwrap(), doc_pos)
+        .pretty_print(80, &mut window.pane().unwrap().pretty_pane(), doc_pos)
         .unwrap();
     assert_strings_eq(
-        &screen.to_string(),
+        &window.to_string(),
         r#"[true, false, true, true, false, true, false, true, true, false, true,
  false, true, true, false, true, false, true, false, true, true,
  false, true, false, true, true, false, true, false, true, true,
@@ -65,12 +67,12 @@ fn test_pretty_print_long_list() {
 fn test_pretty_print_small_screen_right() {
     let doc = make_json_doc();
     let doc_pos = Pos { row: 7, col: 13 };
-    let mut screen = PlainText::new_bounded(Bound::new_rectangle(4, 16));
+    let mut window = PlainText::new_bounded(Bound::new_rectangle(4, 16));
     doc.as_ref()
-        .pretty_print(80, &mut screen.screen().unwrap(), doc_pos)
+        .pretty_print(80, &mut window.pane().unwrap().pretty_pane(), doc_pos)
         .unwrap();
     assert_strings_eq(
-        &screen.to_string(),
+        &window.to_string(),
         r#"Address": "21 2n
  "New York",
 : "NY",
@@ -82,11 +84,11 @@ Code": "10021-31"#,
 fn test_pretty_print_small_screen_middle() {
     let doc = make_json_doc();
     let doc_pos = Pos { row: 1, col: 4 };
-    let mut screen = PlainText::new_bounded(Region::char_region(doc_pos).bound);
+    let mut window = PlainText::new_bounded(Region::char_region(doc_pos).bound);
     doc.as_ref()
-        .pretty_print(80, &mut screen.screen().unwrap(), doc_pos)
+        .pretty_print(80, &mut window.pane().unwrap().pretty_pane(), doc_pos)
         .unwrap();
-    assert_strings_eq(&screen.to_string(), "i");
+    assert_strings_eq(&window.to_string(), "i");
 }
 
 #[test]
@@ -94,24 +96,24 @@ fn test_pretty_print_small_screen_bottom() {
     let doc = make_json_doc();
     // Go past the bottom right corner of the document
     let doc_pos = Pos { row: 27, col: 63 };
-    let mut screen = PlainText::new_bounded(Bound::new_rectangle(4, 13));
+    let mut window = PlainText::new_bounded(Bound::new_rectangle(4, 13));
     doc.as_ref()
-        .pretty_print(74, &mut screen.screen().unwrap(), doc_pos)
+        .pretty_print(74, &mut window.pane().unwrap().pretty_pane(), doc_pos)
         .unwrap();
-    assert_strings_eq(&screen.to_string(), "longer\"]]]]");
+    assert_strings_eq(&window.to_string(), "longer\"]]]]");
 }
 
 #[test]
 fn test_lay_out_json_80() {
     let doc = make_json_doc();
     let doc_pos = Pos::zero();
-    let mut screen = PlainText::new(80);
+    let mut window = PlainText::new(80);
     doc.as_ref()
-        .pretty_print(80, &mut screen.screen().unwrap(), doc_pos)
+        .pretty_print(80, &mut window.pane().unwrap().pretty_pane(), doc_pos)
         .unwrap();
 
     assert_strings_eq(
-        &screen.to_string(),
+        &window.to_string(),
         r#"{
   "firstName": "John",
   "lastName": "Smith",
@@ -148,13 +150,13 @@ fn test_lay_out_json_80() {
 fn test_lay_out_json_30() {
     let doc = make_json_doc();
     let doc_pos = Pos::zero();
-    let mut plain = PlainText::new(30);
+    let mut window = PlainText::new(30);
     doc.as_ref()
-        .pretty_print(30, &mut plain.screen().unwrap(), doc_pos)
+        .pretty_print(30, &mut window.pane().unwrap().pretty_pane(), doc_pos)
         .unwrap();
 
     assert_strings_eq(
-        &plain.to_string(),
+        &window.to_string(),
         r#"{
   "firstName": "John",
   "lastName": "Smith",
@@ -207,8 +209,8 @@ fn test_lay_out_json_28() {
     // Eventually the strings should wrap, and it should stop panicking.
     let doc = make_json_doc();
     let doc_pos = Pos::zero();
-    let mut plain = PlainText::new(28);
+    let mut window = PlainText::new(28);
     doc.as_ref()
-        .pretty_print(28, &mut plain.screen().unwrap(), doc_pos)
+        .pretty_print(28, &mut window.pane().unwrap().pretty_pane(), doc_pos)
         .unwrap();
 }

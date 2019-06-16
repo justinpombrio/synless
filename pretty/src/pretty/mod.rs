@@ -4,4 +4,4 @@ mod pretty_screen;
 
 pub use plain_text::PlainText;
 pub use pretty_doc::PrettyDocument;
-pub use pretty_screen::PrettyScreen;
+pub use pretty_screen::{PrettyPane, PrettyWindow};
