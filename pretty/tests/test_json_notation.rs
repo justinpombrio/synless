@@ -2,8 +2,10 @@
 
 mod common;
 
-use common::{assert_strings_eq, make_json_doc, make_long_json_list};
-use pretty::{PlainText, Pos, PrettyDocument, PrettyWindow};
+use common::{assert_strings_eq, make_json_doc, make_json_notation, make_long_json_list, Doc};
+use pretty::{
+    render_pane, Content, PaneNotation, PaneSize, PlainText, Pos, PrettyDocument, PrettyWindow,
+};
 
 // TODO: test horz concat
 
@@ -217,4 +219,62 @@ fn test_lay_out_json_28() {
     doc.as_ref()
         .pretty_print(28, &mut window.pane().unwrap(), doc_pos)
         .unwrap();
+}
+
+#[test]
+fn test_pane_content() {
+    let notations = make_json_notation();
+
+    let doc = Doc::new_branch(notations["true"].clone(), Vec::new());
+    let mut window = PlainText::new(Pos { row: 2, col: 10 });
+
+    let pane_note = PaneNotation::Content {
+        content: Content::ActiveDoc,
+        style: None,
+    };
+    let mut pane = window.pane().unwrap();
+    render_pane(&mut pane, &pane_note, None, |_: &Content| {
+        Some(doc.as_ref())
+    })
+    .unwrap();
+    assert_strings_eq(&window.to_string(), "true");
+}
+
+#[test]
+fn test_pane_horz() {
+    let notations = make_json_notation();
+
+    let doc1 = Doc::new_branch(notations["true"].clone(), Vec::new());
+    let doc2 = Doc::new_branch(notations["false"].clone(), Vec::new());
+    let mut window = PlainText::new(Pos { row: 2, col: 10 });
+
+    let content1 = PaneNotation::Content {
+        content: Content::ActiveDoc,
+        style: None,
+    };
+    let content2 = PaneNotation::Content {
+        content: Content::KeyHints,
+        style: None,
+    };
+
+    let pane_note = PaneNotation::Horz {
+        panes: vec![
+            (PaneSize::Fixed(5), content1),
+            (PaneSize::Fixed(5), content2),
+        ],
+        style: None,
+    };
+
+    let mut pane = window.pane().unwrap();
+    render_pane(
+        &mut pane,
+        &pane_note,
+        None,
+        |content: &Content| match content {
+            Content::ActiveDoc => Some(doc1.as_ref()),
+            Content::KeyHints => Some(doc2.as_ref()),
+        },
+    )
+    .unwrap();
+    assert_strings_eq(&window.to_string(), "true false");
 }

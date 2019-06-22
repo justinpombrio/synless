@@ -1,8 +1,8 @@
 mod doc;
 mod json_notation;
 
-pub use doc::Doc;
-use json_notation::make_json_notation;
+pub use doc::{Doc, DocRef};
+pub use json_notation::make_json_notation;
 
 /// If the strings aren't equal, print them with better formatting than the assert_eq!() macro and then panic.
 pub fn assert_strings_eq(left: &str, right: &str) {

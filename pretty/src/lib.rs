@@ -13,6 +13,7 @@
 mod geometry;
 mod layout;
 mod notation;
+mod pane_notation;
 mod pretty;
 mod style;
 
@@ -25,3 +26,4 @@ pub use self::notation::{
 
 pub use self::pretty::{Pane, PlainText, PrettyDocument, PrettyWindow};
 pub use self::style::{Color, ColorTheme, Emph, Rgb, Shade, Style};
+pub use pane_notation::{render_pane, Content, PaneNotation, PaneSize};
