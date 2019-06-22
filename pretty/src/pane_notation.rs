@@ -1,4 +1,4 @@
-use crate::{Col, Pane, Pos, PrettyDocument, PrettyWindow, Style};
+use crate::{Col, Pane, Pos, PrettyDocument, PrettyWindow, Row, Style};
 use std::fmt;
 
 #[derive(Clone, Copy)]
@@ -19,10 +19,10 @@ pub enum PaneNotation {
         panes: Vec<(PaneSize, PaneNotation)>,
         style: Option<Style>,
     },
-    // Vert {
-    //     panes: Vec<(PaneSize, PaneNotation)>,
-    //     style: Option<Style>,
-    // },
+    Vert {
+        panes: Vec<(PaneSize, PaneNotation)>,
+        style: Option<Style>,
+    },
     Content {
         content: Content,
         style: Option<Style>,
@@ -97,6 +97,25 @@ where
             for (rect, child_note) in pane
                 .rect()
                 .horz_splits(&widths)
+                .zip(child_notes.into_iter())
+            {
+                let mut child_pane = pane.sub_pane(rect).ok_or(Error::NotSubPane)?;
+                render_pane(&mut child_pane, child_note, style, get_content.clone())?;
+            }
+        }
+        PaneNotation::Vert { panes, style } => {
+            let child_notes: Vec<_> = panes.iter().map(|p| &p.1).collect();
+            let child_sizes: Vec<_> = panes.iter().map(|p| p.0).collect();
+            let total_height = pane.rect().height() as usize;
+            let heights: Vec<_> = divvy(total_height, &child_sizes)
+                .ok_or(Error::ImpossibleDemands)?
+                .into_iter()
+                .map(|n| n as Row)
+                .collect();
+            let style = style.or(parent_style);
+            for (rect, child_note) in pane
+                .rect()
+                .vert_splits(&heights)
                 .zip(child_notes.into_iter())
             {
                 let mut child_pane = pane.sub_pane(rect).ok_or(Error::NotSubPane)?;
