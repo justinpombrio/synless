@@ -56,9 +56,10 @@ pub trait PrettyDocument: Sized + Clone {
         let root = self.root();
         let bound = Bound::infinite_scroll(width);
         let lay = Layouts::compute(&root).fit_bound(bound);
+        // TODO pass doc_rect to render() instead
         let doc_region = Region {
             pos: doc_pos,
-            bound: pane.bound(),
+            bound: Bound::from_rect(pane.rect()),
         };
         render(&root, pane, doc_region, &lay)
     }

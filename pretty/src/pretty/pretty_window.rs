@@ -1,14 +1,14 @@
 use std::fmt;
 
-use crate::geometry::{Bound, Pos, Region};
+use crate::geometry::{Pos, Rect, Region};
 use crate::style::{Shade, Style};
 
 /// A "window" that supports the methods necessary to pretty-print a document.
 pub trait PrettyWindow: Sized {
     type Error: fmt::Debug;
 
-    /// The size and shape of the window, as a `Bound`.
-    fn bound(&self) -> Result<Bound, Self::Error>;
+    /// The size of the window, in rows and columns of characters.
+    fn size(&self) -> Result<Pos, Self::Error>;
 
     /// Render a string with the given style, with the first character at the
     /// given position. No newlines allowed.
@@ -26,65 +26,59 @@ pub trait PrettyWindow: Sized {
 
     /// Get a Pane covering the full window area.
     fn pane<'a>(&'a mut self) -> Result<Pane<'a, Self>, Self::Error> {
-        let full_region = Region {
-            pos: Pos::zero(),
-            bound: self.bound()?,
-        };
-
-        Ok(Pane {
-            window: self,
-            region: full_region,
-        })
+        let rect = Rect::new(Pos::zero(), self.size()?);
+        Ok(Pane { window: self, rect })
     }
 }
 
-/// A region of a window. It can be further split into sub-panes.
+/// A rectangular area of a window. It can be further split into sub-panes.
 pub struct Pane<'a, T>
 where
     T: PrettyWindow,
 {
     window: &'a mut T,
-    region: Region,
+    rect: Rect,
 }
 
-/// A `PrettyPane` is like a `Pane`, except you can pretty-print to it, and you can't split it into sub-panes.
+/// A `PrettyPane` is like a `Pane`, except you can pretty-print to it, and you
+/// can't split it into sub-panes.
 pub struct PrettyPane<'a, T>
 where
     T: PrettyWindow,
 {
     window: &'a mut T,
-    region: Region,
+    rect: Rect,
 }
 
 impl<'a, T> Pane<'a, T>
 where
     T: PrettyWindow,
 {
-    /// Get the position, size and shape of the region covered by this `Pane`.
-    pub fn region(&self) -> Region {
-        self.region
+    /// Get the position and size of the rectangular area covered by this `Pane`.
+    pub fn rect(&self) -> Rect {
+        self.rect
     }
 
-    /// Get a `PrettyPane` that can be used to pretty-print to the region
+    /// Get a `PrettyPane` that can be used to pretty-print to the area
     /// covered by this `Pane`.
     pub fn pretty_pane<'b>(&'b mut self) -> PrettyPane<'b, T> {
         PrettyPane {
             window: self.window,
-            region: self.region,
+            rect: self.rect,
         }
     }
 
     /// Get a new `Pane` representing only the given sub-region of this `Pane`.
-    /// Returns `None` if `region` is not fully contained within this `Pane`.
-    /// `region` is specified in the same absolute coordinate system as the full
+    /// Returns `None` if `rect` is not fully contained within this `Pane`.
+    /// `rect` is specified in the same absolute coordinate system as the full
     /// `PrettyWindow` (not specified relative to this `Pane`!).
-    pub fn sub_pane<'b>(&'b mut self, region: Region) -> Option<Pane<'b, T>> {
-        if !self.region().covers(region) {
+    pub fn sub_pane<'b>(&'b mut self, rect: Rect) -> Option<Pane<'b, T>> {
+        if !self.rect().covers(rect) {
             return None;
         }
         Some(Pane {
             window: self.window,
-            region,
+            rect,
         })
     }
 }
@@ -93,16 +87,16 @@ impl<'a, T> PrettyPane<'a, T>
 where
     T: PrettyWindow,
 {
-    /// Get the size and shape of the region covered by this `PrettyPane`.
-    pub fn bound(&self) -> Bound {
-        self.region.bound
+    /// Get the size and position of the rectangle covered by this `PrettyPane`.
+    pub fn rect(&self) -> Rect {
+        self.rect
     }
 
     /// Render a string with the given style, with its first character at the
     /// given relative position (where 0,0 is the top left corner of the
     /// `PrettyPane`). No newlines allowed.
     pub fn print(&mut self, pos: Pos, text: &str, style: Style) -> Result<(), T::Error> {
-        let abs_pos = pos + self.region.pos;
+        let abs_pos = pos + self.rect.pos();
         self.window.print(abs_pos, text, style)
     }
 
@@ -112,7 +106,7 @@ where
     /// The region position is relative to the `PrettyPane` (where 0,0 is the
     /// top left corner of the `PrettyPane`).
     pub fn shade(&mut self, region: Region, shade: Shade) -> Result<(), T::Error> {
-        let abs_region = region + self.region.pos;
+        let abs_region = region + self.rect.pos();
         self.window.shade(abs_region, shade)
     }
 
@@ -122,7 +116,7 @@ where
     /// position is relative to the `PrettyPane` (where 0,0 is the top left
     /// corner of the `PrettyPane`).
     pub fn highlight(&mut self, pos: Pos, style: Style) -> Result<(), T::Error> {
-        let abs_pos = pos + self.region.pos;
+        let abs_pos = pos + self.rect.pos();
         self.window.highlight(abs_pos, style)
     }
 }

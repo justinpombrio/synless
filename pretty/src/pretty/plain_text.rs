@@ -1,12 +1,12 @@
 use std::fmt;
 
 use super::pretty_window::PrettyWindow;
-use crate::geometry::{Bound, Col, Pos, Region};
+use crate::geometry::{Col, Pos, Rect, Region, Row};
 use crate::style::{Shade, Style};
 
 /// Render a document in plain text.
 pub struct PlainText {
-    bound: Bound,
+    rect: Rect,
     lines: Vec<Vec<char>>,
 }
 
@@ -25,20 +25,22 @@ impl fmt::Display for PlainText {
 }
 
 impl PlainText {
-    /// Construct a screen with the given width and unbounded height.
-    pub fn new(width: usize) -> PlainText {
+    /// Construct a screen with the given width and height.
+    pub fn new(size: Pos) -> PlainText {
         PlainText {
-            bound: Bound::infinite_scroll(width as Col),
+            rect: Rect::new(Pos::zero(), size),
             lines: vec![],
         }
     }
 
-    /// Construct a screen with the given width, height, and indent.
-    pub fn new_bounded(bound: Bound) -> PlainText {
-        PlainText {
-            bound,
-            lines: vec![],
-        }
+    /// Construct a screen with the given width and unbounded height.
+    pub fn new_infinite_scroll(width: Col) -> PlainText {
+        let size = Pos {
+            col: width,
+            // leave wiggle-room to avoid overflowing
+            row: Row::max_value() - 1,
+        };
+        PlainText::new(size)
     }
 
     fn get_mut_line(&mut self, row: usize) -> &mut Vec<char> {
@@ -60,8 +62,8 @@ impl PlainText {
 impl PrettyWindow for PlainText {
     type Error = fmt::Error;
 
-    fn bound(&self) -> Result<Bound, Self::Error> {
-        Ok(self.bound)
+    fn size(&self) -> Result<Pos, Self::Error> {
+        Ok(self.rect.size())
     }
 
     fn print(&mut self, pos: Pos, text: &str, _style: Style) -> Result<(), Self::Error> {

@@ -16,7 +16,7 @@ use termion::raw::{IntoRawMode, RawTerminal};
 use termion::screen::AlternateScreen;
 use termion::style::{Bold, NoBold, NoUnderline, Reset, Underline};
 
-use pretty::{Bound, Col, ColorTheme, Pos, PrettyWindow, Region, Rgb, Row, Shade, Style};
+use pretty::{Col, ColorTheme, Pos, PrettyWindow, Region, Rgb, Row, Shade, Style};
 
 use crate::frontend::{Event, Frontend};
 
@@ -77,9 +77,10 @@ impl Terminal {
 impl PrettyWindow for Terminal {
     type Error = Error;
 
-    fn bound(&self) -> Result<Bound, Self::Error> {
-        let size = self.size()?;
-        Ok(Bound::new_rectangle(size.row, size.col))
+    /// Return the current size of the screen buffer, without checking the
+    /// actual size of the terminal window (which might have changed recently).
+    fn size(&self) -> Result<Pos, Self::Error> {
+        Ok(self.buf.size())
     }
 
     fn print(&mut self, pos: Pos, text: &str, style: Style) -> Result<(), Self::Error> {
@@ -123,13 +124,6 @@ impl Frontend for Terminal {
             Some(Err(err)) => Some(Err(err.into())),
             None => None,
         }
-    }
-
-    /// Return the current size of the screen buffer, without checking the
-    /// actual size of the terminal window (which might have changed
-    /// recently).
-    fn size(&self) -> Result<Pos, Self::Error> {
-        Ok(self.buf.size())
     }
 
     fn start_frame(&mut self) -> Result<(), Self::Error> {

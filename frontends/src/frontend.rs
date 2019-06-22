@@ -24,9 +24,6 @@ pub trait Frontend: Sized {
     /// Block until an event (eg. keypress) occurs, then return it. None means the event stream ended.
     fn next_event(&mut self) -> Option<Result<Event, Self::Error>>;
 
-    /// Return the current size of the screen in characters.
-    fn size(&self) -> Result<Pos, Self::Error>;
-
     /// Prepare to start modifying a fresh new frame.
     fn start_frame(&mut self) -> Result<(), Self::Error>;
 

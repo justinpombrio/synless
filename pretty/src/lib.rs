@@ -16,7 +16,7 @@ mod notation;
 mod pretty;
 mod style;
 
-pub use self::geometry::{Bound, Col, Pos, Region, Row, MAX_WIDTH};
+pub use self::geometry::{Bound, Col, Pos, Rect, Region, Row, MAX_WIDTH};
 pub use self::layout::Bounds;
 pub use self::notation::{
     child, choice, concat, empty, horz, if_empty_text, literal, no_wrap, repeat, text, vert,

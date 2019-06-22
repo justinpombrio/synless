@@ -203,9 +203,9 @@ fn test_json_string() {
 }
 
 fn assert_render(doc: &Doc, rendered: &str) {
-    let width: u16 = 80;
+    let width = 80;
     let doc_pos = Pos::zero();
-    let mut window = PlainText::new(width as usize);
+    let mut window = PlainText::new_infinite_scroll(width);
     doc.ast_ref()
         .pretty_print(width, &mut window.pane().unwrap().pretty_pane(), doc_pos)
         .unwrap();
