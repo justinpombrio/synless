@@ -4,7 +4,7 @@ mod common;
 
 use common::{assert_strings_eq, make_json_doc, make_json_notation, make_long_json_list, Doc};
 use pretty::{
-    render_pane, Content, PaneNotation, PaneSize, PlainText, Pos, PrettyDocument, PrettyWindow,
+    render_pane, Col, Content, PaneNotation, PaneSize, PlainText, Pos, PrettyDocument, PrettyWindow,
 };
 
 // TODO: test horz concat
@@ -332,4 +332,81 @@ fn test_pane_vert() {
     )
     .unwrap();
     assert_strings_eq(&window.to_string(), "truefalse\ntrue false");
+}
+
+#[test]
+fn test_pane_fill() {
+    let notations = make_json_notation();
+
+    let doc1 = Doc::new_branch(notations["true"].clone(), Vec::new());
+    let mut window = PlainText::new(Pos { row: 3, col: 6 });
+
+    let content1 = PaneNotation::Content {
+        content: Content::ActiveDoc,
+        style: None,
+    };
+
+    let fill = PaneNotation::Fill {
+        ch: '-',
+        style: None,
+    };
+
+    let pane_note = PaneNotation::Vert {
+        panes: vec![(PaneSize::Fixed(1), content1), (PaneSize::Fixed(2), fill)],
+        style: None,
+    };
+
+    let mut pane = window.pane().unwrap();
+    render_pane(&mut pane, &pane_note, None, |_content: &Content| {
+        Some(doc1.as_ref())
+    })
+    .unwrap();
+    assert_strings_eq(&window.to_string(), "true\n------\n------");
+}
+
+fn assert_proportional(expected: &str, width: Col, hungers: (usize, usize, usize)) {
+    let notations = make_json_notation();
+
+    let doc1 = Doc::new_branch(notations["null"].clone(), Vec::new());
+
+    let content1 = PaneNotation::Content {
+        content: Content::ActiveDoc,
+        style: None,
+    };
+
+    let fill1 = PaneNotation::Fill {
+        ch: '1',
+        style: None,
+    };
+
+    let fill2 = PaneNotation::Fill {
+        ch: '2',
+        style: None,
+    };
+
+    let pane_note = PaneNotation::Horz {
+        panes: vec![
+            (PaneSize::Proportional(hungers.0), content1),
+            (PaneSize::Proportional(hungers.1), fill1),
+            (PaneSize::Proportional(hungers.2), fill2),
+        ],
+        style: None,
+    };
+
+    let mut window = PlainText::new(Pos { row: 1, col: width });
+    let mut pane = window.pane().unwrap();
+    render_pane(&mut pane, &pane_note, None, |_content: &Content| {
+        Some(doc1.as_ref())
+    })
+    .unwrap();
+    assert_strings_eq(&window.to_string(), expected);
+}
+
+#[test]
+fn test_pane_proportional() {
+    assert_proportional("null11112222", 12, (4, 4, 4));
+    assert_proportional("null11112222", 12, (1, 1, 1));
+    assert_proportional("null  111222", 12, (2, 1, 1));
+    assert_proportional("null11222222", 12, (4, 2, 6));
+    assert_proportional("null22222222", 12, (1, 0, 2));
 }

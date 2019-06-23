@@ -1,5 +1,5 @@
 use crate::{Col, Pane, Pos, PrettyDocument, PrettyWindow, Row, Style};
-use std::fmt;
+use std::{fmt, iter};
 
 #[derive(Clone, Copy)]
 pub enum PaneSize {
@@ -27,10 +27,10 @@ pub enum PaneNotation {
         content: Content,
         style: Option<Style>,
     },
-    //     Fill {
-    //         ch: char,
-    //         style: Option<Style>,
-    //     },
+    Fill {
+        ch: char,
+        style: Option<Style>,
+    },
 }
 
 #[derive(Debug)]
@@ -136,10 +136,17 @@ where
                 row: cursor_region.pos.row,
             };
             doc.pretty_print(width, pane, doc_pos)?;
-        } // PaneNotation::Fill { ch, style } => {
-          //     let style = style.or(parent_style).or_default();
-          //     pane.fill_char(region, ch, style)
-          // }
+        }
+        PaneNotation::Fill { ch, style } => {
+            let style = style.or(parent_style).unwrap_or_default();
+            let line: String = iter::repeat(ch)
+                .take(pane.rect().width() as usize)
+                .collect();
+            let rows = pane.rect().height();
+            for row in 0..rows {
+                pane.print(Pos { row, col: 0 }, &line, style)?;
+            }
+        }
     }
     Ok(())
 }
