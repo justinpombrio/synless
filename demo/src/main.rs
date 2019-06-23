@@ -143,11 +143,17 @@ impl Ed {
         let map_path = self.keymap_stack.join("→");
         let mut pane = self.term.pane()?;
         pane.print(offset, &map_path, Style::reverse_color(Color::Base0B))?;
-        pane.print(
+
+        match pane.print(
             offset + Pos { row: 1, col: 0 },
             &self.keymap_summary,
             Style::color(Color::Base0B),
-        )?;
+        ) {
+            // ignore, just let the long string get truncated
+            Err(terminal::Error::OutOfBounds) => (),
+            Ok(_) => (),
+            err => err?,
+        };
         Ok(())
     }
 
