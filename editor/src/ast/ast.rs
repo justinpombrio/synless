@@ -75,7 +75,9 @@ impl<'l> Ast<'l> {
         F: FnOnce(&mut Text) -> T,
     {
         assert_eq!(self.arity(), Some(Arity::Text));
-        self.tree.child_leaf_mut(f)
+        let out = self.tree.child_leaf_mut(f);
+        self.update();
+        out
     }
 
     /// Get the language of this node's syntactic construct.
