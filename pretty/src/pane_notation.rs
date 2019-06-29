@@ -34,7 +34,7 @@ pub enum PaneNotation {
 }
 
 #[derive(Debug)]
-pub enum Error<T>
+pub enum PaneError<T>
 where
     T: fmt::Debug,
 {
@@ -62,12 +62,12 @@ impl PaneSize {
     }
 }
 
-impl<T> From<T> for Error<T>
+impl<T> From<T> for PaneError<T>
 where
     T: fmt::Debug,
 {
-    fn from(e: T) -> Error<T> {
-        Error::PrettyWindow(e)
+    fn from(e: T) -> PaneError<T> {
+        PaneError::PrettyWindow(e)
     }
 }
 
@@ -76,7 +76,7 @@ pub fn render_pane<T, F, U>(
     note: &PaneNotation,
     parent_style: Option<Style>,
     get_content: F,
-) -> Result<(), Error<T::Error>>
+) -> Result<(), PaneError<T::Error>>
 where
     T: PrettyWindow,
     F: FnOnce(&Content) -> Option<U>,
@@ -89,7 +89,7 @@ where
             let child_sizes: Vec<_> = panes.iter().map(|p| p.0).collect();
             let total_width = usize::from(pane.rect().width());
             let widths: Vec<_> = divvy(total_width, &child_sizes)
-                .ok_or(Error::ImpossibleDemands)?
+                .ok_or(PaneError::ImpossibleDemands)?
                 .into_iter()
                 .map(|n| n as Col)
                 .collect();
@@ -99,7 +99,7 @@ where
                 .horz_splits(&widths)
                 .zip(child_notes.into_iter())
             {
-                let mut child_pane = pane.sub_pane(rect).ok_or(Error::NotSubPane)?;
+                let mut child_pane = pane.sub_pane(rect).ok_or(PaneError::NotSubPane)?;
                 render_pane(&mut child_pane, child_note, style, get_content.clone())?;
             }
         }
@@ -108,7 +108,7 @@ where
             let child_sizes: Vec<_> = panes.iter().map(|p| p.0).collect();
             let total_height = pane.rect().height() as usize;
             let heights: Vec<_> = divvy(total_height, &child_sizes)
-                .ok_or(Error::ImpossibleDemands)?
+                .ok_or(PaneError::ImpossibleDemands)?
                 .into_iter()
                 .map(|n| n as Row)
                 .collect();
@@ -118,7 +118,7 @@ where
                 .vert_splits(&heights)
                 .zip(child_notes.into_iter())
             {
-                let mut child_pane = pane.sub_pane(rect).ok_or(Error::NotSubPane)?;
+                let mut child_pane = pane.sub_pane(rect).ok_or(PaneError::NotSubPane)?;
                 render_pane(&mut child_pane, child_note, style, get_content.clone())?;
             }
         }
@@ -126,7 +126,7 @@ where
             // TODO how to use style?
             let _style = style.or(parent_style).unwrap_or_default();
             let width = pane.rect().width();
-            let doc = get_content(content).ok_or(Error::Content)?;
+            let doc = get_content(content).ok_or(PaneError::Content)?;
 
             // Put the top of the cursor at the top of the pane.
             // TODO support fancier positioning options.
