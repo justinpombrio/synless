@@ -1,8 +1,7 @@
 use std::fmt;
-use std::ops::{Deref, DerefMut};
 
 use crate::text::Text;
-use forest::{Bookmark, ReadLeaf, Tree, WriteLeaf};
+use forest::{Bookmark, Tree};
 use language::{Arity, Construct, Language};
 use pretty::{Bounds, Notation};
 
@@ -53,24 +52,30 @@ impl<'l> Ast<'l> {
         Some(self.tree.data().construct.arity.clone())
     }
 
-    /// Get a shared reference to the text at this node.
+    /// Calls the closure, giving it read-access to this node's text.
     ///
     /// # Panics
     ///
-    /// Panics if the arity of this node is not `Text`. Also panics if two
-    /// nodes/texts in the forest are borrowed at the same time.
-    fn text<'f>(&'f self) -> ReadText<'f, 'l> {
-        ReadText(self.tree.child_leaf())
+    /// Panics if the arity of this node is not `Text`.
+    fn text<F, T>(&self, f: F) -> T
+    where
+        F: FnOnce(&Text) -> T,
+    {
+        assert_eq!(self.arity(), Some(Arity::Text));
+        self.tree.child_leaf(f)
     }
 
-    /// Obtain a mutable reference to the text at this node.
+    /// Calls the closure, giving it write-access to this node's text.
     ///
     /// # Panics
     ///
-    /// Panics if the arity of this node is not `Text`. Also panics if two
-    /// nodes/texts in the forest are borrowed at the same time.
-    fn text_mut<'f>(&'f mut self) -> WriteText<'f, 'l> {
-        WriteText(self.tree.child_leaf_mut())
+    /// Panics if the arity of this node is not `Text`.
+    fn text_mut<F, T>(&mut self, f: F) -> T
+    where
+        F: FnOnce(&mut Text) -> T,
+    {
+        assert_eq!(self.arity(), Some(Arity::Text));
+        self.tree.child_leaf_mut(f)
     }
 
     /// Get the language of this node's syntactic construct.
@@ -295,12 +300,18 @@ pub struct TextAst<'a, 'l> {
 }
 
 impl<'a, 'l> TextAst<'a, 'l> {
-    pub fn text<'b>(&'b self) -> ReadText<'b, 'l> {
-        self.ast.text()
+    pub fn text<F, T>(&self, f: F) -> T
+    where
+        F: FnOnce(&Text) -> T,
+    {
+        self.ast.text(f)
     }
 
-    pub fn text_mut<'b>(&'b mut self) -> WriteText<'b, 'l> {
-        self.ast.text_mut()
+    pub fn text_mut<F, T>(&mut self, f: F) -> T
+    where
+        F: FnOnce(&mut Text) -> T,
+    {
+        self.ast.text_mut(f)
     }
 }
 
@@ -345,27 +356,5 @@ impl<'a, 'l> FlexibleAst<'a, 'l> {
 
     pub fn remove_child(&mut self, i: usize) -> Ast<'l> {
         self.ast.remove_child(i)
-    }
-}
-
-pub struct ReadText<'f, 'l>(pub(super) ReadLeaf<'f, Node<'l>, Text>);
-
-impl<'f, 'l> ReadText<'f, 'l> {
-    pub fn as_text_ref(&self) -> &Text {
-        self.0.deref()
-    }
-}
-
-impl<'f, 'l> AsRef<str> for ReadText<'f, 'l> {
-    fn as_ref(&self) -> &str {
-        self.0.deref().as_str()
-    }
-}
-
-pub struct WriteText<'f, 'l>(pub(super) WriteLeaf<'f, Node<'l>, Text>);
-
-impl<'f, 'l> AsMut<Text> for WriteText<'f, 'l> {
-    fn as_mut(&mut self) -> &mut Text {
-        self.0.deref_mut()
     }
 }

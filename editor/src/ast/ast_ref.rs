@@ -2,7 +2,7 @@ use forest::{Bookmark, TreeRef};
 use language::Arity;
 use pretty::{Bounds, Notation, PrettyDocument};
 
-use crate::ast::ast::{Ast, Node, ReadText};
+use crate::ast::ast::{Ast, Node};
 use crate::text::Text;
 
 impl<'f, 'l> Ast<'l> {
@@ -57,13 +57,17 @@ impl<'f, 'l> AstRef<'f, 'l> {
         }
     }
 
-    /// Get a shared reference to the text within this Text node.
+    /// Calls the closure, giving it read-access to this node's text.
     ///
     /// # Panics
     ///
     /// Panics if the arity of this node is not `Text`.
-    pub fn text(&self) -> ReadText<'f, 'l> {
-        ReadText(self.tree_ref.child(0).leaf())
+    pub fn text<F, T>(&self, f: F) -> T
+    where
+        F: FnOnce(&Text) -> T,
+    {
+        assert!(self.arity().is_text());
+        self.tree_ref.child_leaf(f)
     }
 
     /// Save a bookmark to return to later.
@@ -84,7 +88,7 @@ impl<'f, 'l> AstRef<'f, 'l> {
 }
 
 impl<'f, 'l> PrettyDocument for AstRef<'f, 'l> {
-    type TextRef = ReadText<'f, 'l>;
+    type TextRef = String;
 
     fn notation(&self) -> &Notation {
         &self.tree_ref.data().notation
@@ -94,9 +98,10 @@ impl<'f, 'l> PrettyDocument for AstRef<'f, 'l> {
         self.tree_ref.data().bounds.clone()
     }
 
-    fn text(&self) -> Option<Self::TextRef> {
+    fn text(&self) -> Option<String> {
+        // TODO can we avoid allocating a string every time?
         if self.arity() == Arity::Text {
-            Some(self.text())
+            Some(self.text(|t| t.as_str().to_string()))
         } else {
             None
         }
