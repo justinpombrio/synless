@@ -315,35 +315,12 @@ impl Ed {
             Word::Undo => self.exec(CommandGroup::Undo)?,
             Word::Redo => self.exec(CommandGroup::Redo)?,
             Word::Cut => self.exec(EditorCmd::Cut)?,
-
             Word::Copy => self.exec(EditorCmd::Copy)?,
-
-            Word::PasteAfter => {
-                if let Some(tree) = self.cut_stack.pop() {
-                    // TODO if the insert fails, we'll lose the tree forever...
-                    self.exec(TreeCmd::InsertAfter(tree))?
-                }
-            }
-            Word::PasteBefore => {
-                if let Some(tree) = self.cut_stack.pop() {
-                    self.exec(TreeCmd::InsertBefore(tree))?
-                }
-            }
-            Word::PastePrepend => {
-                if let Some(tree) = self.cut_stack.pop() {
-                    self.exec(TreeCmd::InsertPrepend(tree))?
-                }
-            }
-            Word::PastePostpend => {
-                if let Some(tree) = self.cut_stack.pop() {
-                    self.exec(TreeCmd::InsertPostpend(tree))?
-                }
-            }
-            Word::PasteReplace => {
-                if let Some(tree) = self.cut_stack.pop() {
-                    self.exec(TreeCmd::Replace(tree))?
-                }
-            }
+            Word::PasteAfter => self.exec(EditorCmd::PasteAfter)?,
+            Word::PasteBefore => self.exec(EditorCmd::PasteBefore)?,
+            Word::PastePrepend => self.exec(EditorCmd::PastePrepend)?,
+            Word::PastePostpend => self.exec(EditorCmd::PastePostpend)?,
+            Word::PasteReplace => self.exec(EditorCmd::PasteReplace)?,
         })
     }
 

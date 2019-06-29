@@ -17,6 +17,13 @@ impl<'l> UndoGroup<'l> {
         }
     }
 
+    fn with_edit(commands: Vec<Command<'l>>) -> Self {
+        UndoGroup {
+            contains_edit: true,
+            commands,
+        }
+    }
+
     fn append(&mut self, mut other: UndoGroup<'l>) {
         self.contains_edit |= other.contains_edit;
         self.commands.append(&mut other.commands);
@@ -172,23 +179,54 @@ impl<'l> Doc<'l> {
         if !self.mode.is_tree() {
             panic!("tried to execute editor command in text mode")
         }
-        let undos = match cmd {
+        match cmd {
             EditorCmd::Cut => {
                 let (undos, ast) = self.remove(true)?;
                 clipboard.push(ast.expect("failed to cut"));
-                undos
+                Ok(UndoGroup::with_edit(undos))
             }
             EditorCmd::Copy => {
                 clipboard.push(self.ast.clone());
-                Vec::new()
+                Ok(UndoGroup::new())
             }
-            _ => unimplemented!(),
-        };
-        let group = UndoGroup {
-            contains_edit: true,
-            commands: undos,
-        };
-        Ok(group)
+            EditorCmd::PasteAfter => {
+                if let Some(tree) = clipboard.pop() {
+                    // TODO if the insert fails, we'll lose the tree forever...
+                    self.execute_tree(TreeCmd::InsertAfter(tree))
+                } else {
+                    // TODO should we return an error if the clipboard is empty?
+                    Ok(UndoGroup::new())
+                }
+            }
+            EditorCmd::PasteBefore => {
+                if let Some(tree) = clipboard.pop() {
+                    self.execute_tree(TreeCmd::InsertBefore(tree))
+                } else {
+                    Ok(UndoGroup::new())
+                }
+            }
+            EditorCmd::PastePrepend => {
+                if let Some(tree) = clipboard.pop() {
+                    self.execute_tree(TreeCmd::InsertPrepend(tree))
+                } else {
+                    Ok(UndoGroup::new())
+                }
+            }
+            EditorCmd::PastePostpend => {
+                if let Some(tree) = clipboard.pop() {
+                    self.execute_tree(TreeCmd::InsertPostpend(tree))
+                } else {
+                    Ok(UndoGroup::new())
+                }
+            }
+            EditorCmd::PasteReplace => {
+                if let Some(tree) = clipboard.pop() {
+                    self.execute_tree(TreeCmd::Replace(tree))
+                } else {
+                    Ok(UndoGroup::new())
+                }
+            }
+        }
     }
 
     fn execute_tree(&mut self, cmd: TreeCmd<'l>) -> Result<UndoGroup<'l>, ()> {
