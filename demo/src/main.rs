@@ -314,14 +314,10 @@ impl Ed {
             }
             Word::Undo => self.exec(CommandGroup::Undo)?,
             Word::Redo => self.exec(CommandGroup::Redo)?,
-            Word::Cut => {
-                let asts = self.exec_return(EditorCmd::Cut)?;
-                self.cut_stack.extend(asts)
-            }
-            Word::Copy => {
-                let asts = self.exec_return(EditorCmd::Copy)?;
-                self.cut_stack.extend(asts)
-            }
+            Word::Cut => self.exec(EditorCmd::Cut)?,
+
+            Word::Copy => self.exec(EditorCmd::Copy)?,
+
             Word::PasteAfter => {
                 if let Some(tree) = self.cut_stack.pop() {
                     // TODO if the insert fails, we'll lose the tree forever...
@@ -351,21 +347,14 @@ impl Ed {
         })
     }
 
-    fn exec_return<T>(&mut self, cmd: T) -> Result<Vec<Ast<'static>>, Error>
+    fn exec<T>(&mut self, cmd: T) -> Result<(), Error>
     where
         T: Debug + Into<CommandGroup<'static>>,
     {
         let name = format!("{:?}", cmd);
         self.doc
-            .execute(cmd.into())
+            .execute(cmd.into(), &mut self.cut_stack)
             .map_err(|_| Error::DocExec(name))
-    }
-
-    fn exec<T>(&mut self, cmd: T) -> Result<(), Error>
-    where
-        T: Debug + Into<CommandGroup<'static>>,
-    {
-        self.exec_return(cmd).map(|_asts| ())
     }
 
     fn node_by_name(

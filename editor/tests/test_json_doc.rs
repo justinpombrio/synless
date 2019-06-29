@@ -14,94 +14,97 @@ fn test_json_undo_redo() {
     lang_set.insert(name.clone(), lang);
     let forest = AstForest::new(&lang_set);
     let lang = lang_set.get(&name).unwrap();
-
+    let mut clipboard = Vec::new();
     let mut doc = Doc::new(
         "MyTestDoc",
         forest.new_fixed_tree(lang, lang.lookup_construct("root"), &note_set),
     );
 
-    doc.execute(CommandGroup::Group(vec![Command::TreeNav(
-        TreeNavCmd::Child(0),
-    )]))
+    doc.execute(
+        CommandGroup::Group(vec![Command::TreeNav(TreeNavCmd::Child(0))]),
+        &mut clipboard,
+    )
     .unwrap();
 
-    doc.execute(CommandGroup::Group(vec![
-        Command::Tree(TreeCmd::Replace(forest.new_flexible_tree(
-            &lang,
-            lang.lookup_construct("list"),
-            &note_set,
-        ))),
-        Command::Tree(TreeCmd::InsertPrepend(forest.new_fixed_tree(
-            &lang,
-            lang.lookup_construct("true"),
-            &note_set,
-        ))),
-    ]))
+    doc.execute(
+        CommandGroup::Group(vec![
+            Command::Tree(TreeCmd::Replace(forest.new_flexible_tree(
+                &lang,
+                lang.lookup_construct("list"),
+                &note_set,
+            ))),
+            Command::Tree(TreeCmd::InsertPrepend(forest.new_fixed_tree(
+                &lang,
+                lang.lookup_construct("true"),
+                &note_set,
+            ))),
+        ]),
+        &mut clipboard,
+    )
     .unwrap();
 
-    doc.execute(CommandGroup::Group(vec![Command::Tree(
-        TreeCmd::InsertAfter(forest.new_fixed_tree(
-            &lang,
-            lang.lookup_construct("null"),
-            &note_set,
-        )),
-    )]))
+    doc.execute(
+        CommandGroup::Group(vec![Command::Tree(TreeCmd::InsertAfter(
+            forest.new_fixed_tree(&lang, lang.lookup_construct("null"), &note_set),
+        ))]),
+        &mut clipboard,
+    )
     .unwrap();
     assert_render(&doc, "[true, null]");
 
-    doc.execute(CommandGroup::Group(vec![Command::Tree(
-        TreeCmd::InsertBefore(forest.new_fixed_tree(
-            &lang,
-            lang.lookup_construct("false"),
-            &note_set,
-        )),
-    )]))
+    doc.execute(
+        CommandGroup::Group(vec![Command::Tree(TreeCmd::InsertBefore(
+            forest.new_fixed_tree(&lang, lang.lookup_construct("false"), &note_set),
+        ))]),
+        &mut clipboard,
+    )
     .unwrap();
     assert_render(&doc, "[true, false, null]");
 
-    doc.execute(CommandGroup::Undo).unwrap();
+    doc.execute(CommandGroup::Undo, &mut clipboard).unwrap();
     assert_render(&doc, "[true, null]");
 
-    doc.execute(CommandGroup::Undo).unwrap();
+    doc.execute(CommandGroup::Undo, &mut clipboard).unwrap();
     assert_render(&doc, "[true]");
 
-    doc.execute(CommandGroup::Redo).unwrap();
+    doc.execute(CommandGroup::Redo, &mut clipboard).unwrap();
     assert_render(&doc, "[true, null]");
 
-    doc.execute(CommandGroup::Redo).unwrap();
+    doc.execute(CommandGroup::Redo, &mut clipboard).unwrap();
     assert_render(&doc, "[true, false, null]");
 
-    doc.execute(CommandGroup::Undo).unwrap();
+    doc.execute(CommandGroup::Undo, &mut clipboard).unwrap();
     assert_render(&doc, "[true, null]");
 
-    doc.execute(CommandGroup::Group(vec![Command::Tree(
-        TreeCmd::InsertAfter(
+    doc.execute(
+        CommandGroup::Group(vec![Command::Tree(TreeCmd::InsertAfter(
             // forest.new_fixed_tree(&lang, lang.lookup_construct("false"), &note_set),
             forest.new_flexible_tree(&lang, lang.lookup_construct("list"), &note_set),
-        ),
-    )]))
+        ))]),
+        &mut clipboard,
+    )
     .unwrap();
     assert_render(&doc, "[true, null, []]");
 
-    doc.execute(CommandGroup::Undo).unwrap();
+    doc.execute(CommandGroup::Undo, &mut clipboard).unwrap();
     assert_render(&doc, "[true, null]");
 
-    doc.execute(CommandGroup::Undo).unwrap();
+    doc.execute(CommandGroup::Undo, &mut clipboard).unwrap();
     assert_render(&doc, "[true]");
 
-    doc.execute(CommandGroup::Undo).unwrap();
+    doc.execute(CommandGroup::Undo, &mut clipboard).unwrap();
     assert_render(&doc, "?");
 
-    doc.execute(CommandGroup::Redo).unwrap();
+    doc.execute(CommandGroup::Redo, &mut clipboard).unwrap();
     assert_render(&doc, "[true]");
 
-    doc.execute(CommandGroup::Redo).unwrap();
+    doc.execute(CommandGroup::Redo, &mut clipboard).unwrap();
     assert_render(&doc, "[true, null]");
 
-    doc.execute(CommandGroup::Redo).unwrap();
+    doc.execute(CommandGroup::Redo, &mut clipboard).unwrap();
     assert_render(&doc, "[true, null, []]");
 
-    assert!(doc.execute(CommandGroup::Redo).is_err());
+    assert!(doc.execute(CommandGroup::Redo, &mut clipboard).is_err());
     assert_render(&doc, "[true, null, []]");
 }
 
@@ -113,51 +116,59 @@ fn test_json_string() {
     lang_set.insert(name.clone(), lang);
     let forest = AstForest::new(&lang_set);
     let lang = lang_set.get(&name).unwrap();
+    let mut clipboard = Vec::new();
 
     let mut doc = Doc::new(
         "MyTestDoc",
         forest.new_fixed_tree(&lang, lang.lookup_construct("root"), &note_set),
     );
 
-    doc.execute(CommandGroup::Group(vec![Command::TreeNav(
-        TreeNavCmd::Child(0),
-    )]))
+    doc.execute(
+        CommandGroup::Group(vec![Command::TreeNav(TreeNavCmd::Child(0))]),
+        &mut clipboard,
+    )
     .unwrap();
 
-    doc.execute(CommandGroup::Group(vec![Command::Tree(TreeCmd::Replace(
-        forest.new_flexible_tree(&lang, lang.lookup_construct("list"), &note_set),
-    ))]))
+    doc.execute(
+        CommandGroup::Group(vec![Command::Tree(TreeCmd::Replace(
+            forest.new_flexible_tree(&lang, lang.lookup_construct("list"), &note_set),
+        ))]),
+        &mut clipboard,
+    )
     .unwrap();
 
-    doc.execute(CommandGroup::Group(vec![Command::Tree(
-        TreeCmd::InsertPrepend(forest.new_text_tree(
-            &lang,
-            lang.lookup_construct("string"),
-            &note_set,
-        )),
-    )]))
+    doc.execute(
+        CommandGroup::Group(vec![Command::Tree(TreeCmd::InsertPrepend(
+            forest.new_text_tree(&lang, lang.lookup_construct("string"), &note_set),
+        ))]),
+        &mut clipboard,
+    )
     .unwrap();
 
     assert!(doc.is_tree_mode());
 
-    doc.execute(CommandGroup::Group(vec![Command::TreeNav(
-        TreeNavCmd::Child(0),
-    )]))
+    doc.execute(
+        CommandGroup::Group(vec![Command::TreeNav(TreeNavCmd::Child(0))]),
+        &mut clipboard,
+    )
     .unwrap();
     assert!(!doc.is_tree_mode());
-    doc.execute(CommandGroup::Group(vec![Command::TextNav(
-        TextNavCmd::TreeMode,
-    )]))
+    doc.execute(
+        CommandGroup::Group(vec![Command::TextNav(TextNavCmd::TreeMode)]),
+        &mut clipboard,
+    )
     .unwrap();
     assert!(doc.is_tree_mode());
-    doc.execute(CommandGroup::Group(vec![Command::TreeNav(
-        TreeNavCmd::Child(0),
-    )]))
+    doc.execute(
+        CommandGroup::Group(vec![Command::TreeNav(TreeNavCmd::Child(0))]),
+        &mut clipboard,
+    )
     .unwrap();
     assert!(!doc.is_tree_mode());
-    doc.execute(CommandGroup::Group(vec![Command::Text(
-        TextCmd::InsertChar('a'),
-    )]))
+    doc.execute(
+        CommandGroup::Group(vec![Command::Text(TextCmd::InsertChar('a'))]),
+        &mut clipboard,
+    )
     .unwrap();
     assert_render(&doc, "\"a\"");
 }

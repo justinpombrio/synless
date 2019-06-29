@@ -97,13 +97,14 @@ impl<'l> Doc<'l> {
         mem::replace(&mut self.recent, UndoGroup::new())
     }
 
-    fn undo(&mut self) -> Result<(), ()> {
+    fn undo(&mut self, clipboard: &mut Vec<Ast<'l>>) -> Result<(), ()> {
         assert!(self.recent.commands.is_empty());
         assert!(!self.recent.contains_edit);
         match self.undo_stack.pop() {
             None => Err(()), // Undo stack is empty
             Some(group) => {
-                self.execute_group(group).expect("Failed to undo");
+                self.execute_group(group, clipboard)
+                    .expect("Failed to undo");
                 let recent = self.take_recent();
                 self.redo_stack.push(recent);
                 Ok(())
@@ -111,13 +112,14 @@ impl<'l> Doc<'l> {
         }
     }
 
-    fn redo(&mut self) -> Result<(), ()> {
+    fn redo(&mut self, clipboard: &mut Vec<Ast<'l>>) -> Result<(), ()> {
         assert!(self.recent.commands.is_empty());
         assert!(!self.recent.contains_edit);
         match self.redo_stack.pop() {
             None => Err(()), // Redo stack is empty
             Some(group) => {
-                self.execute_group(group).expect("Failed to redo");
+                self.execute_group(group, clipboard)
+                    .expect("Failed to redo");
                 let recent = self.take_recent();
                 self.undo_stack.push(recent);
                 Ok(())
@@ -125,12 +127,16 @@ impl<'l> Doc<'l> {
         }
     }
 
-    pub fn execute(&mut self, cmds: CommandGroup<'l>) -> Result<Vec<Ast<'l>>, ()> {
+    pub fn execute(
+        &mut self,
+        cmds: CommandGroup<'l>,
+        clipboard: &mut Vec<Ast<'l>>,
+    ) -> Result<(), ()> {
         match cmds {
-            CommandGroup::Undo => self.undo().map(|_| Vec::new()),
-            CommandGroup::Redo => self.redo().map(|_| Vec::new()),
+            CommandGroup::Undo => self.undo(clipboard),
+            CommandGroup::Redo => self.redo(clipboard),
             CommandGroup::Group(group) => {
-                let result = self.execute_group(group);
+                let result = self.execute_group(group, clipboard);
                 let undos = self.take_recent();
                 if !undos.is_empty() {
                     self.undo_stack.push(undos);
@@ -141,20 +147,13 @@ impl<'l> Doc<'l> {
         }
     }
 
-    fn execute_group<I>(&mut self, cmds: I) -> Result<Vec<Ast<'l>>, ()>
+    fn execute_group<I>(&mut self, cmds: I, clipboard: &mut Vec<Ast<'l>>) -> Result<(), ()>
     where
         I: IntoIterator<Item = Command<'l>>,
     {
-        let mut asts = Vec::new();
         for cmd in cmds {
             let undos = match cmd {
-                Command::Ed(cmd) => {
-                    let (undos, ast) = self.execute_ed(cmd)?;
-                    if let Some(ast) = ast {
-                        asts.push(ast);
-                    }
-                    undos
-                }
+                Command::Ed(cmd) => self.execute_ed(cmd, clipboard)?,
                 Command::Tree(cmd) => self.execute_tree(cmd)?,
                 Command::TreeNav(cmd) => self.execute_tree_nav(cmd)?,
                 Command::Text(cmd) => self.execute_text(cmd)?,
@@ -162,29 +161,38 @@ impl<'l> Doc<'l> {
             };
             self.recent.append(undos);
         }
-        Ok(asts)
+        Ok(())
     }
 
-    fn execute_ed(&mut self, cmd: EditorCmd) -> Result<(UndoGroup<'l>, Option<Ast<'l>>), ()> {
+    fn execute_ed(
+        &mut self,
+        cmd: EditorCmd,
+        clipboard: &mut Vec<Ast<'l>>,
+    ) -> Result<UndoGroup<'l>, ()> {
         if !self.mode.is_tree() {
             panic!("tried to execute editor command in text mode")
         }
-        let (undos, ast) = match cmd {
-            EditorCmd::Cut => self.remove(true)?,
-            EditorCmd::Copy => (Vec::new(), Some(self.ast.clone())),
+        let undos = match cmd {
+            EditorCmd::Cut => {
+                let (undos, ast) = self.remove(true)?;
+                clipboard.push(ast.expect("failed to cut"));
+                undos
+            }
+            EditorCmd::Copy => {
+                clipboard.push(self.ast.clone());
+                Vec::new()
+            }
             _ => unimplemented!(),
         };
-
         let group = UndoGroup {
             contains_edit: true,
             commands: undos,
         };
-        Ok((group, ast))
+        Ok(group)
     }
 
     fn execute_tree(&mut self, cmd: TreeCmd<'l>) -> Result<UndoGroup<'l>, ()> {
         if !self.mode.is_tree() {
-            // return false;
             panic!("tried to execute tree command in text mode")
         }
         let undos = match cmd {
