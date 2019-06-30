@@ -43,6 +43,11 @@ pub enum PaneNotation {
         style: Option<Style>,
     },
 }
+#[derive(Debug, Clone, Copy)]
+pub enum Cursor {
+    Show,
+    Hide,
+}
 
 #[derive(Debug)]
 pub enum PaneError<T>
@@ -110,8 +115,9 @@ where
 
     /// Render to this pane according to the given [PaneNotation], `note`. Use
     /// the `get_content` closure to map the document names used in any
-    /// `PaneNotation::Content` variants to actual documents. If `parent_style`
-    /// is not `None`, apply that style to [PaneNotation] sub-trees that don't
+    /// `PaneNotation::Content` variants to actual documents, and whether to
+    /// shade that document's cursor region. If `parent_style` is not `None`,
+    /// apply that style to [PaneNotation] sub-trees that don't
     /// specify their own style.
     pub fn render<F, U>(
         &mut self,
@@ -120,7 +126,7 @@ where
         get_content: F,
     ) -> Result<(), PaneError<T::Error>>
     where
-        F: FnOnce(&Content) -> Option<U>,
+        F: FnOnce(&Content) -> Option<(U, Cursor)>,
         F: Clone,
         U: PrettyDocument,
     {
@@ -162,7 +168,8 @@ where
                 // TODO how to use style? pretty_print doesn't take it.
                 let _style = style.or(parent_style).unwrap_or_default();
                 let width = self.rect().width();
-                let doc = get_content(content).ok_or(PaneError::Content)?;
+
+                let (doc, cursor_visibility) = get_content(content).ok_or(PaneError::Content)?;
 
                 // Put the top of the cursor at the top of the pane.
                 // TODO support fancier positioning options.
@@ -172,6 +179,14 @@ where
                     row: cursor_region.pos.row,
                 };
                 doc.pretty_print(width, self, doc_pos)?;
+
+                if let Cursor::Show = cursor_visibility {
+                    let region = Region {
+                        pos: cursor_region.pos - doc_pos,
+                        bound: cursor_region.bound,
+                    };
+                    self.shade(region, Shade(0))?;
+                }
             }
             PaneNotation::Fill { ch, style } => {
                 let style = style.or(parent_style).unwrap_or_default();

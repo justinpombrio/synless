@@ -26,4 +26,4 @@ pub use self::notation::{
 
 pub use self::pretty::{PlainText, PrettyDocument, PrettyWindow};
 pub use self::style::{Color, ColorTheme, Emph, Rgb, Shade, Style};
-pub use pane::{Content, Pane, PaneError, PaneNotation, PaneSize};
+pub use pane::{Content, Cursor, Pane, PaneError, PaneNotation, PaneSize};

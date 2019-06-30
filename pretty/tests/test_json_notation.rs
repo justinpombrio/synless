@@ -3,7 +3,9 @@
 mod common;
 
 use common::{assert_strings_eq, make_json_doc, make_json_notation, make_long_json_list, Doc};
-use pretty::{Col, Content, PaneNotation, PaneSize, PlainText, Pos, PrettyDocument, PrettyWindow};
+use pretty::{
+    Col, Content, Cursor, PaneNotation, PaneSize, PlainText, Pos, PrettyDocument, PrettyWindow,
+};
 
 // TODO: test horz concat
 
@@ -231,8 +233,10 @@ fn test_pane_content() {
         style: None,
     };
     let mut pane = window.pane().unwrap();
-    pane.render(&pane_note, None, |_: &Content| Some(doc.as_ref()))
-        .unwrap();
+    pane.render(&pane_note, None, |_: &Content| {
+        Some((doc.as_ref(), Cursor::Hide))
+    })
+    .unwrap();
     assert_strings_eq(&window.to_string(), "true");
 }
 
@@ -263,8 +267,8 @@ fn test_pane_horz() {
 
     let mut pane = window.pane().unwrap();
     pane.render(&pane_note, None, |content: &Content| match content {
-        Content::ActiveDoc => Some(doc1.as_ref()),
-        Content::KeyHints => Some(doc2.as_ref()),
+        Content::ActiveDoc => Some((doc1.as_ref(), Cursor::Hide)),
+        Content::KeyHints => Some((doc2.as_ref(), Cursor::Hide)),
     })
     .unwrap();
     assert_strings_eq(&window.to_string(), "true false");
@@ -313,8 +317,8 @@ fn test_pane_vert() {
 
     let mut pane = window.pane().unwrap();
     pane.render(&pane_note, None, |content: &Content| match content {
-        Content::ActiveDoc => Some(doc1.as_ref()),
-        Content::KeyHints => Some(doc2.as_ref()),
+        Content::ActiveDoc => Some((doc1.as_ref(), Cursor::Hide)),
+        Content::KeyHints => Some((doc2.as_ref(), Cursor::Hide)),
     })
     .unwrap();
     assert_strings_eq(&window.to_string(), "truefalse\ntrue false");
@@ -343,8 +347,10 @@ fn test_pane_fill() {
     };
 
     let mut pane = window.pane().unwrap();
-    pane.render(&pane_note, None, |_content: &Content| Some(doc1.as_ref()))
-        .unwrap();
+    pane.render(&pane_note, None, |_content: &Content| {
+        Some((doc1.as_ref(), Cursor::Hide))
+    })
+    .unwrap();
     assert_strings_eq(&window.to_string(), "true\n------\n------");
 }
 
@@ -379,8 +385,10 @@ fn assert_proportional(expected: &str, width: Col, hungers: (usize, usize, usize
 
     let mut window = PlainText::new(Pos { row: 1, col: width });
     let mut pane = window.pane().unwrap();
-    pane.render(&pane_note, None, |_content: &Content| Some(doc1.as_ref()))
-        .unwrap();
+    pane.render(&pane_note, None, |_content: &Content| {
+        Some((doc1.as_ref(), Cursor::Hide))
+    })
+    .unwrap();
     assert_strings_eq(&window.to_string(), expected);
 }
 
