@@ -429,13 +429,14 @@ impl<'l> Doc<'l> {
                 let index = if at_start { 0 } else { original_num_children };
                 flexible.insert_child(index, new_ast);
                 flexible.goto_child(index);
-                let mut undo = vec![TreeCmd::Remove.into()];
+                let mut undo = Vec::new();
                 if original_num_children != 0 {
                     // If there are still children left after removing this
                     // one, we won't automatically go back up to the parent.
                     // So do that here.
                     undo.push(TreeNavCmd::Parent.into());
                 }
+                undo.push(TreeCmd::Remove.into());
                 Ok(undo)
             }
             _ => Err(()),
