@@ -114,7 +114,7 @@ impl<'l> Doc<'l> {
     }
 
     pub fn ast_ref<'f>(&'f self) -> AstRef<'f, 'l> {
-        self.ast.borrow()
+        self.ast.ast_ref()
     }
 
     pub fn in_tree_mode(&self) -> bool {

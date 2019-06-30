@@ -265,10 +265,10 @@ impl<'l> Ast<'l> {
     /// Panics if this is a leaf node.
     fn update(&mut self) {
         let bookmark = self.bookmark();
-        self.tree.data_mut().bounds = Bounds::compute(&self.borrow());
+        self.tree.data_mut().bounds = Bounds::compute(&self.ast_ref());
         while !self.is_at_root() {
             self.goto_parent();
-            self.tree.data_mut().bounds = Bounds::compute(&self.borrow());
+            self.tree.data_mut().bounds = Bounds::compute(&self.ast_ref());
         }
         self.goto_bookmark(bookmark);
     }

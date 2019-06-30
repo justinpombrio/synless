@@ -6,7 +6,7 @@ use crate::ast::ast::{Ast, Node};
 use crate::text::Text;
 
 impl<'f, 'l> Ast<'l> {
-    pub fn borrow(&'f self) -> AstRef<'f, 'l> {
+    pub fn ast_ref(&'f self) -> AstRef<'f, 'l> {
         AstRef {
             tree_ref: self.tree.borrow(),
         }
