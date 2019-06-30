@@ -1,5 +1,5 @@
 use lazy_static::lazy_static;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fmt::Debug;
 
 use termion::event::Key;
@@ -8,21 +8,21 @@ use editor::{
     make_json_lang, Ast, AstForest, Clipboard, CommandGroup, Doc, EditorCmd, NotationSet, TextCmd,
     TreeCmd, TreeNavCmd,
 };
-use frontends::{terminal, Event, Frontend, Terminal};
+use frontends::{Event, Frontend, Terminal};
 use language::{LanguageName, LanguageSet};
-use pretty::{
-    Color, ColorTheme, CursorVis, DocPosSpec, Pane, Pos, PrettyDocument, PrettyWindow, Style,
-};
+use pretty::{Color, ColorTheme, CursorVis, DocLabel, Pane, PaneNotation, PaneSize, Style};
 use utility::GrowOnlyMap;
 
 mod error;
 mod keymap;
 mod keymap_lang;
+mod message_lang;
 mod prog;
 
 use error::Error;
 use keymap::Keymap;
 use keymap_lang::make_keymap_lang;
+use message_lang::make_message_lang;
 use prog::{Prog, Stack, Word};
 
 lazy_static! {
@@ -45,13 +45,14 @@ struct Ed {
     lang_name: LanguageName,
     forest: AstForest<'static>,
     term: Terminal,
-    messages: Vec<String>,
+    messages: VecDeque<String>,
+    message_doc: Ast<'static>,
+    message_lang_name: LanguageName,
     stack: Stack<'static>,
     keymaps: HashMap<String, Keymap<'static>>,
     keymap_stack: Vec<String>,
-    // keymap_lang_name: LanguageName,
-    // kmap_doc: Doc<'static>,
-    keymap_summary: String,
+    kmap_lang_name: LanguageName,
+    key_hints: Ast<'static>,
     cut_stack: Clipboard<'static>,
 }
 
@@ -59,13 +60,17 @@ impl Ed {
     fn new() -> Result<Self, Error> {
         let (json_lang, json_notes) = make_json_lang();
         let (kmap_lang, kmap_notes) = make_keymap_lang();
+        let (msg_lang, msg_notes) = make_message_lang();
         let json_lang_name = json_lang.name().to_string();
         let kmap_lang_name = kmap_lang.name().to_string();
+        let msg_lang_name = msg_lang.name().to_string();
 
         LANG_SET.insert(json_lang_name.clone(), json_lang);
         LANG_SET.insert(kmap_lang_name.clone(), kmap_lang);
+        LANG_SET.insert(msg_lang_name.clone(), msg_lang);
         NOTE_SETS.insert(json_lang_name.clone(), json_notes);
         NOTE_SETS.insert(kmap_lang_name.clone(), kmap_notes);
+        NOTE_SETS.insert(msg_lang_name.clone(), msg_notes);
 
         let forest = AstForest::new(&LANG_SET);
 
@@ -79,15 +84,19 @@ impl Ed {
             ),
         );
 
-        // let kmap_lang = LANG_SET.get(&kmap_lang_name).unwrap();
-        // let kmap_doc = Doc::new(
-        //     "KeymapSummaryDoc",
-        //     forest.new_fixed_tree(
-        //         kmap_lang,
-        //         kmap_lang.lookup_construct("root"),
-        //         NOTE_SETS.get(&kmap_lang_name).unwrap(),
-        //     ),
-        // );
+        let kmap_lang = LANG_SET.get(&kmap_lang_name).unwrap();
+        let key_hints = forest.new_fixed_tree(
+            kmap_lang,
+            kmap_lang.lookup_construct("root"),
+            NOTE_SETS.get(&kmap_lang_name).unwrap(),
+        );
+
+        let msg_lang = LANG_SET.get(&msg_lang_name).unwrap();
+        let msg_doc = forest.new_fixed_tree(
+            msg_lang,
+            msg_lang.lookup_construct("root"),
+            NOTE_SETS.get(&msg_lang_name).unwrap(),
+        );
 
         let mut maps = HashMap::new();
         maps.insert("tree".to_string(), Keymap::tree());
@@ -99,15 +108,17 @@ impl Ed {
             lang_name: json_lang_name,
             forest,
             term: Terminal::new(ColorTheme::default_dark())?,
-            messages: Vec::new(),
+            messages: VecDeque::new(),
+            message_doc: msg_doc,
+            message_lang_name: msg_lang_name,
             stack: Stack::new(),
             keymaps: maps,
-            // keymap_lang_name: kmap_lang_name,
-            // kmap_doc,
+            kmap_lang_name,
+            key_hints,
             keymap_stack: Vec::new(),
-            keymap_summary: String::new(),
             cut_stack: Clipboard::new(),
         };
+
         // Set initial keymap
         ed.push(Word::MapName("tree".into()))?;
         ed.push(Word::PushMap)?;
@@ -131,79 +142,73 @@ impl Ed {
     }
 
     fn msg(&mut self, msg: &str) -> Result<(), Error> {
-        self.messages.push(msg.to_owned());
-        self.redisplay()
-    }
+        self.messages.push_front(msg.to_owned());
+        self.messages.truncate(5);
 
-    fn _print_keymap_summary(&mut self) -> Result<(), Error> {
-        let size = self.term.size()?;
-
-        let offset = Pos {
-            row: size.row / 2,
-            col: 0,
-        };
-        let map_path = self.keymap_stack.join("→");
-        let mut pane = self.term.pane()?;
-        pane.print(offset, &map_path, Style::reverse_color(Color::Base0B))?;
-
-        match pane.print(
-            offset + Pos { row: 1, col: 0 },
-            &self.keymap_summary,
-            Style::color(Color::Base0B),
-        ) {
-            // ignore, just let the long string get truncated
-            Err(terminal::Error::OutOfBounds) => (),
-            Ok(_) => (),
-            err => err?,
-        };
-        Ok(())
-    }
-
-    fn _print_messages(&mut self, num_recent: usize) -> Result<(), Error> {
-        let size = self.term.size()?;
-        let mut pane = self.term.pane()?;
-        pane.print(
-            Pos {
-                row: size.row - (num_recent + 1) as u32,
-                col: 0,
-            },
-            "messages:",
-            Style::reverse_color(Color::Base0C),
-        )
-        .is_ok();
-
-        for (i, msg) in self.messages.iter().rev().take(num_recent).enumerate() {
-            let pos = Pos {
-                row: size.row - (num_recent - i) as u32,
-                col: 0,
-            };
-            let result = pane.print(pos, msg, Style::color(Color::Base0C));
-
-            // For this demo, just ignore out of bounds errors. The real editor
-            // shouldn't ever try to print out of bounds.
-            match result {
-                Err(terminal::Error::OutOfBounds) | Ok(()) => (),
-                other_err => other_err?,
-            };
+        let mut list_node = self.node_by_name("list", &self.message_lang_name)?;
+        for (i, msg) in self.messages.iter().enumerate() {
+            let mut msg_node = self.node_by_name("message", &self.message_lang_name)?;
+            msg_node.inner().unwrap_text().text_mut(|t| {
+                t.activate();
+                t.set(msg.to_owned());
+                t.inactivate();
+            });
+            list_node
+                .inner()
+                .unwrap_flexible()
+                .insert_child(i, msg_node);
         }
+        let mut root_node = self.node_by_name("root", &self.message_lang_name)?;
+        root_node.inner().unwrap_fixed().replace_child(0, list_node);
+        self.message_doc = root_node;
         Ok(())
+    }
+
+    fn pane_notation(&self) -> PaneNotation {
+        let doc = PaneNotation::Doc {
+            label: DocLabel::ActiveDoc,
+            style: None,
+        };
+
+        let key_hints = PaneNotation::Doc {
+            label: DocLabel::KeyHints,
+            style: None,
+        };
+
+        let messages = PaneNotation::Doc {
+            label: DocLabel::Messages,
+            style: None,
+        };
+
+        let divider = PaneNotation::Fill {
+            ch: '=',
+            style: Some(Style::color(Color::Base03)),
+        };
+
+        PaneNotation::Vert {
+            panes: vec![
+                (PaneSize::Proportional(5), doc),
+                (PaneSize::Fixed(1), divider.clone()),
+                (PaneSize::Proportional(1), key_hints),
+                (PaneSize::Fixed(1), divider),
+                (PaneSize::Fixed(self.messages.len()), messages),
+            ],
+            style: None,
+        }
     }
 
     fn redisplay(&mut self) -> Result<(), Error> {
-        let ast_ref = self.doc.ast_ref();
+        let notation = self.pane_notation();
+        let doc = self.doc.ast_ref();
+        let key_hints = self.key_hints.ast_ref();
+        let messages = self.message_doc.ast_ref();
         self.term.draw_frame(|mut pane: Pane<Terminal>| {
-            let size = pane.rect().size();
-
-            // TODO pick which part of the doc to display, based on the cursor
-            // position, instead of always showing the top!
-            let doc_pos_spec = DocPosSpec::Fixed(Pos::zero());
-
-            ast_ref
-                .pretty_print(size.col, &mut pane, doc_pos_spec, CursorVis::Show)
-                .expect("failed to pretty-print document");
-
-            // self._print_messages(5).unwrap();
-            // self._print_keymap_summary().unwrap();
+            pane.render(&notation, None, |label: &DocLabel| match label {
+                DocLabel::ActiveDoc => Some((doc.clone(), CursorVis::Show)),
+                DocLabel::KeyHints => Some((key_hints.clone(), CursorVis::Hide)),
+                DocLabel::Messages => Some((messages.clone(), CursorVis::Hide)),
+                _ => None,
+            })?;
             Ok(())
         })?;
         Ok(())
@@ -216,8 +221,37 @@ impl Ed {
             .ok_or_else(|| Error::UnknownKeymap(name.to_owned()))
     }
 
-    fn update_keymap_summary(&mut self) -> Result<(), Error> {
-        Ok(self.keymap_summary = self.active_keymap()?.summary())
+    fn update_key_hints(&mut self) -> Result<(), Error> {
+        let mut dict_node = self.node_by_name("dict", &self.kmap_lang_name)?;
+
+        for (key, prog) in self.active_keymap()?.hints() {
+            let mut key_node = self.node_by_name("key", &self.kmap_lang_name)?;
+            key_node.inner().unwrap_text().text_mut(|t| {
+                t.activate();
+                t.set(key);
+                t.inactivate();
+            });
+
+            let mut prog_node = self.node_by_name("prog", &self.kmap_lang_name)?;
+            prog_node.inner().unwrap_text().text_mut(|t| {
+                t.activate();
+                t.set(prog);
+                t.inactivate();
+            });
+
+            let mut entry_node = self.node_by_name("entry", &self.kmap_lang_name)?;
+            entry_node.inner().unwrap_fixed().replace_child(0, key_node);
+            entry_node
+                .inner()
+                .unwrap_fixed()
+                .replace_child(1, prog_node);
+            let mut inner_dict = dict_node.inner().unwrap_flexible();
+            inner_dict.insert_child(inner_dict.num_children(), entry_node);
+        }
+        let mut root_node = self.node_by_name("root", &self.kmap_lang_name)?;
+        root_node.inner().unwrap_fixed().replace_child(0, dict_node);
+        self.key_hints = root_node;
+        Ok(())
     }
 
     fn lookup_key(&self, key: Key) -> Result<Prog<'static>, Error> {
@@ -281,11 +315,11 @@ impl Ed {
             Word::PushMap => {
                 let name = self.stack.pop_map_name()?;
                 self.keymap_stack.push(name);
-                self.update_keymap_summary()?;
+                self.update_key_hints()?;
             }
             Word::PopMap => {
                 self.keymap_stack.pop();
-                self.update_keymap_summary()?;
+                self.update_key_hints()?;
             }
             Word::Remove => self.exec(TreeCmd::Remove)?,
             Word::InsertChar => {

@@ -1,11 +1,11 @@
 use crate::NotationSet;
 use language::{Arity, Construct, Language};
-use pretty::{child, literal, no_wrap, repeat, text, Notation, Repeat, Style};
+use pretty::{child, literal, no_wrap, repeat, text, Color, Notation, Repeat, Style};
 
 pub fn make_keymap_lang() -> (Language, NotationSet) {
     let notations = vec![
-        ("key".into(), key()),
-        ("prog".into(), prog()),
+        ("key".into(), text(Style::color(Color::Base0D))),
+        ("prog".into(), text(Style::color(Color::Base04))),
         ("entry".into(), entry()),
         ("dict".into(), dict()),
     ];
@@ -34,35 +34,25 @@ pub fn make_keymap_lang() -> (Language, NotationSet) {
     (lang, note_set)
 }
 
-fn key() -> Notation {
-    let style = Style::plain();
-    text(style)
-}
-
-fn prog() -> Notation {
-    let style = Style::plain();
-    text(style)
-}
-
 /// Try putting the key and value on the same line.
 /// If they don't fit, wrap after the colon, and indent the value.
 fn entry() -> Notation {
-    no_wrap(child(0) + punct(": ") + child(1)) | (child(0) + punct(":") ^ indent() + child(1))
+    no_wrap(child(0) + punct(":") + child(1)) | (child(0) + punct(":") ^ indent() + child(1))
 }
 
-/// Put all entries on separate lines.
-/// If there is more than one entry, put the opening and closing delimiters on separate lines too.
+/// Wrap entries tightly.
 fn dict() -> Notation {
     repeat(Repeat {
-        empty: punct("{}"),
-        lone: punct("{") + child(0) + punct("}"),
-        join: child(0) + punct(",") ^ child(1),
-        surround: punct("{") ^ indent() + child(0) ^ punct("}"),
+        empty: punct("(empty keymap)"),
+        lone: child(0),
+        join: child(0) + punct(", ") + no_wrap(child(1))
+            | child(0) + punct(",") ^ no_wrap(child(1)),
+        surround: child(0),
     })
 }
 
 fn punct(text: &str) -> Notation {
-    literal(text, Style::plain())
+    literal(text, Style::color(Color::Base03))
 }
 
 fn indent() -> Notation {
