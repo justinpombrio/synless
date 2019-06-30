@@ -87,6 +87,18 @@ impl Text {
             _ => panic!("Text::delete - tried to edit inactive text"),
         }
     }
+
+    /// Set the text to the given string, replacing the current contents.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `Text` is inactive.
+    pub fn set(&mut self, s: String) {
+        match self {
+            Text::Active(active_text) => active_text.set(s),
+            _ => panic!("Text::set - tried to edit inactive text"),
+        }
+    }
 }
 
 impl AsRef<str> for Text {
@@ -110,6 +122,10 @@ impl ActiveText {
 
     fn insert(&mut self, char_index: usize, character: char) {
         self.0.insert(self.byte_index(char_index), character);
+    }
+
+    fn set(&mut self, s: String) {
+        self.0 = s;
     }
 
     fn byte_index(&self, char_index: usize) -> usize {
