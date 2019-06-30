@@ -295,6 +295,18 @@ impl<'a, 'l> AstKind<'a, 'l> {
             _ => panic!("expected AstKind::Text"),
         }
     }
+    pub fn unwrap_fixed(self) -> FixedAst<'a, 'l> {
+        match self {
+            AstKind::Fixed(ast) => ast,
+            _ => panic!("expected AstKind::Fixed"),
+        }
+    }
+    pub fn unwrap_flexible(self) -> FlexibleAst<'a, 'l> {
+        match self {
+            AstKind::Flexible(ast) => ast,
+            _ => panic!("expected AstKind::Flexible"),
+        }
+    }
 }
 
 pub struct TextAst<'a, 'l> {
