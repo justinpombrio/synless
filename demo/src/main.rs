@@ -46,13 +46,13 @@ struct Ed {
     forest: AstForest<'static>,
     term: Terminal,
     messages: VecDeque<String>,
-    message_doc: Ast<'static>,
+    message_doc: Doc<'static>,
     message_lang_name: LanguageName,
     stack: Stack<'static>,
     keymaps: HashMap<String, Keymap<'static>>,
     keymap_stack: Vec<String>,
     kmap_lang_name: LanguageName,
-    key_hints: Ast<'static>,
+    key_hints: Doc<'static>,
     cut_stack: Clipboard<'static>,
 }
 
@@ -61,9 +61,9 @@ impl Ed {
         let (json_lang, json_notes) = make_json_lang();
         let (kmap_lang, kmap_notes) = make_keymap_lang();
         let (msg_lang, msg_notes) = make_message_lang();
-        let json_lang_name = json_lang.name().to_string();
-        let kmap_lang_name = kmap_lang.name().to_string();
-        let msg_lang_name = msg_lang.name().to_string();
+        let json_lang_name = json_lang.name().to_owned();
+        let kmap_lang_name = kmap_lang.name().to_owned();
+        let msg_lang_name = msg_lang.name().to_owned();
 
         LANG_SET.insert(json_lang_name.clone(), json_lang);
         LANG_SET.insert(kmap_lang_name.clone(), kmap_lang);
@@ -74,34 +74,17 @@ impl Ed {
 
         let forest = AstForest::new(&LANG_SET);
 
-        let json_lang = LANG_SET.get(&json_lang_name).unwrap();
-        let doc = Doc::new(
-            "DemoJsonDoc",
-            forest.new_fixed_tree(
-                json_lang,
-                json_lang.lookup_construct("root"),
-                NOTE_SETS.get(&json_lang_name).unwrap(),
-            ),
-        );
-
-        let kmap_lang = LANG_SET.get(&kmap_lang_name).unwrap();
-        let key_hints = forest.new_fixed_tree(
-            kmap_lang,
-            kmap_lang.lookup_construct("root"),
-            NOTE_SETS.get(&kmap_lang_name).unwrap(),
-        );
-
-        let msg_lang = LANG_SET.get(&msg_lang_name).unwrap();
-        let msg_doc = forest.new_fixed_tree(
-            msg_lang,
-            msg_lang.lookup_construct("root"),
-            NOTE_SETS.get(&msg_lang_name).unwrap(),
-        );
+        let doc = new_doc("DemoJsonDoc", &json_lang_name, &forest);
+        let key_hints = new_doc("(no keymap)", &kmap_lang_name, &forest);
+        let msg_doc = new_doc("Messages", &msg_lang_name, &forest);
 
         let mut maps = HashMap::new();
         maps.insert("tree".to_string(), Keymap::tree());
         maps.insert("speed_bool".to_string(), Keymap::speed_bool());
-        maps.insert("node".to_string(), Keymap::node(json_lang));
+        maps.insert(
+            "node".to_string(),
+            Keymap::node(LANG_SET.get(&json_lang_name).unwrap()),
+        );
 
         let mut ed = Ed {
             doc,
@@ -160,13 +143,23 @@ impl Ed {
         }
         let mut root_node = self.node_by_name("root", &self.message_lang_name)?;
         root_node.inner().unwrap_fixed().replace_child(0, list_node);
-        self.message_doc = root_node;
+        self.message_doc = Doc::new(self.message_doc.name(), root_node);
         Ok(())
     }
 
     fn pane_notation(&self) -> PaneNotation {
         let doc = PaneNotation::Doc {
             label: DocLabel::ActiveDoc,
+            style: None,
+        };
+
+        let doc_name = PaneNotation::Doc {
+            label: DocLabel::ActiveDocName,
+            style: None,
+        };
+
+        let key_hints_name = PaneNotation::Doc {
+            label: DocLabel::KeymapName,
             style: None,
         };
 
@@ -185,10 +178,21 @@ impl Ed {
             style: Some(Style::color(Color::Base03)),
         };
 
+        let status_bar = PaneNotation::Horz {
+            panes: vec![
+                (PaneSize::Proportional(1), divider.clone()),
+                (PaneSize::Proportional(1), key_hints_name),
+                (PaneSize::Proportional(1), divider.clone()),
+                (PaneSize::Proportional(1), doc_name),
+                (PaneSize::Proportional(1), divider.clone()),
+            ],
+            style: None,
+        };
+
         PaneNotation::Vert {
             panes: vec![
                 (PaneSize::Proportional(5), doc),
-                (PaneSize::Fixed(1), divider.clone()),
+                (PaneSize::Fixed(1), status_bar),
                 (PaneSize::Proportional(1), key_hints),
                 (PaneSize::Fixed(1), divider),
                 (PaneSize::Fixed(self.messages.len()), messages),
@@ -200,11 +204,17 @@ impl Ed {
     fn redisplay(&mut self) -> Result<(), Error> {
         let notation = self.pane_notation();
         let doc = self.doc.ast_ref();
+        let doc_name_ast = self.to_ast(self.doc.name())?;
+        let doc_name = doc_name_ast.ast_ref();
         let key_hints = self.key_hints.ast_ref();
+        let key_hints_name_ast = self.to_ast(self.key_hints.name())?;
+        let key_hints_name = key_hints_name_ast.ast_ref();
         let messages = self.message_doc.ast_ref();
         self.term.draw_frame(|mut pane: Pane<Terminal>| {
             pane.render(&notation, None, |label: &DocLabel| match label {
                 DocLabel::ActiveDoc => Some((doc.clone(), CursorVis::Show)),
+                DocLabel::ActiveDocName => Some((doc_name.clone(), CursorVis::Hide)),
+                DocLabel::KeymapName => Some((key_hints_name.clone(), CursorVis::Hide)),
                 DocLabel::KeyHints => Some((key_hints.clone(), CursorVis::Hide)),
                 DocLabel::Messages => Some((messages.clone(), CursorVis::Hide)),
                 _ => None,
@@ -250,7 +260,9 @@ impl Ed {
         }
         let mut root_node = self.node_by_name("root", &self.kmap_lang_name)?;
         root_node.inner().unwrap_fixed().replace_child(0, dict_node);
-        self.key_hints = root_node;
+
+        let keymap_name = self.keymap_stack.join("→");
+        self.key_hints = Doc::new(&keymap_name, root_node);
         Ok(())
     }
 
@@ -395,4 +407,29 @@ impl Ed {
                 lang: lang_name.to_owned(),
             })
     }
+
+    /// Create a quick and dirty Ast for storing only this string.
+    fn to_ast<T: Into<String>>(&self, text: T) -> Result<Ast<'static>, Error> {
+        let mut text_node = self.node_by_name("message", &self.message_lang_name)?;
+        text_node.inner().unwrap_text().text_mut(|t| {
+            t.activate();
+            t.set(text.into());
+            t.inactivate();
+        });
+        let mut root_node = self.node_by_name("root", &self.message_lang_name)?;
+        root_node.inner().unwrap_fixed().replace_child(0, text_node);
+        Ok(root_node)
+    }
+}
+
+fn new_doc(doc_name: &str, lang_name: &LanguageName, forest: &AstForest<'static>) -> Doc<'static> {
+    let lang = LANG_SET.get(lang_name).unwrap();
+    Doc::new(
+        doc_name,
+        forest.new_fixed_tree(
+            lang,
+            lang.lookup_construct("root"),
+            NOTE_SETS.get(lang_name).unwrap(),
+        ),
+    )
 }
