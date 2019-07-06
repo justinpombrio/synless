@@ -6,7 +6,28 @@ use std::collections::HashMap;
 use std::fmt;
 
 pub type ConstructName = String;
-pub type Sort = String; // "Any" is special
+
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct Sort(String); // "Any" is special
+
+impl Sort {
+    /// Construct a new "Any" sort.
+    pub fn any() -> Sort {
+        "Any".into()
+    }
+}
+
+impl From<String> for Sort {
+    fn from(s: String) -> Sort {
+        Sort(s)
+    }
+}
+
+impl<'a> From<&'a str> for Sort {
+    fn from(s: &'a str) -> Sort {
+        Sort(s.to_owned())
+    }
+}
 
 /// A syntactic construct.
 #[derive(Debug, PartialEq, Eq)]
@@ -18,10 +39,13 @@ pub struct Construct {
 }
 
 impl Construct {
-    pub fn new(name: &str, sort: &str, arity: Arity, key: Option<char>) -> Construct {
+    pub fn new<T>(name: &str, sort: T, arity: Arity, key: Option<char>) -> Construct
+    where
+        T: Into<Sort>,
+    {
         Construct {
             name: name.to_string(),
-            sort: sort.to_string(),
+            sort: sort.into(),
             arity: arity,
             key: key,
         }
@@ -85,11 +109,11 @@ lazy_static! {
     pub static ref BUILTIN_CONSTRUCTS: HashMap<ConstructName, Construct> = vec![
         (
             "hole".to_owned(),
-            Construct::new("hole", "Any", Arity::Fixed(vec!()), Some('?'))
+            Construct::new("hole", Sort::any(), Arity::Fixed(vec!()), Some('?'))
         ),
         (
             "root".to_owned(),
-            Construct::new("root", "root", Arity::Fixed(vec!["Any".into()]), None)
+            Construct::new("root", "root", Arity::Fixed(vec![Sort::any()]), None)
         )
     ].into_iter().collect();
 }

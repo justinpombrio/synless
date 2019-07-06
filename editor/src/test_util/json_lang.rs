@@ -20,23 +20,13 @@ pub fn make_json_lang() -> (Language, NotationSet) {
         Construct::new("true", "Value", Arity::Fixed(Vec::new()), Some('t')),
         Construct::new("false", "Value", Arity::Fixed(Vec::new()), Some('f')),
         Construct::new("null", "Value", Arity::Fixed(Vec::new()), Some('x')),
-        Construct::new(
-            "list",
-            "Value",
-            Arity::Flexible("Value".to_string()),
-            Some('l'),
-        ),
-        Construct::new(
-            "dict",
-            "Value",
-            Arity::Flexible("Entry".to_string()),
-            Some('d'),
-        ),
+        Construct::new("list", "Value", Arity::Flexible("Value".into()), Some('l')),
+        Construct::new("dict", "Value", Arity::Flexible("Entry".into()), Some('d')),
         Construct::new("key", "Key", Arity::Text, Some('k')),
         Construct::new(
             "entry",
             "Entry",
-            Arity::Fixed(vec!["Key".to_string(), "Value".to_string()]),
+            Arity::Fixed(vec!["Key".into(), "Value".into()]),
             Some('e'),
         ),
     ];
