@@ -15,6 +15,11 @@ impl Sort {
     pub fn any() -> Sort {
         "Any".into()
     }
+
+    /// Return true if a hole with this sort can accept a child with the given sort.
+    pub fn accepts(&self, child: &Sort) -> bool {
+        &self.0 == "Any" || &child.0 == "Any" || self == child
+    }
 }
 
 impl From<String> for Sort {
@@ -94,6 +99,35 @@ impl Arity {
         match self {
             Arity::Flexible(_) => true,
             _ => false,
+        }
+    }
+
+    /// Get the `Sort` of the `i`th child. For flexible-arity and mixed-arity nodes, get the `Sort`
+    /// required of all tree children, ignoring `i`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if nodes of this arity cannot have an `i`th child.
+    pub fn child_sort(&self, i: usize) -> &Sort {
+        match self {
+            Arity::Flexible(sort) | Arity::Mixed(sort) => sort, // all tree children have the same Sort
+            Arity::Fixed(sorts) => sorts.get(i).expect(&format!(
+                "child_sort - fixed node has only {} children",
+                sorts.len()
+            )),
+            _ => panic!("child_sort - node has no children"),
+        }
+    }
+
+    /// Get the `Sort` of any child of this flexible or mixed node.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the arity is not flexible or mixed.
+    pub fn uniform_child_sort(&self) -> &Sort {
+        match self {
+            Arity::Flexible(sort) | Arity::Mixed(sort) => sort, // all tree children have the same Sort
+            _ => panic!("uniform_child_sort - node is not flexible or mixed"),
         }
     }
 }

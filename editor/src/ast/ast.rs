@@ -101,16 +101,20 @@ impl<'l> Ast<'l> {
     ///
     /// Panics if this node's arity is not `Fixed` or `Flexible`, or if `i` is
     /// out of bounds.
-    fn replace_child(&mut self, i: usize, tree: Ast<'l>) -> Ast<'l> {
+    fn replace_child(&mut self, i: usize, tree: Ast<'l>) -> Result<Ast<'l>, Ast<'l>> {
         if let Some(arity) = self.arity() {
             if !arity.is_fixed() && !arity.is_flexible() {
                 panic!("Ast::replace_child called on a node that is neither fixed nor flexible.")
+            }
+            if !arity.child_sort(i).accepts(&tree.get_construct().sort) {
+                // This tree can't go here, it has the wrong Sort! Send it back.
+                return Err(tree);
             }
             let ast = Ast {
                 tree: self.tree.replace_child(i, tree.tree),
             };
             self.update();
-            ast
+            Ok(ast)
         } else {
             panic!("Ast::replace_child called on a leaf node");
         }
@@ -118,19 +122,27 @@ impl<'l> Ast<'l> {
 
     /// Insert `tree` as the `i`th child of this node. This node must be
     /// `Flexible` or `Mixed`. For nodes of `Mixed` arity, `i` counts both tree
-    /// and text children.
+    /// and text children. If `tree` cannot be inserted because it has the wrong
+    /// Sort, return it as `Err(tree)`.
     ///
     /// # Panics
     ///
     /// Panics if this node's arity is not `Flexible` or `Mixed`, or if `i` is
     /// out of bounds.
-    fn insert_child(&mut self, i: usize, tree: Ast<'l>) {
+    fn insert_child(&mut self, i: usize, tree: Ast<'l>) -> Result<(), Ast<'l>> {
         if let Some(arity) = self.arity() {
             if !arity.is_flexible() && !arity.is_mixed() {
                 panic!("Ast::insert_child called on a node that isn't Flexible or Mixed")
             }
+
+            if !arity.child_sort(i).accepts(&tree.get_construct().sort) {
+                // This tree can't go here, it has the wrong Sort! Send it back.
+                return Err(tree);
+            }
+
             self.tree.insert_child(i, tree.tree);
             self.update();
+            Ok(())
         } else {
             panic!("Ast::insert_child called on a leaf node");
         }
@@ -354,12 +366,13 @@ impl<'a, 'l> FixedAst<'a, 'l> {
         self.ast.goto_child(i)
     }
 
-    /// Replace this node's `i`th child. Return the replaced child.
+    /// Replace this node's `i`th child. If successful, return the replaced
+    /// child. Otherwise, return the given tree as `Err(tree)`.
     ///
     /// # Panics
     ///
     /// Panics if `i` is out of bounds.
-    pub fn replace_child(&mut self, i: usize, tree: Ast<'l>) -> Ast<'l> {
+    pub fn replace_child(&mut self, i: usize, tree: Ast<'l>) -> Result<Ast<'l>, Ast<'l>> {
         self.ast.replace_child(i, tree)
     }
 }
@@ -384,21 +397,22 @@ impl<'a, 'l> FlexibleAst<'a, 'l> {
         self.ast.goto_child(i)
     }
 
-    /// Replace this node's `i`th child. Return the replaced child.
+    /// Replace this node's `i`th child. If successful, return the replaced
+    /// child. Otherwise, return the given tree as `Err(tree)`.
     ///
     /// # Panics
     ///
     /// Panics if `i` is out of bounds.
-    pub fn replace_child(&mut self, i: usize, tree: Ast<'l>) -> Ast<'l> {
+    pub fn replace_child(&mut self, i: usize, tree: Ast<'l>) -> Result<Ast<'l>, Ast<'l>> {
         self.ast.replace_child(i, tree)
     }
 
-    /// Insert `tree` as the `i`th child of this node.
+    /// Insert `tree` as the `i`th child of this node. If unsuccessful, return the given tree as `Err(tree)`.
     ///
     /// # Panics
     ///
     /// Panics if `i` is out of bounds.
-    pub fn insert_child(&mut self, i: usize, tree: Ast<'l>) {
+    pub fn insert_child(&mut self, i: usize, tree: Ast<'l>) -> Result<(), Ast<'l>> {
         self.ast.insert_child(i, tree)
     }
 

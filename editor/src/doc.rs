@@ -289,12 +289,17 @@ impl<'l> Doc<'l> {
                 let i = self.ast.goto_parent();
                 match self.ast.inner() {
                     AstKind::Fixed(mut fixed) => {
-                        let old_ast = fixed.replace_child(i, new_ast);
+                        // TODO handle error better
+                        let old_ast = fixed.replace_child(i, new_ast).expect("failed to replace");
                         fixed.goto_child(i);
                         vec![TreeCmd::Replace(old_ast).into()]
                     }
                     AstKind::Flexible(mut flexible) => {
-                        let old_ast = flexible.replace_child(i, new_ast);
+                        // TODO handle error better
+                        let old_ast = flexible
+                            .replace_child(i, new_ast)
+                            .expect("failed to replace");
+
                         flexible.goto_child(i);
                         vec![TreeCmd::Replace(old_ast).into()]
                     }
@@ -453,7 +458,10 @@ impl<'l> Doc<'l> {
             AstKind::Flexible(mut flexible) => {
                 let original_num_children = flexible.num_children();
                 let index = if at_start { 0 } else { original_num_children };
-                flexible.insert_child(index, new_ast);
+                // TODO handle error better
+                flexible
+                    .insert_child(index, new_ast)
+                    .expect("failed to insert");
                 flexible.goto_child(index);
                 let mut undo = Vec::new();
                 if original_num_children != 0 {
@@ -483,7 +491,9 @@ impl<'l> Doc<'l> {
                 Err(())
             }
             AstKind::Flexible(mut flexible) => {
-                flexible.insert_child(insertion_index, new_ast);
+                flexible
+                    .insert_child(insertion_index, new_ast)
+                    .expect("failed to insert");
                 flexible.goto_child(insertion_index);
                 if before && i != 0 {
                     Ok(vec![TreeNavCmd::Right.into(), TreeCmd::Remove.into()])
