@@ -139,10 +139,15 @@ impl Ed {
             list_node
                 .inner()
                 .unwrap_flexible()
-                .insert_child(i, msg_node);
+                .insert_child(i, msg_node)
+                .unwrap();
         }
         let mut root_node = self.node_by_name("root", &self.message_lang_name)?;
-        root_node.inner().unwrap_fixed().replace_child(0, list_node);
+        root_node
+            .inner()
+            .unwrap_fixed()
+            .replace_child(0, list_node)
+            .unwrap();
         self.message_doc = Doc::new(self.message_doc.name(), root_node);
         Ok(())
     }
@@ -250,16 +255,27 @@ impl Ed {
             });
 
             let mut entry_node = self.node_by_name("entry", &self.kmap_lang_name)?;
-            entry_node.inner().unwrap_fixed().replace_child(0, key_node);
             entry_node
                 .inner()
                 .unwrap_fixed()
-                .replace_child(1, prog_node);
+                .replace_child(0, key_node)
+                .unwrap();
+            entry_node
+                .inner()
+                .unwrap_fixed()
+                .replace_child(1, prog_node)
+                .unwrap();
             let mut inner_dict = dict_node.inner().unwrap_flexible();
-            inner_dict.insert_child(inner_dict.num_children(), entry_node);
+            inner_dict
+                .insert_child(inner_dict.num_children(), entry_node)
+                .unwrap();
         }
         let mut root_node = self.node_by_name("root", &self.kmap_lang_name)?;
-        root_node.inner().unwrap_fixed().replace_child(0, dict_node);
+        root_node
+            .inner()
+            .unwrap_fixed()
+            .replace_child(0, dict_node)
+            .unwrap();
 
         let keymap_name = self.keymap_stack.join("→");
         self.key_hints = Doc::new(&keymap_name, root_node);
@@ -381,10 +397,7 @@ impl Ed {
     where
         T: Debug + Into<CommandGroup<'static>>,
     {
-        let name = format!("{:?}", cmd);
-        self.doc
-            .execute(cmd.into(), &mut self.cut_stack)
-            .map_err(|_| Error::DocExec(name))
+        Ok(self.doc.execute(cmd.into(), &mut self.cut_stack)?)
     }
 
     fn node_by_name(
@@ -417,7 +430,11 @@ impl Ed {
             t.inactivate();
         });
         let mut root_node = self.node_by_name("root", &self.message_lang_name)?;
-        root_node.inner().unwrap_fixed().replace_child(0, text_node);
+        root_node
+            .inner()
+            .unwrap_fixed()
+            .replace_child(0, text_node)
+            .unwrap();
         Ok(root_node)
     }
 }
