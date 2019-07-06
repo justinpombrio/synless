@@ -191,11 +191,11 @@ impl Ed {
 
         PaneNotation::Vert {
             panes: vec![
-                (PaneSize::Proportional(5), doc),
+                (PaneSize::Proportional(1), doc),
                 (PaneSize::Fixed(1), status_bar),
-                (PaneSize::Proportional(1), key_hints),
+                (PaneSize::DynHeight, key_hints),
                 (PaneSize::Fixed(1), divider),
-                (PaneSize::Fixed(self.messages.len()), messages),
+                (PaneSize::DynHeight, messages),
             ],
             style: None,
         }
