@@ -11,6 +11,7 @@ pub enum DocError<'l> {
     NothingToRedo,
     WrongSort(Ast<'l>),
     CannotPaste,
+    EmptyClipboard,
     CannotMove,
     CannotRemoveNode,
     CannotDeleteChar,
@@ -257,44 +258,37 @@ impl<'l> Doc<'l> {
                 clipboard.push(self.ast.clone());
                 Ok(UndoGroup::new())
             }
-            EditorCmd::PasteAfter => {
-                if let Some(tree) = clipboard.pop() {
-                    // TODO if the insert fails, we'll lose the tree forever...
-                    self.execute_tree(TreeCmd::InsertAfter(tree))
-                } else {
-                    // TODO should we return an error if the clipboard is empty?
-                    Ok(UndoGroup::new())
-                }
-            }
-            EditorCmd::PasteBefore => {
-                if let Some(tree) = clipboard.pop() {
-                    self.execute_tree(TreeCmd::InsertBefore(tree))
-                } else {
-                    Ok(UndoGroup::new())
-                }
-            }
-            EditorCmd::PastePrepend => {
-                if let Some(tree) = clipboard.pop() {
-                    self.execute_tree(TreeCmd::InsertPrepend(tree))
-                } else {
-                    Ok(UndoGroup::new())
-                }
-            }
-            EditorCmd::PastePostpend => {
-                if let Some(tree) = clipboard.pop() {
-                    self.execute_tree(TreeCmd::InsertPostpend(tree))
-                } else {
-                    Ok(UndoGroup::new())
-                }
-            }
-            EditorCmd::PasteReplace => {
-                if let Some(tree) = clipboard.pop() {
-                    self.execute_tree(TreeCmd::Replace(tree))
-                } else {
-                    Ok(UndoGroup::new())
-                }
-            }
+            EditorCmd::PasteAfter => self.execute_paste(EditorCmd::PasteAfter, clipboard),
+            EditorCmd::PasteBefore => self.execute_paste(EditorCmd::PasteBefore, clipboard),
+            EditorCmd::PastePrepend => self.execute_paste(EditorCmd::PastePrepend, clipboard),
+            EditorCmd::PastePostpend => self.execute_paste(EditorCmd::PastePostpend, clipboard),
+            EditorCmd::PasteReplace => self.execute_paste(EditorCmd::PasteReplace, clipboard),
         }
+    }
+
+    fn execute_paste(
+        &mut self,
+        paste_cmd: EditorCmd,
+        clipboard: &mut Clipboard<'l>,
+    ) -> Result<UndoGroup<'l>, DocError<'l>> {
+        let tree = clipboard.pop().ok_or(DocError::EmptyClipboard)?;
+        let insertion_cmd = match paste_cmd {
+            EditorCmd::PasteBefore => TreeCmd::InsertBefore(tree),
+            EditorCmd::PasteAfter => TreeCmd::InsertAfter(tree),
+            EditorCmd::PastePrepend => TreeCmd::InsertPrepend(tree),
+            EditorCmd::PastePostpend => TreeCmd::InsertPostpend(tree),
+            EditorCmd::PasteReplace => TreeCmd::Replace(tree),
+            _ => panic!("execute_paste - not a paste command"),
+        };
+        self.execute_tree(insertion_cmd).map_err(|err| {
+            if let DocError::WrongSort(rejected_tree) = err {
+                // Can't paste that here, put it back!
+                clipboard.push(rejected_tree);
+                DocError::CannotPaste
+            } else {
+                err // Something else went wrong...
+            }
+        })
     }
 
     fn execute_tree(&mut self, cmd: TreeCmd<'l>) -> Result<UndoGroup<'l>, DocError<'l>> {
