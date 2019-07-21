@@ -13,7 +13,7 @@ fn test_pretty_print_very_small_screen_left() {
     let doc_pos = Pos { row: 2, col: 4 };
     let mut window = PlainText::new(Pos { row: 6, col: 6 });
     doc.as_ref()
-        .pretty_print(80, &mut window.pane().unwrap().pretty_pane(), doc_pos)
+        .pretty_print(80, &mut window.pane().unwrap(), doc_pos)
         .unwrap();
     assert_strings_eq(
         &window.to_string(),
@@ -33,7 +33,7 @@ fn test_pretty_print_small_screen_left() {
     let mut window = PlainText::new(Pos { row: 6, col: 8 });
 
     doc.as_ref()
-        .pretty_print(80, &mut window.pane().unwrap().pretty_pane(), doc_pos)
+        .pretty_print(80, &mut window.pane().unwrap(), doc_pos)
         .unwrap();
     assert_strings_eq(
         &window.to_string(),
@@ -52,7 +52,7 @@ fn test_pretty_print_long_list() {
     let mut window = PlainText::new_infinite_scroll(80);
     let doc_pos = Pos::zero();
     doc.as_ref()
-        .pretty_print(80, &mut window.pane().unwrap().pretty_pane(), doc_pos)
+        .pretty_print(80, &mut window.pane().unwrap(), doc_pos)
         .unwrap();
     assert_strings_eq(
         &window.to_string(),
@@ -71,7 +71,7 @@ fn test_pretty_print_small_screen_right() {
     let mut window = PlainText::new(Pos { row: 4, col: 16 });
 
     doc.as_ref()
-        .pretty_print(80, &mut window.pane().unwrap().pretty_pane(), doc_pos)
+        .pretty_print(80, &mut window.pane().unwrap(), doc_pos)
         .unwrap();
     assert_strings_eq(
         &window.to_string(),
@@ -89,7 +89,7 @@ fn test_pretty_print_small_screen_middle() {
     let mut window = PlainText::new(Pos { row: 1, col: 1 });
 
     doc.as_ref()
-        .pretty_print(80, &mut window.pane().unwrap().pretty_pane(), doc_pos)
+        .pretty_print(80, &mut window.pane().unwrap(), doc_pos)
         .unwrap();
     assert_strings_eq(&window.to_string(), "i");
 }
@@ -102,7 +102,7 @@ fn test_pretty_print_small_screen_bottom() {
     let mut window = PlainText::new(Pos { row: 4, col: 13 });
 
     doc.as_ref()
-        .pretty_print(74, &mut window.pane().unwrap().pretty_pane(), doc_pos)
+        .pretty_print(74, &mut window.pane().unwrap(), doc_pos)
         .unwrap();
     assert_strings_eq(&window.to_string(), "longer\"]]]]");
 }
@@ -113,7 +113,7 @@ fn test_lay_out_json_80() {
     let doc_pos = Pos::zero();
     let mut window = PlainText::new_infinite_scroll(80);
     doc.as_ref()
-        .pretty_print(80, &mut window.pane().unwrap().pretty_pane(), doc_pos)
+        .pretty_print(80, &mut window.pane().unwrap(), doc_pos)
         .unwrap();
 
     assert_strings_eq(
@@ -156,7 +156,7 @@ fn test_lay_out_json_30() {
     let doc_pos = Pos::zero();
     let mut window = PlainText::new_infinite_scroll(30);
     doc.as_ref()
-        .pretty_print(30, &mut window.pane().unwrap().pretty_pane(), doc_pos)
+        .pretty_print(30, &mut window.pane().unwrap(), doc_pos)
         .unwrap();
 
     assert_strings_eq(
@@ -215,6 +215,6 @@ fn test_lay_out_json_28() {
     let doc_pos = Pos::zero();
     let mut window = PlainText::new_infinite_scroll(28);
     doc.as_ref()
-        .pretty_print(28, &mut window.pane().unwrap().pretty_pane(), doc_pos)
+        .pretty_print(28, &mut window.pane().unwrap(), doc_pos)
         .unwrap();
 }

@@ -1,7 +1,7 @@
 use std::cmp;
 
 use self::Layout::*;
-use super::pretty_window::{PrettyPane, PrettyWindow};
+use super::pretty_window::{Pane, PrettyWindow};
 use crate::geometry::{Bound, Col, Pos, Region};
 use crate::layout::{
     compute_bounds, compute_layouts, text_bounds, Bounds, Layout, LayoutRegion, Layouts,
@@ -34,20 +34,20 @@ pub trait PrettyDocument: Sized + Clone {
     /// result.**
     fn bounds(&self) -> Bounds;
 
-    /// Render the document onto a `PrettyPane`. This method behaves as if it did
+    /// Render the document onto a `Pane`. This method behaves as if it did
     /// the following:
     ///
     /// 1. Pretty-print the entire document with width `width`.
-    /// 2. Position the document under the `PrettyPane`, aligning `doc_pos` with the `PrettyPane`'s upper left corner.
-    /// 3. Render the portion of the document under the `PrettyPane` onto the `PrettyPane`.
+    /// 2. Position the document under the `Pane`, aligning `doc_pos` with the `Pane`'s upper left corner.
+    /// 3. Render the portion of the document under the `Pane` onto the `Pane`.
     ///
     /// However, this method is more efficient than that, and does an amount of
-    /// work that is (more or less) proportional to the size of the `PrettyPane`,
+    /// work that is (more or less) proportional to the size of the `Pane`,
     /// regardless of the size of the document.
     fn pretty_print<'a, T>(
         &self,
         width: Col,
-        pane: &mut PrettyPane<'a, T>,
+        pane: &mut Pane<'a, T>,
         doc_pos: Pos,
     ) -> Result<(), T::Error>
     where
@@ -145,7 +145,7 @@ where
 // TODO: shading and highlighting
 fn render<'a, Doc, Win>(
     doc: &Doc,
-    pane: &mut PrettyPane<'a, Win>,
+    pane: &mut Pane<'a, Win>,
     doc_region: Region,
     lay: &LayoutRegion,
 ) -> Result<(), Win::Error>
@@ -189,7 +189,7 @@ where
 fn render_text<'a, Win>(
     text: &str,
     text_region: Region,
-    pane: &mut PrettyPane<'a, Win>,
+    pane: &mut Pane<'a, Win>,
     doc_region: Region,
     style: Style,
 ) -> Result<(), Win::Error>

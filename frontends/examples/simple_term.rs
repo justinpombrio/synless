@@ -112,7 +112,7 @@ impl TermDemo {
                         indent: 2,
                     },
                 };
-                self.term.pane()?.pretty_pane().shade(region, Shade(0))?;
+                self.term.pane()?.shade(region, Shade(0))?;
             }
 
             Some(Ok(Event::KeyEvent(Key::Char(c)))) => {
@@ -143,15 +143,13 @@ impl TermDemo {
     /// Draw a blue '!' at the given position.
     fn paint(&mut self, pos: Pos) -> Result<(), terminal::Error> {
         let mut pane = self.term.pane()?;
-        pane.pretty_pane()
-            .print(pos, "!", Style::color(Color::Base0D))?;
-        pane.pretty_pane()
-            .highlight(pos, Style::color(Color::Base0C))
+        pane.print(pos, "!", Style::color(Color::Base0D))?;
+        pane.highlight(pos, Style::color(Color::Base0C))
     }
 
     /// Print the text on the next line.
     fn println(&mut self, text: &str, style: Style) -> Result<(), terminal::Error> {
-        self.term.pane()?.pretty_pane().print(
+        self.term.pane()?.print(
             Pos {
                 col: 0,
                 row: self.line,

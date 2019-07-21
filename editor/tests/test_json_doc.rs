@@ -207,7 +207,7 @@ fn assert_render(doc: &Doc, rendered: &str) {
     let doc_pos = Pos::zero();
     let mut window = PlainText::new_infinite_scroll(width);
     doc.ast_ref()
-        .pretty_print(width, &mut window.pane().unwrap().pretty_pane(), doc_pos)
+        .pretty_print(width, &mut window.pane().unwrap(), doc_pos)
         .unwrap();
     assert_eq!(window.to_string(), rendered)
 }

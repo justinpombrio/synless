@@ -142,9 +142,8 @@ impl Ed {
         };
         let map_path = self.keymap_stack.join("→");
         let mut pane = self.term.pane()?;
-        pane.pretty_pane()
-            .print(offset, &map_path, Style::reverse_color(Color::Base0B))?;
-        pane.pretty_pane().print(
+        pane.print(offset, &map_path, Style::reverse_color(Color::Base0B))?;
+        pane.print(
             offset + Pos { row: 1, col: 0 },
             &self.keymap_summary,
             Style::color(Color::Base0B),
@@ -155,25 +154,22 @@ impl Ed {
     fn print_messages(&mut self, num_recent: usize) -> Result<(), Error> {
         let size = self.term.size()?;
         let mut pane = self.term.pane()?;
-        pane.pretty_pane()
-            .print(
-                Pos {
-                    row: size.row - (num_recent + 1) as u32,
-                    col: 0,
-                },
-                "messages:",
-                Style::reverse_color(Color::Base0C),
-            )
-            .is_ok();
+        pane.print(
+            Pos {
+                row: size.row - (num_recent + 1) as u32,
+                col: 0,
+            },
+            "messages:",
+            Style::reverse_color(Color::Base0C),
+        )
+        .is_ok();
 
         for (i, msg) in self.messages.iter().rev().take(num_recent).enumerate() {
             let pos = Pos {
                 row: size.row - (num_recent - i) as u32,
                 col: 0,
             };
-            let result = pane
-                .pretty_pane()
-                .print(pos, msg, Style::color(Color::Base0C));
+            let result = pane.print(pos, msg, Style::color(Color::Base0C));
 
             // For this demo, just ignore out of bounds errors. The real editor
             // shouldn't ever try to print out of bounds.
@@ -196,11 +192,11 @@ impl Ed {
         let mut pane = self.term.pane()?;
         self.doc
             .ast_ref()
-            .pretty_print(size.col, &mut pane.pretty_pane(), doc_pos)
+            .pretty_print(size.col, &mut pane, doc_pos)
             .expect("failed to pretty-print document");
 
         let cursor_region = self.doc.ast_ref().locate_cursor(size.col);
-        pane.pretty_pane().shade(cursor_region, Shade(0))?;
+        pane.shade(cursor_region, Shade(0))?;
 
         self.print_messages(5)?;
         self.print_keymap_summary()?;

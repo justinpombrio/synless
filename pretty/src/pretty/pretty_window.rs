@@ -24,25 +24,16 @@ pub trait PrettyWindow: Sized {
     /// `.shade` would with a small Region that included just `pos`.
     fn highlight(&mut self, pos: Pos, style: Style) -> Result<(), Self::Error>;
 
-    /// Get a Pane covering the full window area.
+    /// Get a `Pane` that covers the full window area (and can be pretty-printed to).
     fn pane<'a>(&'a mut self) -> Result<Pane<'a, Self>, Self::Error> {
         let rect = Rect::new(Pos::zero(), self.size()?);
         Ok(Pane { window: self, rect })
     }
 }
 
-/// A rectangular area of a window. It can be further split into sub-panes.
+/// A rectangular area of a window. You can pretty-print to it, or get sub-panes
+/// of it and pretty-print to those.
 pub struct Pane<'a, T>
-where
-    T: PrettyWindow,
-{
-    window: &'a mut T,
-    rect: Rect,
-}
-
-/// A `PrettyPane` is like a `Pane`, except you can pretty-print to it, and you
-/// can't split it into sub-panes.
-pub struct PrettyPane<'a, T>
 where
     T: PrettyWindow,
 {
@@ -59,15 +50,6 @@ where
         self.rect
     }
 
-    /// Get a `PrettyPane` that can be used to pretty-print to the area
-    /// covered by this `Pane`.
-    pub fn pretty_pane<'b>(&'b mut self) -> PrettyPane<'b, T> {
-        PrettyPane {
-            window: self.window,
-            rect: self.rect,
-        }
-    }
-
     /// Get a new `Pane` representing only the given sub-region of this `Pane`.
     /// Returns `None` if `rect` is not fully contained within this `Pane`.
     /// `rect` is specified in the same absolute coordinate system as the full
@@ -81,20 +63,10 @@ where
             rect,
         })
     }
-}
-
-impl<'a, T> PrettyPane<'a, T>
-where
-    T: PrettyWindow,
-{
-    /// Get the size and position of the rectangle covered by this `PrettyPane`.
-    pub fn rect(&self) -> Rect {
-        self.rect
-    }
 
     /// Render a string with the given style, with its first character at the
     /// given relative position (where 0,0 is the top left corner of the
-    /// `PrettyPane`). No newlines allowed.
+    /// `Pane`). No newlines allowed.
     pub fn print(&mut self, pos: Pos, text: &str, style: Style) -> Result<(), T::Error> {
         let abs_pos = pos + self.rect.pos();
         self.window.print(abs_pos, text, style)
@@ -103,8 +75,8 @@ where
     /// Shade the background. It is possible that the same position will be
     /// shaded more than once, or will be `.print`ed before being shaded. If so,
     /// the new shade should override the background color, but not the text.
-    /// The region position is relative to the `PrettyPane` (where 0,0 is the
-    /// top left corner of the `PrettyPane`).
+    /// The region position is relative to the `Pane` (where 0,0 is the
+    /// top left corner of the `Pane`).
     pub fn shade(&mut self, region: Region, shade: Shade) -> Result<(), T::Error> {
         let abs_region = region + self.rect.pos();
         self.window.shade(abs_region, shade)
@@ -113,8 +85,8 @@ where
     /// Shade a particular character position. This is used to highlight the
     /// cursor position while in text mode. It should behave the same way as
     /// `.shade` would with a small Region that included just `pos`. The
-    /// position is relative to the `PrettyPane` (where 0,0 is the top left
-    /// corner of the `PrettyPane`).
+    /// position is relative to the `Pane` (where 0,0 is the top left
+    /// corner of the `Pane`).
     pub fn highlight(&mut self, pos: Pos, style: Style) -> Result<(), T::Error> {
         let abs_pos = pos + self.rect.pos();
         self.window.highlight(abs_pos, style)
