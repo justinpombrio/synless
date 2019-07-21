@@ -139,20 +139,6 @@ impl<'f, D, L> TreeRef<'f, D, L> {
         self.forest().index(self.id)
     }
 
-    /// Make a copy of this tree.
-    pub fn to_owned_tree(&self) -> Tree<D, L>
-    where
-        D: Clone,
-        L: Clone,
-    {
-        if self.is_leaf() {
-            self.forest.new_leaf(self.leaf().clone())
-        } else {
-            let children = self.children().map(|child| child.to_owned_tree()).collect();
-            self.forest.new_branch(self.data().clone(), children)
-        }
-    }
-
     // Private //
 
     fn forest(&self) -> Ref<'f, RawForest<D, L>> {
