@@ -5,8 +5,8 @@ use std::fmt::Debug;
 use termion::event::Key;
 
 use editor::{
-    make_json_lang, Ast, AstForest, CommandGroup, Doc, EditorCmd, NotationSet, TextCmd, TreeCmd,
-    TreeNavCmd,
+    make_json_lang, Ast, AstForest, Clipboard, CommandGroup, Doc, EditorCmd, NotationSet, TextCmd,
+    TreeCmd, TreeNavCmd,
 };
 use frontends::{terminal, Event, Frontend, Terminal};
 use language::{LanguageName, LanguageSet};
@@ -50,7 +50,7 @@ struct Ed {
     // keymap_lang_name: LanguageName,
     // kmap_doc: Doc<'static>,
     keymap_summary: String,
-    cut_stack: Vec<Ast<'static>>,
+    cut_stack: Clipboard<'static>,
 }
 
 impl Ed {
@@ -104,7 +104,7 @@ impl Ed {
             // kmap_doc,
             keymap_stack: Vec::new(),
             keymap_summary: String::new(),
-            cut_stack: Vec::new(),
+            cut_stack: Clipboard::new(),
         };
         // Set initial keymap
         ed.push(Word::MapName("tree".into()))?;

@@ -1,5 +1,6 @@
 use editor::{
-    make_json_lang, AstForest, Command, CommandGroup, Doc, TextCmd, TextNavCmd, TreeCmd, TreeNavCmd,
+    make_json_lang, AstForest, Clipboard, Command, CommandGroup, Doc, TextCmd, TextNavCmd, TreeCmd,
+    TreeNavCmd,
 };
 use language::LanguageSet;
 use pretty::{PlainText, PrettyDocument};
@@ -14,7 +15,7 @@ fn test_json_undo_redo() {
     lang_set.insert(name.clone(), lang);
     let forest = AstForest::new(&lang_set);
     let lang = lang_set.get(&name).unwrap();
-    let mut clipboard = Vec::new();
+    let mut clipboard = Clipboard::new();
     let mut doc = Doc::new(
         "MyTestDoc",
         forest.new_fixed_tree(lang, lang.lookup_construct("root"), &note_set),
@@ -116,7 +117,7 @@ fn test_json_string() {
     lang_set.insert(name.clone(), lang);
     let forest = AstForest::new(&lang_set);
     let lang = lang_set.get(&name).unwrap();
-    let mut clipboard = Vec::new();
+    let mut clipboard = Clipboard::new();
 
     let mut doc = Doc::new(
         "MyTestDoc",

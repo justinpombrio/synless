@@ -48,6 +48,27 @@ impl<'l> IntoIterator for UndoGroup<'l> {
     }
 }
 
+/// A stack containing Asts that have been cut or copied.
+pub struct Clipboard<'l>(Vec<Ast<'l>>);
+
+impl<'l> Clipboard<'l> {
+    /// Construct a new, empty clipboard stack.
+    pub fn new() -> Self {
+        Clipboard(Vec::new())
+    }
+
+    /// Push the given tree onto the clipboard stack.
+    pub fn push(&mut self, new_ast: Ast<'l>) {
+        self.0.push(new_ast);
+    }
+
+    /// Pop a tree off the top of the clipboard stack, returning None if the
+    /// clipboard is empty.
+    pub fn pop(&mut self) -> Option<Ast<'l>> {
+        self.0.pop()
+    }
+}
+
 #[derive(Clone, Copy)]
 pub enum Mode {
     Tree,
@@ -104,7 +125,7 @@ impl<'l> Doc<'l> {
         mem::replace(&mut self.recent, UndoGroup::new())
     }
 
-    fn undo(&mut self, clipboard: &mut Vec<Ast<'l>>) -> Result<(), ()> {
+    fn undo(&mut self, clipboard: &mut Clipboard<'l>) -> Result<(), ()> {
         assert!(self.recent.commands.is_empty());
         assert!(!self.recent.contains_edit);
         match self.undo_stack.pop() {
@@ -119,7 +140,7 @@ impl<'l> Doc<'l> {
         }
     }
 
-    fn redo(&mut self, clipboard: &mut Vec<Ast<'l>>) -> Result<(), ()> {
+    fn redo(&mut self, clipboard: &mut Clipboard<'l>) -> Result<(), ()> {
         assert!(self.recent.commands.is_empty());
         assert!(!self.recent.contains_edit);
         match self.redo_stack.pop() {
@@ -137,7 +158,7 @@ impl<'l> Doc<'l> {
     pub fn execute(
         &mut self,
         cmds: CommandGroup<'l>,
-        clipboard: &mut Vec<Ast<'l>>,
+        clipboard: &mut Clipboard<'l>,
     ) -> Result<(), ()> {
         match cmds {
             CommandGroup::Undo => self.undo(clipboard),
@@ -154,7 +175,7 @@ impl<'l> Doc<'l> {
         }
     }
 
-    fn execute_group<I>(&mut self, cmds: I, clipboard: &mut Vec<Ast<'l>>) -> Result<(), ()>
+    fn execute_group<I>(&mut self, cmds: I, clipboard: &mut Clipboard<'l>) -> Result<(), ()>
     where
         I: IntoIterator<Item = Command<'l>>,
     {
@@ -174,7 +195,7 @@ impl<'l> Doc<'l> {
     fn execute_ed(
         &mut self,
         cmd: EditorCmd,
-        clipboard: &mut Vec<Ast<'l>>,
+        clipboard: &mut Clipboard<'l>,
     ) -> Result<UndoGroup<'l>, ()> {
         if !self.mode.is_tree_mode() {
             panic!("tried to execute editor command in text mode")
