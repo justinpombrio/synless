@@ -145,26 +145,26 @@ fn test_json_string() {
     )
     .unwrap();
 
-    assert!(doc.is_tree_mode());
+    assert!(doc.in_tree_mode());
 
     doc.execute(
         CommandGroup::Group(vec![Command::TreeNav(TreeNavCmd::Child(0))]),
         &mut clipboard,
     )
     .unwrap();
-    assert!(!doc.is_tree_mode());
+    assert!(!doc.in_tree_mode());
     doc.execute(
         CommandGroup::Group(vec![Command::TextNav(TextNavCmd::TreeMode)]),
         &mut clipboard,
     )
     .unwrap();
-    assert!(doc.is_tree_mode());
+    assert!(doc.in_tree_mode());
     doc.execute(
         CommandGroup::Group(vec![Command::TreeNav(TreeNavCmd::Child(0))]),
         &mut clipboard,
     )
     .unwrap();
-    assert!(!doc.is_tree_mode());
+    assert!(!doc.in_tree_mode());
     doc.execute(
         CommandGroup::Group(vec![Command::Text(TextCmd::InsertChar('a'))]),
         &mut clipboard,

@@ -56,7 +56,7 @@ pub enum Mode {
 }
 
 impl Mode {
-    pub fn is_tree(&self) -> bool {
+    pub fn is_tree_mode(&self) -> bool {
         match self {
             Mode::Tree => true,
             _ => false,
@@ -96,8 +96,8 @@ impl<'l> Doc<'l> {
         self.ast.borrow()
     }
 
-    pub fn is_tree_mode(&self) -> bool {
-        self.mode.is_tree()
+    pub fn in_tree_mode(&self) -> bool {
+        self.mode.is_tree_mode()
     }
 
     fn take_recent(&mut self) -> UndoGroup<'l> {
@@ -176,7 +176,7 @@ impl<'l> Doc<'l> {
         cmd: EditorCmd,
         clipboard: &mut Vec<Ast<'l>>,
     ) -> Result<UndoGroup<'l>, ()> {
-        if !self.mode.is_tree() {
+        if !self.mode.is_tree_mode() {
             panic!("tried to execute editor command in text mode")
         }
         match cmd {
@@ -230,7 +230,7 @@ impl<'l> Doc<'l> {
     }
 
     fn execute_tree(&mut self, cmd: TreeCmd<'l>) -> Result<UndoGroup<'l>, ()> {
-        if !self.mode.is_tree() {
+        if !self.mode.is_tree_mode() {
             panic!("tried to execute tree command in text mode")
         }
         let undos = match cmd {
@@ -266,7 +266,7 @@ impl<'l> Doc<'l> {
     }
 
     fn execute_tree_nav(&mut self, cmd: TreeNavCmd) -> Result<UndoGroup<'l>, ()> {
-        if !self.mode.is_tree() {
+        if !self.mode.is_tree_mode() {
             // TODO: once there's scripting or user-defined keybindings,
             // this needs to be a gentler error.
             panic!("tried to execute tree navigation command in text mode")
