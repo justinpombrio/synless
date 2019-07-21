@@ -3,7 +3,6 @@ use std::ops::Add;
 
 use super::bound::Bound;
 use super::pos::{Col, Pos, Row};
-use super::range::Range;
 use super::rect::Rect;
 
 /// A region of the document. It has the same shape as a Bound,
@@ -156,24 +155,27 @@ impl Region {
     }
 
     fn body(&self) -> Rect {
-        Rect {
-            cols: Range(self.pos.col, self.pos.col + self.bound.width),
-            rows: Range(self.pos.row, self.pos.row + self.bound.height - 1),
-        }
+        let size = Pos {
+            col: self.bound.width,
+            row: self.bound.height - 1,
+        };
+        Rect::new(self.pos, size)
     }
 
     fn last_line(&self) -> Rect {
         // There should probably never be a region with height 0, since even empty regions have
         // height 1. If there was, this method would return a very wrong row range.
         assert!(self.bound.height != 0);
+        let pos = Pos {
+            col: self.pos.col,
+            row: self.pos.row + self.bound.height - 1,
+        };
 
-        Rect {
-            cols: Range(self.pos.col, self.pos.col + self.bound.indent),
-            rows: Range(
-                self.pos.row + self.bound.height - 1,
-                self.pos.row + self.bound.height,
-            ),
-        }
+        let size = Pos {
+            col: self.bound.indent,
+            row: 1,
+        };
+        Rect::new(pos, size)
     }
 
     /// Return an iterator over every position within this region.
@@ -182,23 +184,19 @@ impl Region {
     }
 
     fn negative_space(&self) -> Rect {
-        Rect {
-            cols: Range(
-                self.pos.col + self.bound.indent,
-                self.pos.col + self.bound.width,
-            ),
-            rows: Range(
-                self.pos.row + self.bound.height - 1,
-                self.pos.row + self.bound.height,
-            ),
-        }
+        let size = Pos {
+            col: self.bound.width - self.bound.indent,
+            row: 1,
+        };
+        Rect::new(self.end(), size)
     }
 
     fn bounding_box(&self) -> Rect {
-        Rect {
-            cols: Range(self.pos.col, self.pos.col + self.bound.width),
-            rows: Range(self.pos.row, self.pos.row + self.bound.height),
-        }
+        let size = Pos {
+            col: self.bound.width,
+            row: self.bound.height,
+        };
+        Rect::new(self.pos, size)
     }
 }
 
