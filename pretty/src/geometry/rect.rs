@@ -11,18 +11,6 @@ pub struct Rect {
     pub cols: Range<Col>,
 }
 
-/// Iterator over sub-rectangles of a Rect that was split horizontally
-pub struct SplitRectHorzIter<'a> {
-    remaining: Rect,
-    widths: &'a [Col],
-}
-
-/// Iterator over sub-rectangles of a Rect that was split vertically
-pub struct SplitRectVertIter<'a> {
-    remaining: Rect,
-    heights: &'a [Row],
-}
-
 impl Rect {
     /// Create a new Rect with the given position and size
     pub fn new(top_left: Pos, size: Pos) -> Rect {
@@ -92,106 +80,26 @@ impl Rect {
         }
     }
 
-    /// Split the rectangle into two sub-rectangles, where the left
-    /// sub-rectangle has `left_width` columns. Returns None if `left_width` is
-    /// greater than the width of the original rectangle.
-    pub fn horz_split(&self, left_width: Col) -> Option<(Rect, Rect)> {
-        let (left_cols, right_cols) = self.cols.split(left_width)?;
-        Some((
-            Rect {
-                cols: left_cols,
-                rows: self.rows,
-            },
-            Rect {
-                cols: right_cols,
-                rows: self.rows,
-            },
-        ))
-    }
-
-    /// Split the rectangle into two sub-rectangles, where the top
-    /// sub-rectangle has `top_height` columns. Returns None if `top_height` is
-    /// greater than the height of the original rectangle.
-    pub fn vert_split(&self, top_height: Row) -> Option<(Rect, Rect)> {
-        let (top_rows, bottom_rows) = self.rows.split(top_height)?;
-        Some((
-            Rect {
-                rows: top_rows,
-                cols: self.cols,
-            },
-            Rect {
-                rows: bottom_rows,
-                cols: self.cols,
-            },
-        ))
-    }
-
     /// Given N `widths`, returns an iterator over N sub-rectangles with those
-    /// widths, in order from left to right. `next()` will panic if the next
+    /// widths, in order from left to right. `.next()` will panic if the next
     /// width is larger than the width of the remaining rectangle.
-    pub fn horz_splits<'a>(&self, widths: &'a [Col]) -> SplitRectHorzIter<'a> {
-        SplitRectHorzIter {
-            remaining: *self,
-            widths,
-        }
+    pub fn horz_splits<'a>(&self, widths: &'a [Col]) -> impl Iterator<Item = Rect> + 'a {
+        let rows = self.rows;
+        self.cols.splits(widths).map(move |col_range| Rect {
+            cols: col_range,
+            rows,
+        })
     }
 
     /// Given N `heights`, returns an iterator over N sub-rectangles with those
-    /// heights, in order from top to bottom. `next()` will panic if the next
+    /// heights, in order from top to bottom. `.next()` will panic if the next
     /// height is greater than the height of the remaining rectangle.
-    pub fn vert_splits<'a>(&self, heights: &'a [Row]) -> SplitRectVertIter<'a> {
-        SplitRectVertIter {
-            remaining: *self,
-            heights,
-        }
-    }
-}
-
-impl<'a> Iterator for SplitRectHorzIter<'a> {
-    type Item = Rect;
-
-    /// Panics if the next width is greater than the width of the remaining rectangle.
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.widths {
-            &[] => None, // Done! Returned all requested sub-rectangles.
-            &[width] if width == self.remaining.width() => {
-                // This is the last requested width AND it's exactly the width
-                // of the remaining rectangle, so we don't need to split.
-                self.widths = &[];
-                Some(self.remaining)
-            }
-            &[width, ref rest..] => {
-                // In all other cases, try to split.
-                self.widths = rest;
-                let (left, right) = self.remaining.horz_split(width).expect("failed to split");
-                self.remaining = right;
-                Some(left)
-            }
-        }
-    }
-}
-
-impl<'a> Iterator for SplitRectVertIter<'a> {
-    type Item = Rect;
-
-    /// Panics if the next height is greater than the height of the remaining rectangle.
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.heights {
-            &[] => None, // Done! Returned all requested sub-rectangles.
-            &[height] if height == self.remaining.height() => {
-                // This is the last requested height AND it's exactly the height
-                // of the remaining rectangle, so we don't need to split.
-                self.heights = &[];
-                Some(self.remaining)
-            }
-            &[height, ref rest..] => {
-                // In all other cases, try to split.
-                self.heights = rest;
-                let (top, bottom) = self.remaining.vert_split(height).expect("failed to split");
-                self.remaining = bottom;
-                Some(top)
-            }
-        }
+    pub fn vert_splits<'a>(&self, heights: &'a [Row]) -> impl Iterator<Item = Rect> + 'a {
+        let cols = self.cols;
+        self.rows.splits(heights).map(move |row_range| Rect {
+            rows: row_range,
+            cols,
+        })
     }
 }
 

@@ -51,14 +51,58 @@ where
     }
 
     /// Split the range into 2 ranges, the first of which has length `left_len`.
-    /// Returns None if `left_len` is negative or larger than the length of the
-    /// original range.
+    /// Returns None if `left_len` is negative or larger than the length of
+    /// `self`.
     pub fn split(self, left_len: N) -> Option<(Range<N>, Range<N>)> {
         let mid = self.0 + left_len;
         if mid > self.1 || mid < self.0 {
             None
         } else {
             Some((Range(self.0, mid), Range(mid, self.1)))
+        }
+    }
+
+    pub fn splits<'a>(&self, lengths: &'a [N]) -> SplitRangeIter<'a, N> {
+        SplitRangeIter {
+            remaining: *self,
+            lengths,
+        }
+    }
+}
+
+/// Iterator over sub-ranges of a Range that was split
+pub struct SplitRangeIter<'a, N> {
+    remaining: Range<N>,
+    lengths: &'a [N],
+}
+
+impl<'a, N> Iterator for SplitRangeIter<'a, N>
+where
+    N: Add<Output = N>,
+    N: Sub<Output = N>,
+    N: Ord,
+    N: Copy,
+    N: fmt::Debug,
+{
+    type Item = Range<N>;
+
+    /// Panics if the next length is greater than the length of the remaining Range.
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.lengths {
+            &[] => None, // Done! Returned all requested sub-ranges.
+            &[len] if len == self.remaining.len() => {
+                // This is the last requested length AND it's exactly the length
+                // of the remaining Range, so we don't need to split.
+                self.lengths = &[];
+                Some(self.remaining)
+            }
+            &[len, ref rest..] => {
+                // In all other cases, try to split.
+                self.lengths = rest;
+                let (left, right) = self.remaining.split(len).expect("Range: failed to split");
+                self.remaining = right;
+                Some(left)
+            }
         }
     }
 }
