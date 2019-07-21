@@ -83,6 +83,11 @@ impl Region {
             || self.last_line().overlaps(other.last_line())
     }
 
+    /// Does this region partially overlap the given rectangle?
+    pub fn overlaps_rect(&self, rect: Rect) -> bool {
+        self.body().overlaps(rect) || self.last_line().overlaps(rect)
+    }
+
     pub fn covers(&self, other: Region) -> bool {
         self.bounding_box().covers(other.body())
             && self.bounding_box().covers(other.last_line())

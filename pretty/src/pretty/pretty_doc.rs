@@ -2,7 +2,7 @@ use std::cmp;
 
 use self::Layout::*;
 use super::pretty_window::{Pane, PrettyWindow};
-use crate::geometry::{Bound, Col, Pos, Region};
+use crate::geometry::{Bound, Col, Pos, Rect, Region};
 use crate::layout::{
     compute_bounds, compute_layouts, text_bounds, Bounds, Layout, LayoutRegion, Layouts,
 };
@@ -56,12 +56,8 @@ pub trait PrettyDocument: Sized + Clone {
         let root = self.root();
         let bound = Bound::infinite_scroll(width);
         let lay = Layouts::compute(&root).fit_bound(bound);
-        // TODO pass doc_rect to render() instead
-        let doc_region = Region {
-            pos: doc_pos,
-            bound: Bound::from_rect(pane.rect()),
-        };
-        render(&root, pane, doc_region, &lay)
+        let doc_rect = Rect::new(doc_pos, pane.rect().size());
+        render(&root, pane, doc_rect, &lay)
     }
 
     /// Find the region covered by this sub-document, when the entire document is
@@ -146,42 +142,42 @@ where
 fn render<'a, Doc, Win>(
     doc: &Doc,
     pane: &mut Pane<'a, Win>,
-    doc_region: Region,
+    doc_rect: Rect,
     lay: &LayoutRegion,
 ) -> Result<(), Win::Error>
 where
     Doc: PrettyDocument,
     Win: PrettyWindow,
 {
-    if !lay.region.overlaps(doc_region) {
+    if !lay.region.overlaps_rect(doc_rect) {
         // It's entirely offscreen. Nothing to show.
         return Ok(());
     }
     match &lay.layout {
         Empty => Ok(()),
-        Literal(text, style) => render_text(text.as_ref(), lay.region, pane, doc_region, *style),
+        Literal(text, style) => render_text(text.as_ref(), lay.region, pane, doc_rect, *style),
         Text(style) => {
             let text = doc
                 .text()
                 .expect("PrettyDocument::render - Expected text, found branch node");
-            render_text(text.as_ref(), lay.region, pane, doc_region, *style)
+            render_text(text.as_ref(), lay.region, pane, doc_rect, *style)
         }
         Child(i) => {
             let child = &doc.child(*i);
             let child_lay = Layouts::compute(child).fit_region(lay.region);
-            render(child, pane, doc_region, &child_lay)
+            render(child, pane, doc_rect, &child_lay)
         }
         Concat(box lay1, box lay2) => {
-            render(doc, pane, doc_region, &lay1)?;
-            render(doc, pane, doc_region, &lay2)
+            render(doc, pane, doc_rect, &lay1)?;
+            render(doc, pane, doc_rect, &lay2)
         }
         Horz(box lay1, box lay2) => {
-            render(doc, pane, doc_region, &lay1)?;
-            render(doc, pane, doc_region, &lay2)
+            render(doc, pane, doc_rect, &lay1)?;
+            render(doc, pane, doc_rect, &lay2)
         }
         Vert(box lay1, box lay2) => {
-            render(doc, pane, doc_region, &lay1)?;
-            render(doc, pane, doc_region, &lay2)
+            render(doc, pane, doc_rect, &lay1)?;
+            render(doc, pane, doc_rect, &lay2)
         }
     }
 }
@@ -190,26 +186,18 @@ fn render_text<'a, Win>(
     text: &str,
     text_region: Region,
     pane: &mut Pane<'a, Win>,
-    doc_region: Region,
+    doc_rect: Rect,
     style: Style,
 ) -> Result<(), Win::Error>
 where
     Win: PrettyWindow,
 {
-    assert!(
-        doc_region.is_rectangular(),
-        "can't render a non-rectangular region of text in a document"
-    );
     if text.is_empty() {
         return Ok(()); // not much to show!
     }
 
-    let start_char = doc_region.pos.col.saturating_sub(text_region.pos.col);
-    let end_char = cmp::min(
-        text_region.width(),
-        doc_region.end().col - text_region.pos.col,
-    );
-
+    let start_char = doc_rect.pos().col.saturating_sub(text_region.pos.col);
+    let end_char = cmp::min(text_region.width(), doc_rect.cols.1 - text_region.pos.col);
     let mut chars = text.char_indices();
 
     let start_byte = chars
@@ -223,8 +211,8 @@ where
         .unwrap_or(text.len());
 
     let screen_offset = Pos {
-        row: text_region.pos.row - doc_region.pos.row,
-        col: text_region.pos.col.saturating_sub(doc_region.pos.col),
+        row: text_region.pos.row - doc_rect.pos().row,
+        col: text_region.pos.col.saturating_sub(doc_rect.pos().col),
     };
     pane.print(screen_offset, &text[start_byte..end_byte], style)
 }
