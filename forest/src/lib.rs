@@ -1,3 +1,5 @@
+#![feature(iter_copied)]
+
 //! A general represenation of trees.
 
 mod forest;

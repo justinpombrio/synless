@@ -124,7 +124,7 @@ impl<'f, D, L> TreeRef<'f, D, L> {
     pub fn children(&self) -> impl Iterator<Item = TreeRef<'f, D, L>> {
         self.forest()
             .children(self.id)
-            .map(|&child_id| TreeRef {
+            .map(|child_id| TreeRef {
                 forest: self.forest,
                 root: self.root,
                 id: child_id,
