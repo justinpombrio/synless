@@ -1,8 +1,8 @@
 use crate::NotationSet;
-use language::{Arity, Construct, Language, LanguageSet};
+use language::{Arity, Construct, Language};
 use pretty::{child, literal, no_wrap, repeat, text, Notation, Repeat, Style};
 
-pub fn make_json_lang() -> (LanguageSet, NotationSet) {
+pub fn make_json_lang() -> (Language, NotationSet) {
     let notations = vec![
         ("string".into(), json_string()),
         ("number".into(), json_number()),
@@ -46,9 +46,7 @@ pub fn make_json_lang() -> (LanguageSet, NotationSet) {
         lang.add(construct);
     }
     let note_set = NotationSet::new(&lang, notations);
-    let lang_set = LanguageSet::new();
-    lang_set.insert(lang.name().to_owned(), lang);
-    (lang_set, note_set)
+    (lang, note_set)
 }
 
 fn json_string() -> Notation {
