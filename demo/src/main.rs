@@ -10,7 +10,7 @@ use editor::{
 };
 use frontends::{terminal, Event, Frontend, Terminal};
 use language::{LanguageName, LanguageSet};
-use pretty::{Color, ColorTheme, Pos, PrettyDocument, PrettyWindow, Shade, Style};
+use pretty::{Color, ColorTheme, Pane, Pos, PrettyDocument, PrettyWindow, Shade, Style};
 use utility::GrowOnlyMap;
 
 mod error;
@@ -133,7 +133,7 @@ impl Ed {
         self.redisplay()
     }
 
-    fn print_keymap_summary(&mut self) -> Result<(), Error> {
+    fn _print_keymap_summary(&mut self) -> Result<(), Error> {
         let size = self.term.size()?;
 
         let offset = Pos {
@@ -151,7 +151,7 @@ impl Ed {
         Ok(())
     }
 
-    fn print_messages(&mut self, num_recent: usize) -> Result<(), Error> {
+    fn _print_messages(&mut self, num_recent: usize) -> Result<(), Error> {
         let size = self.term.size()?;
         let mut pane = self.term.pane()?;
         pane.print(
@@ -182,25 +182,25 @@ impl Ed {
     }
 
     fn redisplay(&mut self) -> Result<(), Error> {
-        self.term.start_frame()?;
-        let size = self.term.size()?;
+        let ast_ref = self.doc.ast_ref();
+        self.term.draw_frame(|mut pane: Pane<Terminal>| {
+            let size = pane.rect().size();
 
-        // TODO pick which part of the doc to display, based on the cursor
-        // position, instead of always showing the top!
-        let doc_pos = Pos::zero();
+            // TODO pick which part of the doc to display, based on the cursor
+            // position, instead of always showing the top!
+            let doc_pos = Pos::zero();
 
-        let mut pane = self.term.pane()?;
-        self.doc
-            .ast_ref()
-            .pretty_print(size.col, &mut pane, doc_pos)
-            .expect("failed to pretty-print document");
+            ast_ref
+                .pretty_print(size.col, &mut pane, doc_pos)
+                .expect("failed to pretty-print document");
 
-        let cursor_region = self.doc.ast_ref().locate_cursor(size.col);
-        pane.shade(cursor_region, Shade(0))?;
+            let cursor_region = ast_ref.locate_cursor(size.col);
+            pane.shade(cursor_region, Shade(0))?;
 
-        self.print_messages(5)?;
-        self.print_keymap_summary()?;
-        self.term.show_frame()?;
+            // self._print_messages(5).unwrap();
+            // self._print_keymap_summary().unwrap();
+            Ok(())
+        })?;
         Ok(())
     }
 
