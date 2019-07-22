@@ -16,7 +16,7 @@ use termion::raw::{IntoRawMode, RawTerminal};
 use termion::screen::AlternateScreen;
 use termion::style::{Bold, NoBold, NoUnderline, Reset, Underline};
 
-use pretty::{Col, ColorTheme, Pos, PrettyWindow, Region, Rgb, Row, Shade, Style};
+use pretty::{Col, ColorTheme, Pane, Pos, PrettyWindow, Region, Rgb, Row, Shade, Style};
 
 use crate::frontend::{Event, Frontend};
 
@@ -72,6 +72,28 @@ impl Terminal {
         self.write(Fg(to_termion_rgb(self.color_theme.foreground(style))))?;
         self.write(Bg(to_termion_rgb(self.color_theme.background(style))))
     }
+
+    /// Prepare to start modifying a fresh new frame.
+    fn start_frame(&mut self) -> Result<(), Error> {
+        self.update_size()
+    }
+
+    /// Show the modified frame to the user.
+    fn show_frame(&mut self) -> Result<(), io::Error> {
+        // Reset terminal's style
+        self.write(Reset)?;
+        // Update the screen from the old frame to the new frame.
+        let changes: Vec<_> = self.buf.drain_changes().collect();
+        for op in changes {
+            match op {
+                ScreenOp::Goto(pos) => self.go_to(pos)?,
+                ScreenOp::Apply(style) => self.apply_style(style)?,
+                ScreenOp::Print(ch) => self.write(ch)?,
+            }
+        }
+        self.stdout.flush()?;
+        Ok(())
+    }
 }
 
 impl PrettyWindow for Terminal {
@@ -98,8 +120,9 @@ impl PrettyWindow for Terminal {
 
 impl Frontend for Terminal {
     type Error = Error;
+    type Window = Self;
 
-    fn new(theme: ColorTheme) -> Result<Terminal, Self::Error> {
+    fn new(theme: ColorTheme) -> Result<Terminal, Error> {
         let mut term = Terminal {
             stdout: AlternateScreen::from(MouseTerminal::from(stdout().into_raw_mode()?)),
             events: stdin().events(),
@@ -112,7 +135,7 @@ impl Frontend for Terminal {
         Ok(term)
     }
 
-    fn next_event(&mut self) -> Option<Result<Event, Self::Error>> {
+    fn next_event(&mut self) -> Option<Result<Event, Error>> {
         match self.events.next() {
             Some(Ok(event::Event::Key(key))) => Some(Ok(KeyEvent(key))),
             Some(Ok(event::Event::Mouse(event::MouseEvent::Press(
@@ -126,24 +149,15 @@ impl Frontend for Terminal {
         }
     }
 
-    fn start_frame(&mut self) -> Result<(), Self::Error> {
-        self.update_size()
-    }
-
-    fn show_frame(&mut self) -> Result<(), Self::Error> {
-        // Reset terminal's style
-        self.write(Reset)?;
-        // Update the screen from the old frame to the new frame.
-        let changes: Vec<_> = self.buf.drain_changes().collect();
-        for op in changes {
-            match op {
-                ScreenOp::Goto(pos) => self.go_to(pos)?,
-                ScreenOp::Apply(style) => self.apply_style(style)?,
-                ScreenOp::Print(ch) => self.write(ch)?,
-            }
-        }
-        self.stdout.flush()?;
-        Ok(())
+    fn draw_frame<F>(&mut self, drawer: F) -> Result<(), Error>
+    where
+        F: Fn(Pane<Self>) -> Result<(), Error>,
+    {
+        self.start_frame()?;
+        let pane = self.pane()?;
+        let result = drawer(pane);
+        self.show_frame()?;
+        result
     }
 }
 
