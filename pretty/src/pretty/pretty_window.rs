@@ -3,7 +3,7 @@ use std::fmt;
 use crate::geometry::{Pos, Rect, Region};
 use crate::style::{Shade, Style};
 
-/// A "window" that supports the methods necessary to pretty-print a document.
+/// A "window" that supports the methods necessary to render a set of [PrettyDocument]s.
 pub trait PrettyWindow: Sized {
     type Error: fmt::Debug;
 
