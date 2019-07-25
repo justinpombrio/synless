@@ -1,12 +1,13 @@
 use std::cmp;
 
 use self::Layout::*;
-use super::pretty_window::{Pane, PrettyWindow};
+use super::pretty_window::PrettyWindow;
 use crate::geometry::{Bound, Col, Pos, Rect, Region};
 use crate::layout::{
     compute_bounds, compute_layouts, text_bounds, Bounds, Layout, LayoutRegion, Layouts,
 };
 use crate::notation::Notation;
+use crate::pane::Pane;
 use crate::style::Style;
 
 /// A "document" that supports the necessary methods to be pretty-printed.
