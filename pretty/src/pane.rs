@@ -107,6 +107,90 @@ where
         let abs_pos = pos + self.rect.pos();
         self.window.highlight(abs_pos, style)
     }
+
+    /// Render to this pane according to the given [PaneNotation], `note`. Use
+    /// the `get_content` closure to map the document names used in any
+    /// `PaneNotation::Content` variants to actual documents. If `parent_style`
+    /// is not `None`, apply that style to [PaneNotation] sub-trees that don't
+    /// specify their own style.
+    pub fn render<F, U>(
+        &mut self,
+        note: &PaneNotation,
+        parent_style: Option<Style>,
+        get_content: F,
+    ) -> Result<(), PaneError<T::Error>>
+    where
+        F: FnOnce(&Content) -> Option<U>,
+        F: Clone,
+        U: PrettyDocument,
+    {
+        match note {
+            PaneNotation::Horz { panes, style } => {
+                let child_notes: Vec<_> = panes.iter().map(|p| &p.1).collect();
+                let child_sizes: Vec<_> = panes.iter().map(|p| p.0).collect();
+                let total_width = usize::from(self.rect().width());
+                let widths: Vec<_> = divvy(total_width, &child_sizes)
+                    .ok_or(PaneError::ImpossibleDemands)?
+                    .into_iter()
+                    .map(|n| n as Col)
+                    .collect();
+                let style = style.or(parent_style);
+                for (rect, child_note) in self
+                    .rect()
+                    .horz_splits(&widths)
+                    .zip(child_notes.into_iter())
+                {
+                    let mut child_pane = self.sub_pane(rect).ok_or(PaneError::NotSubPane)?;
+                    child_pane.render(child_note, style, get_content.clone())?;
+                }
+            }
+            PaneNotation::Vert { panes, style } => {
+                let child_notes: Vec<_> = panes.iter().map(|p| &p.1).collect();
+                let child_sizes: Vec<_> = panes.iter().map(|p| p.0).collect();
+                let total_height = self.rect().height() as usize;
+                let heights: Vec<_> = divvy(total_height, &child_sizes)
+                    .ok_or(PaneError::ImpossibleDemands)?
+                    .into_iter()
+                    .map(|n| n as Row)
+                    .collect();
+                let style = style.or(parent_style);
+                for (rect, child_note) in self
+                    .rect()
+                    .vert_splits(&heights)
+                    .zip(child_notes.into_iter())
+                {
+                    let mut child_pane = self.sub_pane(rect).ok_or(PaneError::NotSubPane)?;
+                    child_pane.render(child_note, style, get_content.clone())?;
+                }
+            }
+            PaneNotation::Content { content, style } => {
+                // TODO how to use style?
+                let _style = style.or(parent_style).unwrap_or_default();
+                let width = self.rect().width();
+                let doc = get_content(content).ok_or(PaneError::Content)?;
+
+                // Put the top of the cursor at the top of the pane.
+                // TODO support fancier positioning options.
+                let cursor_region = doc.locate_cursor(width);
+                let doc_pos = Pos {
+                    col: 0,
+                    row: cursor_region.pos.row,
+                };
+                doc.pretty_print(width, self, doc_pos)?;
+            }
+            PaneNotation::Fill { ch, style } => {
+                let style = style.or(parent_style).unwrap_or_default();
+                let line: String = iter::repeat(ch)
+                    .take(self.rect().width() as usize)
+                    .collect();
+                let rows = self.rect().height();
+                for row in 0..rows {
+                    self.print(Pos { row, col: 0 }, &line, style)?;
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 impl PaneSize {
@@ -132,86 +216,6 @@ where
     fn from(e: T) -> PaneError<T> {
         PaneError::PrettyWindow(e)
     }
-}
-
-pub fn render_pane<T, F, U>(
-    pane: &mut Pane<T>,
-    note: &PaneNotation,
-    parent_style: Option<Style>,
-    get_content: F,
-) -> Result<(), PaneError<T::Error>>
-where
-    T: PrettyWindow,
-    F: FnOnce(&Content) -> Option<U>,
-    F: Clone,
-    U: PrettyDocument,
-{
-    match note {
-        PaneNotation::Horz { panes, style } => {
-            let child_notes: Vec<_> = panes.iter().map(|p| &p.1).collect();
-            let child_sizes: Vec<_> = panes.iter().map(|p| p.0).collect();
-            let total_width = usize::from(pane.rect().width());
-            let widths: Vec<_> = divvy(total_width, &child_sizes)
-                .ok_or(PaneError::ImpossibleDemands)?
-                .into_iter()
-                .map(|n| n as Col)
-                .collect();
-            let style = style.or(parent_style);
-            for (rect, child_note) in pane
-                .rect()
-                .horz_splits(&widths)
-                .zip(child_notes.into_iter())
-            {
-                let mut child_pane = pane.sub_pane(rect).ok_or(PaneError::NotSubPane)?;
-                render_pane(&mut child_pane, child_note, style, get_content.clone())?;
-            }
-        }
-        PaneNotation::Vert { panes, style } => {
-            let child_notes: Vec<_> = panes.iter().map(|p| &p.1).collect();
-            let child_sizes: Vec<_> = panes.iter().map(|p| p.0).collect();
-            let total_height = pane.rect().height() as usize;
-            let heights: Vec<_> = divvy(total_height, &child_sizes)
-                .ok_or(PaneError::ImpossibleDemands)?
-                .into_iter()
-                .map(|n| n as Row)
-                .collect();
-            let style = style.or(parent_style);
-            for (rect, child_note) in pane
-                .rect()
-                .vert_splits(&heights)
-                .zip(child_notes.into_iter())
-            {
-                let mut child_pane = pane.sub_pane(rect).ok_or(PaneError::NotSubPane)?;
-                render_pane(&mut child_pane, child_note, style, get_content.clone())?;
-            }
-        }
-        PaneNotation::Content { content, style } => {
-            // TODO how to use style?
-            let _style = style.or(parent_style).unwrap_or_default();
-            let width = pane.rect().width();
-            let doc = get_content(content).ok_or(PaneError::Content)?;
-
-            // Put the top of the cursor at the top of the pane.
-            // TODO support fancier positioning options.
-            let cursor_region = doc.locate_cursor(width);
-            let doc_pos = Pos {
-                col: 0,
-                row: cursor_region.pos.row,
-            };
-            doc.pretty_print(width, pane, doc_pos)?;
-        }
-        PaneNotation::Fill { ch, style } => {
-            let style = style.or(parent_style).unwrap_or_default();
-            let line: String = iter::repeat(ch)
-                .take(pane.rect().width() as usize)
-                .collect();
-            let rows = pane.rect().height();
-            for row in 0..rows {
-                pane.print(Pos { row, col: 0 }, &line, style)?;
-            }
-        }
-    }
-    Ok(())
 }
 
 fn divvy(cookies: usize, demands: &[PaneSize]) -> Option<Vec<usize>> {
