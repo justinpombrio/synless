@@ -51,7 +51,7 @@ where
     L: Clone,
 {
     fn clone(&self) -> Tree<D, L> {
-        let new_id = self.forest_mut().clone_tree(self.id);
+        let new_id = self.raw_forest_mut().clone_tree(self.id);
         Tree::new(&self.forest, new_id)
     }
 }
@@ -108,7 +108,7 @@ impl<D, L> Tree<D, L> {
     /// Returns `true` if this is a leaf node, and `false` if this is
     /// a branch node.
     pub fn is_leaf(&self) -> bool {
-        self.forest().is_leaf(self.id)
+        self.raw_forest().is_leaf(self.id)
     }
 
     /// Obtain a shared reference to the data value at this node.
@@ -118,7 +118,7 @@ impl<D, L> Tree<D, L> {
     /// Panics if this is not a branch node. (Leaves do not have data.)
     pub fn data(&self) -> ReadData<D, L> {
         ReadData {
-            guard: self.forest(),
+            guard: self.raw_forest(),
             id: self.id,
         }
     }
@@ -132,7 +132,7 @@ impl<D, L> Tree<D, L> {
     where
         F: FnOnce(&L) -> T,
     {
-        f(self.forest().leaf(self.id))
+        f(self.raw_forest().leaf(self.id))
     }
 
     /// Calls the closure, giving it read-access to the leaf value which is the sole child of this node.
@@ -145,8 +145,8 @@ impl<D, L> Tree<D, L> {
         F: FnOnce(&L) -> T,
     {
         assert_eq!(self.num_children(), 1);
-        let child_id = self.forest().child(self.id, 0);
-        f(self.forest().leaf(child_id))
+        let child_id = self.raw_forest().child(self.id, 0);
+        f(self.raw_forest().leaf(child_id))
     }
 
     /// Returns the number of children this node has.
@@ -155,7 +155,7 @@ impl<D, L> Tree<D, L> {
     ///
     /// Panics if this is a leaf node.
     pub fn num_children(&self) -> usize {
-        self.forest().children(self.id).count()
+        self.raw_forest().children(self.id).count()
     }
 
     /// Obtain a mutable reference to the data value at this node.
@@ -165,7 +165,7 @@ impl<D, L> Tree<D, L> {
     /// Panics if this is not a branch node. (Leaves do not have data.)
     pub fn data_mut(&mut self) -> WriteData<D, L> {
         WriteData {
-            guard: self.forest_mut(),
+            guard: self.raw_forest_mut(),
             id: self.id,
         }
     }
@@ -179,7 +179,7 @@ impl<D, L> Tree<D, L> {
     where
         F: FnOnce(&mut L) -> T,
     {
-        f(self.forest_mut().leaf_mut(self.id))
+        f(self.raw_forest_mut().leaf_mut(self.id))
     }
 
     /// Calls the closure, giving it read-access to the leaf value which is the sole child of this node.
@@ -192,8 +192,8 @@ impl<D, L> Tree<D, L> {
         F: FnOnce(&mut L) -> T,
     {
         assert_eq!(self.num_children(), 1);
-        let child_id = self.forest().child(self.id, 0);
-        f(self.forest_mut().leaf_mut(child_id))
+        let child_id = self.raw_forest().child(self.id, 0);
+        f(self.raw_forest_mut().leaf_mut(child_id))
     }
 
     /// Replace the `i`th child of this node with `tree`.
@@ -203,7 +203,7 @@ impl<D, L> Tree<D, L> {
     ///
     /// Panics if this is a leaf node, or if `i` is out of bounds.
     pub fn replace_child(&mut self, i: usize, tree: Tree<D, L>) -> Tree<D, L> {
-        let old_tree_id = self.forest_mut().replace_child(self.id, i, tree.id);
+        let old_tree_id = self.raw_forest_mut().replace_child(self.id, i, tree.id);
         mem::forget(tree);
         Tree::new(&self.forest, old_tree_id)
     }
@@ -216,7 +216,7 @@ impl<D, L> Tree<D, L> {
     pub fn insert_child(&mut self, i: usize, tree: Tree<D, L>) {
         let id = tree.id;
         mem::forget(tree);
-        self.forest_mut().insert_child(self.id, i, id);
+        self.raw_forest_mut().insert_child(self.id, i, id);
     }
 
     /// Remove and return the `i`th child of this node.
@@ -225,7 +225,7 @@ impl<D, L> Tree<D, L> {
     ///
     /// Panics if this is a leaf node, or if `i` is out of bounds.
     pub fn remove_child(&mut self, i: usize) -> Tree<D, L> {
-        let old_tree_id = self.forest_mut().remove_child(self.id, i);
+        let old_tree_id = self.raw_forest_mut().remove_child(self.id, i);
         Tree::new(&self.forest, old_tree_id)
     }
 
@@ -241,7 +241,7 @@ impl<D, L> Tree<D, L> {
     /// has since been deleted, or if it is currently located in a
     /// different tree.
     pub fn goto_bookmark(&mut self, mark: Bookmark) -> bool {
-        if self.forest().is_valid(mark.id) && self.forest().root(mark.id) == self.root {
+        if self.raw_forest().is_valid(mark.id) && self.raw_forest().root(mark.id) == self.root {
             self.id = mark.id;
             true
         } else {
@@ -252,28 +252,28 @@ impl<D, L> Tree<D, L> {
     /// Returns `true` if this is the root of the tree, and `false` if
     /// it isn't (and thus this node has a parent).
     pub fn is_at_root(&self) -> bool {
-        self.forest().parent(self.id).is_none()
+        self.raw_forest().parent(self.id).is_none()
     }
 
     /// Returns `true` if this node is a child of the root of the tree, and `false` otherwise.
     pub fn is_parent_at_root(&self) -> bool {
-        match self.forest().parent(self.id) {
+        match self.raw_forest().parent(self.id) {
             None => false,
-            Some(parent_id) => self.forest().parent(parent_id).is_none(),
+            Some(parent_id) => self.raw_forest().parent(parent_id).is_none(),
         }
     }
 
     /// Determine this node's index among its siblings. Returns `0` when at the
     /// root.
     pub fn index(&self) -> usize {
-        self.forest().index(self.id)
+        self.raw_forest().index(self.id)
     }
 
     /// Determine the number of siblings that this node has, including itself.
     /// When at the root, returns 1.
     pub fn num_siblings(&self) -> usize {
-        if let Some(parent_id) = self.forest().parent(self.id) {
-            self.forest().children(parent_id).count()
+        if let Some(parent_id) = self.raw_forest().parent(self.id) {
+            self.raw_forest().children(parent_id).count()
         } else {
             // at root
             1
@@ -292,9 +292,9 @@ impl<D, L> Tree<D, L> {
     ///
     /// Panics if this is the root of the tree, and there is no parent.
     pub fn goto_parent(&mut self) -> usize {
-        let index = self.forest().index(self.id);
+        let index = self.raw_forest().index(self.id);
         let id = self
-            .forest()
+            .raw_forest()
             .parent(self.id)
             .expect("Forest - root node has no parent!");
         self.id = id;
@@ -307,7 +307,7 @@ impl<D, L> Tree<D, L> {
     ///
     /// Panics if this is a leaf node, or if `i` is out of bounds.
     pub fn goto_child(&mut self, i: usize) {
-        let id = self.forest().child(self.id, i);
+        let id = self.raw_forest().child(self.id, i);
         self.id = id;
     }
 
@@ -321,11 +321,11 @@ impl<D, L> Tree<D, L> {
         }
     }
 
-    fn forest(&self) -> Ref<RawForest<D, L>> {
+    fn raw_forest(&self) -> Ref<RawForest<D, L>> {
         self.forest.read_lock()
     }
 
-    fn forest_mut(&self) -> RefMut<RawForest<D, L>> {
+    fn raw_forest_mut(&self) -> RefMut<RawForest<D, L>> {
         self.forest.write_lock()
     }
 }
