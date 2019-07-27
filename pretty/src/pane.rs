@@ -12,13 +12,17 @@ where
     pub(crate) rect: Rect,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum PaneSize {
     Fixed(usize),
     Proportional(usize),
+    /// There are restrictions on when you can use `DynHeight`, to keep the implementation simple:
+    ///  - `DynHeight` can only be applied to subpanes within a `PaneNotation::Vert`
+    ///  - a `DynHeight` subpane can only contain a `PaneNotation::Content`, not more nested subpanes
+    DynHeight,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 #[non_exhaustive]
 pub enum Content {
     ActiveDoc,
@@ -28,7 +32,7 @@ pub enum Content {
     Messages,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum PaneNotation {
     Horz {
         panes: Vec<(PaneSize, PaneNotation)>,
@@ -160,9 +164,34 @@ where
             }
             PaneNotation::Vert { panes, style } => {
                 let child_notes: Vec<_> = panes.iter().map(|p| &p.1).collect();
-                let child_sizes: Vec<_> = panes.iter().map(|p| p.0).collect();
-                let total_height = self.rect().height() as usize;
-                let heights: Vec<_> = divvy(total_height, &child_sizes)
+                let total_fixed: usize = panes.iter().filter_map(|p| p.0.get_fixed()).sum();
+                let total_height = self.rect().height();
+                let mut available_height = total_height.saturating_sub(total_fixed as Row);
+                let child_sizes: Vec<_> = panes
+                    .iter()
+                    .map(|p| match p.0 {
+                        PaneSize::DynHeight => {
+                            // Convert dynamic height into a fixed height, based on the currrent document.
+                            if let PaneNotation::Content { content, .. } = &p.1 {
+                                let f = get_content.clone();
+                                let (doc, _) =
+                                    f(content).expect("failed to get content of DynHeight subpane");
+                                let height =
+                                    available_height.min(doc.required_height(self.rect().width()));
+                                available_height -= height;
+                                PaneSize::Fixed(height as usize)
+                            } else {
+                                panic!(
+                                    "DynHeight is only implemented for Content subpanes, not {:?}",
+                                    p.1
+                                )
+                            }
+                        }
+                        size => size, // pass through all other pane sizes
+                    })
+                    .collect();
+
+                let heights: Vec<_> = divvy(total_height as usize, &child_sizes)
                     .ok_or(PaneError::ImpossibleDemands)?
                     .into_iter()
                     .map(|n| n as Row)
@@ -243,6 +272,9 @@ fn divvy(cookies: usize, demands: &[PaneSize]) -> Option<Vec<usize>> {
             .map(|demand| match demand {
                 PaneSize::Fixed(n) => *n,
                 PaneSize::Proportional(_) => proportional_allocation.next().expect("bug in divvy"),
+                PaneSize::DynHeight => {
+                    panic!("All DynHeight sizes should have been replaced by Fixed sizes by now!")
+                }
             })
             .collect(),
     )

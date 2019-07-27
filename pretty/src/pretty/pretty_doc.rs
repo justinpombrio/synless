@@ -2,7 +2,7 @@ use std::cmp;
 
 use self::Layout::*;
 use super::pretty_window::PrettyWindow;
-use crate::geometry::{Bound, Col, Pos, Rect, Region};
+use crate::geometry::{Bound, Col, Pos, Rect, Region, Row};
 use crate::layout::{
     compute_bounds, compute_layouts, text_bounds, Bounds, Layout, LayoutRegion, Layouts,
 };
@@ -105,6 +105,14 @@ pub trait PrettyDocument: Sized + Clone {
         // Recursively compute the cursor region.
         let lay = Layouts::compute(&root).fit_bound(Bound::infinite_scroll(width));
         loc_cursor(&root, &lay, &path)
+    }
+
+    /// Find the minimum height required to pretty-print the document with the given width.
+    fn required_height(&self, width: Col) -> Row {
+        let root = self.root();
+        let bound = Bound::infinite_scroll(width);
+        let lay = Layouts::compute(&root).fit_bound(bound);
+        lay.region.height()
     }
 
     /// Goto the root of the document.

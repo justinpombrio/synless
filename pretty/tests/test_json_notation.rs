@@ -448,3 +448,50 @@ fn test_pane_proportional() {
     assert_proportional("null11222222", 12, (4, 2, 6));
     assert_proportional("null22222222", 12, (1, 0, 2));
 }
+
+#[test]
+fn test_pane_dyn_height() {
+    let notations = make_json_notation();
+
+    let elem = Doc::new_branch(notations["true"].clone(), Vec::new());
+    let doc0 = Doc::new_branch(notations["list"].clone(), vec![]);
+    let doc1 = Doc::new_branch(notations["list"].clone(), vec![elem.clone()]);
+    let doc2 = Doc::new_branch(notations["list"].clone(), vec![elem.clone(), elem.clone()]);
+    let doc3 = Doc::new_branch(
+        notations["list"].clone(),
+        vec![elem.clone(), elem.clone(), elem.clone()],
+    );
+
+    let content1 = PaneNotation::Content {
+        content: Content::ActiveDoc,
+        style: None,
+    };
+
+    let fill = PaneNotation::Fill {
+        ch: '-',
+        style: None,
+    };
+
+    let pane_note = PaneNotation::Vert {
+        panes: vec![
+            (PaneSize::DynHeight, content1),
+            (PaneSize::Proportional(1), fill),
+        ],
+        style: None,
+    };
+
+    let helper = |doc: Doc, expected: &str| {
+        let mut window = PlainText::new(Pos { row: 3, col: 6 });
+        let mut pane = window.pane().unwrap();
+        pane.render(&pane_note, None, |_content: &Content| {
+            Some((doc.as_ref(), CursorVis::Hide))
+        })
+        .unwrap();
+        assert_strings_eq(&window.to_string(), expected);
+    };
+
+    helper(doc0, "[]\n------\n------");
+    helper(doc1, "[true]\n------\n------");
+    helper(doc2, "[true,\n true]\n------");
+    helper(doc3, "[true,\n true,\n true]");
+}
