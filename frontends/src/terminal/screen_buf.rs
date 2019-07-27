@@ -103,12 +103,13 @@ impl ScreenBuf {
         self.size
     }
 
-    pub fn write_str(&mut self, pos: Pos, s: &str, style: Style) -> Result<(), Error> {
-        let mut maybe_pos = Ok(pos);
+    /// No newlines allowed. If the string doesn't fit between the starting
+    /// column position and the right edge of the screen, it's truncated and
+    /// and an OutOfBounds error is returned.
+    pub fn write_str(&mut self, mut pos: Pos, s: &str, style: Style) -> Result<(), Error> {
         for ch in s.chars() {
-            let p = maybe_pos?;
-            self.set_char_with_style(p, ch, style)?;
-            maybe_pos = self.next_pos(p).ok_or(Error::OutOfBounds);
+            self.set_char_with_style(pos, ch, style)?;
+            pos.col += 1;
         }
         Ok(())
     }
@@ -508,8 +509,10 @@ mod screen_buf_tests {
         let mut buf = ScreenBuf::new();
         buf.resize(Pos { col: 3, row: 4 });
 
-        buf.write_str(Pos { col: 1, row: 0 }, "foobar", style1)
+        buf.write_str(Pos { col: 1, row: 0 }, "fo", style1).unwrap();
+        buf.write_str(Pos { col: 0, row: 1 }, "oba", style1)
             .unwrap();
+        buf.write_str(Pos { col: 0, row: 2 }, "r", style1).unwrap();
 
         buf.write_str(Pos { col: 0, row: 1 }, "OB", style2).unwrap();
 
@@ -586,7 +589,11 @@ mod screen_buf_tests {
         buf.resize(Pos { col: 4, row: 3 });
 
         // Write something with some style and the default background shade.
-        buf.write_str(Pos::zero(), "0123456789ab", style1).unwrap();
+        buf.write_str(Pos::zero(), "0123", style1).unwrap();
+        buf.write_str(Pos { row: 1, col: 0 }, "4567", style1)
+            .unwrap();
+        buf.write_str(Pos { row: 2, col: 0 }, "89ab", style1)
+            .unwrap();
 
         let actual_ops: Vec<_> = buf.drain_changes().collect();
         assert_eq!(
@@ -618,7 +625,11 @@ mod screen_buf_tests {
                 indent: 1,
             },
         };
-        buf.write_str(Pos::zero(), "0123456789ab", style1).unwrap();
+        buf.write_str(Pos::zero(), "0123", style1).unwrap();
+        buf.write_str(Pos { row: 1, col: 0 }, "4567", style1)
+            .unwrap();
+        buf.write_str(Pos { row: 2, col: 0 }, "89ab", style1)
+            .unwrap();
         buf.shade_region(region, cursor).unwrap();
 
         // Ensure that the shade overrides the original style within the cursor region
@@ -640,7 +651,11 @@ mod screen_buf_tests {
         );
 
         // Add new text with a different style, overlapping the cursor region
-        buf.write_str(Pos::zero(), "0123456789ab", style1).unwrap();
+        buf.write_str(Pos::zero(), "0123", style1).unwrap();
+        buf.write_str(Pos { row: 1, col: 0 }, "4567", style1)
+            .unwrap();
+        buf.write_str(Pos { row: 2, col: 0 }, "89ab", style1)
+            .unwrap();
         buf.shade_region(region, cursor).unwrap();
         buf.write_str(Pos { col: 0, row: 1 }, "xyz", style2)
             .unwrap();

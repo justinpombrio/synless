@@ -2,8 +2,8 @@
 
 mod common;
 
-use common::{assert_strings_eq, make_json_doc, make_long_json_list};
-use pretty::{PlainText, Pos, PrettyDocument, PrettyWindow};
+use common::{assert_strings_eq, make_json_doc, make_json_notation, make_long_json_list, Doc};
+use pretty::{Col, Content, PaneNotation, PaneSize, PlainText, Pos, PrettyDocument, PrettyWindow};
 
 // TODO: test horz concat
 
@@ -217,4 +217,178 @@ fn test_lay_out_json_28() {
     doc.as_ref()
         .pretty_print(28, &mut window.pane().unwrap(), doc_pos)
         .unwrap();
+}
+
+#[test]
+fn test_pane_content() {
+    let notations = make_json_notation();
+
+    let doc = Doc::new_branch(notations["true"].clone(), Vec::new());
+    let mut window = PlainText::new(Pos { row: 2, col: 10 });
+
+    let pane_note = PaneNotation::Content {
+        content: Content::ActiveDoc,
+        style: None,
+    };
+    let mut pane = window.pane().unwrap();
+    pane.render(&pane_note, None, |_: &Content| Some(doc.as_ref()))
+        .unwrap();
+    assert_strings_eq(&window.to_string(), "true");
+}
+
+#[test]
+fn test_pane_horz() {
+    let notations = make_json_notation();
+
+    let doc1 = Doc::new_branch(notations["true"].clone(), Vec::new());
+    let doc2 = Doc::new_branch(notations["false"].clone(), Vec::new());
+    let mut window = PlainText::new(Pos { row: 2, col: 10 });
+
+    let content1 = PaneNotation::Content {
+        content: Content::ActiveDoc,
+        style: None,
+    };
+    let content2 = PaneNotation::Content {
+        content: Content::KeyHints,
+        style: None,
+    };
+
+    let pane_note = PaneNotation::Horz {
+        panes: vec![
+            (PaneSize::Fixed(5), content1),
+            (PaneSize::Fixed(5), content2),
+        ],
+        style: None,
+    };
+
+    let mut pane = window.pane().unwrap();
+    pane.render(&pane_note, None, |content: &Content| match content {
+        Content::ActiveDoc => Some(doc1.as_ref()),
+        Content::KeyHints => Some(doc2.as_ref()),
+    })
+    .unwrap();
+    assert_strings_eq(&window.to_string(), "true false");
+}
+
+#[test]
+fn test_pane_vert() {
+    let notations = make_json_notation();
+
+    let doc1 = Doc::new_branch(notations["true"].clone(), Vec::new());
+    let doc2 = Doc::new_branch(notations["false"].clone(), Vec::new());
+    let mut window = PlainText::new(Pos { row: 2, col: 10 });
+
+    let content1 = PaneNotation::Content {
+        content: Content::ActiveDoc,
+        style: None,
+    };
+    let content2 = PaneNotation::Content {
+        content: Content::KeyHints,
+        style: None,
+    };
+
+    let top_row_note = PaneNotation::Horz {
+        panes: vec![
+            (PaneSize::Fixed(4), content1.clone()),
+            (PaneSize::Fixed(6), content2.clone()),
+        ],
+        style: None,
+    };
+
+    let bot_row_note = PaneNotation::Horz {
+        panes: vec![
+            (PaneSize::Proportional(1), content1),
+            (PaneSize::Proportional(1), content2),
+        ],
+        style: None,
+    };
+
+    let pane_note = PaneNotation::Vert {
+        panes: vec![
+            (PaneSize::Fixed(1), top_row_note),
+            (PaneSize::Fixed(1), bot_row_note),
+        ],
+        style: None,
+    };
+
+    let mut pane = window.pane().unwrap();
+    pane.render(&pane_note, None, |content: &Content| match content {
+        Content::ActiveDoc => Some(doc1.as_ref()),
+        Content::KeyHints => Some(doc2.as_ref()),
+    })
+    .unwrap();
+    assert_strings_eq(&window.to_string(), "truefalse\ntrue false");
+}
+
+#[test]
+fn test_pane_fill() {
+    let notations = make_json_notation();
+
+    let doc1 = Doc::new_branch(notations["true"].clone(), Vec::new());
+    let mut window = PlainText::new(Pos { row: 3, col: 6 });
+
+    let content1 = PaneNotation::Content {
+        content: Content::ActiveDoc,
+        style: None,
+    };
+
+    let fill = PaneNotation::Fill {
+        ch: '-',
+        style: None,
+    };
+
+    let pane_note = PaneNotation::Vert {
+        panes: vec![(PaneSize::Fixed(1), content1), (PaneSize::Fixed(2), fill)],
+        style: None,
+    };
+
+    let mut pane = window.pane().unwrap();
+    pane.render(&pane_note, None, |_content: &Content| Some(doc1.as_ref()))
+        .unwrap();
+    assert_strings_eq(&window.to_string(), "true\n------\n------");
+}
+
+fn assert_proportional(expected: &str, width: Col, hungers: (usize, usize, usize)) {
+    let notations = make_json_notation();
+
+    let doc1 = Doc::new_branch(notations["null"].clone(), Vec::new());
+
+    let content1 = PaneNotation::Content {
+        content: Content::ActiveDoc,
+        style: None,
+    };
+
+    let fill1 = PaneNotation::Fill {
+        ch: '1',
+        style: None,
+    };
+
+    let fill2 = PaneNotation::Fill {
+        ch: '2',
+        style: None,
+    };
+
+    let pane_note = PaneNotation::Horz {
+        panes: vec![
+            (PaneSize::Proportional(hungers.0), content1),
+            (PaneSize::Proportional(hungers.1), fill1),
+            (PaneSize::Proportional(hungers.2), fill2),
+        ],
+        style: None,
+    };
+
+    let mut window = PlainText::new(Pos { row: 1, col: width });
+    let mut pane = window.pane().unwrap();
+    pane.render(&pane_note, None, |_content: &Content| Some(doc1.as_ref()))
+        .unwrap();
+    assert_strings_eq(&window.to_string(), expected);
+}
+
+#[test]
+fn test_pane_proportional() {
+    assert_proportional("null11112222", 12, (4, 4, 4));
+    assert_proportional("null11112222", 12, (1, 1, 1));
+    assert_proportional("null  111222", 12, (2, 1, 1));
+    assert_proportional("null11222222", 12, (4, 2, 6));
+    assert_proportional("null22222222", 12, (1, 0, 2));
 }
