@@ -134,6 +134,11 @@ where
         F: Clone,
         U: PrettyDocument,
     {
+        if self.rect().is_empty() {
+            // Don't try to render anything into an empty pane, just skip it.
+            return Ok(());
+        }
+
         match note {
             PaneNotation::Horz { panes, style } => {
                 let child_notes: Vec<_> = panes.iter().map(|p| &p.1).collect();

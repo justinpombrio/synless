@@ -79,6 +79,10 @@ impl Rect {
             col: self.cols.len(),
         }
     }
+    /// True if either the width or height is zero.
+    pub fn is_empty(&self) -> bool {
+        self.rows.len() == 0 || self.cols.len() == 0
+    }
 
     /// Given N `widths`, returns an iterator over N sub-rectangles with those
     /// widths, in order from left to right. `.next()` will panic if the next
