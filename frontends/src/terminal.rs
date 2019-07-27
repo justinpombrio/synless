@@ -106,7 +106,7 @@ impl PrettyWindow for Terminal {
     }
 
     fn print(&mut self, pos: Pos, text: &str, style: Style) -> Result<(), Self::Error> {
-        self.buf.write_line(pos, text, style)
+        self.buf.write_str(pos, text, style)
     }
 
     fn highlight(&mut self, pos: Pos, style: Style) -> Result<(), Self::Error> {
