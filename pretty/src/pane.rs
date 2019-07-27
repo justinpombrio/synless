@@ -66,6 +66,7 @@ where
 {
     NotSubPane,
     ImpossibleDemands,
+    InvalidNotation,
     Content,
     /// T should be the associated `Error` type of something that implements the
     /// PrettyWindow trait.
@@ -167,29 +168,26 @@ where
                 let total_fixed: usize = panes.iter().filter_map(|p| p.0.get_fixed()).sum();
                 let total_height = self.rect().height();
                 let mut available_height = total_height.saturating_sub(total_fixed as Row);
-                let child_sizes: Vec<_> = panes
+                let child_sizes = panes
                     .iter()
                     .map(|p| match p.0 {
                         PaneSize::DynHeight => {
                             // Convert dynamic height into a fixed height, based on the currrent document.
                             if let PaneNotation::Content { content, .. } = &p.1 {
                                 let f = get_content.clone();
-                                let (doc, _) =
-                                    f(content).expect("failed to get content of DynHeight subpane");
+                                let (doc, _) = f(content).ok_or(PaneError::Content)?;
                                 let height =
                                     available_height.min(doc.required_height(self.rect().width()));
                                 available_height -= height;
-                                PaneSize::Fixed(height as usize)
+                                Ok(PaneSize::Fixed(height as usize))
                             } else {
-                                panic!(
-                                    "DynHeight is only implemented for Content subpanes, not {:?}",
-                                    p.1
-                                )
+                                // DynHeight is only implemented for Content subpanes!
+                                Err(PaneError::InvalidNotation)
                             }
                         }
-                        size => size, // pass through all other pane sizes
+                        size => Ok(size), // pass through all other pane sizes
                     })
-                    .collect();
+                    .collect::<Result<Vec<_>, _>>()?;
 
                 let heights: Vec<_> = divvy(total_height as usize, &child_sizes)
                     .ok_or(PaneError::ImpossibleDemands)?
