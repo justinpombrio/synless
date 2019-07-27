@@ -269,6 +269,7 @@ fn test_pane_horz() {
     pane.render(&pane_note, None, |content: &Content| match content {
         Content::ActiveDoc => Some((doc1.as_ref(), Cursor::Hide)),
         Content::KeyHints => Some((doc2.as_ref(), Cursor::Hide)),
+        _ => None,
     })
     .unwrap();
     assert_strings_eq(&window.to_string(), "true false");
@@ -319,6 +320,7 @@ fn test_pane_vert() {
     pane.render(&pane_note, None, |content: &Content| match content {
         Content::ActiveDoc => Some((doc1.as_ref(), Cursor::Hide)),
         Content::KeyHints => Some((doc2.as_ref(), Cursor::Hide)),
+        _ => None,
     })
     .unwrap();
     assert_strings_eq(&window.to_string(), "truefalse\ntrue false");

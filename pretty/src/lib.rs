@@ -9,6 +9,7 @@
 #![feature(slice_patterns)]
 #![feature(box_patterns)]
 #![feature(step_trait)]
+#![feature(non_exhaustive)]
 
 mod geometry;
 mod layout;

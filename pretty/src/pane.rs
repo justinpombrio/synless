@@ -19,9 +19,13 @@ pub enum PaneSize {
 }
 
 #[derive(Clone)]
+#[non_exhaustive]
 pub enum Content {
     ActiveDoc,
+    ActiveDocName,
     KeyHints,
+    KeymapName,
+    Messages,
 }
 
 #[derive(Clone)]
