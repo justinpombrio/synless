@@ -67,7 +67,7 @@ where
     NotSubPane,
     ImpossibleDemands,
     InvalidNotation,
-    Content,
+    Missing(Content),
     /// T should be the associated `Error` type of something that implements the
     /// PrettyWindow trait.
     PrettyWindow(T),
@@ -175,7 +175,8 @@ where
                             // Convert dynamic height into a fixed height, based on the currrent document.
                             if let PaneNotation::Content { content, .. } = &p.1 {
                                 let f = get_content.clone();
-                                let (doc, _) = f(content).ok_or(PaneError::Content)?;
+                                let (doc, _) =
+                                    f(content).ok_or(PaneError::Missing(content.to_owned()))?;
                                 let height =
                                     available_height.min(doc.required_height(self.rect().width()));
                                 available_height -= height;
@@ -207,7 +208,8 @@ where
                 let _style = style.or(parent_style).unwrap_or_default();
                 let width = self.rect().width();
 
-                let (doc, cursor_visibility) = get_content(content).ok_or(PaneError::Content)?;
+                let (doc, cursor_visibility) =
+                    get_content(content).ok_or(PaneError::Missing(content.to_owned()))?;
                 doc.pretty_print(width, self, DocPosSpec::CursorAtTop, cursor_visibility)?;
             }
             PaneNotation::Fill { ch, style } => {
