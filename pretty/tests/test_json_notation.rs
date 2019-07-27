@@ -3,17 +3,25 @@
 mod common;
 
 use common::{assert_strings_eq, make_json_doc, make_json_notation, make_long_json_list, Doc};
-use pretty::{Col, Content, PaneNotation, PaneSize, PlainText, Pos, PrettyDocument, PrettyWindow};
+use pretty::{
+    Col, Content, CursorVis, DocPosSpec, PaneNotation, PaneSize, PlainText, Pos, PrettyDocument,
+    PrettyWindow,
+};
 
 // TODO: test horz concat
 
 #[test]
 fn test_pretty_print_very_small_screen_left() {
     let doc = make_json_doc();
-    let doc_pos = Pos { row: 2, col: 4 };
+    let doc_pos_spec = DocPosSpec::Fixed(Pos { row: 2, col: 4 });
     let mut window = PlainText::new(Pos { row: 6, col: 6 });
     doc.as_ref()
-        .pretty_print(80, &mut window.pane().unwrap(), doc_pos)
+        .pretty_print(
+            80,
+            &mut window.pane().unwrap(),
+            doc_pos_spec,
+            CursorVis::Hide,
+        )
         .unwrap();
     assert_strings_eq(
         &window.to_string(),
@@ -29,11 +37,16 @@ ddress
 #[test]
 fn test_pretty_print_small_screen_left() {
     let doc = make_json_doc();
-    let doc_pos = Pos { row: 2, col: 4 };
+    let doc_pos_spec = DocPosSpec::Fixed(Pos { row: 2, col: 4 });
     let mut window = PlainText::new(Pos { row: 6, col: 8 });
 
     doc.as_ref()
-        .pretty_print(80, &mut window.pane().unwrap(), doc_pos)
+        .pretty_print(
+            80,
+            &mut window.pane().unwrap(),
+            doc_pos_spec,
+            CursorVis::Hide,
+        )
         .unwrap();
     assert_strings_eq(
         &window.to_string(),
@@ -50,9 +63,14 @@ ddress":
 fn test_pretty_print_long_list() {
     let doc = make_long_json_list();
     let mut window = PlainText::new_infinite_scroll(80);
-    let doc_pos = Pos::zero();
+    let doc_pos_spec = DocPosSpec::Fixed(Pos::zero());
     doc.as_ref()
-        .pretty_print(80, &mut window.pane().unwrap(), doc_pos)
+        .pretty_print(
+            80,
+            &mut window.pane().unwrap(),
+            doc_pos_spec,
+            CursorVis::Hide,
+        )
         .unwrap();
     assert_strings_eq(
         &window.to_string(),
@@ -67,11 +85,16 @@ fn test_pretty_print_long_list() {
 #[test]
 fn test_pretty_print_small_screen_right() {
     let doc = make_json_doc();
-    let doc_pos = Pos { row: 7, col: 13 };
+    let doc_pos_spec = DocPosSpec::Fixed(Pos { row: 7, col: 13 });
     let mut window = PlainText::new(Pos { row: 4, col: 16 });
 
     doc.as_ref()
-        .pretty_print(80, &mut window.pane().unwrap(), doc_pos)
+        .pretty_print(
+            80,
+            &mut window.pane().unwrap(),
+            doc_pos_spec,
+            CursorVis::Hide,
+        )
         .unwrap();
     assert_strings_eq(
         &window.to_string(),
@@ -85,11 +108,16 @@ Code": "10021-31"#,
 #[test]
 fn test_pretty_print_small_screen_middle() {
     let doc = make_json_doc();
-    let doc_pos = Pos { row: 1, col: 4 };
+    let doc_pos_spec = DocPosSpec::Fixed(Pos { row: 1, col: 4 });
     let mut window = PlainText::new(Pos { row: 1, col: 1 });
 
     doc.as_ref()
-        .pretty_print(80, &mut window.pane().unwrap(), doc_pos)
+        .pretty_print(
+            80,
+            &mut window.pane().unwrap(),
+            doc_pos_spec,
+            CursorVis::Hide,
+        )
         .unwrap();
     assert_strings_eq(&window.to_string(), "i");
 }
@@ -98,11 +126,16 @@ fn test_pretty_print_small_screen_middle() {
 fn test_pretty_print_small_screen_bottom() {
     let doc = make_json_doc();
     // Go past the bottom right corner of the document
-    let doc_pos = Pos { row: 27, col: 63 };
+    let doc_pos_spec = DocPosSpec::Fixed(Pos { row: 27, col: 63 });
     let mut window = PlainText::new(Pos { row: 4, col: 13 });
 
     doc.as_ref()
-        .pretty_print(74, &mut window.pane().unwrap(), doc_pos)
+        .pretty_print(
+            74,
+            &mut window.pane().unwrap(),
+            doc_pos_spec,
+            CursorVis::Hide,
+        )
         .unwrap();
     assert_strings_eq(&window.to_string(), "longer\"]]]]");
 }
@@ -110,10 +143,15 @@ fn test_pretty_print_small_screen_bottom() {
 #[test]
 fn test_lay_out_json_80() {
     let doc = make_json_doc();
-    let doc_pos = Pos::zero();
+    let doc_pos_spec = DocPosSpec::Fixed(Pos::zero());
     let mut window = PlainText::new_infinite_scroll(80);
     doc.as_ref()
-        .pretty_print(80, &mut window.pane().unwrap(), doc_pos)
+        .pretty_print(
+            80,
+            &mut window.pane().unwrap(),
+            doc_pos_spec,
+            CursorVis::Hide,
+        )
         .unwrap();
 
     assert_strings_eq(
@@ -153,10 +191,15 @@ fn test_lay_out_json_80() {
 #[test]
 fn test_lay_out_json_30() {
     let doc = make_json_doc();
-    let doc_pos = Pos::zero();
+    let doc_pos_spec = DocPosSpec::Fixed(Pos::zero());
     let mut window = PlainText::new_infinite_scroll(30);
     doc.as_ref()
-        .pretty_print(30, &mut window.pane().unwrap(), doc_pos)
+        .pretty_print(
+            30,
+            &mut window.pane().unwrap(),
+            doc_pos_spec,
+            CursorVis::Hide,
+        )
         .unwrap();
 
     assert_strings_eq(
@@ -212,10 +255,15 @@ fn test_lay_out_json_28() {
     // The doc won't fit in 28 characters
     // Eventually the strings should wrap, and it should stop panicking.
     let doc = make_json_doc();
-    let doc_pos = Pos::zero();
+    let doc_pos_spec = DocPosSpec::Fixed(Pos::zero());
     let mut window = PlainText::new_infinite_scroll(28);
     doc.as_ref()
-        .pretty_print(28, &mut window.pane().unwrap(), doc_pos)
+        .pretty_print(
+            28,
+            &mut window.pane().unwrap(),
+            doc_pos_spec,
+            CursorVis::Hide,
+        )
         .unwrap();
 }
 
@@ -231,8 +279,10 @@ fn test_pane_content() {
         style: None,
     };
     let mut pane = window.pane().unwrap();
-    pane.render(&pane_note, None, |_: &Content| Some(doc.as_ref()))
-        .unwrap();
+    pane.render(&pane_note, None, |_: &Content| {
+        Some((doc.as_ref(), CursorVis::Hide))
+    })
+    .unwrap();
     assert_strings_eq(&window.to_string(), "true");
 }
 
@@ -263,8 +313,9 @@ fn test_pane_horz() {
 
     let mut pane = window.pane().unwrap();
     pane.render(&pane_note, None, |content: &Content| match content {
-        Content::ActiveDoc => Some(doc1.as_ref()),
-        Content::KeyHints => Some(doc2.as_ref()),
+        Content::ActiveDoc => Some((doc1.as_ref(), CursorVis::Hide)),
+        Content::KeyHints => Some((doc2.as_ref(), CursorVis::Hide)),
+        _ => None,
     })
     .unwrap();
     assert_strings_eq(&window.to_string(), "true false");
@@ -313,8 +364,9 @@ fn test_pane_vert() {
 
     let mut pane = window.pane().unwrap();
     pane.render(&pane_note, None, |content: &Content| match content {
-        Content::ActiveDoc => Some(doc1.as_ref()),
-        Content::KeyHints => Some(doc2.as_ref()),
+        Content::ActiveDoc => Some((doc1.as_ref(), CursorVis::Hide)),
+        Content::KeyHints => Some((doc2.as_ref(), CursorVis::Hide)),
+        _ => None,
     })
     .unwrap();
     assert_strings_eq(&window.to_string(), "truefalse\ntrue false");
@@ -343,8 +395,10 @@ fn test_pane_fill() {
     };
 
     let mut pane = window.pane().unwrap();
-    pane.render(&pane_note, None, |_content: &Content| Some(doc1.as_ref()))
-        .unwrap();
+    pane.render(&pane_note, None, |_content: &Content| {
+        Some((doc1.as_ref(), CursorVis::Hide))
+    })
+    .unwrap();
     assert_strings_eq(&window.to_string(), "true\n------\n------");
 }
 
@@ -379,8 +433,10 @@ fn assert_proportional(expected: &str, width: Col, hungers: (usize, usize, usize
 
     let mut window = PlainText::new(Pos { row: 1, col: width });
     let mut pane = window.pane().unwrap();
-    pane.render(&pane_note, None, |_content: &Content| Some(doc1.as_ref()))
-        .unwrap();
+    pane.render(&pane_note, None, |_content: &Content| {
+        Some((doc1.as_ref(), CursorVis::Hide))
+    })
+    .unwrap();
     assert_strings_eq(&window.to_string(), expected);
 }
 

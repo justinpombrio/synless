@@ -9,6 +9,7 @@
 #![feature(slice_patterns)]
 #![feature(box_patterns)]
 #![feature(step_trait)]
+#![feature(non_exhaustive)]
 
 mod geometry;
 mod layout;
@@ -24,6 +25,6 @@ pub use self::notation::{
     Notation, Repeat,
 };
 
-pub use self::pretty::{PlainText, PrettyDocument, PrettyWindow};
+pub use self::pretty::{DocPosSpec, PlainText, PrettyDocument, PrettyWindow};
 pub use self::style::{Color, ColorTheme, Emph, Rgb, Shade, Style};
-pub use pane::{Content, Pane, PaneError, PaneNotation, PaneSize};
+pub use pane::{Content, CursorVis, Pane, PaneError, PaneNotation, PaneSize};

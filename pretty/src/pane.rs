@@ -1,4 +1,4 @@
-use crate::{Col, Pos, PrettyDocument, PrettyWindow, Rect, Region, Row, Shade, Style};
+use crate::{Col, DocPosSpec, Pos, PrettyDocument, PrettyWindow, Rect, Region, Row, Shade, Style};
 
 use std::{fmt, iter};
 
@@ -19,9 +19,13 @@ pub enum PaneSize {
 }
 
 #[derive(Clone)]
+#[non_exhaustive]
 pub enum Content {
     ActiveDoc,
+    ActiveDocName,
     KeyHints,
+    KeymapName,
+    Messages,
 }
 
 #[derive(Clone)]
@@ -42,6 +46,13 @@ pub enum PaneNotation {
         ch: char,
         style: Option<Style>,
     },
+}
+
+/// The visibility of the cursor in some document.
+#[derive(Debug, Clone, Copy)]
+pub enum CursorVis {
+    Show,
+    Hide,
 }
 
 #[derive(Debug)]
@@ -110,8 +121,9 @@ where
 
     /// Render to this pane according to the given [PaneNotation], `note`. Use
     /// the `get_content` closure to map the document names used in any
-    /// `PaneNotation::Content` variants to actual documents. If `parent_style`
-    /// is not `None`, apply that style to [PaneNotation] sub-trees that don't
+    /// `PaneNotation::Content` variants to actual documents, and whether to
+    /// shade that document's cursor region. If `parent_style` is not `None`,
+    /// apply that style to [PaneNotation] sub-trees that don't
     /// specify their own style.
     pub fn render<F, U>(
         &mut self,
@@ -120,10 +132,15 @@ where
         get_content: F,
     ) -> Result<(), PaneError<T::Error>>
     where
-        F: FnOnce(&Content) -> Option<U>,
+        F: FnOnce(&Content) -> Option<(U, CursorVis)>,
         F: Clone,
         U: PrettyDocument,
     {
+        if self.rect().is_empty() {
+            // Don't try to render anything into an empty pane, just skip it.
+            return Ok(());
+        }
+
         match note {
             PaneNotation::Horz { panes, style } => {
                 let child_notes: Vec<_> = panes.iter().map(|p| &p.1).collect();
@@ -162,16 +179,9 @@ where
                 // TODO how to use style? pretty_print doesn't take it.
                 let _style = style.or(parent_style).unwrap_or_default();
                 let width = self.rect().width();
-                let doc = get_content(content).ok_or(PaneError::Content)?;
 
-                // Put the top of the cursor at the top of the pane.
-                // TODO support fancier positioning options.
-                let cursor_region = doc.locate_cursor(width);
-                let doc_pos = Pos {
-                    col: 0,
-                    row: cursor_region.pos.row,
-                };
-                doc.pretty_print(width, self, doc_pos)?;
+                let (doc, cursor_visibility) = get_content(content).ok_or(PaneError::Content)?;
+                doc.pretty_print(width, self, DocPosSpec::CursorAtTop, cursor_visibility)?;
             }
             PaneNotation::Fill { ch, style } => {
                 let style = style.or(parent_style).unwrap_or_default();
