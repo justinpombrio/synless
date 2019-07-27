@@ -47,8 +47,10 @@ pub enum PaneNotation {
         style: Option<Style>,
     },
 }
+
+/// The visibility of the cursor in some document.
 #[derive(Debug, Clone, Copy)]
-pub enum Cursor {
+pub enum CursorVis {
     Show,
     Hide,
 }
@@ -130,7 +132,7 @@ where
         get_content: F,
     ) -> Result<(), PaneError<T::Error>>
     where
-        F: FnOnce(&Content) -> Option<(U, Cursor)>,
+        F: FnOnce(&Content) -> Option<(U, CursorVis)>,
         F: Clone,
         U: PrettyDocument,
     {
@@ -189,7 +191,7 @@ where
                 };
                 doc.pretty_print(width, self, doc_pos)?;
 
-                if let Cursor::Show = cursor_visibility {
+                if let CursorVis::Show = cursor_visibility {
                     let region = Region {
                         pos: cursor_region.pos - doc_pos,
                         bound: cursor_region.bound,
