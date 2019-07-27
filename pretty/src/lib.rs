@@ -25,6 +25,6 @@ pub use self::notation::{
     Notation, Repeat,
 };
 
-pub use self::pretty::{PlainText, PrettyDocument, PrettyWindow};
+pub use self::pretty::{DocPosSpec, PlainText, PrettyDocument, PrettyWindow};
 pub use self::style::{Color, ColorTheme, Emph, Rgb, Shade, Style};
 pub use pane::{Content, CursorVis, Pane, PaneError, PaneNotation, PaneSize};

@@ -9,6 +9,13 @@ use crate::layout::{
 use crate::notation::Notation;
 use crate::pane::Pane;
 use crate::style::Style;
+/// What part of the document to show.
+pub enum DocPosSpec {
+    /// Put this row and column of the document at the top left corner of the Pane.
+    Fixed(Pos),
+    /// Put the top edge of the cursor at the top of the Pane.
+    CursorAtTop,
+}
 
 /// A "document" that supports the necessary methods to be pretty-printed.
 pub trait PrettyDocument: Sized + Clone {
