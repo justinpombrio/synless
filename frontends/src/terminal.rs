@@ -149,13 +149,13 @@ impl Frontend for Terminal {
         }
     }
 
-    fn draw_frame<F>(&mut self, drawer: F) -> Result<(), Error>
+    fn draw_frame<F>(&mut self, draw: F) -> Result<(), Error>
     where
         F: Fn(Pane<Self>) -> Result<(), Error>,
     {
         self.start_frame()?;
         let pane = self.pane()?;
-        let result = drawer(pane);
+        let result = draw(pane);
         self.show_frame()?;
         result
     }

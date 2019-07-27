@@ -25,8 +25,8 @@ pub trait Frontend: Sized {
     /// Block until an event (eg. keypress) occurs, then return it. None means the event stream ended.
     fn next_event(&mut self) -> Option<Result<Event, Self::Error>>;
 
-    /// Use the given `drawer` closure to draw a complete frame to this Frontend's window.
-    fn draw_frame<F>(&mut self, drawer: F) -> Result<(), Self::Error>
+    /// Use the given `draw` closure to draw a complete frame to this Frontend's window.
+    fn draw_frame<F>(&mut self, draw: F) -> Result<(), Self::Error>
     where
         F: Fn(Pane<Self::Window>) -> Result<(), Self::Error>;
 }
