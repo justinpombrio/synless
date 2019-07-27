@@ -135,11 +135,8 @@ where
                     .map(|n| n as Col)
                     .collect();
                 let style = style.or(parent_style);
-                for (rect, child_note) in self
-                    .rect()
-                    .horz_splits(&widths)
-                    .zip(child_notes.into_iter())
-                {
+                let rects = self.rect().horz_splits(&widths);
+                for (rect, child_note) in rects.zip(child_notes.into_iter()) {
                     let mut child_pane = self.sub_pane(rect).ok_or(PaneError::NotSubPane)?;
                     child_pane.render(child_note, style, get_content.clone())?;
                 }
@@ -154,17 +151,15 @@ where
                     .map(|n| n as Row)
                     .collect();
                 let style = style.or(parent_style);
-                for (rect, child_note) in self
-                    .rect()
-                    .vert_splits(&heights)
-                    .zip(child_notes.into_iter())
-                {
+
+                let rects = self.rect().vert_splits(&heights);
+                for (rect, child_note) in rects.zip(child_notes.into_iter()) {
                     let mut child_pane = self.sub_pane(rect).ok_or(PaneError::NotSubPane)?;
                     child_pane.render(child_note, style, get_content.clone())?;
                 }
             }
             PaneNotation::Content { content, style } => {
-                // TODO how to use style?
+                // TODO how to use style? pretty_print doesn't take it.
                 let _style = style.or(parent_style).unwrap_or_default();
                 let width = self.rect().width();
                 let doc = get_content(content).ok_or(PaneError::Content)?;
