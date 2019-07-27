@@ -1,8 +1,8 @@
 use std::cmp;
 
 use self::Layout::*;
-use super::pretty_screen::PrettyScreen;
-use crate::geometry::{Bound, Col, Pos, Region};
+use super::pretty_window::{Pane, PrettyWindow};
+use crate::geometry::{Bound, Col, Pos, Rect, Region};
 use crate::layout::{
     compute_bounds, compute_layouts, text_bounds, Bounds, Layout, LayoutRegion, Layouts,
 };
@@ -34,32 +34,35 @@ pub trait PrettyDocument: Sized + Clone {
     /// result.**
     fn bounds(&self) -> Bounds;
 
-    /// Render the document onto the screen. This method behaves as if it did
+    /// Render the document onto a `Pane`. This method behaves as if it did
     /// the following:
     ///
     /// 1. Pretty-print the entire document with width `width`.
-    /// 2. Transcribe the portion of the document under the screen onto the
-    /// screen. (Remember that the screen is located at `screen.region()`.)
+    /// 2. Position the document under the `Pane`, aligning `doc_pos` with the `Pane`'s upper left corner.
+    /// 3. Render the portion of the document under the `Pane` onto the `Pane`.
     ///
     /// However, this method is more efficient than that, and does an amount of
-    /// work that is (more or less) proportional to the size of the screen,
+    /// work that is (more or less) proportional to the size of the `Pane`,
     /// regardless of the size of the document.
-    fn pretty_print<Screen>(&self, width: Col, screen: &mut Screen) -> Result<(), Screen::Error>
+    fn pretty_print<'a, T>(
+        &self,
+        width: Col,
+        pane: &mut Pane<'a, T>,
+        doc_pos: Pos,
+    ) -> Result<(), T::Error>
     where
-        Screen: PrettyScreen,
+        T: PrettyWindow,
     {
         let root = self.root();
         let bound = Bound::infinite_scroll(width);
         let lay = Layouts::compute(&root).fit_bound(bound);
-        render(&root, screen, screen.region()?, &lay)
+        let doc_rect = Rect::new(doc_pos, pane.rect().size());
+        render(&root, pane, doc_rect, &lay)
     }
 
     /// Find the region covered by this sub-document, when the entire document is
     /// pretty-printed with the given `width`.
-    fn locate_cursor<Screen>(&self, width: Col) -> Result<Region, Screen::Error>
-    where
-        Screen: PrettyScreen,
-    {
+    fn locate_cursor(&self, width: Col) -> Region {
         // Find the root of the Document, and the path from the root to the
         // selected node.
         let mut path = vec![];
@@ -71,7 +74,7 @@ pub trait PrettyDocument: Sized + Clone {
         path.reverse();
         // Recursively compute the cursor region.
         let lay = Layouts::compute(&root).fit_bound(Bound::infinite_scroll(width));
-        Ok(loc_cursor(&root, &lay, &path))
+        loc_cursor(&root, &lay, &path)
     }
 
     /// Goto the root of the document.
@@ -136,75 +139,65 @@ where
 }
 
 // TODO: shading and highlighting
-fn render<Doc, Screen>(
+fn render<'a, Doc, Win>(
     doc: &Doc,
-    screen: &mut Screen,
-    screen_region: Region,
+    pane: &mut Pane<'a, Win>,
+    doc_rect: Rect,
     lay: &LayoutRegion,
-) -> Result<(), Screen::Error>
+) -> Result<(), Win::Error>
 where
     Doc: PrettyDocument,
-    Screen: PrettyScreen,
+    Win: PrettyWindow,
 {
-    if !lay.region.overlaps(screen_region) {
+    if !lay.region.overlaps_rect(doc_rect) {
         // It's entirely offscreen. Nothing to show.
         return Ok(());
     }
     match &lay.layout {
         Empty => Ok(()),
-        Literal(text, style) => {
-            render_text(text.as_ref(), lay.region, screen, screen_region, *style)
-        }
+        Literal(text, style) => render_text(text.as_ref(), lay.region, pane, doc_rect, *style),
         Text(style) => {
             let text = doc
                 .text()
                 .expect("PrettyDocument::render - Expected text, found branch node");
-            render_text(text.as_ref(), lay.region, screen, screen_region, *style)
+            render_text(text.as_ref(), lay.region, pane, doc_rect, *style)
         }
         Child(i) => {
             let child = &doc.child(*i);
             let child_lay = Layouts::compute(child).fit_region(lay.region);
-            render(child, screen, screen_region, &child_lay)
+            render(child, pane, doc_rect, &child_lay)
         }
         Concat(box lay1, box lay2) => {
-            render(doc, screen, screen_region, &lay1)?;
-            render(doc, screen, screen_region, &lay2)
+            render(doc, pane, doc_rect, &lay1)?;
+            render(doc, pane, doc_rect, &lay2)
         }
         Horz(box lay1, box lay2) => {
-            render(doc, screen, screen_region, &lay1)?;
-            render(doc, screen, screen_region, &lay2)
+            render(doc, pane, doc_rect, &lay1)?;
+            render(doc, pane, doc_rect, &lay2)
         }
         Vert(box lay1, box lay2) => {
-            render(doc, screen, screen_region, &lay1)?;
-            render(doc, screen, screen_region, &lay2)
+            render(doc, pane, doc_rect, &lay1)?;
+            render(doc, pane, doc_rect, &lay2)
         }
     }
 }
 
-fn render_text<Screen>(
+fn render_text<'a, Win>(
     text: &str,
     text_region: Region,
-    screen: &mut Screen,
-    screen_region: Region,
+    pane: &mut Pane<'a, Win>,
+    doc_rect: Rect,
     style: Style,
-) -> Result<(), Screen::Error>
+) -> Result<(), Win::Error>
 where
-    Screen: PrettyScreen,
+    Win: PrettyWindow,
 {
-    assert!(
-        screen_region.is_rectangular(),
-        "screen region must be rectangular"
-    );
     if text.is_empty() {
         return Ok(()); // not much to show!
     }
 
-    let start_char = screen_region.pos.col.saturating_sub(text_region.pos.col);
-    let end_char = cmp::min(
-        text_region.width(),
-        screen_region.end().col - text_region.pos.col,
-    );
-
+    let start_char = doc_rect.pos().col.saturating_sub(text_region.pos.col);
+    let end_char = cmp::min(text_region.width(), doc_rect.cols.1 - text_region.pos.col);
     let mut chars = text.char_indices();
 
     let start_byte = chars
@@ -218,8 +211,8 @@ where
         .unwrap_or(text.len());
 
     let screen_offset = Pos {
-        row: text_region.pos.row - screen_region.pos.row,
-        col: text_region.pos.col.saturating_sub(screen_region.pos.col),
+        row: text_region.pos.row - doc_rect.pos().row,
+        col: text_region.pos.col.saturating_sub(doc_rect.pos().col),
     };
-    screen.print(screen_offset, &text[start_byte..end_byte], style)
+    pane.print(screen_offset, &text[start_byte..end_byte], style)
 }

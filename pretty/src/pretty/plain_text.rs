@@ -1,12 +1,12 @@
 use std::fmt;
 
-use super::pretty_screen::PrettyScreen;
-use crate::geometry::{Bound, Col, Pos, Region};
+use super::pretty_window::PrettyWindow;
+use crate::geometry::{Col, Pos, Rect, Region, Row};
 use crate::style::{Shade, Style};
 
 /// Render a document in plain text.
 pub struct PlainText {
-    region: Region,
+    rect: Rect,
     lines: Vec<Vec<char>>,
 }
 
@@ -25,23 +25,22 @@ impl fmt::Display for PlainText {
 }
 
 impl PlainText {
-    /// Render the _entire document_, with the given width.
-    pub fn new(width: usize) -> PlainText {
+    /// Construct a screen with the given width and height.
+    pub fn new(size: Pos) -> PlainText {
         PlainText {
-            region: Region {
-                pos: Pos::zero(),
-                bound: Bound::infinite_scroll(width as Col),
-            },
+            rect: Rect::new(Pos::zero(), size),
             lines: vec![],
         }
     }
 
-    /// Render the given region of the document.
-    pub fn new_bounded(region: Region) -> PlainText {
-        PlainText {
-            region: region,
-            lines: vec![],
-        }
+    /// Construct a screen with the given width and unbounded height.
+    pub fn new_infinite_scroll(width: Col) -> PlainText {
+        let size = Pos {
+            col: width,
+            // leave wiggle-room to avoid overflowing
+            row: Row::max_value() - 1,
+        };
+        PlainText::new(size)
     }
 
     fn get_mut_line(&mut self, row: usize) -> &mut Vec<char> {
@@ -60,11 +59,11 @@ impl PlainText {
     }
 }
 
-impl PrettyScreen for PlainText {
+impl PrettyWindow for PlainText {
     type Error = fmt::Error;
 
-    fn region(&self) -> Result<Region, Self::Error> {
-        Ok(self.region)
+    fn size(&self) -> Result<Pos, Self::Error> {
+        Ok(self.rect.size())
     }
 
     fn print(&mut self, pos: Pos, text: &str, _style: Style) -> Result<(), Self::Error> {
@@ -80,10 +79,6 @@ impl PrettyScreen for PlainText {
     }
 
     fn highlight(&mut self, _pos: Pos, _style: Style) -> Result<(), Self::Error> {
-        Ok(())
-    }
-
-    fn show(&mut self) -> Result<(), Self::Error> {
         Ok(())
     }
 }

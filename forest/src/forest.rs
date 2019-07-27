@@ -43,11 +43,10 @@ impl<D, L> RawForest<D, L> {
         self.get(id).parent
     }
 
-    pub fn children(&self, id: Id) -> impl Iterator<Item = Id> {
+    pub fn children<'a>(&'a self, id: Id) -> impl Iterator<Item = Id> + 'a {
         match &self.get(id).contents {
             Leaf(_) => panic!("Forest - leaf node has no children!"),
-            // TODO figure out how to satisfy the borrow checker without this 'unnecessary' clone
-            Branch(_, children) => children.clone().into_iter(),
+            Branch(_, children) => children.iter().cloned(),
         }
     }
 
@@ -231,7 +230,11 @@ impl<D, L> RawForest<D, L> {
         if self.is_leaf(id) {
             self.create_leaf(self.leaf(id).to_owned())
         } else {
-            let new_children: Vec<_> = self.children(id).map(|id| self.clone_tree(id)).collect();
+            let new_child_ids: Vec<_> = self.children(id).collect();
+            let new_children: Vec<_> = new_child_ids
+                .into_iter()
+                .map(|id| self.clone_tree(id))
+                .collect();
             let data = self.data(id).to_owned();
             self.create_branch(data, new_children)
         }

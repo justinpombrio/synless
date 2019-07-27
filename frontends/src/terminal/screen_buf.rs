@@ -99,10 +99,6 @@ impl ScreenBuf {
         self.size = size;
     }
 
-    pub fn clear(&mut self) {
-        self.resize(self.size);
-    }
-
     pub fn size(&self) -> Pos {
         self.size
     }
@@ -119,25 +115,19 @@ impl ScreenBuf {
 
     pub fn shade_region(&mut self, region: Region, shade: Shade) -> Result<(), Error> {
         for pos in region.positions() {
-            self.set_shade(pos, shade)?;
+            self.get_mut(pos)?.set_shade(shade);
         }
         Ok(())
     }
 
     pub fn set_style(&mut self, pos: Pos, style: Style) -> Result<(), Error> {
-        self.get_mut(pos)?.set_style(style);
-        Ok(())
+        Ok(self.get_mut(pos)?.set_style(style))
     }
 
     fn set_char_with_style(&mut self, pos: Pos, ch: char, style: Style) -> Result<(), Error> {
         let cell = self.get_mut(pos)?;
         cell.set_char(ch);
         cell.set_style(style);
-        Ok(())
-    }
-
-    fn set_shade(&mut self, pos: Pos, shade: Shade) -> Result<(), Error> {
-        self.get_mut(pos)?.set_shade(shade);
         Ok(())
     }
 
@@ -352,13 +342,14 @@ mod screen_buf_tests {
         buf.resize(size);
         assert_eq!(buf.size(), size);
         for &pos in good_pos {
-            buf.set_shade(pos, Shade::background()).expect(&format!(
-                "pos {} out-of-bounds of buf with size {}",
-                pos, size
-            ));
+            buf.set_char_with_style(pos, 'x', Style::default())
+                .expect(&format!(
+                    "pos {} out-of-bounds of buf with size {}",
+                    pos, size
+                ));
         }
         for &pos in bad_pos {
-            assert_out_of_bounds(buf.set_shade(pos, Shade::background()));
+            assert_out_of_bounds(buf.set_char_with_style(pos, 'x', Style::default()));
         }
     }
 
@@ -374,7 +365,7 @@ mod screen_buf_tests {
 
         let mut buf = ScreenBuf::new();
         assert_eq!(buf.size(), Pos::zero());
-        assert_out_of_bounds(buf.set_shade(Pos::zero(), Shade::background()));
+        assert_out_of_bounds(buf.set_char_with_style(Pos::zero(), 'x', Style::default()));
 
         assert_resized(&mut buf, Pos::zero(), &[], &[Pos::zero(), c1r0, c0r1]);
         assert_resized(&mut buf, c1r0, &[], &[Pos::zero(), c1r0, c0r1]);

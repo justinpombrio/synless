@@ -10,7 +10,7 @@ use editor::{
 };
 use frontends::{terminal, Event, Frontend, Terminal};
 use language::{LanguageName, LanguageSet};
-use pretty::{Color, ColorTheme, Pos, PrettyDocument, PrettyScreen, Shade, Style};
+use pretty::{Color, ColorTheme, Pane, Pos, PrettyDocument, PrettyWindow, Shade, Style};
 use utility::GrowOnlyMap;
 
 mod error;
@@ -133,16 +133,17 @@ impl Ed {
         self.redisplay()
     }
 
-    fn print_keymap_summary(&mut self) -> Result<(), Error> {
+    fn _print_keymap_summary(&mut self) -> Result<(), Error> {
         let size = self.term.size()?;
+
         let offset = Pos {
             row: size.row / 2,
             col: 0,
         };
         let map_path = self.keymap_stack.join("→");
-        self.term
-            .print(offset, &map_path, Style::reverse_color(Color::Base0B))?;
-        self.term.print(
+        let mut pane = self.term.pane()?;
+        pane.print(offset, &map_path, Style::reverse_color(Color::Base0B))?;
+        pane.print(
             offset + Pos { row: 1, col: 0 },
             &self.keymap_summary,
             Style::color(Color::Base0B),
@@ -150,25 +151,25 @@ impl Ed {
         Ok(())
     }
 
-    fn print_messages(&mut self, num_recent: usize) -> Result<(), Error> {
+    fn _print_messages(&mut self, num_recent: usize) -> Result<(), Error> {
         let size = self.term.size()?;
-        self.term
-            .print(
-                Pos {
-                    row: size.row - (num_recent + 1) as u32,
-                    col: 0,
-                },
-                "messages:",
-                Style::reverse_color(Color::Base0C),
-            )
-            .is_ok();
+        let mut pane = self.term.pane()?;
+        pane.print(
+            Pos {
+                row: size.row - (num_recent + 1) as u32,
+                col: 0,
+            },
+            "messages:",
+            Style::reverse_color(Color::Base0C),
+        )
+        .is_ok();
 
         for (i, msg) in self.messages.iter().rev().take(num_recent).enumerate() {
             let pos = Pos {
                 row: size.row - (num_recent - i) as u32,
                 col: 0,
             };
-            let result = self.term.print(pos, msg, Style::color(Color::Base0C));
+            let result = pane.print(pos, msg, Style::color(Color::Base0C));
 
             // For this demo, just ignore out of bounds errors. The real editor
             // shouldn't ever try to print out of bounds.
@@ -181,24 +182,25 @@ impl Ed {
     }
 
     fn redisplay(&mut self) -> Result<(), Error> {
-        let size = self.term.update_size()?;
+        let ast_ref = self.doc.ast_ref();
+        self.term.draw_frame(|mut pane: Pane<Terminal>| {
+            let size = pane.rect().size();
 
-        self.doc
-            .ast_ref()
-            .pretty_print(size.col, &mut self.term)
-            .expect("failed to pretty-print document");
+            // TODO pick which part of the doc to display, based on the cursor
+            // position, instead of always showing the top!
+            let doc_pos = Pos::zero();
 
-        let cursor_region = self.doc.ast_ref().locate_cursor::<Terminal>(size.col)?;
-        self.term.shade(cursor_region, Shade(0))?;
+            ast_ref
+                .pretty_print(size.col, &mut pane, doc_pos)
+                .expect("failed to pretty-print document");
 
-        // self.kmap_doc
-        //     .ast_ref()
-        //     .pretty_print(size.col, &mut self.term)
-        //     .unwrap();
+            let cursor_region = ast_ref.locate_cursor(size.col);
+            pane.shade(cursor_region, Shade(0))?;
 
-        self.print_messages(5)?;
-        self.print_keymap_summary()?;
-        self.term.show()?;
+            // self._print_messages(5).unwrap();
+            // self._print_keymap_summary().unwrap();
+            Ok(())
+        })?;
         Ok(())
     }
 

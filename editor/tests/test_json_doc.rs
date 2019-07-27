@@ -3,7 +3,7 @@ use editor::{
     TreeNavCmd,
 };
 use language::LanguageSet;
-use pretty::{PlainText, PrettyDocument};
+use pretty::{PlainText, Pos, PrettyDocument, PrettyWindow};
 
 // TODO: expand this into a comprehensive test suite
 #[test]
@@ -203,8 +203,11 @@ fn test_json_string() {
 }
 
 fn assert_render(doc: &Doc, rendered: &str) {
-    let width: u16 = 80;
-    let mut screen = PlainText::new(width as usize);
-    doc.ast_ref().pretty_print(width, &mut screen).unwrap();
-    assert_eq!(screen.to_string(), rendered)
+    let width = 80;
+    let doc_pos = Pos::zero();
+    let mut window = PlainText::new_infinite_scroll(width);
+    doc.ast_ref()
+        .pretty_print(width, &mut window.pane().unwrap(), doc_pos)
+        .unwrap();
+    assert_eq!(window.to_string(), rendered)
 }

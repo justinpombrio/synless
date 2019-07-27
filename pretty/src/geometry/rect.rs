@@ -5,14 +5,29 @@ use super::range::Range;
 
 /// A rectangle, either on the screen, or on the document.
 /// Includes its upper-left, but excludes its lower-right.
-/// (Used in this file only, to simplify the implementation of Regions.)
-#[derive(PartialEq, Eq, Clone, Copy)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub struct Rect {
     pub rows: Range<Row>,
     pub cols: Range<Col>,
 }
 
 impl Rect {
+    /// Create a new Rect with the given position and size
+    pub fn new(top_left: Pos, size: Pos) -> Rect {
+        Rect {
+            rows: Range(top_left.row, top_left.row + size.row),
+            cols: Range(top_left.col, top_left.col + size.col),
+        }
+    }
+
+    /// Get the top left corner of the rectangle
+    pub fn pos(&self) -> Pos {
+        Pos {
+            row: self.rows.0,
+            col: self.cols.0,
+        }
+    }
+
     /// Does this rectangle partially overlap the other rectangle?
     pub fn overlaps(&self, other: Rect) -> bool {
         self.cols.overlaps(other.cols) && self.rows.overlaps(other.rows)
@@ -45,6 +60,46 @@ impl Rect {
             }
         }
         v.into_iter()
+    }
+
+    /// Get the number of columns in the rectangle
+    pub fn width(&self) -> Col {
+        self.cols.len()
+    }
+
+    /// Get the number of rows in the rectangle
+    pub fn height(&self) -> Row {
+        self.rows.len()
+    }
+
+    /// Get the size of the rectangle
+    pub fn size(&self) -> Pos {
+        Pos {
+            row: self.rows.len(),
+            col: self.cols.len(),
+        }
+    }
+
+    /// Given N `widths`, returns an iterator over N sub-rectangles with those
+    /// widths, in order from left to right. `.next()` will panic if the next
+    /// width is larger than the width of the remaining rectangle.
+    pub fn horz_splits<'a>(&self, widths: &'a [Col]) -> impl Iterator<Item = Rect> + 'a {
+        let rows = self.rows;
+        self.cols.splits(widths).map(move |col_range| Rect {
+            cols: col_range,
+            rows,
+        })
+    }
+
+    /// Given N `heights`, returns an iterator over N sub-rectangles with those
+    /// heights, in order from top to bottom. `.next()` will panic if the next
+    /// height is greater than the height of the remaining rectangle.
+    pub fn vert_splits<'a>(&self, heights: &'a [Row]) -> impl Iterator<Item = Rect> + 'a {
+        let cols = self.cols;
+        self.rows.splits(heights).map(move |row_range| Rect {
+            rows: row_range,
+            cols,
+        })
     }
 }
 
@@ -174,5 +229,241 @@ mod tests {
                 (3, 4),
             ]
         );
+    }
+
+    #[test]
+    fn test_split_horz1() {
+        let mut it = RECT.horz_splits(&[1, 3]);
+        assert_eq!(
+            it.next(),
+            Some(Rect {
+                cols: Range(1, 2),
+                rows: Range(2, 4),
+            })
+        );
+        assert_eq!(
+            it.next(),
+            Some(Rect {
+                cols: Range(2, 5),
+                rows: Range(2, 4),
+            })
+        );
+        assert_eq!(it.next(), None)
+    }
+
+    #[test]
+    fn test_split_horz2() {
+        let mut it = RECT.horz_splits(&[0, 1, 0, 1, 0, 1, 0, 1, 0]);
+        assert_eq!(
+            it.next(),
+            Some(Rect {
+                cols: Range(1, 1),
+                rows: Range(2, 4),
+            })
+        );
+        assert_eq!(
+            it.next(),
+            Some(Rect {
+                cols: Range(1, 2),
+                rows: Range(2, 4),
+            })
+        );
+        assert_eq!(
+            it.next(),
+            Some(Rect {
+                cols: Range(2, 2),
+                rows: Range(2, 4),
+            })
+        );
+        assert_eq!(
+            it.next(),
+            Some(Rect {
+                cols: Range(2, 3),
+                rows: Range(2, 4),
+            })
+        );
+        assert_eq!(
+            it.next(),
+            Some(Rect {
+                cols: Range(3, 3),
+                rows: Range(2, 4),
+            })
+        );
+        assert_eq!(
+            it.next(),
+            Some(Rect {
+                cols: Range(3, 4),
+                rows: Range(2, 4),
+            })
+        );
+        assert_eq!(
+            it.next(),
+            Some(Rect {
+                cols: Range(4, 4),
+                rows: Range(2, 4),
+            })
+        );
+        assert_eq!(
+            it.next(),
+            Some(Rect {
+                cols: Range(4, 5),
+                rows: Range(2, 4),
+            })
+        );
+        assert_eq!(
+            it.next(),
+            Some(Rect {
+                cols: Range(5, 5),
+                rows: Range(2, 4),
+            })
+        );
+        assert_eq!(it.next(), None)
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_split_horz3() {
+        let mut it = RECT.horz_splits(&[5, 1]);
+        it.next();
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_split_horz4() {
+        let mut it = RECT.horz_splits(&[1, 5]);
+        it.next();
+        it.next();
+    }
+
+    #[test]
+    fn test_split_horz5() {
+        // It's ok to leave some leftover width
+        let mut it = RECT.horz_splits(&[1, 1]);
+        assert_eq!(
+            it.next(),
+            Some(Rect {
+                cols: Range(1, 2),
+                rows: Range(2, 4),
+            })
+        );
+        assert_eq!(
+            it.next(),
+            Some(Rect {
+                cols: Range(2, 3),
+                rows: Range(2, 4),
+            })
+        );
+        assert_eq!(it.next(), None);
+    }
+
+    #[test]
+    fn test_split_vert1() {
+        let mut it = BIG.vert_splits(&[1, 2]);
+        assert_eq!(
+            it.next(),
+            Some(Rect {
+                rows: Range(1, 2),
+                cols: Range(1, 5),
+            })
+        );
+        assert_eq!(
+            it.next(),
+            Some(Rect {
+                rows: Range(2, 4),
+                cols: Range(1, 5),
+            })
+        );
+        assert_eq!(it.next(), None)
+    }
+
+    #[test]
+    fn test_split_vert2() {
+        let mut it = BIG.vert_splits(&[0, 1, 0, 1, 0, 1, 0]);
+        assert_eq!(
+            it.next(),
+            Some(Rect {
+                rows: Range(1, 1),
+                cols: Range(1, 5),
+            })
+        );
+        assert_eq!(
+            it.next(),
+            Some(Rect {
+                rows: Range(1, 2),
+                cols: Range(1, 5),
+            })
+        );
+        assert_eq!(
+            it.next(),
+            Some(Rect {
+                rows: Range(2, 2),
+                cols: Range(1, 5),
+            })
+        );
+        assert_eq!(
+            it.next(),
+            Some(Rect {
+                rows: Range(2, 3),
+                cols: Range(1, 5),
+            })
+        );
+        assert_eq!(
+            it.next(),
+            Some(Rect {
+                rows: Range(3, 3),
+                cols: Range(1, 5),
+            })
+        );
+        assert_eq!(
+            it.next(),
+            Some(Rect {
+                rows: Range(3, 4),
+                cols: Range(1, 5),
+            })
+        );
+        assert_eq!(
+            it.next(),
+            Some(Rect {
+                rows: Range(4, 4),
+                cols: Range(1, 5),
+            })
+        );
+        assert_eq!(it.next(), None)
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_split_vert3() {
+        let mut it = BIG.vert_splits(&[4, 1]);
+        it.next();
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_split_vert4() {
+        let mut it = BIG.vert_splits(&[1, 4]);
+        it.next();
+        it.next();
+    }
+
+    #[test]
+    fn test_split_vert5() {
+        // It's ok to leave some leftover height
+        let mut it = BIG.vert_splits(&[1, 1]);
+        assert_eq!(
+            it.next(),
+            Some(Rect {
+                rows: Range(1, 2),
+                cols: Range(1, 5),
+            })
+        );
+        assert_eq!(
+            it.next(),
+            Some(Rect {
+                rows: Range(2, 3),
+                cols: Range(1, 5),
+            })
+        );
+        assert_eq!(it.next(), None);
     }
 }

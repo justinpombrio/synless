@@ -6,4 +6,5 @@ mod region;
 
 pub use self::bound::Bound;
 pub use self::pos::{Col, Pos, Row, MAX_WIDTH};
+pub use self::rect::Rect;
 pub use self::region::Region;
