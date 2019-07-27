@@ -7,8 +7,9 @@ use crate::layout::{
     compute_bounds, compute_layouts, text_bounds, Bounds, Layout, LayoutRegion, Layouts,
 };
 use crate::notation::Notation;
-use crate::pane::Pane;
-use crate::style::Style;
+use crate::pane::{CursorVis, Pane};
+use crate::style::{Shade, Style};
+
 /// What part of the document to show.
 pub enum DocPosSpec {
     /// Put this row and column of the document at the top left corner of the Pane.
@@ -56,7 +57,8 @@ pub trait PrettyDocument: Sized + Clone {
         &self,
         width: Col,
         pane: &mut Pane<'a, T>,
-        doc_pos: Pos,
+        doc_pos_spec: DocPosSpec,
+        cursor_visibility: CursorVis,
     ) -> Result<(), T::Error>
     where
         T: PrettyWindow,
@@ -64,8 +66,28 @@ pub trait PrettyDocument: Sized + Clone {
         let root = self.root();
         let bound = Bound::infinite_scroll(width);
         let lay = Layouts::compute(&root).fit_bound(bound);
+
+        let cursor_region = self.locate_cursor(width);
+        let doc_pos = match doc_pos_spec {
+            DocPosSpec::CursorAtTop => Pos {
+                col: 0,
+                row: cursor_region.pos.row,
+            },
+            DocPosSpec::Fixed(pos) => pos,
+        };
+
         let doc_rect = Rect::new(doc_pos, pane.rect().size());
-        render(&root, pane, doc_rect, &lay)
+        render(&root, pane, doc_rect, &lay)?;
+
+        // TODO handle multiple levels of cursor shading
+        if let CursorVis::Show = cursor_visibility {
+            let region = Region {
+                pos: cursor_region.pos - doc_pos,
+                ..cursor_region
+            };
+            pane.shade(region, Shade(0))?;
+        }
+        Ok(())
     }
 
     /// Find the region covered by this sub-document, when the entire document is

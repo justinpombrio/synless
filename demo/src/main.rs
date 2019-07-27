@@ -10,7 +10,9 @@ use editor::{
 };
 use frontends::{terminal, Event, Frontend, Terminal};
 use language::{LanguageName, LanguageSet};
-use pretty::{Color, ColorTheme, Pane, Pos, PrettyDocument, PrettyWindow, Shade, Style};
+use pretty::{
+    Color, ColorTheme, CursorVis, DocPosSpec, Pane, Pos, PrettyDocument, PrettyWindow, Style,
+};
 use utility::GrowOnlyMap;
 
 mod error;
@@ -194,14 +196,11 @@ impl Ed {
 
             // TODO pick which part of the doc to display, based on the cursor
             // position, instead of always showing the top!
-            let doc_pos = Pos::zero();
+            let doc_pos_spec = DocPosSpec::Fixed(Pos::zero());
 
             ast_ref
-                .pretty_print(size.col, &mut pane, doc_pos)
+                .pretty_print(size.col, &mut pane, doc_pos_spec, CursorVis::Show)
                 .expect("failed to pretty-print document");
-
-            let cursor_region = ast_ref.locate_cursor(size.col);
-            pane.shade(cursor_region, Shade(0))?;
 
             // self._print_messages(5).unwrap();
             // self._print_keymap_summary().unwrap();

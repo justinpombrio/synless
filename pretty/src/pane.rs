@@ -1,4 +1,4 @@
-use crate::{Col, Pos, PrettyDocument, PrettyWindow, Rect, Region, Row, Shade, Style};
+use crate::{Col, DocPosSpec, Pos, PrettyDocument, PrettyWindow, Rect, Region, Row, Shade, Style};
 
 use std::{fmt, iter};
 
@@ -181,23 +181,7 @@ where
                 let width = self.rect().width();
 
                 let (doc, cursor_visibility) = get_content(content).ok_or(PaneError::Content)?;
-
-                // Put the top of the cursor at the top of the pane.
-                // TODO support fancier positioning options.
-                let cursor_region = doc.locate_cursor(width);
-                let doc_pos = Pos {
-                    col: 0,
-                    row: cursor_region.pos.row,
-                };
-                doc.pretty_print(width, self, doc_pos)?;
-
-                if let CursorVis::Show = cursor_visibility {
-                    let region = Region {
-                        pos: cursor_region.pos - doc_pos,
-                        bound: cursor_region.bound,
-                    };
-                    self.shade(region, Shade(0))?;
-                }
+                doc.pretty_print(width, self, DocPosSpec::CursorAtTop, cursor_visibility)?;
             }
             PaneNotation::Fill { ch, style } => {
                 let style = style.or(parent_style).unwrap_or_default();
