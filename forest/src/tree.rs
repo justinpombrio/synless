@@ -311,6 +311,11 @@ impl<D, L> Tree<D, L> {
         self.id = id;
     }
 
+    /// Obtain a mutable reference to the [Forest] this tree belongs to.
+    pub fn forest_mut(&mut self) -> &mut Forest<D, L> {
+        &mut self.forest
+    }
+
     // Private //
 
     pub(super) fn new(forest: &Forest<D, L>, id: Id) -> Tree<D, L> {
