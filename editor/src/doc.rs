@@ -260,7 +260,7 @@ impl<'l> Doc<'l> {
             }
             EditorCmd::PasteReplace => {
                 let tree = clipboard.pop().ok_or(DocError::EmptyClipboard)?;
-                self.execute_tree(TreeCmd::Replace(tree)).map_err(|err| {
+                let old_ast = self.replace(tree).map_err(|err| {
                     if let DocError::WrongSort(rejected_tree) = err {
                         // Can't paste that here, put it back!
                         clipboard.push(rejected_tree);
@@ -268,7 +268,10 @@ impl<'l> Doc<'l> {
                     } else {
                         err // Unexpected error, forward it along
                     }
-                })
+                })?;
+
+                let undos = vec![TreeCmd::Replace(old_ast).into()];
+                Ok(UndoGroup::with_edit(undos))
             }
         }
     }
@@ -279,24 +282,8 @@ impl<'l> Doc<'l> {
         }
         let undos = match cmd {
             TreeCmd::Replace(new_ast) => {
-                let i = self.ast.goto_parent(); // child index
-                match self.ast.inner() {
-                    AstKind::Fixed(mut fixed) => {
-                        let result = fixed.replace_child(i, new_ast);
-                        fixed.goto_child(i);
-                        let old_ast =
-                            result.map_err(|rejected_ast| DocError::WrongSort(rejected_ast))?;
-                        vec![TreeCmd::Replace(old_ast).into()]
-                    }
-                    AstKind::Flexible(mut flexible) => {
-                        let result = flexible.replace_child(i, new_ast);
-                        flexible.goto_child(i);
-                        let old_ast =
-                            result.map_err(|rejected_ast| DocError::WrongSort(rejected_ast))?;
-                        vec![TreeCmd::Replace(old_ast).into()]
-                    }
-                    _ => panic!("how can a parent not be fixed or flexible?"),
-                }
+                let old_ast = self.replace(new_ast)?;
+                vec![TreeCmd::Replace(old_ast).into()]
             }
             TreeCmd::Remove => {
                 let (undos, _ast) = self.remove(false)?;
@@ -499,6 +486,25 @@ impl<'l> Doc<'l> {
             }
             _ => panic!("how can a parent not be fixed or flexible?"),
         }
+    }
+
+    /// Replace the current node with the given node and return it.
+    fn replace(&mut self, new_ast: Ast<'l>) -> Result<Ast<'l>, DocError<'l>> {
+        let i = self.ast.goto_parent(); // child index
+        let old_ast = match self.ast.inner() {
+            AstKind::Fixed(mut fixed) => {
+                let old_ast = fixed.replace_child(i, new_ast);
+                fixed.goto_child(i);
+                old_ast
+            }
+            AstKind::Flexible(mut flexible) => {
+                let old_ast = flexible.replace_child(i, new_ast);
+                flexible.goto_child(i);
+                old_ast
+            }
+            _ => panic!("how can a parent not be fixed or flexible?"),
+        };
+        old_ast.map_err(|rejected_ast| DocError::WrongSort(rejected_ast))
     }
 
     /// Used for both cutting and deleting. If return_original is true, cut the
