@@ -1,5 +1,6 @@
 use std::fmt;
 
+use crate::notationset::NotationSet;
 use crate::text::Text;
 use forest::{Bookmark, Tree};
 use language::{Arity, Construct, Language};
@@ -95,9 +96,20 @@ impl<'l> Ast<'l> {
         &self.tree.data().notation
     }
 
-    /// Replace this node's `i`th child. Return the replaced child. If `tree`
-    /// cannot be inserted because it has the wrong Sort, return it as
-    /// `Err(tree)`.
+    /// Create a new `hole` node that belongs to the same forest as this node.
+    pub fn new_hole(&mut self) -> Ast<'l> {
+        let node = Node {
+            bounds: Bounds::empty(),
+            language: self.get_language(),
+            construct: Construct::hole(),
+            notation: NotationSet::hole(),
+        };
+        Ast::new(self.tree.forest_mut().new_branch(node, vec![]))
+    }
+
+    /// Replace this node's `i`th child with the `tree`. Return the replaced
+    /// child if successful. If `tree` cannot be placed here because it has the wrong
+    /// Sort, return it as `Err(tree)`.
     ///
     /// # Panics
     ///

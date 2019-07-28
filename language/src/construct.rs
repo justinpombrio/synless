@@ -55,6 +55,12 @@ impl Construct {
             key: key,
         }
     }
+
+    pub fn hole() -> &'static Construct {
+        BUILTIN_CONSTRUCTS
+            .get("hole")
+            .expect("no builtin 'hole' construct found")
+    }
 }
 
 /// The sorts of children that a node is allowed to contain.
