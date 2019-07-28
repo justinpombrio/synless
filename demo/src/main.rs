@@ -385,21 +385,17 @@ impl Ed {
                 let ch = self.stack.pop_char()?;
                 self.exec(TextCmd::InsertChar(ch))?;
             }
-            Word::InsertAfter => {
-                let tree = self.stack.pop_tree()?;
-                self.exec(TreeCmd::InsertAfter(tree))?;
+            Word::InsertHoleAfter => {
+                self.exec(TreeCmd::InsertHoleAfter)?;
             }
-            Word::InsertBefore => {
-                let tree = self.stack.pop_tree()?;
-                self.exec(TreeCmd::InsertBefore(tree))?;
+            Word::InsertHoleBefore => {
+                self.exec(TreeCmd::InsertHoleBefore)?;
             }
-            Word::InsertPrepend => {
-                let tree = self.stack.pop_tree()?;
-                self.exec(TreeCmd::InsertPrepend(tree))?;
+            Word::InsertHolePrepend => {
+                self.exec(TreeCmd::InsertHolePrepend)?;
             }
-            Word::InsertPostpend => {
-                let tree = self.stack.pop_tree()?;
-                self.exec(TreeCmd::InsertPostpend(tree))?;
+            Word::InsertHolePostpend => {
+                self.exec(TreeCmd::InsertHolePostpend)?;
             }
             Word::Replace => {
                 let tree = self.stack.pop_tree()?;
@@ -416,10 +412,6 @@ impl Ed {
             Word::Redo => self.exec(CommandGroup::Redo)?,
             Word::Cut => self.exec(EditorCmd::Cut)?,
             Word::Copy => self.exec(EditorCmd::Copy)?,
-            Word::PasteAfter => self.exec(EditorCmd::PasteAfter)?,
-            Word::PasteBefore => self.exec(EditorCmd::PasteBefore)?,
-            Word::PastePrepend => self.exec(EditorCmd::PastePrepend)?,
-            Word::PastePostpend => self.exec(EditorCmd::PastePostpend)?,
             Word::PasteReplace => self.exec(EditorCmd::PasteReplace)?,
         })
     }
