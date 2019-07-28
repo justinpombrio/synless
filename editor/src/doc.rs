@@ -505,10 +505,16 @@ impl<'l> Doc<'l> {
                 let result = flexible
                     .insert_child(insertion_index, new_ast)
                     .map_err(|rejected_ast| DocError::WrongSort(rejected_ast));
-                // Go back to the node we started on, before possibly
-                // early-returning an error.
-                flexible.goto_child(insertion_index);
-                result?;
+
+                if let Err(err) = result {
+                    // Go back to the node we started on!
+                    flexible.goto_child(i);
+                    return Err(err);
+                } else {
+                    // Go to the node we successfully inserted.
+                    flexible.goto_child(insertion_index);
+                }
+
                 if before && i != 0 {
                     Ok(vec![TreeNavCmd::Right.into(), TreeCmd::Remove.into()])
                 } else {
