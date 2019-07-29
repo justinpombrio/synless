@@ -480,7 +480,7 @@ fn test_pane_dyn_height() {
         style: None,
     };
 
-    let helper = |doc: Doc, expected: &str| {
+    let assert_render = |doc: Doc, expected: &str| {
         let mut window = PlainText::new(Pos { row: 3, col: 6 });
         let mut pane = window.pane().unwrap();
         pane.render(&pane_note, None, |_content: &Content| {
@@ -490,8 +490,8 @@ fn test_pane_dyn_height() {
         assert_strings_eq(&window.to_string(), expected);
     };
 
-    helper(doc0, "[]\n------\n------");
-    helper(doc1, "[true]\n------\n------");
-    helper(doc2, "[true,\n true]\n------");
-    helper(doc3, "[true,\n true,\n true]");
+    assert_render(doc0, "[]\n------\n------");
+    assert_render(doc1, "[true]\n------\n------");
+    assert_render(doc2, "[true,\n true]\n------");
+    assert_render(doc3, "[true,\n true,\n true]");
 }
