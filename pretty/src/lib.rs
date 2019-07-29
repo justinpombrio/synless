@@ -27,4 +27,4 @@ pub use self::notation::{
 
 pub use self::pretty::{DocPosSpec, PlainText, PrettyDocument, PrettyWindow};
 pub use self::style::{Color, ColorTheme, Emph, Rgb, Shade, Style};
-pub use pane::{Content, CursorVis, Pane, PaneError, PaneNotation, PaneSize};
+pub use pane::{CursorVis, DocLabel, Pane, PaneError, PaneNotation, PaneSize};

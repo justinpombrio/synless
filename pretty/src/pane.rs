@@ -26,7 +26,7 @@ pub enum PaneSize {
     Proportional(usize),
 
     /// Try to give the subpane exactly the amount of height needed to fit its
-    /// Content. If that's not possible, give it all of the remaining height.
+    /// content. If that's not possible, give it all of the remaining height.
     /// This means that if there are multiple DynHeight subpanes and not enough
     /// height to satisfy all of them, the ones earlier in the list get
     /// priority. `DynHeight` subpanes get priority over `Proportional`
@@ -34,16 +34,16 @@ pub enum PaneSize {
     ///
     /// There are restrictions on when you can use `DynHeight`, to keep the implementation simple:
     ///  - `DynHeight` can only be applied to subpanes within a `PaneNotation::Vert`
-    ///  - a `DynHeight` subpane can only contain a `PaneNotation::Content`, not more nested subpanes
+    ///  - a `DynHeight` subpane can only contain a `PaneNotation::Doc`, not more nested subpanes
     DynHeight,
 }
 
-/// A set of standard document names that `PaneNotation`s can refer to.
+/// A set of standard document labels that `PaneNotation`s can refer to.
 /// Every time `Pane.render()` is called, it will dynamically look up the document that is currently
-/// associated with each referenced name.
+/// associated with each referenced label.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
-pub enum Content {
+pub enum DocLabel {
     /// The document that currently has focus / is being actively edited.
     ActiveDoc,
     /// The name/title of the `ActiveDoc`, eg. for showing in a status bar
@@ -75,11 +75,11 @@ pub enum PaneNotation {
         panes: Vec<(PaneSize, PaneNotation)>,
         style: Option<Style>,
     },
-    /// Render a `PrettyDocument` into this `Pane`. The given content name will
+    /// Render a `PrettyDocument` into this `Pane`. The given `DocLabel` will
     /// be used to dynamically look up a `PrettyDocument` every time the `Pane`
     /// is rendered.
-    Content {
-        content: Content,
+    Doc {
+        label: DocLabel,
         style: Option<Style>,
     },
     /// Fill the entire `Pane` by repeating the given character. Optionally
@@ -103,7 +103,7 @@ where
     NotSubPane,
     ImpossibleDemands,
     InvalidNotation,
-    Missing(Content),
+    Missing(DocLabel),
     /// T should be the associated `Error` type of something that implements the
     /// PrettyWindow trait.
     PrettyWindow(T),
@@ -161,8 +161,8 @@ where
     }
 
     /// Render to this pane according to the given [PaneNotation], `note`. Use
-    /// the `get_content` closure to map the document names used in any
-    /// `PaneNotation::Content` variants to actual documents, and whether to
+    /// the `get_content` closure to map the document labels used in any
+    /// `PaneNotation::Doc` variants to actual documents, and whether to
     /// shade that document's cursor region. If `parent_style` is not `None`,
     /// apply that style to [PaneNotation] sub-trees that don't
     /// specify their own style.
@@ -173,7 +173,7 @@ where
         get_content: F,
     ) -> Result<(), PaneError<T::Error>>
     where
-        F: FnOnce(&Content) -> Option<(U, CursorVis)>,
+        F: FnOnce(&DocLabel) -> Option<(U, CursorVis)>,
         F: Clone,
         U: PrettyDocument,
     {
@@ -209,16 +209,16 @@ where
                     .map(|p| match p.0 {
                         PaneSize::DynHeight => {
                             // Convert dynamic height into a fixed height, based on the currrent document.
-                            if let PaneNotation::Content { content, .. } = &p.1 {
+                            if let PaneNotation::Doc { label, .. } = &p.1 {
                                 let f = get_content.clone();
                                 let (doc, _) =
-                                    f(content).ok_or(PaneError::Missing(content.to_owned()))?;
+                                    f(label).ok_or(PaneError::Missing(label.to_owned()))?;
                                 let height =
                                     available_height.min(doc.required_height(self.rect().width()));
                                 available_height -= height;
                                 Ok(PaneSize::Fixed(height as usize))
                             } else {
-                                // DynHeight is only implemented for Content subpanes!
+                                // DynHeight is only implemented for Doc subpanes!
                                 Err(PaneError::InvalidNotation)
                             }
                         }
@@ -239,13 +239,13 @@ where
                     child_pane.render(child_note, style, get_content.clone())?;
                 }
             }
-            PaneNotation::Content { content, style } => {
+            PaneNotation::Doc { label, style } => {
                 // TODO how to use style? pretty_print doesn't take it.
                 let _style = style.or(parent_style).unwrap_or_default();
                 let width = self.rect().width();
 
                 let (doc, cursor_visibility) =
-                    get_content(content).ok_or(PaneError::Missing(content.to_owned()))?;
+                    get_content(label).ok_or(PaneError::Missing(label.to_owned()))?;
                 doc.pretty_print(width, self, DocPosSpec::CursorAtTop, cursor_visibility)?;
             }
             PaneNotation::Fill { ch, style } => {

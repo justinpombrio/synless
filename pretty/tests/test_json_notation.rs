@@ -4,7 +4,7 @@ mod common;
 
 use common::{assert_strings_eq, make_json_doc, make_json_notation, make_long_json_list, Doc};
 use pretty::{
-    Col, Content, CursorVis, DocPosSpec, PaneNotation, PaneSize, PlainText, Pos, PrettyDocument,
+    Col, CursorVis, DocLabel, DocPosSpec, PaneNotation, PaneSize, PlainText, Pos, PrettyDocument,
     PrettyWindow,
 };
 
@@ -274,12 +274,12 @@ fn test_pane_content() {
     let doc = Doc::new_branch(notations["true"].clone(), Vec::new());
     let mut window = PlainText::new(Pos { row: 2, col: 10 });
 
-    let pane_note = PaneNotation::Content {
-        content: Content::ActiveDoc,
+    let pane_note = PaneNotation::Doc {
+        label: DocLabel::ActiveDoc,
         style: None,
     };
     let mut pane = window.pane().unwrap();
-    pane.render(&pane_note, None, |_: &Content| {
+    pane.render(&pane_note, None, |_: &DocLabel| {
         Some((doc.as_ref(), CursorVis::Hide))
     })
     .unwrap();
@@ -294,12 +294,12 @@ fn test_pane_horz() {
     let doc2 = Doc::new_branch(notations["false"].clone(), Vec::new());
     let mut window = PlainText::new(Pos { row: 2, col: 10 });
 
-    let content1 = PaneNotation::Content {
-        content: Content::ActiveDoc,
+    let content1 = PaneNotation::Doc {
+        label: DocLabel::ActiveDoc,
         style: None,
     };
-    let content2 = PaneNotation::Content {
-        content: Content::KeyHints,
+    let content2 = PaneNotation::Doc {
+        label: DocLabel::KeyHints,
         style: None,
     };
 
@@ -312,9 +312,9 @@ fn test_pane_horz() {
     };
 
     let mut pane = window.pane().unwrap();
-    pane.render(&pane_note, None, |content: &Content| match content {
-        Content::ActiveDoc => Some((doc1.as_ref(), CursorVis::Hide)),
-        Content::KeyHints => Some((doc2.as_ref(), CursorVis::Hide)),
+    pane.render(&pane_note, None, |label: &DocLabel| match label {
+        DocLabel::ActiveDoc => Some((doc1.as_ref(), CursorVis::Hide)),
+        DocLabel::KeyHints => Some((doc2.as_ref(), CursorVis::Hide)),
         _ => None,
     })
     .unwrap();
@@ -329,12 +329,12 @@ fn test_pane_vert() {
     let doc2 = Doc::new_branch(notations["false"].clone(), Vec::new());
     let mut window = PlainText::new(Pos { row: 2, col: 10 });
 
-    let content1 = PaneNotation::Content {
-        content: Content::ActiveDoc,
+    let content1 = PaneNotation::Doc {
+        label: DocLabel::ActiveDoc,
         style: None,
     };
-    let content2 = PaneNotation::Content {
-        content: Content::KeyHints,
+    let content2 = PaneNotation::Doc {
+        label: DocLabel::KeyHints,
         style: None,
     };
 
@@ -363,9 +363,9 @@ fn test_pane_vert() {
     };
 
     let mut pane = window.pane().unwrap();
-    pane.render(&pane_note, None, |content: &Content| match content {
-        Content::ActiveDoc => Some((doc1.as_ref(), CursorVis::Hide)),
-        Content::KeyHints => Some((doc2.as_ref(), CursorVis::Hide)),
+    pane.render(&pane_note, None, |label: &DocLabel| match label {
+        DocLabel::ActiveDoc => Some((doc1.as_ref(), CursorVis::Hide)),
+        DocLabel::KeyHints => Some((doc2.as_ref(), CursorVis::Hide)),
         _ => None,
     })
     .unwrap();
@@ -379,8 +379,8 @@ fn test_pane_fill() {
     let doc1 = Doc::new_branch(notations["true"].clone(), Vec::new());
     let mut window = PlainText::new(Pos { row: 3, col: 6 });
 
-    let content1 = PaneNotation::Content {
-        content: Content::ActiveDoc,
+    let content1 = PaneNotation::Doc {
+        label: DocLabel::ActiveDoc,
         style: None,
     };
 
@@ -395,7 +395,7 @@ fn test_pane_fill() {
     };
 
     let mut pane = window.pane().unwrap();
-    pane.render(&pane_note, None, |_content: &Content| {
+    pane.render(&pane_note, None, |_label: &DocLabel| {
         Some((doc1.as_ref(), CursorVis::Hide))
     })
     .unwrap();
@@ -407,8 +407,8 @@ fn assert_proportional(expected: &str, width: Col, hungers: (usize, usize, usize
 
     let doc1 = Doc::new_branch(notations["null"].clone(), Vec::new());
 
-    let content1 = PaneNotation::Content {
-        content: Content::ActiveDoc,
+    let content1 = PaneNotation::Doc {
+        label: DocLabel::ActiveDoc,
         style: None,
     };
 
@@ -433,7 +433,7 @@ fn assert_proportional(expected: &str, width: Col, hungers: (usize, usize, usize
 
     let mut window = PlainText::new(Pos { row: 1, col: width });
     let mut pane = window.pane().unwrap();
-    pane.render(&pane_note, None, |_content: &Content| {
+    pane.render(&pane_note, None, |_label: &DocLabel| {
         Some((doc1.as_ref(), CursorVis::Hide))
     })
     .unwrap();
@@ -462,8 +462,8 @@ fn test_pane_dyn_height() {
         vec![elem.clone(), elem.clone(), elem.clone()],
     );
 
-    let content1 = PaneNotation::Content {
-        content: Content::ActiveDoc,
+    let content1 = PaneNotation::Doc {
+        label: DocLabel::ActiveDoc,
         style: None,
     };
 
@@ -483,7 +483,7 @@ fn test_pane_dyn_height() {
     let assert_render = |doc: Doc, expected: &str| {
         let mut window = PlainText::new(Pos { row: 3, col: 6 });
         let mut pane = window.pane().unwrap();
-        pane.render(&pane_note, None, |_content: &Content| {
+        pane.render(&pane_note, None, |_label: &DocLabel| {
             Some((doc.as_ref(), CursorVis::Hide))
         })
         .unwrap();
