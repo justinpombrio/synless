@@ -12,44 +12,79 @@ where
     pub(crate) rect: Rect,
 }
 
+/// Specify the size of a subpane within a vertically or horizontally concatenated set of subpanes.
 #[derive(Clone, Copy, Debug)]
 pub enum PaneSize {
+    /// Give the subpane exactly this number of rows of height (for
+    /// `PaneNotation::Vert`) or columns of width (for `PaneNotation::Horz`).
     Fixed(usize),
+
+    /// After `Fixed` and `DynHeight` subpanes have been assigned a
+    /// width/height, divide up the remaining available width/height between the
+    /// `Proportional` subpanes according to their given weights. `Proportional`
+    /// subpanes with larger weights will be given more width/height.
     Proportional(usize),
+
+    /// Try to give the subpane exactly the amount of height needed to fit its
+    /// Content. If that's not possible, give it all of the remaining height.
+    /// This means that if there are multiple DynHeight subpanes and not enough
+    /// height to satisfy all of them, the ones earlier in the list get
+    /// priority. `DynHeight` subpanes get priority over `Proportional`
+    /// subpanes, regardless of order.
+    ///
     /// There are restrictions on when you can use `DynHeight`, to keep the implementation simple:
     ///  - `DynHeight` can only be applied to subpanes within a `PaneNotation::Vert`
     ///  - a `DynHeight` subpane can only contain a `PaneNotation::Content`, not more nested subpanes
     DynHeight,
 }
 
+/// A set of standard document names that `PaneNotation`s can refer to.
+/// Every time `Pane.render()` is called, it will dynamically look up the document that is currently
+/// associated with each referenced name.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
 pub enum Content {
+    /// The document that currently has focus / is being actively edited.
     ActiveDoc,
+    /// The name/title of the `ActiveDoc`, eg. for showing in a status bar
     ActiveDocName,
+    /// Information about what keybindings are available in the current keymap and context.
     KeyHints,
+    /// The name of the current keymap.
     KeymapName,
+    /// Messages to the user.
     Messages,
 }
 
+/// Specify the content of a `Pane`.
 #[derive(Clone, Debug)]
 pub enum PaneNotation {
+    /// Split the pane horizontally into multiple subpanes, each with its own
+    /// `PaneNotation`. Each subpane has the same height as this `Pane`, and a
+    /// width determined by its `PaneSize`. Optionally apply a `style` to any
+    /// subpane that doesn't already specify its own style.
     Horz {
         panes: Vec<(PaneSize, PaneNotation)>,
         style: Option<Style>,
     },
+    /// Split the pane vertically into multiple subpanes, each with its own
+    /// `PaneNotation`. Each subpane has the same width as this `Pane`, and a
+    /// height determined by its `PaneSize`. Optionally apply a `style` to any
+    /// subpane that doesn't already specify its own style.
     Vert {
         panes: Vec<(PaneSize, PaneNotation)>,
         style: Option<Style>,
     },
+    /// Render a `PrettyDocument` into this `Pane`. The given content name will
+    /// be used to dynamically look up a `PrettyDocument` every time the `Pane`
+    /// is rendered.
     Content {
         content: Content,
         style: Option<Style>,
     },
-    Fill {
-        ch: char,
-        style: Option<Style>,
-    },
+    /// Fill the entire `Pane` by repeating the given character. Optionally
+    /// apply a `style`.
+    Fill { ch: char, style: Option<Style> },
 }
 
 /// The visibility of the cursor in some document.
@@ -59,6 +94,7 @@ pub enum CursorVis {
     Hide,
 }
 
+/// Errors that can occur while attempting to render to a `Pane`.
 #[derive(Debug)]
 pub enum PaneError<T>
 where
