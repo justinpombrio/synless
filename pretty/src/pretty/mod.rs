@@ -1,7 +1,7 @@
 mod plain_text;
 mod pretty_doc;
-mod pretty_screen;
+mod pretty_window;
 
 pub use plain_text::PlainText;
-pub use pretty_doc::PrettyDocument;
-pub use pretty_screen::PrettyScreen;
+pub use pretty_doc::{DocPosSpec, PrettyDocument};
+pub use pretty_window::PrettyWindow;

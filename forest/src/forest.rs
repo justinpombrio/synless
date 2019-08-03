@@ -43,17 +43,17 @@ impl<D, L> RawForest<D, L> {
         self.get(id).parent
     }
 
-    pub fn children(&self, id: Id) -> impl Iterator<Item = &Id> {
+    pub fn children<'a>(&'a self, id: Id) -> impl Iterator<Item = Id> + 'a {
         match &self.get(id).contents {
             Leaf(_) => panic!("Forest - leaf node has no children!"),
-            Branch(_, children) => children.iter(),
+            Branch(_, children) => children.iter().cloned(),
         }
     }
 
     pub fn child(&self, id: Id, index: usize) -> Id {
         match self.children(id).nth(index) {
             None => panic!("Forest - child index out of bounds. id={}, i={}", id, index),
-            Some(child) => *child,
+            Some(child) => child,
         }
     }
 
@@ -72,7 +72,7 @@ impl<D, L> RawForest<D, L> {
         match self.get(id).parent {
             None => return 0,
             Some(parent_id) => {
-                for (index, &child_id) in self.children(parent_id).enumerate() {
+                for (index, child_id) in self.children(parent_id).enumerate() {
                     if child_id == id {
                         return index;
                     }
@@ -220,6 +220,24 @@ impl<D, L> RawForest<D, L> {
                     .for_each(|child| self.delete_tree(child));
             }
         };
+    }
+
+    pub fn clone_tree(&mut self, id: Id) -> Id
+    where
+        D: Clone,
+        L: Clone,
+    {
+        if self.is_leaf(id) {
+            self.create_leaf(self.leaf(id).to_owned())
+        } else {
+            let new_child_ids: Vec<_> = self.children(id).collect();
+            let new_children: Vec<_> = new_child_ids
+                .into_iter()
+                .map(|id| self.clone_tree(id))
+                .collect();
+            let data = self.data(id).to_owned();
+            self.create_branch(data, new_children)
+        }
     }
 
     // Private //

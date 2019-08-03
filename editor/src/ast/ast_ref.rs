@@ -57,13 +57,13 @@ impl<'f, 'l> AstRef<'f, 'l> {
         }
     }
 
-    /// Get a shared reference to the text at this node.
+    /// Get a shared reference to the text within this Text node.
     ///
     /// # Panics
     ///
     /// Panics if the arity of this node is not `Text`.
     pub fn text(&self) -> ReadText<'f, 'l> {
-        ReadText(self.tree_ref.leaf())
+        ReadText(self.tree_ref.child(0).leaf())
     }
 
     /// Save a bookmark to return to later.

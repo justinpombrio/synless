@@ -1,6 +1,7 @@
 use std::fmt;
 
 use super::pos::{Col, Row, MAX_WIDTH};
+use super::rect::Rect;
 
 /// A "paragraph" shape: it is like a rectangle, except that the last
 /// line may be shorter than the rest.
@@ -39,6 +40,11 @@ impl Bound {
             height: num_rows,
             indent: num_cols,
         }
+    }
+
+    /// Create a new `Bound` with the given rectangular shape.
+    pub fn from_rect(rect: Rect) -> Bound {
+        Bound::new_rectangle(rect.height(), rect.width())
     }
 
     /// One Bound dominates another if it is at least as small in all

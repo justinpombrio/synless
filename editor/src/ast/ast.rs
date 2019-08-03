@@ -1,3 +1,4 @@
+use std::fmt;
 use std::ops::{Deref, DerefMut};
 
 use crate::text::Text;
@@ -59,7 +60,7 @@ impl<'l> Ast<'l> {
     /// Panics if the arity of this node is not `Text`. Also panics if two
     /// nodes/texts in the forest are borrowed at the same time.
     fn text<'f>(&'f self) -> ReadText<'f, 'l> {
-        ReadText(self.tree.leaf())
+        ReadText(self.tree.child_leaf())
     }
 
     /// Obtain a mutable reference to the text at this node.
@@ -69,7 +70,7 @@ impl<'l> Ast<'l> {
     /// Panics if the arity of this node is not `Text`. Also panics if two
     /// nodes/texts in the forest are borrowed at the same time.
     fn text_mut<'f>(&'f mut self) -> WriteText<'f, 'l> {
-        WriteText(self.tree.leaf_mut())
+        WriteText(self.tree.child_leaf_mut())
     }
 
     /// Get the language of this node's syntactic construct.
@@ -263,6 +264,14 @@ impl<'l> Ast<'l> {
             self.tree.data_mut().bounds = Bounds::compute(&self.borrow());
         }
         self.goto_bookmark(bookmark);
+    }
+}
+
+impl<'l> fmt::Debug for Ast<'l> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // The contents of Ast are complicated, but it should implement Debug so
+        // that we can derive Debug for structs containing Asts.
+        write!(f, "Ast")
     }
 }
 

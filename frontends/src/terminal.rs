@@ -16,8 +16,7 @@ use termion::raw::{IntoRawMode, RawTerminal};
 use termion::screen::AlternateScreen;
 use termion::style::{Bold, NoBold, NoUnderline, Reset, Underline};
 
-use pretty::{Bound, Col, Pos, Region, Row};
-use pretty::{ColorTheme, PrettyScreen, Rgb, Shade, Style};
+use pretty::{Col, ColorTheme, Pane, Pos, PrettyWindow, Region, Rgb, Row, Shade, Style};
 
 use crate::frontend::{Event, Frontend};
 
@@ -34,14 +33,18 @@ pub struct Terminal {
 }
 
 impl Terminal {
-    // TODO make this private and call it from `start_frame()`, after adding
-    // that to the PrettyScreen trait.
-    pub fn update_size(&mut self) -> Result<Pos, Error> {
-        let size = self.size()?;
+    /// Update the screen buffer size to match the actual terminal window size.
+    fn update_size(&mut self) -> Result<(), Error> {
+        let (col, row) = termion::terminal_size()?;
+        let size = Pos {
+            col: col as u16,
+            row: row as u32,
+        };
+
         if size != self.buf.size() {
             self.buf.resize(size);
         }
-        Ok(size)
+        Ok(())
     }
 
     fn write<T: Display>(&mut self, thing: T) -> Result<(), io::Error> {
@@ -69,33 +72,17 @@ impl Terminal {
         self.write(Fg(to_termion_rgb(self.color_theme.foreground(style))))?;
         self.write(Bg(to_termion_rgb(self.color_theme.background(style))))
     }
-}
 
-impl PrettyScreen for Terminal {
-    type Error = Error;
-
-    fn region(&self) -> Result<Region, Self::Error> {
-        let (cols, rows) = termion::terminal_size()?;
-        Ok(Region {
-            pos: Pos::zero(),
-            bound: Bound::new_rectangle(rows as u32, cols),
-        })
+    /// Prepare to start modifying a fresh new frame.
+    fn start_frame(&mut self) -> Result<(), Error> {
+        self.update_size()
     }
 
-    fn print(&mut self, offset: Pos, text: &str, style: Style) -> Result<(), Self::Error> {
-        self.buf.write_str(offset, text, style)
-    }
-
-    fn shade(&mut self, region: Region, shade: Shade) -> Result<(), Self::Error> {
-        self.buf.shade_region(region, shade)
-    }
-
-    fn highlight(&mut self, pos: Pos, style: Style) -> Result<(), Self::Error> {
-        self.buf.set_style(pos, style)
-    }
-
-    fn show(&mut self) -> Result<(), Self::Error> {
+    /// Show the modified frame to the user.
+    fn show_frame(&mut self) -> Result<(), io::Error> {
+        // Reset terminal's style
         self.write(Reset)?;
+        // Update the screen from the old frame to the new frame.
         let changes: Vec<_> = self.buf.drain_changes().collect();
         for op in changes {
             match op {
@@ -109,8 +96,33 @@ impl PrettyScreen for Terminal {
     }
 }
 
+impl PrettyWindow for Terminal {
+    type Error = Error;
+
+    /// Return the current size of the screen buffer, without checking the
+    /// actual size of the terminal window (which might have changed recently).
+    fn size(&self) -> Result<Pos, Self::Error> {
+        Ok(self.buf.size())
+    }
+
+    fn print(&mut self, pos: Pos, text: &str, style: Style) -> Result<(), Self::Error> {
+        self.buf.write_str(pos, text, style)
+    }
+
+    fn highlight(&mut self, pos: Pos, style: Style) -> Result<(), Self::Error> {
+        self.buf.set_style(pos, style)
+    }
+
+    fn shade(&mut self, region: Region, shade: Shade) -> Result<(), Self::Error> {
+        self.buf.shade_region(region, shade)
+    }
+}
+
 impl Frontend for Terminal {
-    fn new(theme: ColorTheme) -> Result<Terminal, Self::Error> {
+    type Error = Error;
+    type Window = Self;
+
+    fn new(theme: ColorTheme) -> Result<Terminal, Error> {
         let mut term = Terminal {
             stdout: AlternateScreen::from(MouseTerminal::from(stdout().into_raw_mode()?)),
             events: stdin().events(),
@@ -123,12 +135,7 @@ impl Frontend for Terminal {
         Ok(term)
     }
 
-    fn clear(&mut self) -> Result<(), Self::Error> {
-        self.buf.clear();
-        self.show()
-    }
-
-    fn next_event(&mut self) -> Option<Result<Event, Self::Error>> {
+    fn next_event(&mut self) -> Option<Result<Event, Error>> {
         match self.events.next() {
             Some(Ok(event::Event::Key(key))) => Some(Ok(KeyEvent(key))),
             Some(Ok(event::Event::Mouse(event::MouseEvent::Press(
@@ -140,6 +147,17 @@ impl Frontend for Terminal {
             Some(Err(err)) => Some(Err(err.into())),
             None => None,
         }
+    }
+
+    fn draw_frame<F>(&mut self, draw: F) -> Result<(), Error>
+    where
+        F: Fn(Pane<Self>) -> Result<(), Error>,
+    {
+        self.start_frame()?;
+        let pane = self.pane()?;
+        let result = draw(pane);
+        self.show_frame()?;
+        result
     }
 }
 

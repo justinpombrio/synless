@@ -1,4 +1,4 @@
-use pretty::{ColorTheme, Pos, PrettyScreen, Style};
+use pretty::{ColorTheme, Pane, Pos, PrettyWindow};
 
 pub use termion::event::Key;
 
@@ -13,36 +13,20 @@ pub enum Event {
     MouseEvent(Pos),
 }
 
-/// A front end for the editor. It knows how to render to a screen,
-/// and how to receive keyboard events.
-pub trait Frontend: Sized + PrettyScreen {
+/// A front end for the editor. It knows how to render a frame and how to
+/// receive keyboard events.
+pub trait Frontend: Sized {
+    type Error;
+    type Window: PrettyWindow;
+
     /// Construct a new frontend.
     fn new(theme: ColorTheme) -> Result<Self, Self::Error>;
 
-    /// Clear the whole screen.
-    fn clear(&mut self) -> Result<(), Self::Error>;
-
-    /// Iterate over all key and mouse events, blocking on `next()`.
+    /// Block until an event (eg. keypress) occurs, then return it. None means the event stream ended.
     fn next_event(&mut self) -> Option<Result<Event, Self::Error>>;
 
-    /// Render a string with plain style.
-    /// No newlines allowed.
-    fn simple_print(&mut self, text: &str, pos: Pos) -> Result<(), Self::Error> {
-        self.print(pos, text, Style::plain())
-    }
-
-    /// Render a character with the given style at the given position.
-    /// No newlines allowed.
-    fn print_char(&mut self, ch: char, pos: Pos, style: Style) -> Result<(), Self::Error> {
-        self.print(pos, &ch.to_string(), style)
-    }
-
-    /// Return the current size of the screen in characters.
-    fn size(&self) -> Result<Pos, Self::Error> {
-        let region = self.region()?;
-        Ok(Pos {
-            col: region.bound.width,
-            row: region.bound.height,
-        })
-    }
+    /// Use the given `draw` closure to draw a complete frame to this Frontend's window.
+    fn draw_frame<F>(&mut self, draw: F) -> Result<(), Self::Error>
+    where
+        F: Fn(Pane<Self::Window>) -> Result<(), Self::Error>;
 }

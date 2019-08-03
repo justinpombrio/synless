@@ -17,6 +17,13 @@ impl<'l> UndoGroup<'l> {
         }
     }
 
+    fn with_edit(commands: Vec<Command<'l>>) -> Self {
+        UndoGroup {
+            contains_edit: true,
+            commands,
+        }
+    }
+
     fn append(&mut self, mut other: UndoGroup<'l>) {
         self.contains_edit |= other.contains_edit;
         self.commands.append(&mut other.commands);
@@ -41,14 +48,36 @@ impl<'l> IntoIterator for UndoGroup<'l> {
     }
 }
 
-enum Mode {
+/// A stack containing Asts that have been cut or copied.
+pub struct Clipboard<'l>(Vec<Ast<'l>>);
+
+impl<'l> Clipboard<'l> {
+    /// Construct a new, empty clipboard stack.
+    pub fn new() -> Self {
+        Clipboard(Vec::new())
+    }
+
+    /// Push the given tree onto the clipboard stack.
+    pub fn push(&mut self, new_ast: Ast<'l>) {
+        self.0.push(new_ast);
+    }
+
+    /// Pop a tree off the top of the clipboard stack, returning None if the
+    /// clipboard is empty.
+    pub fn pop(&mut self) -> Option<Ast<'l>> {
+        self.0.pop()
+    }
+}
+
+#[derive(Clone, Copy)]
+pub enum Mode {
     Tree,
     /// byte-index of text cursor
     Text(usize),
 }
 
 impl Mode {
-    fn is_tree_mode(&self) -> bool {
+    pub fn is_tree_mode(&self) -> bool {
         match self {
             Mode::Tree => true,
             _ => false,
@@ -88,61 +117,71 @@ impl<'l> Doc<'l> {
         self.ast.borrow()
     }
 
+    pub fn in_tree_mode(&self) -> bool {
+        self.mode.is_tree_mode()
+    }
+
     fn take_recent(&mut self) -> UndoGroup<'l> {
         mem::replace(&mut self.recent, UndoGroup::new())
     }
 
-    fn undo(&mut self) -> bool {
+    fn undo(&mut self, clipboard: &mut Clipboard<'l>) -> Result<(), ()> {
         assert!(self.recent.commands.is_empty());
         assert!(!self.recent.contains_edit);
         match self.undo_stack.pop() {
-            None => false, // Undo stack is empty
+            None => Err(()), // Undo stack is empty
             Some(group) => {
-                self.execute_group(group).expect("Failed to undo");
+                self.execute_group(group, clipboard)
+                    .expect("Failed to undo");
                 let recent = self.take_recent();
                 self.redo_stack.push(recent);
-                true
+                Ok(())
             }
         }
     }
 
-    fn redo(&mut self) -> bool {
+    fn redo(&mut self, clipboard: &mut Clipboard<'l>) -> Result<(), ()> {
         assert!(self.recent.commands.is_empty());
         assert!(!self.recent.contains_edit);
         match self.redo_stack.pop() {
-            None => false, // Redo stack is empty
+            None => Err(()), // Redo stack is empty
             Some(group) => {
-                self.execute_group(group).expect("Failed to redo");
+                self.execute_group(group, clipboard)
+                    .expect("Failed to redo");
                 let recent = self.take_recent();
                 self.undo_stack.push(recent);
-                true
+                Ok(())
             }
         }
     }
 
-    pub fn execute(&mut self, cmds: CommandGroup<'l>) -> bool {
+    pub fn execute(
+        &mut self,
+        cmds: CommandGroup<'l>,
+        clipboard: &mut Clipboard<'l>,
+    ) -> Result<(), ()> {
         match cmds {
-            CommandGroup::Undo => self.undo(),
-            CommandGroup::Redo => self.redo(),
+            CommandGroup::Undo => self.undo(clipboard),
+            CommandGroup::Redo => self.redo(clipboard),
             CommandGroup::Group(group) => {
-                let all_ok = self.execute_group(group).is_ok();
+                let result = self.execute_group(group, clipboard);
                 let undos = self.take_recent();
                 if !undos.is_empty() {
                     self.undo_stack.push(undos);
                 }
                 self.redo_stack.clear();
-                all_ok
+                result
             }
         }
     }
 
-    fn execute_group<I>(&mut self, cmds: I) -> Result<(), ()>
+    fn execute_group<I>(&mut self, cmds: I, clipboard: &mut Clipboard<'l>) -> Result<(), ()>
     where
         I: IntoIterator<Item = Command<'l>>,
     {
         for cmd in cmds {
             let undos = match cmd {
-                Command::Ed(cmd) => self.execute_ed(cmd)?,
+                Command::Ed(cmd) => self.execute_ed(cmd, clipboard)?,
                 Command::Tree(cmd) => self.execute_tree(cmd)?,
                 Command::TreeNav(cmd) => self.execute_tree_nav(cmd)?,
                 Command::Text(cmd) => self.execute_text(cmd)?,
@@ -153,13 +192,66 @@ impl<'l> Doc<'l> {
         Ok(())
     }
 
-    fn execute_ed(&mut self, _cmd: EditorCmd) -> Result<UndoGroup<'l>, ()> {
-        unimplemented!();
+    fn execute_ed(
+        &mut self,
+        cmd: EditorCmd,
+        clipboard: &mut Clipboard<'l>,
+    ) -> Result<UndoGroup<'l>, ()> {
+        if !self.mode.is_tree_mode() {
+            panic!("tried to execute editor command in text mode")
+        }
+        match cmd {
+            EditorCmd::Cut => {
+                let (undos, ast) = self.remove(true)?;
+                clipboard.push(ast.expect("failed to cut"));
+                Ok(UndoGroup::with_edit(undos))
+            }
+            EditorCmd::Copy => {
+                clipboard.push(self.ast.clone());
+                Ok(UndoGroup::new())
+            }
+            EditorCmd::PasteAfter => {
+                if let Some(tree) = clipboard.pop() {
+                    // TODO if the insert fails, we'll lose the tree forever...
+                    self.execute_tree(TreeCmd::InsertAfter(tree))
+                } else {
+                    // TODO should we return an error if the clipboard is empty?
+                    Ok(UndoGroup::new())
+                }
+            }
+            EditorCmd::PasteBefore => {
+                if let Some(tree) = clipboard.pop() {
+                    self.execute_tree(TreeCmd::InsertBefore(tree))
+                } else {
+                    Ok(UndoGroup::new())
+                }
+            }
+            EditorCmd::PastePrepend => {
+                if let Some(tree) = clipboard.pop() {
+                    self.execute_tree(TreeCmd::InsertPrepend(tree))
+                } else {
+                    Ok(UndoGroup::new())
+                }
+            }
+            EditorCmd::PastePostpend => {
+                if let Some(tree) = clipboard.pop() {
+                    self.execute_tree(TreeCmd::InsertPostpend(tree))
+                } else {
+                    Ok(UndoGroup::new())
+                }
+            }
+            EditorCmd::PasteReplace => {
+                if let Some(tree) = clipboard.pop() {
+                    self.execute_tree(TreeCmd::Replace(tree))
+                } else {
+                    Ok(UndoGroup::new())
+                }
+            }
+        }
     }
 
     fn execute_tree(&mut self, cmd: TreeCmd<'l>) -> Result<UndoGroup<'l>, ()> {
         if !self.mode.is_tree_mode() {
-            // return false;
             panic!("tried to execute tree command in text mode")
         }
         let undos = match cmd {
@@ -180,31 +272,8 @@ impl<'l> Doc<'l> {
                 }
             }
             TreeCmd::Remove => {
-                let i = self.ast.goto_parent();
-                match self.ast.inner() {
-                    AstKind::Fixed(mut fixed) => {
-                        // Oops, go back, we can't delete something from a fixed node.
-                        fixed.goto_child(i);
-                        return Err(());
-                    }
-                    AstKind::Flexible(mut flexible) => {
-                        let old_ast = flexible.remove_child(i);
-                        let num_children = flexible.num_children();
-                        if num_children == 0 {
-                            // Stay at the childless parent
-                            vec![TreeCmd::InsertPrepend(old_ast).into()]
-                        } else if i == 0 {
-                            // We removed the first child, so to undo must insert before.
-                            flexible.goto_child(0);
-                            vec![TreeCmd::InsertBefore(old_ast).into()]
-                        } else {
-                            // Go to the left.
-                            flexible.goto_child(i - 1);
-                            vec![TreeCmd::InsertAfter(old_ast).into()]
-                        }
-                    }
-                    _ => panic!("how can a parent not be fixed or flexible?"),
-                }
+                let (undos, _ast) = self.remove(false)?;
+                undos
             }
             TreeCmd::InsertBefore(new_ast) => self.insert_sibling(true, new_ast)?,
             TreeCmd::InsertAfter(new_ast) => self.insert_sibling(false, new_ast)?,
@@ -390,6 +459,44 @@ impl<'l> Doc<'l> {
                 } else {
                     Ok(vec![TreeCmd::Remove.into()])
                 }
+            }
+            _ => panic!("how can a parent not be fixed or flexible?"),
+        }
+    }
+
+    /// Used for both cutting and deleting. If return_original is true, cut the
+    /// selected Ast, return the original Ast, and return Undo commands
+    /// containing a _copy_ of the Ast. Otherwise, return None and use the
+    /// original Ast in the Undo commands.
+    fn remove(&mut self, return_original: bool) -> Result<(Vec<Command<'l>>, Option<Ast<'l>>), ()> {
+        let i = self.ast.goto_parent();
+        match self.ast.inner() {
+            AstKind::Fixed(mut fixed) => {
+                // Oops, go back, we can't delete something from a fixed node.
+                fixed.goto_child(i);
+                Err(())
+            }
+            AstKind::Flexible(mut flexible) => {
+                let old_ast = flexible.remove_child(i);
+                let (undo_ast, returned_ast) = if return_original {
+                    (old_ast.clone(), Some(old_ast))
+                } else {
+                    (old_ast, None)
+                };
+                let num_children = flexible.num_children();
+                let undos = if num_children == 0 {
+                    // Stay at the childless parent
+                    vec![TreeCmd::InsertPrepend(undo_ast).into()]
+                } else if i == 0 {
+                    // We removed the first child, so to undo must insert before.
+                    flexible.goto_child(0);
+                    vec![TreeCmd::InsertBefore(undo_ast).into()]
+                } else {
+                    // Go to the left.
+                    flexible.goto_child(i - 1);
+                    vec![TreeCmd::InsertAfter(undo_ast).into()]
+                };
+                Ok((undos, returned_ast))
             }
             _ => panic!("how can a parent not be fixed or flexible?"),
         }

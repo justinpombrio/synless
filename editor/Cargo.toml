@@ -9,8 +9,3 @@ forest = { path = "../forest" }
 pretty = { path = "../pretty" }
 language = { path  = "../language" }
 lazy_static = "*"
-
-
-[dev-dependencies]
-termion = "1.5"
-frontends = { path = "../frontends"}
