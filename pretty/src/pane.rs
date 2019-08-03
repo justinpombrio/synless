@@ -19,12 +19,6 @@ pub enum PaneSize {
     /// `PaneNotation::Vert`) or columns of width (for `PaneNotation::Horz`).
     Fixed(usize),
 
-    /// After `Fixed` and `DynHeight` subpanes have been assigned a
-    /// width/height, divide up the remaining available width/height between the
-    /// `Proportional` subpanes according to their given weights. `Proportional`
-    /// subpanes with larger weights will be given more width/height.
-    Proportional(usize),
-
     /// Try to give the subpane exactly the amount of height needed to fit its
     /// content. If that's not possible, give it all of the remaining height.
     /// This means that if there are multiple DynHeight subpanes and not enough
@@ -36,6 +30,13 @@ pub enum PaneSize {
     ///  - `DynHeight` can only be applied to subpanes within a `PaneNotation::Vert`
     ///  - a `DynHeight` subpane can only contain a `PaneNotation::Doc`, not more nested subpanes
     DynHeight,
+
+    /// After `Fixed` and `DynHeight` subpanes have been assigned a
+    /// width/height, divide up the remaining available width/height between the
+    /// `Proportional` subpanes according to their given weights. The size of
+    /// each subpane will be proportional to its weight, so that a subpane will
+    /// weight 2 will be twice as large as one with weight 1, etc.
+    Proportional(usize),
 }
 
 /// A set of standard document labels that `PaneNotation`s can refer to.
@@ -46,9 +47,9 @@ pub enum PaneSize {
 pub enum DocLabel {
     /// The document that currently has focus / is being actively edited.
     ActiveDoc,
-    /// The name/title of the `ActiveDoc`, eg. for showing in a status bar
+    /// The name/title of the `ActiveDoc`, eg. for showing in a status bar.
     ActiveDocName,
-    /// Information about what keybindings are available in the current keymap and context.
+    /// Information about what key bindings are available in the current keymap and context.
     KeyHints,
     /// The name of the current keymap.
     KeymapName,
