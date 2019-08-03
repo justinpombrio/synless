@@ -52,7 +52,7 @@ impl<'l> Ast<'l> {
         Some(self.tree.data().construct.arity.clone())
     }
 
-    /// Calls the closure, giving it read-access to this node's text.
+    /// Call the closure, giving it read-access to this node's text.
     ///
     /// # Panics
     ///
@@ -65,7 +65,7 @@ impl<'l> Ast<'l> {
         self.tree.child_leaf(f)
     }
 
-    /// Calls the closure, giving it write-access to this node's text.
+    /// Call the closure, giving it write-access to this node's text.
     ///
     /// # Panics
     ///
@@ -95,11 +95,12 @@ impl<'l> Ast<'l> {
         &self.tree.data().notation
     }
 
-    /// Replace a node's `i`th child. Returns the replaced child.
+    /// Replace this node's `i`th child. Return the replaced child.
     ///
     /// # Panics
     ///
-    /// Panics if this node's arity is not `Fixed` or `Flexible`.
+    /// Panics if this node's arity is not `Fixed` or `Flexible`, or if `i` is
+    /// out of bounds.
     fn replace_child(&mut self, i: usize, tree: Ast<'l>) -> Ast<'l> {
         if let Some(arity) = self.arity() {
             if !arity.is_fixed() && !arity.is_flexible() {
@@ -223,7 +224,7 @@ impl<'l> Ast<'l> {
         self.tree.goto_root()
     }
 
-    /// Go to this tree's i'th child. For nodes of `Mixed` arity, `i` counts
+    /// Go to this node's i'th child. For nodes of `Mixed` arity, `i` counts
     /// both tree and text children.
     ///
     /// # Panics
@@ -309,11 +310,13 @@ impl<'a, 'l> AstKind<'a, 'l> {
     }
 }
 
+/// A wrapper around an `Ast` with `Text` arity.
 pub struct TextAst<'a, 'l> {
     ast: &'a mut Ast<'l>,
 }
 
 impl<'a, 'l> TextAst<'a, 'l> {
+    /// Call the closure, giving it read-access to this node's text.
     pub fn text<F, T>(&self, f: F) -> T
     where
         F: FnOnce(&Text) -> T,
@@ -321,6 +324,7 @@ impl<'a, 'l> TextAst<'a, 'l> {
         self.ast.text(f)
     }
 
+    /// Call the closure, giving it write-access to this node's text.
     pub fn text_mut<F, T>(&mut self, f: F) -> T
     where
         F: FnOnce(&mut Text) -> T,
@@ -329,45 +333,80 @@ impl<'a, 'l> TextAst<'a, 'l> {
     }
 }
 
+/// A wrapper around an `Ast` with `Fixed` arity.
 pub struct FixedAst<'a, 'l> {
     ast: &'a mut Ast<'l>,
 }
 
 impl<'a, 'l> FixedAst<'a, 'l> {
+    /// Return the number of children this node has. For a Fixed node, this is
+    /// the same as its arity.
     pub fn num_children(&self) -> usize {
         self.ast.num_children()
     }
 
+    /// Go to this node's i'th child.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `i` is out of bounds.
     pub fn goto_child(&mut self, i: usize) {
         self.ast.goto_child(i)
     }
 
+    /// Replace this node's `i`th child. Return the replaced child.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `i` is out of bounds.
     pub fn replace_child(&mut self, i: usize, tree: Ast<'l>) -> Ast<'l> {
         self.ast.replace_child(i, tree)
     }
 }
 
+/// A wrapper around an `Ast` with `Flexible` arity.
 pub struct FlexibleAst<'a, 'l> {
     ast: &'a mut Ast<'l>,
 }
 
 impl<'a, 'l> FlexibleAst<'a, 'l> {
+    /// Return the number of children this node currently has.
     pub fn num_children(&self) -> usize {
         self.ast.num_children()
     }
 
+    /// Go to this node's i'th child.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `i` is out of bounds.
     pub fn goto_child(&mut self, i: usize) {
         self.ast.goto_child(i)
     }
 
+    /// Replace this node's `i`th child. Return the replaced child.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `i` is out of bounds.
     pub fn replace_child(&mut self, i: usize, tree: Ast<'l>) -> Ast<'l> {
         self.ast.replace_child(i, tree)
     }
 
+    /// Insert `tree` as the `i`th child of this node.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `i` is out of bounds.
     pub fn insert_child(&mut self, i: usize, tree: Ast<'l>) {
         self.ast.insert_child(i, tree)
     }
 
+    /// Remove and return the `i`th child of this node.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `i` is out of bounds.
     pub fn remove_child(&mut self, i: usize) -> Ast<'l> {
         self.ast.remove_child(i)
     }
