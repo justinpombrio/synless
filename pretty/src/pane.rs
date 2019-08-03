@@ -34,7 +34,7 @@ pub enum PaneSize {
     /// After `Fixed` and `DynHeight` subpanes have been assigned a
     /// width/height, divide up the remaining available width/height between the
     /// `Proportional` subpanes according to their given weights. The size of
-    /// each subpane will be proportional to its weight, so that a subpane will
+    /// each subpane will be proportional to its weight, so that a subpane with
     /// weight 2 will be twice as large as one with weight 1, etc.
     Proportional(usize),
 }
