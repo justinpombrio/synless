@@ -4,7 +4,7 @@ mod forest;
 mod tree;
 mod tree_ref;
 
-pub use self::tree::{Bookmark, Forest, ReadData, ReadLeaf, Tree, WriteData, WriteLeaf};
+pub use self::tree::{Bookmark, Forest, ReadData, Tree, WriteData};
 pub use self::tree_ref::TreeRef;
 
 #[cfg(test)]
@@ -31,7 +31,7 @@ mod forest_tests {
     impl<'f> TreeRef<'f, u32, u32> {
         fn sum(&self) -> u32 {
             if self.is_leaf() {
-                *self.leaf()
+                self.leaf(|l| *l)
             } else {
                 let mut sum = *self.data();
                 for child in self.children() {
@@ -48,11 +48,11 @@ mod forest_tests {
         // Begin with a leaf of 2
         let mut tree = forest.new_leaf(2);
         assert!(tree.is_leaf());
-        assert_eq!(*tree.leaf(), 2);
+        assert_eq!(tree.leaf(|l| *l), 2);
         // Mutate it to be 3
-        *tree.leaf_mut() = 3;
+        tree.leaf_mut(|l| *l = 3);
         assert!(tree.borrow().is_leaf());
-        assert_eq!(*tree.borrow().leaf(), 3);
+        assert_eq!(tree.borrow().leaf(|l| *l), 3);
     }
 
     #[test]
@@ -87,14 +87,14 @@ mod forest_tests {
     fn test_navigation_ref() {
         let forest: Forest<&'static str, &'static str> = Forest::new();
         let tree = family(&forest);
-        assert_eq!(*tree.borrow().child(0).leaf(), "elder");
-        assert_eq!(*tree.borrow().child(1).leaf(), "younger");
+        assert_eq!(tree.borrow().child(0).leaf(|l| *l), "elder");
+        assert_eq!(tree.borrow().child(1).leaf(|l| *l), "younger");
         assert_eq!(*tree.borrow().child(0).parent().unwrap().data(), "parent");
         assert!(tree.borrow().child(0).parent().unwrap().parent().is_none());
         let children: Vec<&'static str> = tree
             .borrow()
             .children()
-            .map(|child| *child.leaf())
+            .map(|child| child.leaf(|l| *l))
             .collect();
         assert_eq!(children, vec!("elder", "younger"));
     }
@@ -113,14 +113,14 @@ mod forest_tests {
         let forest: Forest<&'static str, &'static str> = Forest::new();
         let mut tree = family(&forest);
         tree.goto_child(1);
-        assert_eq!(*tree.leaf(), "younger");
+        assert_eq!(tree.leaf(|l| *l), "younger");
         tree.goto_parent();
         assert_eq!(*tree.data(), "parent");
         tree.goto_child(0);
-        assert_eq!(*tree.leaf(), "elder");
+        assert_eq!(tree.leaf(|l| *l), "elder");
         tree.goto_root();
         assert_eq!(*tree.data(), "parent");
-        assert_eq!(*tree.borrow().child(1).leaf(), "younger");
+        assert_eq!(tree.borrow().child(1).leaf(|l| *l), "younger");
     }
 
     #[test]
@@ -132,12 +132,15 @@ mod forest_tests {
         assert!(other_tree.borrow().lookup_bookmark(bookmark).is_none());
         assert!(!other_tree.goto_bookmark(bookmark));
         assert_eq!(
-            *tree.borrow().lookup_bookmark(bookmark).unwrap().leaf(),
+            tree.borrow()
+                .lookup_bookmark(bookmark)
+                .unwrap()
+                .leaf(|l| *l),
             "younger"
         );
         tree.goto_child(0);
         assert!(tree.goto_bookmark(bookmark));
-        assert_eq!(*tree.leaf(), "younger");
+        assert_eq!(tree.leaf(|l| *l), "younger");
     }
 
     #[test]
@@ -151,12 +154,15 @@ mod forest_tests {
         assert!(other_tree.borrow().lookup_bookmark(bookmark).is_none());
         assert!(!other_tree.goto_bookmark(bookmark));
         assert_eq!(
-            *tree.borrow().lookup_bookmark(bookmark).unwrap().leaf(),
+            tree.borrow()
+                .lookup_bookmark(bookmark)
+                .unwrap()
+                .leaf(|l| *l),
             "younger"
         );
         tree.goto_child(0);
         assert!(tree.goto_bookmark(bookmark));
-        assert_eq!(*tree.leaf(), "younger");
+        assert_eq!(tree.leaf(|l| *l), "younger");
     }
 
     #[test]
@@ -177,11 +183,11 @@ mod forest_tests {
         let young_imposter = forest.new_leaf("youngImposter");
         let elder = tree.replace_child(0, old_imposter);
         let younger = tree.replace_child(1, young_imposter);
-        assert_eq!(*elder.borrow().leaf(), "elder");
-        assert_eq!(*younger.borrow().leaf(), "younger");
+        assert_eq!(elder.borrow().leaf(|l| *l), "elder");
+        assert_eq!(younger.borrow().leaf(|l| *l), "younger");
         assert_eq!(tree.borrow().num_children(), 2);
-        assert_eq!(*tree.borrow().child(0).leaf(), "oldImposter");
-        assert_eq!(*tree.borrow().child(1).leaf(), "youngImposter");
+        assert_eq!(tree.borrow().child(0).leaf(|l| *l), "oldImposter");
+        assert_eq!(tree.borrow().child(1).leaf(|l| *l), "youngImposter");
     }
 
     #[test]
@@ -190,14 +196,14 @@ mod forest_tests {
         let mut tree = family(&forest);
         // Remove elder child from the family
         let elder = tree.remove_child(0);
-        assert_eq!(*elder.borrow().leaf(), "elder");
+        assert_eq!(elder.borrow().leaf(|l| *l), "elder");
         assert!(elder.borrow().parent().is_none());
         assert_eq!(tree.borrow().num_children(), 1);
-        assert_eq!(*tree.borrow().child(0).leaf(), "younger");
+        assert_eq!(tree.borrow().child(0).leaf(|l| *l), "younger");
         assert_eq!(*tree.borrow().child(0).parent().unwrap().data(), "parent");
         // Remove younger child from the family
         let younger = tree.remove_child(0);
-        assert_eq!(*younger.borrow().leaf(), "younger");
+        assert_eq!(younger.borrow().leaf(|l| *l), "younger");
         assert!(younger.borrow().parent().is_none());
         assert_eq!(tree.borrow().num_children(), 0);
     }
@@ -215,7 +221,7 @@ mod forest_tests {
         let children: Vec<&'static str> = tree
             .borrow()
             .children()
-            .map(|child| *child.leaf())
+            .map(|child| child.leaf(|l| *l))
             .collect();
         assert_eq!(
             children,
@@ -251,7 +257,7 @@ mod forest_tests {
                 // Navigation, Data Access
                 let node5 = tree.borrow().child(2).child(0);
                 assert!(node5.is_leaf());
-                assert_eq!(*node5.leaf(), 5);
+                assert_eq!(node5.leaf(|l| *l), 5);
                 let node4 = node5.parent().unwrap();
                 assert_eq!(*node4.data(), 4);
                 assert!(node5.parent().unwrap().parent().unwrap().parent().is_none());
@@ -354,10 +360,10 @@ mod forest_tests {
             // Leaf Mutation
             tree.goto_child(3);
             assert!(tree.is_leaf());
-            assert_eq!(*tree.leaf(), 3767);
+            assert_eq!(tree.leaf(|l| *l), 3767);
             let mark3767 = tree.bookmark();
-            *tree.leaf_mut() = 376;
-            assert_eq!(*tree.leaf(), 376);
+            tree.leaf_mut(|l| *l = 376);
+            assert_eq!(tree.leaf(|l| *l), 376);
             assert!(!tree.is_at_root());
             tree.goto_parent();
             assert!(!tree.is_leaf());
@@ -400,7 +406,11 @@ mod forest_tests {
             assert!(tree.goto_bookmark(mark4));
             assert_eq!(*tree.data(), 4);
             assert_eq!(
-                *canada.borrow().lookup_bookmark(mark3767).unwrap().leaf(),
+                canada
+                    .borrow()
+                    .lookup_bookmark(mark3767)
+                    .unwrap()
+                    .leaf(|l| *l),
                 376
             );
             assert!(!canada.goto_bookmark(mark0));
@@ -444,7 +454,7 @@ mod forest_tests {
     fn test_leaf_panic() {
         let forest: Forest<(), ()> = Forest::new();
         let mut tree = forest.new_branch((), vec![]);
-        *tree.leaf_mut();
+        tree.leaf_mut(|_l| ());
     }
 
     #[test]

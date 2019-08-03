@@ -290,7 +290,7 @@ fn test_json_string() {
         &mut clipboard,
     )
     .unwrap();
-    assert_render(&doc, "\"a\"");
+    assert_render(&doc, "[\"a\"]");
 }
 
 fn assert_render(doc: &Doc, rendered: &str) {

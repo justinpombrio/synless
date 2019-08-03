@@ -123,30 +123,30 @@ impl<D, L> Tree<D, L> {
         }
     }
 
-    /// Obtain a shared reference to the leaf value at this node.
+    /// Calls the closure, giving it read-access to this leaf node.
     ///
     /// # Panics
     ///
     /// Panics if this is a branch node.
-    pub fn leaf(&self) -> ReadLeaf<D, L> {
-        ReadLeaf {
-            guard: self.forest(),
-            id: self.id,
-        }
+    pub fn leaf<F, T>(&self, f: F) -> T
+    where
+        F: FnOnce(&L) -> T,
+    {
+        f(self.forest().leaf(self.id))
     }
 
-    /// Obtain a shared reference to the leaf value which is the sole child of this node.
+    /// Calls the closure, giving it read-access to the leaf value which is the sole child of this node.
     ///
     /// # Panics
     ///
     /// Panics if this is not a branch node with one leaf child.
-    pub fn child_leaf(&self) -> ReadLeaf<D, L> {
+    pub fn child_leaf<F, T>(&self, f: F) -> T
+    where
+        F: FnOnce(&L) -> T,
+    {
         assert_eq!(self.num_children(), 1);
-        let id = self.forest().child(self.id, 0);
-        ReadLeaf {
-            guard: self.forest(),
-            id,
-        }
+        let child_id = self.forest().child(self.id, 0);
+        f(self.forest().leaf(child_id))
     }
 
     /// Returns the number of children this node has.
@@ -170,30 +170,30 @@ impl<D, L> Tree<D, L> {
         }
     }
 
-    /// Obtain a mutable reference to the leaf value at this node.
+    /// Calls the closure, giving it write-access to this leaf node.
     ///
     /// # Panics
     ///
     /// Panics if this is a branch node.
-    pub fn leaf_mut(&mut self) -> WriteLeaf<D, L> {
-        WriteLeaf {
-            guard: self.forest_mut(),
-            id: self.id,
-        }
+    pub fn leaf_mut<F, T>(&mut self, f: F) -> T
+    where
+        F: FnOnce(&mut L) -> T,
+    {
+        f(self.forest_mut().leaf_mut(self.id))
     }
 
-    /// Obtain a mutable reference to the leaf value which is the sole child of this node.
+    /// Calls the closure, giving it read-access to the leaf value which is the sole child of this node.
     ///
     /// # Panics
     ///
     /// Panics if this is not a branch node with one leaf child.
-    pub fn child_leaf_mut(&self) -> WriteLeaf<D, L> {
+    pub fn child_leaf_mut<F, T>(&mut self, f: F) -> T
+    where
+        F: FnOnce(&mut L) -> T,
+    {
         assert_eq!(self.num_children(), 1);
-        let id = self.forest().child(self.id, 0);
-        WriteLeaf {
-            guard: self.forest_mut(),
-            id,
-        }
+        let child_id = self.forest().child(self.id, 0);
+        f(self.forest_mut().leaf_mut(child_id))
     }
 
     /// Replace the `i`th child of this node with `tree`.
@@ -347,20 +347,8 @@ pub struct ReadData<'f, D, L> {
     pub(super) id: Id,
 }
 
-/// Provides read access to a tree's leaf. Released on drop.
-pub struct ReadLeaf<'f, D, L> {
-    pub(super) guard: Ref<'f, RawForest<D, L>>,
-    pub(super) id: Id,
-}
-
 /// Provides write access to a tree's data. Released on drop.
 pub struct WriteData<'f, D, L> {
-    pub(super) guard: RefMut<'f, RawForest<D, L>>,
-    pub(super) id: Id,
-}
-
-/// Provides write access to a tree's leaf. Released on drop.
-pub struct WriteLeaf<'f, D, L> {
     pub(super) guard: RefMut<'f, RawForest<D, L>>,
     pub(super) id: Id,
 }
@@ -371,14 +359,6 @@ impl<'f, D, L> Deref for ReadData<'f, D, L> {
         self.guard.data(self.id)
     }
 }
-
-impl<'f, D, L> Deref for ReadLeaf<'f, D, L> {
-    type Target = L;
-    fn deref(&self) -> &L {
-        self.guard.leaf(self.id)
-    }
-}
-
 impl<'f, D, L> Deref for WriteData<'f, D, L> {
     type Target = D;
     fn deref(&self) -> &D {
@@ -389,18 +369,5 @@ impl<'f, D, L> Deref for WriteData<'f, D, L> {
 impl<'f, D, L> DerefMut for WriteData<'f, D, L> {
     fn deref_mut(&mut self) -> &mut D {
         self.guard.data_mut(self.id)
-    }
-}
-
-impl<'f, D, L> Deref for WriteLeaf<'f, D, L> {
-    type Target = L;
-    fn deref(&self) -> &L {
-        self.guard.leaf(self.id)
-    }
-}
-
-impl<'f, D, L> DerefMut for WriteLeaf<'f, D, L> {
-    fn deref_mut(&mut self) -> &mut L {
-        self.guard.leaf_mut(self.id)
     }
 }

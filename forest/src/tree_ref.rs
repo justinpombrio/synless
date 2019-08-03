@@ -2,7 +2,7 @@ use std::cell::Ref;
 use std::iter::Iterator;
 
 use crate::forest::{Id, RawForest};
-use crate::tree::{Bookmark, Forest, ReadData, ReadLeaf, Tree};
+use crate::tree::{Bookmark, Forest, ReadData, Tree};
 
 /// An immutable reference to a node in a tree.
 #[derive(Clone)]
@@ -45,16 +45,30 @@ impl<'f, D, L> TreeRef<'f, D, L> {
         }
     }
 
-    /// Obtain a shared reference to the leaf value at this node.
+    /// Calls the closure, giving it read-access to this leaf node.
     ///
     /// # Panics
     ///
     /// Panics if this is a branch node.
-    pub fn leaf(&self) -> ReadLeaf<'f, D, L> {
-        ReadLeaf {
-            guard: self.forest(),
-            id: self.id,
-        }
+    pub fn leaf<F, T>(&self, f: F) -> T
+    where
+        F: FnOnce(&L) -> T,
+    {
+        f(self.forest().leaf(self.id))
+    }
+
+    /// Calls the closure, giving it read-access to the leaf value which is the sole child of this node.
+    ///
+    /// # Panics
+    ///
+    /// Panics if this is not a branch node with one leaf child.
+    pub fn child_leaf<F, T>(&self, f: F) -> T
+    where
+        F: FnOnce(&L) -> T,
+    {
+        assert_eq!(self.num_children(), 1);
+        let child_id = self.forest().child(self.id, 0);
+        f(self.forest().leaf(child_id))
     }
 
     /// Returns the number of children this node has.

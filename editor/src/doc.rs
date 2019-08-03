@@ -114,7 +114,7 @@ impl<'l> Doc<'l> {
     }
 
     pub fn ast_ref<'f>(&'f self) -> AstRef<'f, 'l> {
-        self.ast.borrow()
+        self.ast.ast_ref()
     }
 
     pub fn in_tree_mode(&self) -> bool {
@@ -322,7 +322,7 @@ impl<'l> Doc<'l> {
                 AstKind::Text(mut text) => {
                     // Enter text mode
                     self.mode = Mode::Text(i);
-                    text.text_mut().as_mut().activate();
+                    text.text_mut(|t| t.activate());
                     vec![TextNavCmd::TreeMode.into()]
                 }
                 AstKind::Fixed(mut ast) => {
@@ -352,23 +352,23 @@ impl<'l> Doc<'l> {
         let char_index = self.mode.unwrap_text_pos();
         let undos = match cmd {
             TextCmd::InsertChar(character) => {
-                ast.text_mut().as_mut().insert(char_index, character);
+                ast.text_mut(|t| t.insert(char_index, character));
                 self.mode = Mode::Text(char_index + 1);
                 vec![TextCmd::DeleteCharBackward.into()]
             }
             TextCmd::DeleteCharForward => {
-                let text_len = ast.text().as_text_ref().num_chars();
+                let text_len = ast.text(|t| t.num_chars());
                 if char_index == text_len {
                     return Err(());
                 }
-                let c = ast.text_mut().as_mut().delete(char_index);
+                let c = ast.text_mut(|t| t.delete(char_index));
                 vec![TextCmd::InsertChar(c).into()]
             }
             TextCmd::DeleteCharBackward => {
                 if char_index == 0 {
                     return Err(());
                 }
-                let c = ast.text_mut().as_mut().delete(char_index - 1);
+                let c = ast.text_mut(|t| t.delete(char_index - 1));
                 self.mode = Mode::Text(char_index - 1);
                 vec![TextCmd::InsertChar(c).into()]
             }
@@ -391,7 +391,7 @@ impl<'l> Doc<'l> {
                 vec![TextNavCmd::Right.into()]
             }
             TextNavCmd::Right => {
-                if char_index >= ast.text().as_text_ref().num_chars() {
+                if char_index >= ast.text(|t| t.num_chars()) {
                     return Err(());
                 }
                 self.mode = Mode::Text(char_index + 1);
@@ -399,7 +399,7 @@ impl<'l> Doc<'l> {
             }
             TextNavCmd::TreeMode => {
                 // Exit text mode
-                ast.text_mut().as_mut().inactivate();
+                ast.text_mut(|t| t.inactivate());
                 self.mode = Mode::Tree;
                 vec![TreeNavCmd::Child(char_index).into()]
             }
