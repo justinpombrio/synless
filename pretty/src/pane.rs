@@ -174,7 +174,7 @@ where
         get_content: F,
     ) -> Result<(), PaneError<T::Error>>
     where
-        F: FnOnce(&DocLabel) -> Option<(U, CursorVis)>,
+        F: Fn(&DocLabel) -> Option<(U, CursorVis)>,
         F: Clone,
         U: PrettyDocument,
     {
