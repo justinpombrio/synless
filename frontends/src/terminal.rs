@@ -16,7 +16,7 @@ use termion::raw::{IntoRawMode, RawTerminal};
 use termion::screen::AlternateScreen;
 use termion::style::{Bold, NoBold, NoUnderline, Reset, Underline};
 
-use pretty::{Col, ColorTheme, Pane, Pos, PrettyWindow, Region, Rgb, Row, Shade, Style};
+use pretty::{Col, ColorTheme, Pane, PaneError, Pos, PrettyWindow, Region, Rgb, Row, Shade, Style};
 
 use crate::frontend::{Event, Frontend};
 
@@ -79,7 +79,7 @@ impl Terminal {
     }
 
     /// Show the modified frame to the user.
-    fn show_frame(&mut self) -> Result<(), io::Error> {
+    fn show_frame(&mut self) -> Result<(), Error> {
         // Reset terminal's style
         self.write(Reset)?;
         // Update the screen from the old frame to the new frame.
@@ -149,9 +149,9 @@ impl Frontend for Terminal {
         }
     }
 
-    fn draw_frame<F>(&mut self, draw: F) -> Result<(), Error>
+    fn draw_frame<F>(&mut self, draw: F) -> Result<(), PaneError<Error>>
     where
-        F: Fn(Pane<Self>) -> Result<(), Error>,
+        F: Fn(Pane<Self>) -> Result<(), PaneError<Error>>,
     {
         self.start_frame()?;
         let pane = self.pane()?;

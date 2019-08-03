@@ -1,4 +1,4 @@
-use pretty::{ColorTheme, Pane, Pos, PrettyWindow};
+use pretty::{ColorTheme, Pane, PaneError, Pos, PrettyWindow};
 
 pub use termion::event::Key;
 
@@ -26,7 +26,10 @@ pub trait Frontend: Sized {
     fn next_event(&mut self) -> Option<Result<Event, Self::Error>>;
 
     /// Use the given `draw` closure to draw a complete frame to this Frontend's window.
-    fn draw_frame<F>(&mut self, draw: F) -> Result<(), Self::Error>
+    fn draw_frame<F>(
+        &mut self,
+        draw: F,
+    ) -> Result<(), PaneError<<Self::Window as PrettyWindow>::Error>>
     where
-        F: Fn(Pane<Self::Window>) -> Result<(), Self::Error>;
+        F: Fn(Pane<Self::Window>) -> Result<(), PaneError<<Self::Window as PrettyWindow>::Error>>;
 }

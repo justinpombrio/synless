@@ -113,6 +113,10 @@ impl<'l> Doc<'l> {
         }
     }
 
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
     pub fn ast_ref<'f>(&'f self) -> AstRef<'f, 'l> {
         self.ast.ast_ref()
     }

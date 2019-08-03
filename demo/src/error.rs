@@ -3,6 +3,7 @@ use termion::event::Key;
 
 use frontends::terminal;
 use language::{ConstructName, LanguageName};
+use pretty::PaneError;
 
 #[derive(Debug)]
 pub enum Error {
@@ -19,8 +20,15 @@ pub enum Error {
     ExpectedWord(String),
     EmptyStack,
     DocExec(String),
+    Pane(PaneError<terminal::Error>),
     Io(io::Error),
     Term(terminal::Error),
+}
+
+impl From<PaneError<terminal::Error>> for Error {
+    fn from(e: PaneError<terminal::Error>) -> Error {
+        Error::Pane(e)
+    }
 }
 
 impl From<io::Error> for Error {
