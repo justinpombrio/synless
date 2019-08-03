@@ -90,6 +90,12 @@ fn test_json_undo_redo() {
     .unwrap();
     assert_render(&doc, "[true, false, null]");
 
+    doc.execute(
+        CommandGroup::Group(vec![Command::TreeNav(TreeNavCmd::Left)]),
+        &mut clipboard,
+    )
+    .unwrap();
+
     doc.execute(CommandGroup::Undo, &mut clipboard).unwrap();
     assert_render(&doc, "[true, null]");
 

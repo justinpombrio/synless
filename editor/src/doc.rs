@@ -132,30 +132,56 @@ impl<'l> Doc<'l> {
     fn undo(&mut self, clipboard: &mut Clipboard<'l>) -> Result<(), ()> {
         assert!(self.recent.commands.is_empty());
         assert!(!self.recent.contains_edit);
-        match self.undo_stack.pop() {
-            None => Err(()), // Undo stack is empty
-            Some(group) => {
+
+        // Find the most recent group that contains an edit
+        let index = self
+            .undo_stack
+            .iter()
+            .rposition(|group| group.contains_edit);
+
+        if let Some(index) = index {
+            // Undo everything up to and including that group
+            for _ in 0..(self.undo_stack.len() - index) {
+                let group = self
+                    .undo_stack
+                    .pop()
+                    .expect("undo stack shouldn't be empty!");
                 self.execute_group(group, clipboard)
                     .expect("Failed to undo");
                 let recent = self.take_recent();
                 self.redo_stack.push(recent);
-                Ok(())
             }
+            Ok(())
+        } else {
+            Err(()) // There are no edits on the undo stack
         }
     }
 
     fn redo(&mut self, clipboard: &mut Clipboard<'l>) -> Result<(), ()> {
         assert!(self.recent.commands.is_empty());
         assert!(!self.recent.contains_edit);
-        match self.redo_stack.pop() {
-            None => Err(()), // Redo stack is empty
-            Some(group) => {
+
+        // Find the most recent group that contains an edit
+        let index = self
+            .redo_stack
+            .iter()
+            .rposition(|group| group.contains_edit);
+
+        if let Some(index) = index {
+            // Redo everything up to and including that group
+            for _ in 0..(self.redo_stack.len() - index) {
+                let group = self
+                    .redo_stack
+                    .pop()
+                    .expect("redo stack shouldn't be empty!");
                 self.execute_group(group, clipboard)
                     .expect("Failed to redo");
                 let recent = self.take_recent();
                 self.undo_stack.push(recent);
-                Ok(())
             }
+            Ok(())
+        } else {
+            Err(()) // There are no edits on the redo stack
         }
     }
 
@@ -429,13 +455,14 @@ impl<'l> Doc<'l> {
                 let index = if at_start { 0 } else { original_num_children };
                 flexible.insert_child(index, new_ast);
                 flexible.goto_child(index);
-                let mut undo = vec![TreeCmd::Remove.into()];
+                let mut undo = Vec::new();
                 if original_num_children != 0 {
                     // If there are still children left after removing this
                     // one, we won't automatically go back up to the parent.
                     // So do that here.
                     undo.push(TreeNavCmd::Parent.into());
                 }
+                undo.push(TreeCmd::Remove.into());
                 Ok(undo)
             }
             _ => Err(()),
