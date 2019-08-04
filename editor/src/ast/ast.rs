@@ -95,7 +95,9 @@ impl<'l> Ast<'l> {
         &self.tree.data().notation
     }
 
-    /// Replace this node's `i`th child. Return the replaced child.
+    /// Replace this node's `i`th child. Return the replaced child. If `tree`
+    /// cannot be inserted because it has the wrong Sort, return it as
+    /// `Err(tree)`.
     ///
     /// # Panics
     ///

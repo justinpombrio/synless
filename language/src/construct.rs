@@ -119,7 +119,7 @@ impl Arity {
         }
     }
 
-    /// Get the `Sort` of any child of this flexible or mixed node.
+    /// Get the `Sort` of all children of this flexible or mixed node.
     ///
     /// # Panics
     ///
