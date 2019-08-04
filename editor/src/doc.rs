@@ -266,7 +266,10 @@ impl<'l> Doc<'l> {
                         clipboard.push(rejected_tree);
                         DocError::CannotPaste
                     } else {
-                        err // Unexpected error, forward it along
+                        panic!(
+                            "Failed to paste, may have lost node from clipboard: {:?}",
+                            err
+                        );
                     }
                 })?;
 
