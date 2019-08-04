@@ -9,7 +9,7 @@ pub fn make_message_lang() -> (Language, NotationSet) {
     ];
     let constructs = vec![
         Construct::new("message", "Message", Arity::Text, None),
-        Construct::new("list", "List", Arity::Flexible("Message".to_string()), None),
+        Construct::new("list", "List", Arity::Flexible("Message".into()), None),
     ];
     // TODO: some of this boilerplate should get abstracted out
     let mut lang = Language::new("message");

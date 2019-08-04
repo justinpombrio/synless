@@ -12,16 +12,11 @@ pub fn make_keymap_lang() -> (Language, NotationSet) {
     let constructs = vec![
         Construct::new("key", "Key", Arity::Text, Some('k')),
         Construct::new("prog", "Value", Arity::Text, Some('p')),
-        Construct::new(
-            "dict",
-            "Dict",
-            Arity::Flexible("Entry".to_string()),
-            Some('d'),
-        ),
+        Construct::new("dict", "Dict", Arity::Flexible("Entry".into()), Some('d')),
         Construct::new(
             "entry",
             "Entry",
-            Arity::Fixed(vec!["Key".to_string(), "Value".to_string()]),
+            Arity::Fixed(vec!["Key".into(), "Value".into()]),
             Some('e'),
         ),
     ];

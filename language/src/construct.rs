@@ -6,7 +6,33 @@ use std::collections::HashMap;
 use std::fmt;
 
 pub type ConstructName = String;
-pub type Sort = String; // "Any" is special
+
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct Sort(String); // "Any" is special
+
+impl Sort {
+    /// Construct a new "Any" sort.
+    pub fn any() -> Sort {
+        "Any".into()
+    }
+
+    /// Return true if a hole with this sort can accept a child with the given sort.
+    pub fn accepts(&self, child: &Sort) -> bool {
+        &self.0 == "Any" || &child.0 == "Any" || self == child
+    }
+}
+
+impl From<String> for Sort {
+    fn from(s: String) -> Sort {
+        Sort(s)
+    }
+}
+
+impl<'a> From<&'a str> for Sort {
+    fn from(s: &'a str) -> Sort {
+        Sort(s.to_owned())
+    }
+}
 
 /// A syntactic construct.
 #[derive(Debug, PartialEq, Eq)]
@@ -18,10 +44,13 @@ pub struct Construct {
 }
 
 impl Construct {
-    pub fn new(name: &str, sort: &str, arity: Arity, key: Option<char>) -> Construct {
+    pub fn new<T>(name: &str, sort: T, arity: Arity, key: Option<char>) -> Construct
+    where
+        T: Into<Sort>,
+    {
         Construct {
             name: name.to_string(),
-            sort: sort.to_string(),
+            sort: sort.into(),
             arity: arity,
             key: key,
         }
@@ -72,6 +101,35 @@ impl Arity {
             _ => false,
         }
     }
+
+    /// Get the `Sort` of the `i`th child. For flexible-arity and mixed-arity nodes, get the `Sort`
+    /// required of all tree children, ignoring `i`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if nodes of this arity cannot have an `i`th child.
+    pub fn child_sort(&self, i: usize) -> &Sort {
+        match self {
+            Arity::Flexible(sort) | Arity::Mixed(sort) => sort, // all tree children have the same Sort
+            Arity::Fixed(sorts) => sorts.get(i).expect(&format!(
+                "child_sort - fixed node has only {} children",
+                sorts.len()
+            )),
+            _ => panic!("child_sort - node has no children"),
+        }
+    }
+
+    /// Get the `Sort` of all children of this flexible or mixed node.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the arity is not flexible or mixed.
+    pub fn uniform_child_sort(&self) -> &Sort {
+        match self {
+            Arity::Flexible(sort) | Arity::Mixed(sort) => sort, // all tree children have the same Sort
+            _ => panic!("uniform_child_sort - node is not flexible or mixed"),
+        }
+    }
 }
 
 impl fmt::Display for Arity {
@@ -85,11 +143,11 @@ lazy_static! {
     pub static ref BUILTIN_CONSTRUCTS: HashMap<ConstructName, Construct> = vec![
         (
             "hole".to_owned(),
-            Construct::new("hole", "Any", Arity::Fixed(vec!()), Some('?'))
+            Construct::new("hole", Sort::any(), Arity::Fixed(vec!()), Some('?'))
         ),
         (
             "root".to_owned(),
-            Construct::new("root", "root", Arity::Fixed(vec!["Any".into()]), None)
+            Construct::new("root", "root", Arity::Fixed(vec![Sort::any()]), None)
         )
     ].into_iter().collect();
 }

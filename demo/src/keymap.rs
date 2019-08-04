@@ -2,19 +2,79 @@ use std::collections::HashMap;
 use std::iter;
 use termion::event::Key;
 
+use crate::error::Error;
 use crate::prog::{Prog, Word};
-use language::{Language, LanguageName};
+use editor::AstRef;
+use language::{Arity, Language, LanguageName, Sort};
 
-pub struct Keymap<'l>(pub HashMap<Key, Prog<'l>>);
+/// Rules for when a particular item should be included in a keymap
+#[derive(Clone, Debug)]
+pub enum KmapFilter {
+    Always,
+    Sort(Sort),
+    ParentArity(Vec<ArityType>),
+    SelfArity(Vec<ArityType>),
+}
 
-impl<'l> Keymap<'l> {
-    pub fn node(lang: &Language) -> Self {
-        Keymap(
+/// Like `Arity`, but without any data in the variants.
+#[derive(Clone, Copy, Debug)]
+#[allow(dead_code)]
+pub enum ArityType {
+    Text,
+    Fixed,
+    Flexible,
+    Mixed,
+}
+
+pub struct KmapFactory<'l>(Vec<(Key, KmapFilter, Prog<'l>)>);
+
+pub struct FilteredKmap<'l>(HashMap<Key, Prog<'l>>);
+
+impl<'l> KmapFactory<'l> {
+    pub fn filter<'a>(&'a self, ast: AstRef<'a, 'l>, required_sort: &Sort) -> FilteredKmap<'l> {
+        FilteredKmap(
+            self.0
+                .iter()
+                .filter_map(|(key, filter, prog)| match filter {
+                    KmapFilter::Always => Some((key, prog)),
+                    KmapFilter::Sort(sort) => {
+                        if required_sort.accepts(sort) {
+                            Some((key, prog))
+                        } else {
+                            None
+                        }
+                    }
+                    KmapFilter::ParentArity(arity_types) => {
+                        let (parent, _) = ast.parent()?;
+                        for arity_type in arity_types {
+                            if arity_type.is_type_of(parent.arity()) {
+                                return Some((key, prog));
+                            }
+                        }
+                        None
+                    }
+                    KmapFilter::SelfArity(arity_types) => {
+                        for arity_type in arity_types {
+                            if arity_type.is_type_of(ast.arity()) {
+                                return Some((key, prog));
+                            }
+                        }
+                        None
+                    }
+                })
+                .map(|(key, prog)| (key.to_owned(), prog.to_owned()))
+                .collect(),
+        )
+    }
+
+    pub fn make_node_map(lang: &Language) -> Self {
+        KmapFactory(
             lang.keymap()
                 .iter()
                 .map(|(&ch, construct_name)| {
                     (
                         Key::Char(ch),
+                        KmapFilter::Sort(lang.lookup_construct(construct_name).sort.clone()),
                         Prog::named(
                             construct_name,
                             &[
@@ -32,6 +92,7 @@ impl<'l> Keymap<'l> {
                 })
                 .chain(iter::once((
                     Key::Esc,
+                    KmapFilter::Always,
                     Prog::named(
                         "Cancel",
                         &[
@@ -44,103 +105,141 @@ impl<'l> Keymap<'l> {
         )
     }
 
-    pub fn tree() -> Self {
-        let map = vec![
-            (Key::Char('d'), Prog::single(Word::Cut)),
-            (Key::Char('y'), Prog::single(Word::Copy)),
-            (Key::Char('p'), Prog::single(Word::PasteAfter)),
-            (Key::Char('P'), Prog::single(Word::PasteBefore)),
-            (Key::Ctrl('p'), Prog::single(Word::PastePrepend)),
-            (Key::Alt('p'), Prog::single(Word::PastePostpend)),
-            (Key::Char('R'), Prog::single(Word::PasteReplace)),
+    pub fn make_tree_map() -> Self {
+        KmapFactory(vec![
+            (Key::Char('d'), KmapFilter::Always, Prog::single(Word::Cut)),
+            (Key::Char('y'), KmapFilter::Always, Prog::single(Word::Copy)),
+            (
+                Key::Char('p'),
+                KmapFilter::ParentArity(vec![ArityType::Flexible, ArityType::Mixed]),
+                Prog::single(Word::PasteAfter),
+            ),
+            (
+                Key::Char('P'),
+                KmapFilter::ParentArity(vec![ArityType::Flexible, ArityType::Mixed]),
+                Prog::single(Word::PasteBefore),
+            ),
+            (
+                Key::Ctrl('p'),
+                KmapFilter::SelfArity(vec![ArityType::Flexible, ArityType::Mixed]),
+                Prog::single(Word::PastePrepend),
+            ),
+            (
+                Key::Alt('p'),
+                KmapFilter::SelfArity(vec![ArityType::Flexible, ArityType::Mixed]),
+                Prog::single(Word::PastePostpend),
+            ),
+            (
+                Key::Char('R'),
+                KmapFilter::Always,
+                Prog::single(Word::PasteReplace),
+            ),
             (
                 Key::Char('a'),
+                KmapFilter::Always,
                 Prog::named("TypeA", &[Word::Char('a'), Word::InsertChar]),
             ),
-            (Key::Char('u'), Prog::single(Word::Undo)),
-            (Key::Ctrl('r'), Prog::single(Word::Redo)),
-            (Key::Right, Prog::single(Word::Right)),
-            (Key::Left, Prog::single(Word::Left)),
-            (Key::Up, Prog::single(Word::Parent)),
-            (Key::Backspace, Prog::single(Word::Remove)),
+            (Key::Char('u'), KmapFilter::Always, Prog::single(Word::Undo)),
+            (Key::Ctrl('r'), KmapFilter::Always, Prog::single(Word::Redo)),
+            (Key::Right, KmapFilter::Always, Prog::single(Word::Right)),
+            (Key::Left, KmapFilter::Always, Prog::single(Word::Left)),
+            (Key::Up, KmapFilter::Always, Prog::single(Word::Parent)),
+            (
+                Key::Backspace,
+                KmapFilter::Always,
+                Prog::single(Word::Remove),
+            ),
             (
                 Key::Down,
+                KmapFilter::Always,
                 Prog::named("Child", &[Word::Usize(0), Word::Child]),
             ),
             (
                 Key::Char('i'),
+                KmapFilter::ParentArity(vec![ArityType::Flexible, ArityType::Mixed]),
                 Prog::named(
                     "InsertAfter",
                     &[
                         Word::InsertAfter.quote(),
                         Word::MapName("node".into()),
+                        Word::SiblingSort,
                         Word::PushMap,
                     ],
                 ),
             ),
             (
                 Key::Char('I'),
+                KmapFilter::ParentArity(vec![ArityType::Flexible, ArityType::Mixed]),
                 Prog::named(
                     "InsertBefore",
                     &[
                         Word::InsertBefore.quote(),
                         Word::MapName("node".into()),
+                        Word::SiblingSort,
                         Word::PushMap,
                     ],
                 ),
             ),
             (
                 Key::Char('o'),
+                KmapFilter::SelfArity(vec![ArityType::Flexible, ArityType::Mixed]),
                 Prog::named(
                     "InsertPostpend",
                     &[
                         Word::InsertPostpend.quote(),
                         Word::MapName("node".into()),
+                        Word::ChildSort,
                         Word::PushMap,
                     ],
                 ),
             ),
             (
                 Key::Char('O'),
+                KmapFilter::SelfArity(vec![ArityType::Flexible, ArityType::Mixed]),
                 Prog::named(
                     "InsertPrepend",
                     &[
                         Word::InsertPrepend.quote(),
                         Word::MapName("node".into()),
+                        Word::ChildSort,
                         Word::PushMap,
                     ],
                 ),
             ),
             (
                 Key::Char('r'),
+                KmapFilter::Always,
                 Prog::named(
                     "Replace",
                     &[
                         Word::Replace.quote(),
                         Word::MapName("node".into()),
+                        Word::SelfSort,
                         Word::PushMap,
                     ],
                 ),
             ),
             (
                 Key::Char(' '),
+                KmapFilter::ParentArity(vec![ArityType::Flexible, ArityType::Mixed]),
                 Prog::named(
                     "SpeedBoolMode",
-                    &[Word::MapName("speed_bool".into()), Word::PushMap],
+                    &[
+                        Word::MapName("speed_bool".into()),
+                        Word::AnySort,
+                        Word::PushMap,
+                    ],
                 ),
             ),
-        ]
-        .into_iter()
-        .collect();
-
-        Keymap(map)
+        ])
     }
 
-    pub fn speed_bool() -> Self {
+    pub fn make_speed_bool_map() -> Self {
         let lang: LanguageName = "json".into();
-        let map = vec![
+        KmapFactory(vec![
             (
                 Key::Char('t'),
+                KmapFilter::ParentArity(vec![ArityType::Flexible, ArityType::Mixed]),
                 Prog::named(
                     "True",
                     &[
@@ -152,6 +251,7 @@ impl<'l> Keymap<'l> {
             ),
             (
                 Key::Char('f'),
+                KmapFilter::ParentArity(vec![ArityType::Flexible, ArityType::Mixed]),
                 Prog::named(
                     "False",
                     &[
@@ -161,12 +261,18 @@ impl<'l> Keymap<'l> {
                     ],
                 ),
             ),
-            (Key::Esc, Prog::named("Exit", &[Word::PopMap])),
-        ]
-        .into_iter()
-        .collect();
+            (
+                Key::Esc,
+                KmapFilter::Always,
+                Prog::named("Exit", &[Word::PopMap]),
+            ),
+        ])
+    }
+}
 
-        Keymap(map)
+impl<'l> FilteredKmap<'l> {
+    pub fn lookup(&self, key: Key) -> Result<Prog<'l>, Error> {
+        self.0.get(&key).cloned().ok_or(Error::UnknownKey(key))
     }
 
     pub fn hints(&self) -> Vec<(String, String)> {
@@ -212,6 +318,18 @@ impl<'l> Keymap<'l> {
             Key::Null => "Null".to_string(),
             Key::Esc => "Esc".to_string(),
             _ => "(unknown)".to_string(),
+        }
+    }
+}
+
+impl ArityType {
+    fn is_type_of(self, arity: Arity) -> bool {
+        match (self, arity) {
+            (ArityType::Flexible, Arity::Flexible(..)) => true,
+            (ArityType::Fixed, Arity::Fixed(..)) => true,
+            (ArityType::Text, Arity::Text) => true,
+            (ArityType::Mixed, Arity::Mixed(..)) => true,
+            _ => false,
         }
     }
 }

@@ -1,6 +1,7 @@
 use std::io;
 use termion::event::Key;
 
+use editor::DocError;
 use frontends::terminal;
 use language::{ConstructName, LanguageName};
 use pretty::PaneError;
@@ -19,8 +20,8 @@ pub enum Error {
     },
     ExpectedWord(String),
     EmptyStack,
-    DocExec(String),
     Pane(PaneError<terminal::Error>),
+    DocExec(DocError<'static>),
     Io(io::Error),
     Term(terminal::Error),
 }
@@ -40,5 +41,11 @@ impl From<io::Error> for Error {
 impl From<terminal::Error> for Error {
     fn from(e: terminal::Error) -> Error {
         Error::Term(e)
+    }
+}
+
+impl From<DocError<'static>> for Error {
+    fn from(e: DocError<'static>) -> Error {
+        Error::DocExec(e)
     }
 }

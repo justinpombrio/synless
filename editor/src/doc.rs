@@ -4,6 +4,20 @@ use crate::ast::{Ast, AstKind, AstRef};
 use crate::command::{Command, CommandGroup, EditorCmd, TextCmd, TextNavCmd, TreeCmd, TreeNavCmd};
 
 #[derive(Debug)]
+pub enum DocError<'l> {
+    NotInTextMode,
+    NotInTreeMode,
+    NothingToUndo,
+    NothingToRedo,
+    WrongSort(Ast<'l>),
+    CannotPaste,
+    EmptyClipboard,
+    CannotMove,
+    CannotRemoveNode,
+    CannotDeleteChar,
+}
+
+#[derive(Debug)]
 pub struct UndoGroup<'l> {
     contains_edit: bool,
     commands: Vec<Command<'l>>,
@@ -84,10 +98,10 @@ impl Mode {
         }
     }
 
-    fn unwrap_text_pos(&self) -> usize {
+    fn text_pos(&self) -> Option<usize> {
         match self {
-            Mode::Text(pos) => *pos,
-            _ => panic!("tried to execute text command in tree mode"),
+            Mode::Text(pos) => Some(*pos),
+            _ => None,
         }
     }
 }
@@ -129,7 +143,7 @@ impl<'l> Doc<'l> {
         mem::replace(&mut self.recent, UndoGroup::new())
     }
 
-    fn undo(&mut self, clipboard: &mut Clipboard<'l>) -> Result<(), ()> {
+    fn undo(&mut self, clipboard: &mut Clipboard<'l>) -> Result<(), DocError<'l>> {
         assert!(self.recent.commands.is_empty());
         assert!(!self.recent.contains_edit);
 
@@ -153,11 +167,11 @@ impl<'l> Doc<'l> {
             }
             Ok(())
         } else {
-            Err(()) // There are no edits on the undo stack
+            Err(DocError::NothingToUndo) // There are no edits on the undo stack
         }
     }
 
-    fn redo(&mut self, clipboard: &mut Clipboard<'l>) -> Result<(), ()> {
+    fn redo(&mut self, clipboard: &mut Clipboard<'l>) -> Result<(), DocError<'l>> {
         assert!(self.recent.commands.is_empty());
         assert!(!self.recent.contains_edit);
 
@@ -181,7 +195,7 @@ impl<'l> Doc<'l> {
             }
             Ok(())
         } else {
-            Err(()) // There are no edits on the redo stack
+            Err(DocError::NothingToRedo) // There are no edits on the redo stack
         }
     }
 
@@ -189,7 +203,7 @@ impl<'l> Doc<'l> {
         &mut self,
         cmds: CommandGroup<'l>,
         clipboard: &mut Clipboard<'l>,
-    ) -> Result<(), ()> {
+    ) -> Result<(), DocError<'l>> {
         match cmds {
             CommandGroup::Undo => self.undo(clipboard),
             CommandGroup::Redo => self.redo(clipboard),
@@ -205,7 +219,11 @@ impl<'l> Doc<'l> {
         }
     }
 
-    fn execute_group<I>(&mut self, cmds: I, clipboard: &mut Clipboard<'l>) -> Result<(), ()>
+    fn execute_group<I>(
+        &mut self,
+        cmds: I,
+        clipboard: &mut Clipboard<'l>,
+    ) -> Result<(), DocError<'l>>
     where
         I: IntoIterator<Item = Command<'l>>,
     {
@@ -226,9 +244,9 @@ impl<'l> Doc<'l> {
         &mut self,
         cmd: EditorCmd,
         clipboard: &mut Clipboard<'l>,
-    ) -> Result<UndoGroup<'l>, ()> {
+    ) -> Result<UndoGroup<'l>, DocError<'l>> {
         if !self.mode.is_tree_mode() {
-            panic!("tried to execute editor command in text mode")
+            return Err(DocError::NotInTreeMode);
         }
         match cmd {
             EditorCmd::Cut => {
@@ -240,62 +258,59 @@ impl<'l> Doc<'l> {
                 clipboard.push(self.ast.clone());
                 Ok(UndoGroup::new())
             }
-            EditorCmd::PasteAfter => {
-                if let Some(tree) = clipboard.pop() {
-                    // TODO if the insert fails, we'll lose the tree forever...
-                    self.execute_tree(TreeCmd::InsertAfter(tree))
-                } else {
-                    // TODO should we return an error if the clipboard is empty?
-                    Ok(UndoGroup::new())
-                }
-            }
-            EditorCmd::PasteBefore => {
-                if let Some(tree) = clipboard.pop() {
-                    self.execute_tree(TreeCmd::InsertBefore(tree))
-                } else {
-                    Ok(UndoGroup::new())
-                }
-            }
-            EditorCmd::PastePrepend => {
-                if let Some(tree) = clipboard.pop() {
-                    self.execute_tree(TreeCmd::InsertPrepend(tree))
-                } else {
-                    Ok(UndoGroup::new())
-                }
-            }
-            EditorCmd::PastePostpend => {
-                if let Some(tree) = clipboard.pop() {
-                    self.execute_tree(TreeCmd::InsertPostpend(tree))
-                } else {
-                    Ok(UndoGroup::new())
-                }
-            }
-            EditorCmd::PasteReplace => {
-                if let Some(tree) = clipboard.pop() {
-                    self.execute_tree(TreeCmd::Replace(tree))
-                } else {
-                    Ok(UndoGroup::new())
-                }
-            }
+            EditorCmd::PasteAfter => self.execute_paste(EditorCmd::PasteAfter, clipboard),
+            EditorCmd::PasteBefore => self.execute_paste(EditorCmd::PasteBefore, clipboard),
+            EditorCmd::PastePrepend => self.execute_paste(EditorCmd::PastePrepend, clipboard),
+            EditorCmd::PastePostpend => self.execute_paste(EditorCmd::PastePostpend, clipboard),
+            EditorCmd::PasteReplace => self.execute_paste(EditorCmd::PasteReplace, clipboard),
         }
     }
 
-    fn execute_tree(&mut self, cmd: TreeCmd<'l>) -> Result<UndoGroup<'l>, ()> {
+    fn execute_paste(
+        &mut self,
+        paste_cmd: EditorCmd,
+        clipboard: &mut Clipboard<'l>,
+    ) -> Result<UndoGroup<'l>, DocError<'l>> {
+        let tree = clipboard.pop().ok_or(DocError::EmptyClipboard)?;
+        let insertion_cmd = match paste_cmd {
+            EditorCmd::PasteBefore => TreeCmd::InsertBefore(tree),
+            EditorCmd::PasteAfter => TreeCmd::InsertAfter(tree),
+            EditorCmd::PastePrepend => TreeCmd::InsertPrepend(tree),
+            EditorCmd::PastePostpend => TreeCmd::InsertPostpend(tree),
+            EditorCmd::PasteReplace => TreeCmd::Replace(tree),
+            _ => panic!("execute_paste - not a paste command"),
+        };
+        self.execute_tree(insertion_cmd).map_err(|err| {
+            if let DocError::WrongSort(rejected_tree) = err {
+                // Can't paste that here, put it back!
+                clipboard.push(rejected_tree);
+                DocError::CannotPaste
+            } else {
+                err // Something else went wrong...
+            }
+        })
+    }
+
+    fn execute_tree(&mut self, cmd: TreeCmd<'l>) -> Result<UndoGroup<'l>, DocError<'l>> {
         if !self.mode.is_tree_mode() {
-            panic!("tried to execute tree command in text mode")
+            return Err(DocError::NotInTreeMode);
         }
         let undos = match cmd {
             TreeCmd::Replace(new_ast) => {
-                let i = self.ast.goto_parent();
+                let i = self.ast.goto_parent(); // child index
                 match self.ast.inner() {
                     AstKind::Fixed(mut fixed) => {
-                        let old_ast = fixed.replace_child(i, new_ast);
+                        let result = fixed.replace_child(i, new_ast);
                         fixed.goto_child(i);
+                        let old_ast =
+                            result.map_err(|rejected_ast| DocError::WrongSort(rejected_ast))?;
                         vec![TreeCmd::Replace(old_ast).into()]
                     }
                     AstKind::Flexible(mut flexible) => {
-                        let old_ast = flexible.replace_child(i, new_ast);
+                        let result = flexible.replace_child(i, new_ast);
                         flexible.goto_child(i);
+                        let old_ast =
+                            result.map_err(|rejected_ast| DocError::WrongSort(rejected_ast))?;
                         vec![TreeCmd::Replace(old_ast).into()]
                     }
                     _ => panic!("how can a parent not be fixed or flexible?"),
@@ -316,17 +331,15 @@ impl<'l> Doc<'l> {
         })
     }
 
-    fn execute_tree_nav(&mut self, cmd: TreeNavCmd) -> Result<UndoGroup<'l>, ()> {
+    fn execute_tree_nav(&mut self, cmd: TreeNavCmd) -> Result<UndoGroup<'l>, DocError<'l>> {
         if !self.mode.is_tree_mode() {
-            // TODO: once there's scripting or user-defined keybindings,
-            // this needs to be a gentler error.
-            panic!("tried to execute tree navigation command in text mode")
+            return Err(DocError::NotInTreeMode);
         }
         let undos = match cmd {
             TreeNavCmd::Left => {
                 let i = self.ast.index();
                 if i == 0 {
-                    return Err(());
+                    return Err(DocError::CannotMove);
                 }
                 self.ast.goto_sibling(i - 1);
                 vec![TreeNavCmd::Right.into()]
@@ -335,7 +348,7 @@ impl<'l> Doc<'l> {
                 let i = self.ast.index();
                 let n = self.ast.num_siblings();
                 if i + 1 >= n {
-                    return Err(());
+                    return Err(DocError::CannotMove);
                 }
                 self.ast.goto_sibling(i + 1);
                 vec![TreeNavCmd::Left.into()]
@@ -343,7 +356,7 @@ impl<'l> Doc<'l> {
             TreeNavCmd::Parent => {
                 if self.ast.is_parent_at_root() {
                     // User should never be able to select the root node
-                    return Err(());
+                    return Err(DocError::CannotMove);
                 }
                 let i = self.ast.goto_parent();
                 vec![TreeNavCmd::Child(i).into()]
@@ -357,14 +370,14 @@ impl<'l> Doc<'l> {
                 }
                 AstKind::Fixed(mut ast) => {
                     if i >= ast.num_children() {
-                        return Err(());
+                        return Err(DocError::CannotMove);
                     }
                     ast.goto_child(i);
                     vec![TreeNavCmd::Parent.into()]
                 }
                 AstKind::Flexible(mut ast) => {
                     if i >= ast.num_children() {
-                        return Err(());
+                        return Err(DocError::CannotMove);
                     }
                     ast.goto_child(i);
                     vec![TreeNavCmd::Parent.into()]
@@ -377,9 +390,9 @@ impl<'l> Doc<'l> {
         })
     }
 
-    fn execute_text(&mut self, cmd: TextCmd) -> Result<UndoGroup<'l>, ()> {
+    fn execute_text(&mut self, cmd: TextCmd) -> Result<UndoGroup<'l>, DocError<'l>> {
+        let char_index = self.mode.text_pos().ok_or(DocError::NotInTextMode)?;
         let mut ast = self.ast.inner().unwrap_text();
-        let char_index = self.mode.unwrap_text_pos();
         let undos = match cmd {
             TextCmd::InsertChar(character) => {
                 ast.text_mut(|t| t.insert(char_index, character));
@@ -389,14 +402,14 @@ impl<'l> Doc<'l> {
             TextCmd::DeleteCharForward => {
                 let text_len = ast.text(|t| t.num_chars());
                 if char_index == text_len {
-                    return Err(());
+                    return Err(DocError::CannotDeleteChar);
                 }
                 let c = ast.text_mut(|t| t.delete(char_index));
                 vec![TextCmd::InsertChar(c).into()]
             }
             TextCmd::DeleteCharBackward => {
                 if char_index == 0 {
-                    return Err(());
+                    return Err(DocError::CannotDeleteChar);
                 }
                 let c = ast.text_mut(|t| t.delete(char_index - 1));
                 self.mode = Mode::Text(char_index - 1);
@@ -409,20 +422,20 @@ impl<'l> Doc<'l> {
         })
     }
 
-    fn execute_text_nav(&mut self, cmd: TextNavCmd) -> Result<UndoGroup<'l>, ()> {
-        let char_index = self.mode.unwrap_text_pos();
+    fn execute_text_nav(&mut self, cmd: TextNavCmd) -> Result<UndoGroup<'l>, DocError<'l>> {
+        let char_index = self.mode.text_pos().ok_or(DocError::NotInTextMode)?;
         let mut ast = self.ast.inner().unwrap_text();
         let undos = match cmd {
             TextNavCmd::Left => {
                 if char_index == 0 {
-                    return Err(());
+                    return Err(DocError::CannotMove);
                 }
                 self.mode = Mode::Text(char_index - 1);
                 vec![TextNavCmd::Right.into()]
             }
             TextNavCmd::Right => {
                 if char_index >= ast.text(|t| t.num_chars()) {
-                    return Err(());
+                    return Err(DocError::CannotMove);
                 }
                 self.mode = Mode::Text(char_index + 1);
                 vec![TextNavCmd::Left.into()]
@@ -448,12 +461,14 @@ impl<'l> Doc<'l> {
         &mut self,
         at_start: bool,
         new_ast: Ast<'l>,
-    ) -> Result<Vec<Command<'l>>, ()> {
+    ) -> Result<Vec<Command<'l>>, DocError<'l>> {
         match self.ast.inner() {
             AstKind::Flexible(mut flexible) => {
                 let original_num_children = flexible.num_children();
                 let index = if at_start { 0 } else { original_num_children };
-                flexible.insert_child(index, new_ast);
+                flexible
+                    .insert_child(index, new_ast)
+                    .map_err(|rejected_ast| DocError::WrongSort(rejected_ast))?;
                 flexible.goto_child(index);
                 let mut undo = Vec::new();
                 if original_num_children != 0 {
@@ -465,7 +480,7 @@ impl<'l> Doc<'l> {
                 undo.push(TreeCmd::Remove.into());
                 Ok(undo)
             }
-            _ => Err(()),
+            _ => Err(DocError::WrongSort(new_ast)),
         }
     }
 
@@ -473,18 +488,33 @@ impl<'l> Doc<'l> {
     /// this node. Otherwise, insert it immediately to the right. If the
     /// insertion is successful, return the list of commands needed to undo it.
     /// Otherwise, return `Err`.
-    fn insert_sibling(&mut self, before: bool, new_ast: Ast<'l>) -> Result<Vec<Command<'l>>, ()> {
+    fn insert_sibling(
+        &mut self,
+        before: bool,
+        new_ast: Ast<'l>,
+    ) -> Result<Vec<Command<'l>>, DocError<'l>> {
         let i = self.ast.goto_parent();
         let insertion_index = if before { i } else { i + 1 };
         match self.ast.inner() {
             AstKind::Fixed(mut fixed) => {
                 // Oops, go back, we can't insert something into a fixed node.
                 fixed.goto_child(i);
-                Err(())
+                Err(DocError::WrongSort(new_ast))
             }
             AstKind::Flexible(mut flexible) => {
-                flexible.insert_child(insertion_index, new_ast);
-                flexible.goto_child(insertion_index);
+                let result = flexible
+                    .insert_child(insertion_index, new_ast)
+                    .map_err(|rejected_ast| DocError::WrongSort(rejected_ast));
+
+                if let Err(err) = result {
+                    // Go back to the node we started on!
+                    flexible.goto_child(i);
+                    return Err(err);
+                } else {
+                    // Go to the node we successfully inserted.
+                    flexible.goto_child(insertion_index);
+                }
+
                 if before && i != 0 {
                     Ok(vec![TreeNavCmd::Right.into(), TreeCmd::Remove.into()])
                 } else {
@@ -499,13 +529,16 @@ impl<'l> Doc<'l> {
     /// selected Ast, return the original Ast, and return Undo commands
     /// containing a _copy_ of the Ast. Otherwise, return None and use the
     /// original Ast in the Undo commands.
-    fn remove(&mut self, return_original: bool) -> Result<(Vec<Command<'l>>, Option<Ast<'l>>), ()> {
+    fn remove(
+        &mut self,
+        return_original: bool,
+    ) -> Result<(Vec<Command<'l>>, Option<Ast<'l>>), DocError<'l>> {
         let i = self.ast.goto_parent();
         match self.ast.inner() {
             AstKind::Fixed(mut fixed) => {
                 // Oops, go back, we can't delete something from a fixed node.
                 fixed.goto_child(i);
-                Err(())
+                Err(DocError::CannotRemoveNode)
             }
             AstKind::Flexible(mut flexible) => {
                 let old_ast = flexible.remove_child(i);

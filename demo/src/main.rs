@@ -9,7 +9,7 @@ use editor::{
     TreeCmd, TreeNavCmd,
 };
 use frontends::{Event, Frontend, Terminal};
-use language::{LanguageName, LanguageSet};
+use language::{LanguageName, LanguageSet, Sort};
 use pretty::{Color, ColorTheme, CursorVis, DocLabel, Pane, PaneNotation, PaneSize, Style};
 use utility::GrowOnlyMap;
 
@@ -20,10 +20,10 @@ mod message_lang;
 mod prog;
 
 use error::Error;
-use keymap::Keymap;
+use keymap::{FilteredKmap, KmapFactory};
 use keymap_lang::make_keymap_lang;
 use message_lang::make_message_lang;
-use prog::{Prog, Stack, Word};
+use prog::{KmapSpec, Stack, Word};
 
 lazy_static! {
     pub static ref LANG_SET: LanguageSet = LanguageSet::new();
@@ -49,8 +49,8 @@ struct Ed {
     message_doc: Doc<'static>,
     message_lang_name: LanguageName,
     stack: Stack<'static>,
-    keymaps: HashMap<String, Keymap<'static>>,
-    keymap_stack: Vec<String>,
+    keymaps: HashMap<String, KmapFactory<'static>>,
+    keymap_stack: Vec<KmapSpec>,
     kmap_lang_name: LanguageName,
     key_hints: Doc<'static>,
     cut_stack: Clipboard<'static>,
@@ -79,11 +79,11 @@ impl Ed {
         let msg_doc = new_doc("Messages", &msg_lang_name, &forest);
 
         let mut maps = HashMap::new();
-        maps.insert("tree".to_string(), Keymap::tree());
-        maps.insert("speed_bool".to_string(), Keymap::speed_bool());
+        maps.insert("tree".to_string(), KmapFactory::make_tree_map());
+        maps.insert("speed_bool".to_string(), KmapFactory::make_speed_bool_map());
         maps.insert(
             "node".to_string(),
-            Keymap::node(LANG_SET.get(&json_lang_name).unwrap()),
+            KmapFactory::make_node_map(LANG_SET.get(&json_lang_name).unwrap()),
         );
 
         let mut ed = Ed {
@@ -104,6 +104,7 @@ impl Ed {
 
         // Set initial keymap
         ed.push(Word::MapName("tree".into()))?;
+        ed.push(Word::AnySort)?;
         ed.push(Word::PushMap)?;
 
         // Add an empty list to the document
@@ -139,10 +140,15 @@ impl Ed {
             list_node
                 .inner()
                 .unwrap_flexible()
-                .insert_child(i, msg_node);
+                .insert_child(i, msg_node)
+                .unwrap();
         }
         let mut root_node = self.node_by_name("root", &self.message_lang_name)?;
-        root_node.inner().unwrap_fixed().replace_child(0, list_node);
+        root_node
+            .inner()
+            .unwrap_fixed()
+            .replace_child(0, list_node)
+            .unwrap();
         self.message_doc = Doc::new(self.message_doc.name(), root_node);
         Ok(())
     }
@@ -224,11 +230,13 @@ impl Ed {
         Ok(())
     }
 
-    fn active_keymap(&self) -> Result<&Keymap<'static>, Error> {
-        let name = self.keymap_stack.last().ok_or(Error::NoKeymap)?;
-        self.keymaps
-            .get(name)
-            .ok_or_else(|| Error::UnknownKeymap(name.to_owned()))
+    fn active_keymap(&self) -> Result<FilteredKmap<'static>, Error> {
+        let kmap = self.keymap_stack.last().ok_or(Error::NoKeymap)?;
+        Ok(self
+            .keymaps
+            .get(&kmap.name)
+            .ok_or_else(|| Error::UnknownKeymap(kmap.name.to_owned()))?
+            .filter(self.doc.ast_ref(), &kmap.required_sort))
     }
 
     fn update_key_hints(&mut self) -> Result<(), Error> {
@@ -250,32 +258,41 @@ impl Ed {
             });
 
             let mut entry_node = self.node_by_name("entry", &self.kmap_lang_name)?;
-            entry_node.inner().unwrap_fixed().replace_child(0, key_node);
             entry_node
                 .inner()
                 .unwrap_fixed()
-                .replace_child(1, prog_node);
+                .replace_child(0, key_node)
+                .unwrap();
+            entry_node
+                .inner()
+                .unwrap_fixed()
+                .replace_child(1, prog_node)
+                .unwrap();
             let mut inner_dict = dict_node.inner().unwrap_flexible();
-            inner_dict.insert_child(inner_dict.num_children(), entry_node);
+            inner_dict
+                .insert_child(inner_dict.num_children(), entry_node)
+                .unwrap();
         }
         let mut root_node = self.node_by_name("root", &self.kmap_lang_name)?;
-        root_node.inner().unwrap_fixed().replace_child(0, dict_node);
+        root_node
+            .inner()
+            .unwrap_fixed()
+            .replace_child(0, dict_node)
+            .unwrap();
 
-        let keymap_name = self.keymap_stack.join("→");
-        self.key_hints = Doc::new(&keymap_name, root_node);
+        let mut kmap_name = String::new();
+        for (i, spec) in self.keymap_stack.iter().enumerate() {
+            if i != 0 {
+                kmap_name += "→";
+            }
+            kmap_name += &spec.name;
+        }
+        self.key_hints = Doc::new(&kmap_name, root_node);
         Ok(())
     }
 
-    fn lookup_key(&self, key: Key) -> Result<Prog<'static>, Error> {
-        self.active_keymap()?
-            .0
-            .get(&key)
-            .cloned()
-            .ok_or(Error::UnknownKey(key))
-    }
-
     fn handle_key(&mut self, key: Key) -> Result<(), Error> {
-        let prog = self.lookup_key(key)?;
+        let prog = self.active_keymap()?.lookup(key)?;
         for word in prog.words {
             self.push(word)?;
         }
@@ -301,6 +318,7 @@ impl Ed {
             Word::Tree(..) => self.stack.push(word),
             Word::Usize(..) => self.stack.push(word),
             Word::MapName(..) => self.stack.push(word),
+            Word::Sort(..) => self.stack.push(word),
             Word::LangConstruct(..) => self.stack.push(word),
             Word::Message(..) => self.stack.push(word),
             Word::Char(..) => self.stack.push(word),
@@ -325,13 +343,42 @@ impl Ed {
                 self.push(Word::Tree(node))?;
             }
             Word::PushMap => {
+                let sort = self.stack.pop_sort()?;
                 let name = self.stack.pop_map_name()?;
-                self.keymap_stack.push(name);
+                self.keymap_stack.push(KmapSpec {
+                    name,
+                    required_sort: sort,
+                });
                 self.update_key_hints()?;
             }
             Word::PopMap => {
                 self.keymap_stack.pop();
                 self.update_key_hints()?;
+            }
+            Word::ChildSort => {
+                let sort = self.doc.ast_ref().arity().uniform_child_sort().to_owned();
+                self.stack.push(Word::Sort(sort));
+            }
+            Word::SelfSort => {
+                let (parent, index) = self
+                    .doc
+                    .ast_ref()
+                    .parent()
+                    .expect("you shouldn't be at the root!");
+                let sort = parent.arity().child_sort(index).to_owned();
+                self.stack.push(Word::Sort(sort));
+            }
+            Word::SiblingSort => {
+                let (parent, _) = self
+                    .doc
+                    .ast_ref()
+                    .parent()
+                    .expect("you shouldn't be at the root!");
+                let sort = parent.arity().uniform_child_sort().to_owned();
+                self.stack.push(Word::Sort(sort));
+            }
+            Word::AnySort => {
+                self.stack.push(Word::Sort(Sort::any()));
             }
             Word::Remove => self.exec(TreeCmd::Remove)?,
             Word::InsertChar => {
@@ -381,10 +428,9 @@ impl Ed {
     where
         T: Debug + Into<CommandGroup<'static>>,
     {
-        let name = format!("{:?}", cmd);
-        self.doc
-            .execute(cmd.into(), &mut self.cut_stack)
-            .map_err(|_| Error::DocExec(name))
+        self.doc.execute(cmd.into(), &mut self.cut_stack)?;
+        self.update_key_hints()?;
+        Ok(())
     }
 
     fn node_by_name(
@@ -417,7 +463,11 @@ impl Ed {
             t.inactivate();
         });
         let mut root_node = self.node_by_name("root", &self.message_lang_name)?;
-        root_node.inner().unwrap_fixed().replace_child(0, text_node);
+        root_node
+            .inner()
+            .unwrap_fixed()
+            .replace_child(0, text_node)
+            .unwrap();
         Ok(root_node)
     }
 }

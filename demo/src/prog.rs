@@ -1,6 +1,6 @@
 use editor::Ast;
 
-use language::{ConstructName, LanguageName};
+use language::{ConstructName, LanguageName, Sort};
 
 use crate::error::Error;
 
@@ -12,6 +12,12 @@ pub struct Prog<'l> {
 
 pub struct Stack<'l>(Vec<Word<'l>>);
 
+#[derive(Clone, Debug)]
+pub struct KmapSpec {
+    pub name: String,
+    pub required_sort: Sort,
+}
+
 #[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub enum Word<'l> {
@@ -20,6 +26,7 @@ pub enum Word<'l> {
     Usize(usize),
     Char(char),
     MapName(String),
+    Sort(Sort),
     LangConstruct(LanguageName, ConstructName),
     Message(String),
     Quote(Box<Word<'l>>),
@@ -32,6 +39,10 @@ pub enum Word<'l> {
     // editor-specific:
     PushMap,
     PopMap,
+    SelfSort,
+    ChildSort,
+    SiblingSort,
+    AnySort,
     NodeByName,
     Echo,
 
@@ -115,6 +126,14 @@ impl<'l> Stack<'l> {
             Ok(s)
         } else {
             Err(Error::ExpectedWord("MapName".into()))
+        }
+    }
+
+    pub fn pop_sort(&mut self) -> Result<Sort, Error> {
+        if let Word::Sort(s) = self.pop()? {
+            Ok(s)
+        } else {
+            Err(Error::ExpectedWord("Sort".into()))
         }
     }
 
