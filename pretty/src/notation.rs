@@ -4,10 +4,7 @@ use crate::style::Style;
 
 use self::Notation::*;
 
-// TODO: fix layout so that these properties hold
-
 /// Describes how to display a syntactic construct.
-
 #[derive(Clone, Debug)]
 pub enum Notation {
     /// Display Nothing
