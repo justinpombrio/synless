@@ -209,10 +209,6 @@ where
             render(doc, pane, doc_rect, &lay1)?;
             render(doc, pane, doc_rect, &lay2)
         }
-        Horz(box lay1, box lay2) => {
-            render(doc, pane, doc_rect, &lay1)?;
-            render(doc, pane, doc_rect, &lay2)
-        }
         Vert(box lay1, box lay2) => {
             render(doc, pane, doc_rect, &lay1)?;
             render(doc, pane, doc_rect, &lay2)

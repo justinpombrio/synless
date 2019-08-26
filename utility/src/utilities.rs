@@ -1,7 +1,7 @@
 #[macro_export]
 macro_rules! error {
     ($msg:expr) => ({
-        my_panic!($msg,)
+        panic!($msg,)
     });
     ($fmt:expr, $($arg:tt),*) => ({
         let msg = concat!(

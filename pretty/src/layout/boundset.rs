@@ -1,231 +1,91 @@
 use std::fmt;
 use std::iter;
+use std::ops;
 
-use crate::geometry::Bound;
-#[cfg(test)]
-use crate::geometry::Col;
+use crate::geometry::{Bound, Col};
+use utility::error;
 
-/// A set of Bounds. If one Bound is strictly smaller than another,
-/// only the smaller one will be kept.
-/// Each Bound may have some related data T.
-#[derive(Clone)]
-pub struct BoundSet<T>
-where
-    T: Clone,
-{
-    set: Vec<(Bound, T)>,
+/// A map from width (Col) to Bound. If a Notation has a particular BoundSet `BS`,
+/// that means that for each width `w`, if the Notation is rendered with that
+/// width, it will take up space `BS[w]`.
+///
+/// **Invariant after initialization:** must be non-empty, and contain an
+/// element at width=1.
+#[derive(Debug, Clone)]
+pub struct BoundSet {
+    set: Vec<Bound>,
 }
 
-impl<T> BoundSet<T>
-where
-    T: Clone,
-{
+impl BoundSet {
     /// Construct an empty BoundSet.
-    pub(super) fn new() -> BoundSet<T> {
-        BoundSet { set: vec![] }
+    pub fn new() -> BoundSet {
+        BoundSet { set: Vec::new() }
     }
 
-    /// Pick the best (i.e., shortest) Bound that fits within the
-    /// given Bound. Panics if none fit.
-    pub(super) fn fit_bound(&self, space: Bound) -> (Bound, T) {
-        self.into_iter()
-            .filter(|(bound, _)| bound.dominates(space))
-            .min_by_key(|bound| bound.0.height)
-            .unwrap_or_else(|| {
-                panic!(
-                    "No bound fits within given width {}.\nBoundset: {:?}",
-                    space.width, self
-                )
-            })
+    /// Find the largest Bound that fits within the given width. Panics if none
+    /// fit.
+    pub fn fit_width(&self, width: Col) -> &Bound {
+        match self.set.binary_search_by_key(&width, |b| b.width) {
+            Ok(i) => &self.set[i],
+            Err(i) => &self.set[i - 1],
+        }
     }
 
-    pub(super) fn singleton(bound: Bound, val: T) -> BoundSet<T> {
+    /// Construct a BoundSet containing a single Bound.
+    pub fn singleton(bound: Bound) -> BoundSet {
         let mut set = BoundSet::new();
-        set.insert(bound, val);
+        set.insert(bound);
         set
     }
 
-    // TODO: efficiency (can go from O(n) to O(sqrt(n)))
-    // MUST FILTER IDENTICALLY TO LayoutSet::insert
-    pub(super) fn insert(&mut self, bound: Bound, val: T) {
+    /// Insert a Bound into the set. Panics if you try to insert two different
+    /// Bounds that have the same width.
+    pub fn insert(&mut self, bound: Bound) {
         if bound.too_wide() {
             return;
         }
-        for (b, _) in &self.set {
-            if b.dominates(bound) {
-                return;
+        match self.set.binary_search_by_key(&bound.width, |b| b.width) {
+            Ok(i) => {
+                if self.set[i] != bound {
+                    error!("BoundSet: duplicate bound width")
+                }
+            }
+            Err(i) => {
+                if i == 0 || self.set[i - 1] != bound {
+                    self.set.insert(i, bound);
+                }
             }
         }
-        self.set.retain(|&(b, _)| !bound.dominates(b));
-        self.set.push((bound, val));
-    }
-
-    /// Combine two boundsets. Produces a boundset whose elements are
-    /// `(f(b1, b2), g(t1, t2))`
-    /// for all `(b1, t1)` in `set1` and all `(b2, t2)` in `set2`.
-    pub(super) fn combine<F, G>(set1: &BoundSet<T>, set2: &BoundSet<T>, f: F, g: G) -> BoundSet<T>
-    where
-        F: Fn(Bound, Bound) -> Bound,
-        G: Fn(T, T) -> T,
-    {
-        let mut set = BoundSet::new();
-        for (bound1, val1) in set1.into_iter() {
-            for (bound2, val2) in set2.into_iter() {
-                let bound = f(bound1, bound2);
-                let val = g(val1.clone(), val2);
-                set.insert(bound, val);
-            }
-        }
-        set
-    }
-
-    /// Pick the best (i.e., smallest) Bound that fits within the
-    /// given width. Panics if none fit.
-    #[cfg(test)]
-    pub(super) fn fit_width(&self, width: Col) -> (Bound, T) {
-        let bound = Bound::infinite_scroll(width);
-        self.fit_bound(bound)
     }
 }
 
-impl<T> fmt::Debug for BoundSet<T>
-where
-    T: Clone,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let set: Vec<&Bound> = self.set.iter().map(|(bound, _)| bound).collect();
-        write!(f, "{:?}", set)
-    }
-}
+impl ops::Index<Col> for BoundSet {
+    type Output = Bound;
 
-/// Iterator over Bounds in a BoundSet.
-pub struct BoundIter<'a, T: 'a>
-where
-    T: Clone,
-{
-    set: &'a Vec<(Bound, T)>,
-    i: usize,
-}
-
-impl<'a, T> Iterator for BoundIter<'a, T>
-where
-    T: Clone,
-{
-    type Item = (Bound, T);
-    fn next(&mut self) -> Option<(Bound, T)> {
-        if self.i >= self.set.len() {
-            None
-        } else {
-            self.i += 1;
-            Some(self.set[self.i - 1].clone())
-        }
-    }
-}
-
-impl<'a, T> iter::IntoIterator for &'a BoundSet<T>
-where
-    T: Clone,
-{
-    type Item = (Bound, T);
-    type IntoIter = BoundIter<'a, T>;
-    fn into_iter(self) -> Self::IntoIter {
-        BoundIter {
-            set: &self.set,
-            i: 0,
-        }
-    }
-}
-
-impl<T> iter::FromIterator<(Bound, T)> for BoundSet<T>
-where
-    T: Clone,
-{
-    fn from_iter<I>(iter: I) -> BoundSet<T>
-    where
-        I: iter::IntoIterator<Item = (Bound, T)>,
-    {
-        let mut set = BoundSet::new();
-        for (bound, val) in iter.into_iter() {
-            set.insert(bound, val);
-        }
-        set
+    /// A shorthand for `fit_width`.
+    fn index(&self, width: Col) -> &Bound {
+        self.fit_width(width)
     }
 }
 
 #[cfg(test)]
-mod tests {
+mod test {
     use super::*;
-    use std::fmt::Write;
 
     #[test]
-    fn test_show_bound() {
-        let r = Bound {
-            width: 10,
-            indent: 6,
-            height: 3,
-        };
-        let mut s = String::new();
-        write!(&mut s, "{:?}", r).unwrap();
-        assert_eq!(
-            s,
-            "**********
-**********
-******"
-        );
-    }
-
-    #[test]
-    fn test_show_empty_bound() {
-        let r = Bound {
-            width: 0,
-            indent: 0,
-            height: 1,
-        };
-        let mut s = String::new();
-        write!(&mut s, "{:?}", r).unwrap();
-        assert_eq!(s, "");
-    }
-
-    #[test]
-    fn test_domination() {
-        let r_best = Bound {
-            width: 10,
-            indent: 6,
-            height: 3,
-        };
-        let r_1 = Bound {
-            width: 11,
-            indent: 6,
-            height: 3,
-        };
-        let r_2 = Bound {
-            width: 10,
-            indent: 7,
-            height: 3,
-        };
-        let r_3 = Bound {
-            width: 10,
-            indent: 6,
-            height: 4,
-        };
-        let r_worst = Bound {
-            width: 11,
-            indent: 7,
-            height: 4,
-        };
-        assert!(r_best.dominates(r_best));
-        assert!(r_best.dominates(r_worst));
-        assert!(r_best.dominates(r_1));
-        assert!(r_best.dominates(r_2));
-        assert!(r_best.dominates(r_3));
-        assert!(r_1.dominates(r_worst));
-        assert!(r_2.dominates(r_worst));
-        assert!(r_3.dominates(r_worst));
-        assert!(!r_1.dominates(r_2));
-        assert!(!r_1.dominates(r_3));
-        assert!(!r_2.dominates(r_1));
-        assert!(!r_2.dominates(r_3));
-        assert!(!r_3.dominates(r_1));
-        assert!(!r_3.dominates(r_2));
+    fn test_boundset() {
+        let mut set = BoundSet::new();
+        let bound1 = Bound::new_rectangle(10, 3);
+        let bound2 = Bound::new_rectangle(20, 1);
+        set.insert(bound1);
+        set.insert(bound2);
+        set.insert(bound2);
+        set.insert(bound1);
+        assert_eq!(set.set.len(), 2);
+        assert!(set[1] == bound2);
+        assert!(set[2] == bound2);
+        assert!(set[3] == bound1);
+        assert!(set[4] == bound1);
+        assert!(set[5] == bound1);
     }
 }

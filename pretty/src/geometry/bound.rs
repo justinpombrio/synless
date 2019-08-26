@@ -34,6 +34,7 @@ pub struct Bound {
 
 impl Bound {
     /// Create a new `Bound` with the given rectangular shape.
+    // TODO: switch (height, width) -> (width, height), because that's standard.
     pub fn new_rectangle(num_rows: Row, num_cols: Col) -> Bound {
         Bound {
             width: num_cols,
@@ -94,5 +95,83 @@ impl Bound {
 impl fmt::Debug for Bound {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.debug_print(f, '*', 0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fmt::Write;
+
+    #[test]
+    fn test_show_bound() {
+        let r = Bound {
+            width: 10,
+            indent: 6,
+            height: 3,
+        };
+        let mut s = String::new();
+        write!(&mut s, "{:?}", r).unwrap();
+        assert_eq!(
+            s,
+            "**********
+**********
+******"
+        );
+    }
+
+    #[test]
+    fn test_show_empty_bound() {
+        let r = Bound {
+            width: 0,
+            indent: 0,
+            height: 1,
+        };
+        let mut s = String::new();
+        write!(&mut s, "{:?}", r).unwrap();
+        assert_eq!(s, "");
+    }
+
+    #[test]
+    fn test_domination() {
+        let r_best = Bound {
+            width: 10,
+            indent: 6,
+            height: 3,
+        };
+        let r_1 = Bound {
+            width: 11,
+            indent: 6,
+            height: 3,
+        };
+        let r_2 = Bound {
+            width: 10,
+            indent: 7,
+            height: 3,
+        };
+        let r_3 = Bound {
+            width: 10,
+            indent: 6,
+            height: 4,
+        };
+        let r_worst = Bound {
+            width: 11,
+            indent: 7,
+            height: 4,
+        };
+        assert!(r_best.dominates(r_best));
+        assert!(r_best.dominates(r_worst));
+        assert!(r_best.dominates(r_1));
+        assert!(r_best.dominates(r_2));
+        assert!(r_best.dominates(r_3));
+        assert!(r_1.dominates(r_worst));
+        assert!(r_2.dominates(r_worst));
+        assert!(r_3.dominates(r_worst));
+        assert!(!r_1.dominates(r_2));
+        assert!(!r_1.dominates(r_3));
+        assert!(!r_2.dominates(r_1));
+        assert!(!r_2.dominates(r_3));
+        assert!(!r_3.dominates(r_1));
+        assert!(!r_3.dominates(r_2));
     }
 }

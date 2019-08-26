@@ -1,4 +1,6 @@
+mod bounds;
 mod boundset;
+/*
 mod layout;
 
 pub use self::layout::{
@@ -32,9 +34,9 @@ mod layout_tests {
     fn test_bound_construction() {
         let sty = Style::plain();
         let actual = Bound::literal("abc", sty).vert(
-            Bound::literal("Schrödinger", sty).horz(
+            Bound::literal("Schrödinger", sty).concat(
                 Bound::literal("I", sty)
-                    .horz(Bound::literal(" am indented", sty))
+                    .concat(Bound::literal(" am indented", sty))
                     .vert(Bound::literal("me too", sty)),
             ),
         );
@@ -144,3 +146,4 @@ mod layout_tests {
         );
     }
 }
+*/
