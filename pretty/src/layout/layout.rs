@@ -8,15 +8,71 @@ use crate::style::Style;
 
 use self::Layout::*;
 
-pub trait Lay
-where
-    Self: Clone,
-{
+pub trait ApplyNotation: Clone {
     fn empty() -> Self;
     fn literal(s: &str) -> Self;
-    fn nest(&self, other: Self) -> Self;
-    fn vert(&self, other: Self) -> Self;
+    fn nest(left: Self, right: Self) -> Self;
+    fn vert(left: Self, right: Self) -> Self;
+    fn if_flat(left: Self, right: Self) -> Self;
+
+    fn apply_notation(children: &[Self], notation: &Notation)
+
+    fn lay(children: &[Self], notation: &Notation) -> Self {
+        PerformLay::new(children).lay(notation)
+    }
 }
+
+struct PerformLay<L: Lay> {
+    children: &[L],
+}
+
+impl<L: Lay> PerformLay<L> {
+    fn new(children: &[L]) -> PerformLay<L> {
+        PerformLay {
+            children,
+        }
+    }
+
+    fn lay(&self, notation: &Notation, in_join: Option((L, L)), in_surround: Option<L>) -> L {
+        match notation {
+            Empty => L::empty(),
+            Literal(s, _) => L::literal(s),
+            Text(_) => self.children[0],
+            Child(i) => self.children[i],
+            Nest(notations) => {
+                let mut lay = L::empty();
+                for notation in notations {
+                    lay = lay.nest(self.lay(notation, in_join, in_surround))
+                }
+                lay
+            }
+            Vert(notations) => {
+                let mut lay = L::empty();
+                for notation in notations {
+                    lay = lay.vert(self.lay(notation, in_join, in_surround));
+                }
+                lay
+            }
+            Repeat(box RepeatInner {
+                empty,
+                lone,
+                join,
+                surround,
+            }) => match self.children.len() {
+                0 => self.lay(empty, in_join, in_surround),
+                1 => self.lay(lone, in_join, in_surround),
+                _ => {
+                    let mut lay = L::empty();
+                    for child in children {
+                        lay = self.lay(join, Some((lay, child)), None);
+                    }
+                    self.lay(surround, None, Some(lay))
+                }
+            }
+        }
+    }
+}
+
 
 impl Lay for Bound {
     fn empty() -> Bound {
@@ -36,7 +92,7 @@ impl Lay for Bound {
         }
     }
 
-    fn nest(&self, other: Bound) -> Bound {
+    fn nest(self, other: Bound) -> Bound {
         Bound {
             width: cmp::max(self.width, self.indent + other.width),
             height: self.height + other.height - 1,
@@ -44,7 +100,7 @@ impl Lay for Bound {
         }
     }
 
-    fn vert(&self, other: Bound) -> Bound {
+    fn vert(self, other: Bound) -> Bound {
         Bound {
             width: cmp::max(self.width, other.width),
             height: self.height + other.height,
@@ -77,6 +133,13 @@ impl Layout {
     }
 }
 
+fn lay_out(child_bounds: &[Bounds]
+
+fn lay<L: Lay>(
+    child_bounds: &[Bounds],
+    memo: Option<&BoundSet<L>>,
+    notation: &Notation,
+) -> BoundSet<L> {
 
 
 

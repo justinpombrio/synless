@@ -96,7 +96,7 @@ where
                 self.lengths = &[];
                 Some(self.remaining)
             }
-            &[len, ref rest..] => {
+            &[len, ref rest @ ..] => {
                 // In all other cases, try to split.
                 self.lengths = rest;
                 let (left, right) = self.remaining.split(len).expect("Range: failed to split");
