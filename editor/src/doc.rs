@@ -253,10 +253,10 @@ impl<'l> Doc<'l> {
             EditorCmd::Cut => {
                 let hole = self.ast.new_hole();
                 let old_ast = self.replace(hole)?;
-                // Put a copy on the undo stack
-                let undos = vec![TreeCmd::Replace(old_ast.clone()).into()];
-                // Put the original on the clipboard
-                clipboard.push(old_ast);
+                // Put a copy on the clipboard (breaking bookmarks)
+                clipboard.push(old_ast.clone());
+                // Put the original on the undo stack (preserving bookmarks)
+                let undos = vec![TreeCmd::Replace(old_ast).into()];
                 Ok(UndoGroup::with_edit(undos))
             }
             EditorCmd::Copy => {
@@ -277,11 +277,10 @@ impl<'l> Doc<'l> {
                         );
                     }
                 })?;
-
-                // Put a copy on the undo stack
-                let undos = vec![TreeCmd::Replace(old_ast.clone()).into()];
-                // Put the original on the clipboard
-                clipboard.push(old_ast);
+                // Put a copy on the clipboard (breaking bookmarks)
+                clipboard.push(old_ast.clone());
+                // Put the original on the undo stack (preserving bookmarks)
+                let undos = vec![TreeCmd::Replace(old_ast).into()];
                 Ok(UndoGroup::with_edit(undos))
             }
         }
