@@ -82,6 +82,11 @@ impl<'l> Clipboard<'l> {
     pub fn pop(&mut self) -> Option<Ast<'l>> {
         self.0.pop()
     }
+
+    /// Return the number of trees on the clipboard stack.
+    pub fn len(&mut self) -> usize {
+        self.0.len()
+    }
 }
 
 #[derive(Clone, Copy)]
