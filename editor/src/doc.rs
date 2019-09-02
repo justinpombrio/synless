@@ -263,7 +263,7 @@ impl<'l> Doc<'l> {
                 clipboard.push(self.ast.clone());
                 Ok(UndoGroup::new())
             }
-            EditorCmd::PasteReplace => {
+            EditorCmd::PasteSwap => {
                 let tree = clipboard.pop().ok_or(DocError::EmptyClipboard)?;
                 let old_ast = self.replace(tree).map_err(|err| {
                     if let DocError::WrongSort(rejected_tree) = err {
@@ -278,7 +278,10 @@ impl<'l> Doc<'l> {
                     }
                 })?;
 
-                let undos = vec![TreeCmd::Replace(old_ast).into()];
+                // Put a copy on the undo stack
+                let undos = vec![TreeCmd::Replace(old_ast.clone()).into()];
+                // Put the original on the clipboard
+                clipboard.push(old_ast);
                 Ok(UndoGroup::with_edit(undos))
             }
         }

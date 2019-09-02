@@ -61,7 +61,7 @@ pub enum Word<'l> {
     Child,
     Cut,
     Copy,
-    PasteReplace,
+    PasteSwap,
     Undo,
     Redo,
 }

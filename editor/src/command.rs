@@ -25,8 +25,8 @@ pub enum EditorCmd {
     Cut,
     /// Copy onto the clipboard.
     Copy,
-    /// Paste over the current node, replacing it.
-    PasteReplace,
+    /// Swap the current node with the node on the top of the clipboard.
+    PasteSwap,
 }
 
 #[derive(Debug)]

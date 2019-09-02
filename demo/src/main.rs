@@ -413,7 +413,7 @@ impl Ed {
             Word::Redo => self.exec(CommandGroup::Redo)?,
             Word::Cut => self.exec(EditorCmd::Cut)?,
             Word::Copy => self.exec(EditorCmd::Copy)?,
-            Word::PasteReplace => self.exec(EditorCmd::PasteReplace)?,
+            Word::PasteSwap => self.exec(EditorCmd::PasteSwap)?,
         })
     }
 

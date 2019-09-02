@@ -112,7 +112,7 @@ impl<'l> KmapFactory<'l> {
             (
                 Key::Char('p'),
                 KmapFilter::Always,
-                Prog::single(Word::PasteReplace),
+                Prog::single(Word::PasteSwap),
             ),
             (
                 Key::Char('a'),
