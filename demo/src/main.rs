@@ -6,13 +6,14 @@ use termion::event::Key;
 
 use editor::{
     make_json_lang, Ast, AstForest, Clipboard, CommandGroup, Doc, EditorCmd, NotationSet, TextCmd,
-    TreeCmd, TreeNavCmd,
+    TextNavCmd, TreeCmd, TreeNavCmd,
 };
 use frontends::{Event, Frontend, Terminal};
 use language::{LanguageName, LanguageSet, Sort};
 use pretty::{Color, ColorTheme, CursorVis, DocLabel, Pane, PaneNotation, PaneSize, Style};
 use utility::GrowOnlyMap;
 
+mod demo_keymaps;
 mod error;
 mod keymap;
 mod keymap_lang;
@@ -20,7 +21,7 @@ mod message_lang;
 mod prog;
 
 use error::Error;
-use keymap::{FilteredKmap, KmapFactory};
+use keymap::{Kmap, TreeKmapFactory};
 use keymap_lang::make_keymap_lang;
 use message_lang::make_message_lang;
 use prog::{KmapSpec, Stack, Word};
@@ -49,8 +50,9 @@ struct Ed {
     message_doc: Doc<'static>,
     message_lang_name: LanguageName,
     stack: Stack<'static>,
-    keymaps: HashMap<String, KmapFactory<'static>>,
-    keymap_stack: Vec<KmapSpec>,
+    tree_keymaps: HashMap<String, TreeKmapFactory<'static>>,
+    tree_keymap_stack: Vec<KmapSpec>,
+    text_keymap: Kmap<'static>,
     kmap_lang_name: LanguageName,
     key_hints: Doc<'static>,
     cut_stack: Clipboard<'static>,
@@ -78,12 +80,15 @@ impl Ed {
         let key_hints = new_doc("(no keymap)", &kmap_lang_name, &forest);
         let msg_doc = new_doc("Messages", &msg_lang_name, &forest);
 
-        let mut maps = HashMap::new();
-        maps.insert("tree".to_string(), KmapFactory::make_tree_map());
-        maps.insert("speed_bool".to_string(), KmapFactory::make_speed_bool_map());
-        maps.insert(
+        let mut tree_keymaps = HashMap::new();
+        tree_keymaps.insert("tree".to_string(), demo_keymaps::make_tree_map());
+        tree_keymaps.insert(
+            "speed_bool".to_string(),
+            demo_keymaps::make_speed_bool_map(),
+        );
+        tree_keymaps.insert(
             "node".to_string(),
-            KmapFactory::make_node_map(LANG_SET.get(&json_lang_name).unwrap()),
+            demo_keymaps::make_node_map(LANG_SET.get(&json_lang_name).unwrap()),
         );
 
         let mut ed = Ed {
@@ -95,10 +100,11 @@ impl Ed {
             message_doc: msg_doc,
             message_lang_name: msg_lang_name,
             stack: Stack::new(),
-            keymaps: maps,
+            tree_keymaps,
+            text_keymap: demo_keymaps::make_text_map(),
             kmap_lang_name,
             key_hints,
-            keymap_stack: Vec::new(),
+            tree_keymap_stack: Vec::new(),
             cut_stack: Clipboard::new(),
         };
 
@@ -230,13 +236,18 @@ impl Ed {
         Ok(())
     }
 
-    fn active_keymap(&self) -> Result<FilteredKmap<'static>, Error> {
-        let kmap = self.keymap_stack.last().ok_or(Error::NoKeymap)?;
-        Ok(self
-            .keymaps
-            .get(&kmap.name)
-            .ok_or_else(|| Error::UnknownKeymap(kmap.name.to_owned()))?
-            .filter(self.doc.ast_ref(), &kmap.required_sort))
+    fn active_keymap(&self) -> Result<Kmap<'static>, Error> {
+        if self.doc.in_tree_mode() {
+            let kmap = self.tree_keymap_stack.last().ok_or(Error::NoKeymap)?;
+            Ok(self
+                .tree_keymaps
+                .get(&kmap.name)
+                .ok_or_else(|| Error::UnknownKeymap(kmap.name.to_owned()))?
+                .filter(self.doc.ast_ref(), &kmap.required_sort))
+        } else {
+            // TODO avoid cloning every time!
+            Ok(self.text_keymap.clone())
+        }
     }
 
     fn update_key_hints(&mut self) -> Result<(), Error> {
@@ -280,13 +291,19 @@ impl Ed {
             .replace_child(0, dict_node)
             .unwrap();
 
-        let mut kmap_name = String::new();
-        for (i, spec) in self.keymap_stack.iter().enumerate() {
-            if i != 0 {
-                kmap_name += "→";
+        let kmap_name = if self.doc.in_tree_mode() {
+            let mut s = String::new();
+            for (i, spec) in self.tree_keymap_stack.iter().enumerate() {
+                if i != 0 {
+                    s += "→";
+                }
+                s += &spec.name;
             }
-            kmap_name += &spec.name;
-        }
+            s
+        } else {
+            "text".to_owned()
+        };
+
         self.key_hints = Doc::new(&kmap_name, root_node);
         Ok(())
     }
@@ -345,14 +362,14 @@ impl Ed {
             Word::PushMap => {
                 let sort = self.stack.pop_sort()?;
                 let name = self.stack.pop_map_name()?;
-                self.keymap_stack.push(KmapSpec {
+                self.tree_keymap_stack.push(KmapSpec {
                     name,
                     required_sort: sort,
                 });
                 self.update_key_hints()?;
             }
             Word::PopMap => {
-                self.keymap_stack.pop();
+                self.tree_keymap_stack.pop();
                 self.update_key_hints()?;
             }
             Word::ChildSort => {
@@ -382,10 +399,6 @@ impl Ed {
             }
             Word::Remove => self.exec(TreeCmd::Remove)?,
             Word::Clear => self.exec(TreeCmd::Clear)?,
-            Word::InsertChar => {
-                let ch = self.stack.pop_char()?;
-                self.exec(TextCmd::InsertChar(ch))?;
-            }
             Word::InsertHoleAfter => {
                 self.exec(TreeCmd::InsertHoleAfter)?;
             }
@@ -415,6 +428,15 @@ impl Ed {
             Word::Copy => self.exec(EditorCmd::Copy)?,
             Word::PasteSwap => self.exec(EditorCmd::PasteSwap)?,
             Word::PopClipboard => self.exec(EditorCmd::PopClipboard)?,
+            Word::InsertChar => {
+                let ch = self.stack.pop_char()?;
+                self.exec(TextCmd::InsertChar(ch))?;
+            }
+            Word::DeleteCharBackward => self.exec(TextCmd::DeleteCharBackward)?,
+            Word::DeleteCharForward => self.exec(TextCmd::DeleteCharForward)?,
+            Word::TreeMode => self.exec(TextNavCmd::TreeMode)?,
+            Word::TextLeft => self.exec(TextNavCmd::Left)?,
+            Word::TextRight => self.exec(TextNavCmd::Right)?,
         })
     }
 
