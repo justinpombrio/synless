@@ -1,6 +1,6 @@
 use crate::NotationSet;
 use language::{Arity, Construct, Language};
-use pretty::{child, literal, no_wrap, repeat, text, Notation, Repeat, Style};
+use pretty::{child, if_empty_text, literal, no_wrap, repeat, text, Notation, Repeat, Style};
 
 pub fn make_json_lang() -> (Language, NotationSet) {
     let notations = vec![
@@ -51,7 +51,7 @@ fn json_key() -> Notation {
 
 fn json_number() -> Notation {
     let style = Style::plain();
-    text(style)
+    if_empty_text(literal("·", style), text(style))
 }
 
 fn json_boolean(value: bool) -> Notation {
