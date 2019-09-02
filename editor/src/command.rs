@@ -43,6 +43,8 @@ pub enum TreeCmd<'l> {
     InsertHolePostpend,
     /// In a flexible sequence, remove the current node.
     Remove,
+    /// Replace the current node with a hole.
+    Clear,
 }
 
 #[derive(Debug)]

@@ -298,6 +298,11 @@ impl<'l> Doc<'l> {
             TreeCmd::InsertHoleAfter => self.insert_sibling(false)?,
             TreeCmd::InsertHolePrepend => self.insert_child_at_edge(true)?,
             TreeCmd::InsertHolePostpend => self.insert_child_at_edge(false)?,
+            TreeCmd::Clear => {
+                let hole = self.ast.new_hole();
+                let old_ast = self.replace(hole)?;
+                vec![TreeCmd::Replace(old_ast).into()]
+            }
         };
         Ok(UndoGroup {
             contains_edit: true,
