@@ -111,26 +111,6 @@ impl<'l> KmapFactory<'l> {
             (Key::Char('y'), KmapFilter::Always, Prog::single(Word::Copy)),
             (
                 Key::Char('p'),
-                KmapFilter::ParentArity(vec![ArityType::Flexible, ArityType::Mixed]),
-                Prog::single(Word::PasteAfter),
-            ),
-            (
-                Key::Char('P'),
-                KmapFilter::ParentArity(vec![ArityType::Flexible, ArityType::Mixed]),
-                Prog::single(Word::PasteBefore),
-            ),
-            (
-                Key::Ctrl('p'),
-                KmapFilter::SelfArity(vec![ArityType::Flexible, ArityType::Mixed]),
-                Prog::single(Word::PastePrepend),
-            ),
-            (
-                Key::Alt('p'),
-                KmapFilter::SelfArity(vec![ArityType::Flexible, ArityType::Mixed]),
-                Prog::single(Word::PastePostpend),
-            ),
-            (
-                Key::Char('R'),
                 KmapFilter::Always,
                 Prog::single(Word::PasteReplace),
             ),
@@ -157,54 +137,22 @@ impl<'l> KmapFactory<'l> {
             (
                 Key::Char('i'),
                 KmapFilter::ParentArity(vec![ArityType::Flexible, ArityType::Mixed]),
-                Prog::named(
-                    "InsertAfter",
-                    &[
-                        Word::InsertAfter.quote(),
-                        Word::MapName("node".into()),
-                        Word::SiblingSort,
-                        Word::PushMap,
-                    ],
-                ),
+                Prog::single(Word::InsertHoleAfter),
             ),
             (
                 Key::Char('I'),
                 KmapFilter::ParentArity(vec![ArityType::Flexible, ArityType::Mixed]),
-                Prog::named(
-                    "InsertBefore",
-                    &[
-                        Word::InsertBefore.quote(),
-                        Word::MapName("node".into()),
-                        Word::SiblingSort,
-                        Word::PushMap,
-                    ],
-                ),
+                Prog::single(Word::InsertHoleBefore),
             ),
             (
                 Key::Char('o'),
                 KmapFilter::SelfArity(vec![ArityType::Flexible, ArityType::Mixed]),
-                Prog::named(
-                    "InsertPostpend",
-                    &[
-                        Word::InsertPostpend.quote(),
-                        Word::MapName("node".into()),
-                        Word::ChildSort,
-                        Word::PushMap,
-                    ],
-                ),
+                Prog::single(Word::InsertHolePostpend),
             ),
             (
                 Key::Char('O'),
                 KmapFilter::SelfArity(vec![ArityType::Flexible, ArityType::Mixed]),
-                Prog::named(
-                    "InsertPrepend",
-                    &[
-                        Word::InsertPrepend.quote(),
-                        Word::MapName("node".into()),
-                        Word::ChildSort,
-                        Word::PushMap,
-                    ],
-                ),
+                Prog::single(Word::InsertHolePrepend),
             ),
             (
                 Key::Char('r'),
@@ -244,8 +192,9 @@ impl<'l> KmapFactory<'l> {
                     "True",
                     &[
                         Word::LangConstruct(lang.clone(), "true".into()),
+                        Word::InsertHoleAfter,
                         Word::NodeByName,
-                        Word::InsertAfter,
+                        Word::Replace,
                     ],
                 ),
             ),
@@ -256,8 +205,9 @@ impl<'l> KmapFactory<'l> {
                     "False",
                     &[
                         Word::LangConstruct(lang, "false".into()),
+                        Word::InsertHoleAfter,
                         Word::NodeByName,
-                        Word::InsertAfter,
+                        Word::Replace,
                     ],
                 ),
             ),

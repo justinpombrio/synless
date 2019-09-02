@@ -31,6 +31,12 @@ impl NotationSet {
         }
     }
 
+    pub fn hole() -> &'static Notation {
+        BUILTIN_NOTATIONS
+            .get("hole")
+            .expect("no builtin 'hole' notation found")
+    }
+
     pub fn lookup(&self, construct: &ConstructName) -> &Notation {
         match self.notations.get(construct) {
             None => match BUILTIN_NOTATIONS.get(construct) {

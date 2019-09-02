@@ -258,37 +258,25 @@ impl<'l> Doc<'l> {
                 clipboard.push(self.ast.clone());
                 Ok(UndoGroup::new())
             }
-            EditorCmd::PasteAfter => self.execute_paste(EditorCmd::PasteAfter, clipboard),
-            EditorCmd::PasteBefore => self.execute_paste(EditorCmd::PasteBefore, clipboard),
-            EditorCmd::PastePrepend => self.execute_paste(EditorCmd::PastePrepend, clipboard),
-            EditorCmd::PastePostpend => self.execute_paste(EditorCmd::PastePostpend, clipboard),
-            EditorCmd::PasteReplace => self.execute_paste(EditorCmd::PasteReplace, clipboard),
-        }
-    }
+            EditorCmd::PasteReplace => {
+                let tree = clipboard.pop().ok_or(DocError::EmptyClipboard)?;
+                let old_ast = self.replace(tree).map_err(|err| {
+                    if let DocError::WrongSort(rejected_tree) = err {
+                        // Can't paste that here, put it back!
+                        clipboard.push(rejected_tree);
+                        DocError::CannotPaste
+                    } else {
+                        panic!(
+                            "Failed to paste, may have lost node from clipboard: {:?}",
+                            err
+                        );
+                    }
+                })?;
 
-    fn execute_paste(
-        &mut self,
-        paste_cmd: EditorCmd,
-        clipboard: &mut Clipboard<'l>,
-    ) -> Result<UndoGroup<'l>, DocError<'l>> {
-        let tree = clipboard.pop().ok_or(DocError::EmptyClipboard)?;
-        let insertion_cmd = match paste_cmd {
-            EditorCmd::PasteBefore => TreeCmd::InsertBefore(tree),
-            EditorCmd::PasteAfter => TreeCmd::InsertAfter(tree),
-            EditorCmd::PastePrepend => TreeCmd::InsertPrepend(tree),
-            EditorCmd::PastePostpend => TreeCmd::InsertPostpend(tree),
-            EditorCmd::PasteReplace => TreeCmd::Replace(tree),
-            _ => panic!("execute_paste - not a paste command"),
-        };
-        self.execute_tree(insertion_cmd).map_err(|err| {
-            if let DocError::WrongSort(rejected_tree) = err {
-                // Can't paste that here, put it back!
-                clipboard.push(rejected_tree);
-                DocError::CannotPaste
-            } else {
-                err // Something else went wrong...
+                let undos = vec![TreeCmd::Replace(old_ast).into()];
+                Ok(UndoGroup::with_edit(undos))
             }
-        })
+        }
     }
 
     fn execute_tree(&mut self, cmd: TreeCmd<'l>) -> Result<UndoGroup<'l>, DocError<'l>> {
@@ -297,33 +285,17 @@ impl<'l> Doc<'l> {
         }
         let undos = match cmd {
             TreeCmd::Replace(new_ast) => {
-                let i = self.ast.goto_parent(); // child index
-                match self.ast.inner() {
-                    AstKind::Fixed(mut fixed) => {
-                        let result = fixed.replace_child(i, new_ast);
-                        fixed.goto_child(i);
-                        let old_ast =
-                            result.map_err(|rejected_ast| DocError::WrongSort(rejected_ast))?;
-                        vec![TreeCmd::Replace(old_ast).into()]
-                    }
-                    AstKind::Flexible(mut flexible) => {
-                        let result = flexible.replace_child(i, new_ast);
-                        flexible.goto_child(i);
-                        let old_ast =
-                            result.map_err(|rejected_ast| DocError::WrongSort(rejected_ast))?;
-                        vec![TreeCmd::Replace(old_ast).into()]
-                    }
-                    _ => panic!("how can a parent not be fixed or flexible?"),
-                }
+                let old_ast = self.replace(new_ast)?;
+                vec![TreeCmd::Replace(old_ast).into()]
             }
             TreeCmd::Remove => {
                 let (undos, _ast) = self.remove(false)?;
                 undos
             }
-            TreeCmd::InsertBefore(new_ast) => self.insert_sibling(true, new_ast)?,
-            TreeCmd::InsertAfter(new_ast) => self.insert_sibling(false, new_ast)?,
-            TreeCmd::InsertPrepend(new_ast) => self.insert_child_at_edge(true, new_ast)?,
-            TreeCmd::InsertPostpend(new_ast) => self.insert_child_at_edge(false, new_ast)?,
+            TreeCmd::InsertHoleBefore => self.insert_sibling(true)?,
+            TreeCmd::InsertHoleAfter => self.insert_sibling(false)?,
+            TreeCmd::InsertHolePrepend => self.insert_child_at_edge(true)?,
+            TreeCmd::InsertHolePostpend => self.insert_child_at_edge(false)?,
         };
         Ok(UndoGroup {
             contains_edit: true,
@@ -457,11 +429,8 @@ impl<'l> Doc<'l> {
     /// node. Otherwise, insert it as the last child. If the insertion is
     /// successful, return the list of commands needed to undo it. Otherwise,
     /// return `Err`.
-    fn insert_child_at_edge(
-        &mut self,
-        at_start: bool,
-        new_ast: Ast<'l>,
-    ) -> Result<Vec<Command<'l>>, DocError<'l>> {
+    fn insert_child_at_edge(&mut self, at_start: bool) -> Result<Vec<Command<'l>>, DocError<'l>> {
+        let new_ast = self.ast.new_hole();
         match self.ast.inner() {
             AstKind::Flexible(mut flexible) => {
                 let original_num_children = flexible.num_children();
@@ -488,11 +457,8 @@ impl<'l> Doc<'l> {
     /// this node. Otherwise, insert it immediately to the right. If the
     /// insertion is successful, return the list of commands needed to undo it.
     /// Otherwise, return `Err`.
-    fn insert_sibling(
-        &mut self,
-        before: bool,
-        new_ast: Ast<'l>,
-    ) -> Result<Vec<Command<'l>>, DocError<'l>> {
+    fn insert_sibling(&mut self, before: bool) -> Result<Vec<Command<'l>>, DocError<'l>> {
+        let new_ast = self.ast.new_hole();
         let i = self.ast.goto_parent();
         let insertion_index = if before { i } else { i + 1 };
         match self.ast.inner() {
@@ -525,6 +491,25 @@ impl<'l> Doc<'l> {
         }
     }
 
+    /// Replace the current node with the given node and return it.
+    fn replace(&mut self, new_ast: Ast<'l>) -> Result<Ast<'l>, DocError<'l>> {
+        let i = self.ast.goto_parent(); // child index
+        let old_ast = match self.ast.inner() {
+            AstKind::Fixed(mut fixed) => {
+                let old_ast = fixed.replace_child(i, new_ast);
+                fixed.goto_child(i);
+                old_ast
+            }
+            AstKind::Flexible(mut flexible) => {
+                let old_ast = flexible.replace_child(i, new_ast);
+                flexible.goto_child(i);
+                old_ast
+            }
+            _ => panic!("how can a parent not be fixed or flexible?"),
+        };
+        old_ast.map_err(|rejected_ast| DocError::WrongSort(rejected_ast))
+    }
+
     /// Used for both cutting and deleting. If return_original is true, cut the
     /// selected Ast, return the original Ast, and return Undo commands
     /// containing a _copy_ of the Ast. Otherwise, return None and use the
@@ -550,15 +535,24 @@ impl<'l> Doc<'l> {
                 let num_children = flexible.num_children();
                 let undos = if num_children == 0 {
                     // Stay at the childless parent
-                    vec![TreeCmd::InsertPrepend(undo_ast).into()]
+                    vec![
+                        TreeCmd::Replace(undo_ast).into(),
+                        TreeCmd::InsertHolePrepend.into(),
+                    ]
                 } else if i == 0 {
                     // We removed the first child, so to undo must insert before.
                     flexible.goto_child(0);
-                    vec![TreeCmd::InsertBefore(undo_ast).into()]
+                    vec![
+                        TreeCmd::Replace(undo_ast).into(),
+                        TreeCmd::InsertHoleBefore.into(),
+                    ]
                 } else {
                     // Go to the left.
                     flexible.goto_child(i - 1);
-                    vec![TreeCmd::InsertAfter(undo_ast).into()]
+                    vec![
+                        TreeCmd::Replace(undo_ast).into(),
+                        TreeCmd::InsertHoleAfter.into(),
+                    ]
                 };
                 Ok((undos, returned_ast))
             }

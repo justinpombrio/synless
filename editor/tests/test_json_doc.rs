@@ -62,7 +62,8 @@ fn test_json_undo_redo() {
                 lang.lookup_construct("list"),
                 &note_set,
             ))),
-            Command::Tree(TreeCmd::InsertPrepend(forest.new_fixed_tree(
+            Command::Tree(TreeCmd::InsertHolePrepend),
+            Command::Tree(TreeCmd::Replace(forest.new_fixed_tree(
                 &lang,
                 lang.lookup_construct("true"),
                 &note_set,
@@ -73,18 +74,28 @@ fn test_json_undo_redo() {
     .unwrap();
 
     doc.execute(
-        CommandGroup::Group(vec![Command::Tree(TreeCmd::InsertAfter(
-            forest.new_fixed_tree(&lang, lang.lookup_construct("null"), &note_set),
-        ))]),
+        CommandGroup::Group(vec![
+            Command::Tree(TreeCmd::InsertHoleAfter),
+            Command::Tree(TreeCmd::Replace(forest.new_fixed_tree(
+                &lang,
+                lang.lookup_construct("null"),
+                &note_set,
+            ))),
+        ]),
         &mut clipboard,
     )
     .unwrap();
     assert_render(&doc, "[true, null]");
 
     doc.execute(
-        CommandGroup::Group(vec![Command::Tree(TreeCmd::InsertBefore(
-            forest.new_fixed_tree(&lang, lang.lookup_construct("false"), &note_set),
-        ))]),
+        CommandGroup::Group(vec![
+            Command::Tree(TreeCmd::InsertHoleBefore),
+            Command::Tree(TreeCmd::Replace(forest.new_fixed_tree(
+                &lang,
+                lang.lookup_construct("false"),
+                &note_set,
+            ))),
+        ]),
         &mut clipboard,
     )
     .unwrap();
@@ -112,10 +123,14 @@ fn test_json_undo_redo() {
     assert_render(&doc, "[true, null]");
 
     doc.execute(
-        CommandGroup::Group(vec![Command::Tree(TreeCmd::InsertAfter(
-            // forest.new_fixed_tree(&lang, lang.lookup_construct("false"), &note_set),
-            forest.new_flexible_tree(&lang, lang.lookup_construct("list"), &note_set),
-        ))]),
+        CommandGroup::Group(vec![
+            Command::Tree(TreeCmd::InsertHoleAfter),
+            Command::Tree(TreeCmd::Replace(forest.new_flexible_tree(
+                &lang,
+                lang.lookup_construct("list"),
+                &note_set,
+            ))),
+        ]),
         &mut clipboard,
     )
     .unwrap();
@@ -170,17 +185,20 @@ fn test_json_cursor_at_top() {
                 lang.lookup_construct("list"),
                 &note_set,
             ))),
-            Command::Tree(TreeCmd::InsertPrepend(forest.new_fixed_tree(
+            Command::Tree(TreeCmd::InsertHolePrepend),
+            Command::Tree(TreeCmd::Replace(forest.new_fixed_tree(
                 &lang,
                 lang.lookup_construct("true"),
                 &note_set,
             ))),
-            Command::Tree(TreeCmd::InsertAfter(forest.new_fixed_tree(
+            Command::Tree(TreeCmd::InsertHoleAfter),
+            Command::Tree(TreeCmd::Replace(forest.new_fixed_tree(
                 &lang,
                 lang.lookup_construct("false"),
                 &note_set,
             ))),
-            Command::Tree(TreeCmd::InsertAfter(forest.new_fixed_tree(
+            Command::Tree(TreeCmd::InsertHoleAfter),
+            Command::Tree(TreeCmd::Replace(forest.new_fixed_tree(
                 &lang,
                 lang.lookup_construct("null"),
                 &note_set,
@@ -264,9 +282,14 @@ fn test_json_string() {
     .unwrap();
 
     doc.execute(
-        CommandGroup::Group(vec![Command::Tree(TreeCmd::InsertPrepend(
-            forest.new_text_tree(&lang, lang.lookup_construct("string"), &note_set),
-        ))]),
+        CommandGroup::Group(vec![
+            Command::Tree(TreeCmd::InsertHolePrepend),
+            Command::Tree(TreeCmd::Replace(forest.new_text_tree(
+                &lang,
+                lang.lookup_construct("string"),
+                &note_set,
+            ))),
+        ]),
         &mut clipboard,
     )
     .unwrap();

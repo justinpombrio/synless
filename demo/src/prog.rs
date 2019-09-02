@@ -48,10 +48,10 @@ pub enum Word<'l> {
 
     // tree/text commands:
     InsertChar,
-    InsertAfter,
-    InsertBefore,
-    InsertPrepend,
-    InsertPostpend,
+    InsertHoleAfter,
+    InsertHoleBefore,
+    InsertHolePrepend,
+    InsertHolePostpend,
     Replace,
     Remove,
     Left,
@@ -61,10 +61,6 @@ pub enum Word<'l> {
     Cut,
     Copy,
     PasteReplace,
-    PasteBefore,
-    PasteAfter,
-    PastePrepend,
-    PastePostpend,
     Undo,
     Redo,
 }

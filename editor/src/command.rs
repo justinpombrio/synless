@@ -27,28 +27,20 @@ pub enum EditorCmd {
     Copy,
     /// Paste over the current node, replacing it.
     PasteReplace,
-    /// In a flexible sequence, paste to the left of the current node.
-    PasteBefore,
-    /// In a flexible sequence, paste to the right of the current node.
-    PasteAfter,
-    /// In a flexible parent, paste at the beginning of its children.
-    PastePrepend,
-    /// In a flexible parent, paste at the end of its children.
-    PastePostpend,
 }
 
 #[derive(Debug)]
 pub enum TreeCmd<'l> {
-    /// Replace the current node.
+    /// Replace the current node with the given node.
     Replace(Ast<'l>),
-    /// In a flexible sequence, insert to the left of the current node.
-    InsertBefore(Ast<'l>),
-    /// In a flexible sequence, insert to the right of the current node.
-    InsertAfter(Ast<'l>),
-    /// In a flexible parent, insert at the beginning of its children.
-    InsertPrepend(Ast<'l>),
-    /// In a flexible parent, insert at the end of its children.
-    InsertPostpend(Ast<'l>),
+    /// In a flexible sequence, insert a hole to the left of the current node.
+    InsertHoleBefore,
+    /// In a flexible sequence, insert a hole to the right of the current node.
+    InsertHoleAfter,
+    /// On a flexible parent, insert a hole at the beginning of its children.
+    InsertHolePrepend,
+    /// On a flexible parent, insert a hole at the end of its children.
+    InsertHolePostpend,
     /// In a flexible sequence, remove the current node.
     Remove,
 }
