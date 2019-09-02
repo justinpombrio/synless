@@ -54,6 +54,7 @@ pub enum Word<'l> {
     InsertHolePostpend,
     Replace,
     Remove,
+    Clear,
     Left,
     Right,
     Parent,

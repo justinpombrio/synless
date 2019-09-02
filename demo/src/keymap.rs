@@ -126,8 +126,13 @@ impl<'l> KmapFactory<'l> {
             (Key::Up, KmapFilter::Always, Prog::single(Word::Parent)),
             (
                 Key::Backspace,
-                KmapFilter::Always,
+                KmapFilter::ParentArity(vec![ArityType::Flexible, ArityType::Mixed]),
                 Prog::single(Word::Remove),
+            ),
+            (
+                Key::Char('x'),
+                KmapFilter::Always,
+                Prog::single(Word::Clear),
             ),
             (
                 Key::Down,

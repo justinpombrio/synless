@@ -381,6 +381,7 @@ impl Ed {
                 self.stack.push(Word::Sort(Sort::any()));
             }
             Word::Remove => self.exec(TreeCmd::Remove)?,
+            Word::Clear => self.exec(TreeCmd::Clear)?,
             Word::InsertChar => {
                 let ch = self.stack.pop_char()?;
                 self.exec(TextCmd::InsertChar(ch))?;
