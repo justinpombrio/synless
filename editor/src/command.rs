@@ -27,6 +27,8 @@ pub enum EditorCmd {
     Copy,
     /// Swap the current node with the node on the top of the clipboard.
     PasteSwap,
+    /// Discard the node on the top of the clipboard.
+    PopClipboard,
 }
 
 #[derive(Debug)]

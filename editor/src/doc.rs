@@ -283,6 +283,13 @@ impl<'l> Doc<'l> {
                 let undos = vec![TreeCmd::Replace(old_ast).into()];
                 Ok(UndoGroup::with_edit(undos))
             }
+            EditorCmd::PopClipboard => {
+                if clipboard.pop().is_none() {
+                    Err(DocError::EmptyClipboard)
+                } else {
+                    Ok(UndoGroup::new())
+                }
+            }
         }
     }
 
