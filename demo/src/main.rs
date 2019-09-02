@@ -414,6 +414,7 @@ impl Ed {
             Word::Cut => self.exec(EditorCmd::Cut)?,
             Word::Copy => self.exec(EditorCmd::Copy)?,
             Word::PasteSwap => self.exec(EditorCmd::PasteSwap)?,
+            Word::PopClipboard => self.exec(EditorCmd::PopClipboard)?,
         })
     }
 

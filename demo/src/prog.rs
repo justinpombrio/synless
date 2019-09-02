@@ -62,6 +62,7 @@ pub enum Word<'l> {
     Cut,
     Copy,
     PasteSwap,
+    PopClipboard,
     Undo,
     Redo,
 }
