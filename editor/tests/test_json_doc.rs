@@ -1,6 +1,6 @@
 use editor::{
-    make_json_lang, make_singleton_lang_set, CommandGroup, TestEditor, TextCmd, TextNavCmd,
-    TreeCmd, TreeNavCmd,
+    make_json_lang, make_singleton_lang_set, CommandGroup, DocError, TestEditor, TextCmd,
+    TextNavCmd, TreeCmd, TreeNavCmd,
 };
 use pretty::{DocPosSpec, Pos};
 
@@ -10,6 +10,22 @@ macro_rules! group {
     ($($command:expr),+) => {
         CommandGroup::Group(vec![$($command.into()),+])
     }
+}
+
+/// Check if the pattern matches the expression, and panic with a informative
+/// message if it doesn't.
+macro_rules! assert_matches {
+    ($pattern:pat, $expression:expr) => {
+        if let $pattern = $expression {
+            ()
+        } else {
+            panic!(
+                "assertion failed: `(pattern matches expr)`\n  pattern: {:?}\n  expr: {:?}",
+                stringify!($pattern),
+                $expression
+            )
+        }
+    };
 }
 
 // TODO: expand this into a comprehensive test suite
@@ -96,7 +112,7 @@ fn test_json_undo_redo() {
     ed.exec(CommandGroup::Redo).unwrap();
     ed.assert_render("[true, null, []]");
 
-    assert!(ed.exec(CommandGroup::Redo).is_err());
+    assert_matches!(Err(DocError::NothingToRedo), ed.exec(CommandGroup::Redo));
     ed.assert_render("[true, null, []]");
 }
 
