@@ -251,8 +251,12 @@ impl<'l> Doc<'l> {
         }
         match cmd {
             EditorCmd::Cut => {
-                let (undos, ast) = self.remove(true)?;
-                clipboard.push(ast.expect("failed to cut"));
+                let hole = self.ast.new_hole();
+                let old_ast = self.replace(hole)?;
+                // Put a copy on the undo stack
+                let undos = vec![TreeCmd::Replace(old_ast.clone()).into()];
+                // Put the original on the clipboard
+                clipboard.push(old_ast);
                 Ok(UndoGroup::with_edit(undos))
             }
             EditorCmd::Copy => {
@@ -289,10 +293,7 @@ impl<'l> Doc<'l> {
                 let old_ast = self.replace(new_ast)?;
                 vec![TreeCmd::Replace(old_ast).into()]
             }
-            TreeCmd::Remove => {
-                let (undos, _ast) = self.remove(false)?;
-                undos
-            }
+            TreeCmd::Remove => self.remove()?,
             TreeCmd::InsertHoleBefore => self.insert_sibling(true)?,
             TreeCmd::InsertHoleAfter => self.insert_sibling(false)?,
             TreeCmd::InsertHolePrepend => self.insert_child_at_edge(true)?,
@@ -511,51 +512,41 @@ impl<'l> Doc<'l> {
         old_ast.map_err(|rejected_ast| DocError::WrongSort(rejected_ast))
     }
 
-    /// Used for both cutting and deleting. If return_original is true, cut the
-    /// selected Ast, return the original Ast, and return Undo commands
-    /// containing a _copy_ of the Ast. Otherwise, return None and use the
-    /// original Ast in the Undo commands.
-    fn remove(
-        &mut self,
-        return_original: bool,
-    ) -> Result<(Vec<Command<'l>>, Option<Ast<'l>>), DocError<'l>> {
+    /// Entirely remove the current node, if possible (eg. if it has a flexible
+    /// parent). Return the list of commands required to undo the removal.
+    fn remove(&mut self) -> Result<Vec<Command<'l>>, DocError<'l>> {
         let i = self.ast.goto_parent();
         match self.ast.inner() {
             AstKind::Fixed(mut fixed) => {
-                // Oops, go back, we can't delete something from a fixed node.
+                // Oops, go back, we can't remove a child from a fixed parent.
                 fixed.goto_child(i);
                 Err(DocError::CannotRemoveNode)
             }
             AstKind::Flexible(mut flexible) => {
                 let old_ast = flexible.remove_child(i);
-                let (undo_ast, returned_ast) = if return_original {
-                    (old_ast.clone(), Some(old_ast))
-                } else {
-                    (old_ast, None)
-                };
                 let num_children = flexible.num_children();
                 let undos = if num_children == 0 {
                     // Stay at the childless parent
                     vec![
-                        TreeCmd::Replace(undo_ast).into(),
+                        TreeCmd::Replace(old_ast).into(),
                         TreeCmd::InsertHolePrepend.into(),
                     ]
                 } else if i == 0 {
-                    // We removed the first child, so to undo must insert before.
+                    // We removed the first child, so to undo we must insert before.
                     flexible.goto_child(0);
                     vec![
-                        TreeCmd::Replace(undo_ast).into(),
+                        TreeCmd::Replace(old_ast).into(),
                         TreeCmd::InsertHoleBefore.into(),
                     ]
                 } else {
                     // Go to the left.
                     flexible.goto_child(i - 1);
                     vec![
-                        TreeCmd::Replace(undo_ast).into(),
+                        TreeCmd::Replace(old_ast).into(),
                         TreeCmd::InsertHoleAfter.into(),
                     ]
                 };
-                Ok((undos, returned_ast))
+                Ok(undos)
             }
             _ => panic!("how can a parent not be fixed or flexible?"),
         }
