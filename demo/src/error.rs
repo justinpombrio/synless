@@ -18,6 +18,7 @@ pub enum Error {
         construct: ConstructName,
         lang: LanguageName,
     },
+    UnknownBookmark,
     ExpectedWord(String),
     EmptyStack,
     Pane(PaneError<terminal::Error>),

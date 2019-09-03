@@ -64,6 +64,8 @@ pub enum Word<'l> {
     PopClipboard,
     Undo,
     Redo,
+    GotoBookmark,
+    SetBookmark,
 
     // text commands:
     InsertChar,
