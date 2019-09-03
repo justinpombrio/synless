@@ -15,6 +15,7 @@ pub enum DocError<'l> {
     CannotMove,
     CannotRemoveNode,
     CannotDeleteChar,
+    CannotInsert,
 }
 
 #[derive(Debug)]
@@ -430,13 +431,13 @@ impl<'l> Doc<'l> {
     /// successful, return the list of commands needed to undo it. Otherwise,
     /// return `Err`.
     fn insert_child_at_edge(&mut self, at_start: bool) -> Result<Vec<Command<'l>>, DocError<'l>> {
-        let new_ast = self.ast.new_hole();
+        let hole = self.ast.new_hole();
         match self.ast.inner() {
             AstKind::Flexible(mut flexible) => {
                 let original_num_children = flexible.num_children();
                 let index = if at_start { 0 } else { original_num_children };
                 flexible
-                    .insert_child(index, new_ast)
+                    .insert_child(index, hole)
                     .map_err(|rejected_ast| DocError::WrongSort(rejected_ast))?;
                 flexible.goto_child(index);
                 let mut undo = Vec::new();
@@ -449,7 +450,7 @@ impl<'l> Doc<'l> {
                 undo.push(TreeCmd::Remove.into());
                 Ok(undo)
             }
-            _ => Err(DocError::WrongSort(new_ast)),
+            _ => Err(DocError::CannotInsert),
         }
     }
 
@@ -458,18 +459,18 @@ impl<'l> Doc<'l> {
     /// insertion is successful, return the list of commands needed to undo it.
     /// Otherwise, return `Err`.
     fn insert_sibling(&mut self, before: bool) -> Result<Vec<Command<'l>>, DocError<'l>> {
-        let new_ast = self.ast.new_hole();
+        let hole = self.ast.new_hole();
         let i = self.ast.goto_parent();
         let insertion_index = if before { i } else { i + 1 };
         match self.ast.inner() {
             AstKind::Fixed(mut fixed) => {
                 // Oops, go back, we can't insert something into a fixed node.
                 fixed.goto_child(i);
-                Err(DocError::WrongSort(new_ast))
+                Err(DocError::CannotInsert)
             }
             AstKind::Flexible(mut flexible) => {
                 let result = flexible
-                    .insert_child(insertion_index, new_ast)
+                    .insert_child(insertion_index, hole)
                     .map_err(|rejected_ast| DocError::WrongSort(rejected_ast));
 
                 if let Err(err) = result {
