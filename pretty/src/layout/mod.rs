@@ -1,5 +1,7 @@
-mod bounds;
+//mod bounds;
 mod boundset;
+//mod compiled_notation;
+mod notation_walker;
 
 /*
 mod layout;

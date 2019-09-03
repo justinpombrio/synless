@@ -3,29 +3,175 @@ use std::fmt;
 
 use super::boundset::BoundSet;
 use crate::geometry::{Bound, Col, Pos, Region};
-use crate::notation::Notation;
 use crate::style::Style;
+use super::compile_notation::{compute_bounds, Bounds, CompiledNotation};
 
 use self::Layout::*;
 
-pub trait ApplyNotation: Clone {
-    fn empty() -> Self;
-    fn literal(s: &str) -> Self;
-    fn nest(left: Self, right: Self) -> Self;
-    fn vert(left: Self, right: Self) -> Self;
-    fn if_flat(left: Self, right: Self) -> Self;
+#[derive(Debug, Clone)]
+/// A concrete plan for how to lay out a `Notation`, once the program
+/// and screen width are known.
+pub struct Layout {
+    elements: Vec<LayoutElement>,
+    children: Vec<Option<LayoutElement>>,
+}
 
-    fn apply_notation(children: &[Self], notation: &Notation)
+/// Lay out a node in preparation for rendering it. Doing this requires knowing
+/// (i) the Bounds of its children, (ii) if it is a text node, whether its text
+/// is empty or not, (iii) the Notation with which it is being displayed, and
+/// (iv) the available screen width.
+///
+/// If the node is not texty, then `is_empty_text` will not be used and can have
+/// any value.
+pub fn compute_layout(
+    child_bounds: &[Bounds],
+    is_empty_text: bool,
+    notation: &Notation,
+    width: Col,
+) -> Layout {
+    unimplemented!()
+}
 
-    fn lay(children: &[Self], notation: &Notation) -> Self {
-        PerformLay::new(children).lay(notation)
+/// Part of a [`Layout`](Layout): one thing to be written to the screen.
+#[derive(Clone, PartialEq, Eq)]
+pub enum LayoutElement {
+    /// Display a literal string with the given style.
+    Literal(Region, String, Style),
+    /// Display a text node's text with the given style.
+    Text(Region, Style),
+    /// Display a child node. Its Bound must be supplied.
+    Child(Region, usize),
+}
+
+struct ComputeLayout<'a> {
+    layout: Layout,
+    child_bounds: &'a [Bounds],
+    is_empty_text: bool,
+}
+
+impl<'a> ComputeLayout<'a> {
+    fn new(child_bounds: &'a [Bounds], is_empty_text: bool) -> ComputeLayout<'a> {
+        ComputeLayout {
+            layout: Layout {
+                elements: vec![],
+                children: unimplemented!(),
+            },
+            child_bounds,
+            is_empty_text,
+        }
+    }
+
+    fn lay(
+        &mut self,
+        pos: Pos,
+        width: Col,
+        notation: &Notation,
+        in_join: Option<(Bound, Bound)>,
+        in_surround: Option<Bound>,
+    ) -> Bound {
+        let recur = |pos, width, notation| {
+            self.lay(pos, width, notation, in_join.clone(), in_surround.clone())
+        };
+        match notation {
+            Empty => Bound::empty(),
+            Literal(s, _) => Bound::literal(s),
+            Text(_) => self.child_bounds[0].clone(),
+            Child(i) => self.child_bounds[i].clone(),
+            Nest(notations) => {
+                let mut pos = pos;
+                let mut width = width;
+                let mut total_bound = Bound::empty();
+                for notation in notations {
+                    let bound = recur(pos, width, notation);
+                    pos += bound.end();
+                    width = width - bound.indent;
+                    total_bound = Bound::nest(total_bound, bound);
+                }
+                total_bound
+            }
+            Vert(notations) => {
+                let mut pos = pos;
+                let mut total_bound = Bound::empty();
+                for notation in notations {
+                    let bound = recur(pos, width, notation);
+                    pos.row += bound.height;
+                    total_bound = Bound::vert(total_bound, bound);
+                }
+                total_bound
+            }
+            IfFlat(notation1, notation2) => {
+                // Unfortunately, we have no pre-computed information about this
+                // _particular_ Notation (which may be in the middle of a larger
+                // Notation). All we need here is the flat_width, but if we
+                // compute that and then recur we're doing quadratic work in the
+                // worst case. So compute the full layout here, in case we need it.
+                // We have to make a separate `ComputeLayout`, though, in case
+                // we don't use it, to prevent `self.layout` from being contaminated.
+                let mut computer = ComputeLayout::new(self.child_bounds, self.is_empty_text);
+                let bound1 = computer.lay(pos, width, notation1, in_join, in_surround);
+                if bound1.height > 1 {
+                    self.layout.elements.append(&mut computer.layout.elements);
+                    for i in 0..self.child_bounds.len() {
+                        self.layout.children[i] = computer.layout.children[i];
+                    }
+                    self.layout.elements.append(&mut computer.layout.elements);
+                } else {
+                    recur(pos, width, notation2)
+                }
+            }
+            IfEmptyText(notation1, notation2) => {
+                if self.is_empty_text {
+                    recur(pos, width, notation1)
+                } else {
+                    recur(pos, width, notation2)
+                }
+            }
+            Repeat(box RepeatInner {
+                empty,
+                lone,
+                join,
+                surround,
+            }) => match self.children.len() {
+                0 => self.lay(pos, width, empty, None, None),
+                1 => self.lay(pos, width, lone, None, None),
+                _ => {
+                    let mut total_bound = Bound::empty();
+                    for child in self.child_bounds {
+                        let in_join = Some((total_bound, child.clone()));
+                        // THINK: how does this work?
+                        // Inside out?
+                        total_bound = self.lay(pos, width, join, in_join, None);
+                    }
+                }
+            },
+            Left => in_join.expect("invalid Left").0,
+            Right => in_join.expect("invalid Right").1,
+            Surrounded => in_surround.expect("invalid Surrounded"),
+
+            Repeat(box RepeatInner {
+                empty,
+                lone,
+                join,
+                surround,
+            }) => match self.children.len() {
+                0 => self.lay(pos, width, empty, None, None),
+                1 => self.lay(pos, width, lone, None, None),
+                _ => {
+                    self.lay(pos, width, surround, 
+                    let mut lay = T::empty();
+                    for child in self.children {
+                        let in_join = Some((total_bound, child.clone()));
+                        self.lay(pos, width, join, in_surround, None);
+                        lay = self.apply(join, Some((lay, child.clone())), None);
+                    }
+                    self.apply(surround, None, Some(lay))
+                }
+            },
+        }
     }
 }
 
-struct PerformLay<L: Lay> {
-    children: &[L],
-}
-
+/*
 impl<L: Lay> PerformLay<L> {
     fn new(children: &[L]) -> PerformLay<L> {
         PerformLay {
@@ -34,98 +180,13 @@ impl<L: Lay> PerformLay<L> {
     }
 
     fn lay(&self, notation: &Notation, in_join: Option((L, L)), in_surround: Option<L>) -> L {
-        match notation {
-            Empty => L::empty(),
-            Literal(s, _) => L::literal(s),
-            Text(_) => self.children[0],
-            Child(i) => self.children[i],
-            Nest(notations) => {
-                let mut lay = L::empty();
-                for notation in notations {
-                    lay = lay.nest(self.lay(notation, in_join, in_surround))
-                }
-                lay
-            }
-            Vert(notations) => {
-                let mut lay = L::empty();
-                for notation in notations {
-                    lay = lay.vert(self.lay(notation, in_join, in_surround));
-                }
-                lay
-            }
-            Repeat(box RepeatInner {
-                empty,
-                lone,
-                join,
-                surround,
-            }) => match self.children.len() {
-                0 => self.lay(empty, in_join, in_surround),
-                1 => self.lay(lone, in_join, in_surround),
-                _ => {
-                    let mut lay = L::empty();
-                    for child in children {
-                        lay = self.lay(join, Some((lay, child)), None);
-                    }
-                    self.lay(surround, None, Some(lay))
-                }
-            }
         }
     }
 }
 
 
-impl Lay for Bound {
-    fn empty() -> Bound {
-        Bound {
-            width: 0,
-            height: 1,
-            indent: 0,
-        }
-    }
 
-    fn literal(s: &str) -> Bound {
-        let width = s.chars().count() as Col;
-        Bound {
-            width: width,
-            indent: width,
-            height: 1,
-        }
-    }
 
-    fn nest(self, other: Bound) -> Bound {
-        Bound {
-            width: cmp::max(self.width, self.indent + other.width),
-            height: self.height + other.height - 1,
-            indent: self.indent + other.indent,
-        }
-    }
-
-    fn vert(self, other: Bound) -> Bound {
-        Bound {
-            width: cmp::max(self.width, other.width),
-            height: self.height + other.height,
-            indent: other.indent,
-        }
-    }
-}
-
-/// A concrete plan for how to lay out a `Notation`, once the program
-/// and screen width are known.
-pub struct Layout {
-    elements: Vec<(LayoutElement, Region)>,
-    children: Vec<Option<Region>>,
-}
-
-/// Part of a [`Layout`](Layout): one thing to be written to the screen.
-#[derive(Clone, PartialEq, Eq)]
-pub enum LayoutElement {
-    /// Display a literal string with the given style.
-    Literal(String, Style),
-    /// Display a text node's text with the given style.
-    Text(Style),
-    /// Display a child node. Its Bound must be supplied.
-    Child(usize),
-}
 
 impl Layout {
     pub fn child(&self, i: usize) -> Option<Region> {
@@ -205,7 +266,7 @@ fn lay<L: Lay>(
 }
 
 
-    
+
 impl Lay for LayoutRegion {
     fn empty() -> LayoutRegion {
         LayoutRegion {
@@ -309,23 +370,4 @@ impl Layouts {
         lay
     }
 }
-
-#[derive(Clone)]
-pub struct Layouts(BoundSet<LayoutRegion>);
-
-// If the node is texty, `child_bounds` should be a singleton vec of the text bounds.
-pub fn compute_layouts(child_bounds: &[Bounds], notation: &Notation) -> Layouts {
-    Layouts(lay(child_bounds, None, notation))
-}
-
-// If the node is texty, `child_bounds` should be a singleton vec of the text bounds.
-pub fn compute_bounds(child_bounds: &[Bounds], notation: &Notation) -> Bounds {
-    Bounds(lay(child_bounds, None, notation))
-}
-
-pub fn text_bounds(text: &str) -> Bounds {
-    Bounds(BoundSet::singleton(
-        Bound::literal(text, Style::plain()),
-        (),
-    ))
-}
+*/

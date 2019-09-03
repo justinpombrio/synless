@@ -17,6 +17,7 @@ use utility;
 mod geometry;
 mod layout;
 mod notation;
+mod notation_ops;
 //mod pane;
 //mod pretty;
 mod style;

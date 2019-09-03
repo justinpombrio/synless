@@ -1,7 +1,10 @@
+use std::cmp;
 use std::fmt;
 
-use super::pos::{Col, Row, MAX_WIDTH};
+use super::pos::{Col, Pos, Row, MAX_WIDTH};
 use super::rect::Rect;
+use crate::notation_ops::NotationOps;
+use crate::style::Style;
 
 /// A "paragraph" shape: it is like a rectangle, except that the last
 /// line may be shorter than the rest.
@@ -48,6 +51,7 @@ impl Bound {
         Bound::new_rectangle(rect.height(), rect.width())
     }
 
+    // TODO: can probably delete this now
     /// One Bound dominates another if it is at least as small in all
     /// dimensions.
     pub fn dominates(&self, other: Bound) -> bool {
@@ -64,6 +68,7 @@ impl Bound {
         self.width > MAX_WIDTH
     }
 
+    // TODO: can probably delete this now
     /// A Bound that has the given width and is "infinitely" tall.
     pub fn infinite_scroll(width: Col) -> Bound {
         Bound {
@@ -77,6 +82,17 @@ impl Bound {
     /// Return true iff this bound is shaped like a rectangle.
     pub fn is_rectangular(&self) -> bool {
         self.indent == self.width
+    }
+
+    /// The character position just past the end of the bound.
+    ///
+    /// (That is: the character position just to the right of the last
+    /// character of the last line of this bound.)
+    pub fn end(&self) -> Pos {
+        Pos {
+            row: self.height - 1,
+            col: self.indent,
+        }
     }
 
     pub(crate) fn debug_print(&self, f: &mut fmt::Formatter, ch: char, indent: Col) -> fmt::Result {
@@ -95,6 +111,57 @@ impl Bound {
 impl fmt::Debug for Bound {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.debug_print(f, '*', 0)
+    }
+}
+
+impl NotationOps for Bound {
+    fn empty() -> Bound {
+        Bound {
+            width: 0,
+            height: 1,
+            indent: 0,
+        }
+    }
+
+    fn literal(string: &str, _style: Style) -> Bound {
+        let width = string.chars().count() as Col;
+        Bound {
+            width: width,
+            indent: width,
+            height: 1,
+        }
+    }
+
+    fn text(child: &Bound, _style: Style) -> Bound {
+        child.clone()
+    }
+
+    fn child(children: &[Bound], i: usize) -> Bound {
+        children[i].clone()
+    }
+
+    fn nest(b1: Bound, b2: Bound) -> Bound {
+        Bound {
+            width: cmp::max(b1.width, b1.indent + b2.width),
+            height: b1.height + b2.height - 1,
+            indent: b1.indent + b2.indent,
+        }
+    }
+
+    fn vert(b1: Bound, b2: Bound) -> Bound {
+        Bound {
+            width: cmp::max(b1.width, b2.width),
+            height: b1.height + b2.height,
+            indent: b2.indent,
+        }
+    }
+
+    fn if_flat(bound1: Bound, bound2: Bound) -> Bound {
+        if bound1.height > 1 {
+            bound1.clone()
+        } else {
+            bound2.clone()
+        }
     }
 }
 

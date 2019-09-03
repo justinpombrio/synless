@@ -1,4 +1,3 @@
-use std::iter;
 use std::ops::{Add, BitOr, BitXor};
 
 use crate::style::Style;
@@ -7,7 +6,7 @@ use crate::utility::error;
 use self::Notation::*;
 
 /// Describes how to display a syntactic construct.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Notation {
     /// Display Nothing
     Empty,
@@ -46,7 +45,7 @@ pub enum Notation {
 
 /// Determines what to display based on the arity of this node.
 /// This is used for syntactic constructs that have extendable arity.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RepeatInner {
     /// If the sequence is empty, use this notation.
     pub empty: Notation,
@@ -138,7 +137,7 @@ impl BitOr<Notation> for Notation {
 
 impl Notation {
     /// Put a Notation into a more efficient normal form that avoids unnecessary
-    /// nestings.
+    /// nestings, and pre-computes some important information.
     pub fn normalize(self) -> Notation {
         // This is valid because `Nest` and `Vert` are associative.
         match self {
@@ -148,7 +147,7 @@ impl Notation {
             Child(i) => Child(i),
             Nest(mut notations) => {
                 if notations.len() == 0 {
-                    error!("Notation: cannot have `Nest` of no notations")
+                    return Empty;
                 }
                 if notations.len() == 1 {
                     return notations.pop().unwrap();
@@ -168,8 +167,8 @@ impl Notation {
                 Vert(notations).flatten_verts(&mut flattened);
                 Vert(flattened)
             }
-            IfFlat(n1, n2) => IfFlat(Box::new(n1.normalize()), Box::new(n2.normalize())),
-            IfEmptyText(n1, n2) => IfEmptyText(Box::new(n1.normalize()), Box::new(n2.normalize())),
+            IfFlat(n1, n2) => if_flat(n1.normalize(), n2.normalize()),
+            IfEmptyText(n1, n2) => if_empty_text(n1.normalize(), n2.normalize()),
             Repeat(box RepeatInner {
                 empty,
                 lone,
@@ -187,6 +186,74 @@ impl Notation {
         }
     }
 
+    /*
+    // TODO
+    /// Expand any instances of `Repeat` in this notation, knowing how many
+    /// children there are.
+    pub fn expand(self, num_children: usize, is_empty_text: bool) -> Notation {
+        match self {
+            Empty => Empty,
+            Literal(string, style) => Literal(string, style),
+            Text(style) => Text(style),
+            Child(i) => Child(i),
+            Nest(mut notations) => {
+                for notation in &mut notations {
+                    *notation = notation.expand(num_children, is_empty_text);
+                }
+                Nest(notations)
+            }
+            Vert(mut notations) => {
+                for notation in &mut notations {
+                    *notation = notation.expand(num_children, is_empty_text);
+                }
+                Nest(notations)
+            }
+            IfFlat(mut n1, mut n2) => {
+                *n1 = n1.expand(num_children, is_empty_text);
+                *n2 = n2.expand(num_children, is_empty_text);
+                IfFlat(n1, n2)
+            }
+            IfEmptyText(n1, n2) => {
+                if is_empty_text {
+                    n1.expand(num_children, is_empty_text)
+                } else {
+                    n2.expand(num_children, is_empty_text)
+                }
+            }
+            Repeat(box RepeatInner {
+                empty,
+                lone,
+                join,
+                surround,
+            }) => {
+                // NOTE: this is only correct because it is illegal to have
+                // nested Repeats.
+                match num_children {
+                    0 => empty,
+                    1 => lone,
+                    n => {
+                        let mut notation = Child(n - 1);
+                        for i in (0..n - 1).rev() {
+                            let mut join = join.clone();
+                            // INEFFICIENT: two walks instead of one;
+                            // could also not walk all of `join`?
+                            join.replace(Left, Child(i));
+                            join.replace(Right, notation);
+                            notation = join;
+                        }
+                        let mut surround = surround.clone();
+                        surround.replace(Surrounded, notation);
+                        surround
+                    }
+                }
+            }
+            Left => panic!("`Left` outside of `Repeat`"),
+            Right => panic!("`Right` outside of `Repeat`"),
+            Surrounded => panic!("`Surrounded` outside of `Repeat`"),
+        }
+    }
+     */
+
     fn flatten_nests(self, flattened: &mut Vec<Notation>) {
         match self {
             Nest(notations) => notations
@@ -202,6 +269,42 @@ impl Notation {
                 .into_iter()
                 .for_each(|n| n.flatten_verts(flattened)),
             other => flattened.push(other),
+        }
+    }
+
+    fn replace(&mut self, old: Notation, new: Notation) {
+        // INEFFICIENT: These `clones` will typically be unnecessary.
+        if self == &old {
+            *self = new;
+            return;
+        }
+        match self {
+            Empty => (),
+            Literal(_, _) => (),
+            Text(_) => (),
+            Child(_) => (),
+            Nest(notations) => {
+                for notation in notations {
+                    notation.replace(old.clone(), new.clone());
+                }
+            }
+            Vert(notations) => {
+                for notation in notations {
+                    notation.replace(old.clone(), new.clone());
+                }
+            }
+            IfFlat(n1, n2) => {
+                n1.replace(old.clone(), new.clone());
+                n2.replace(old, new);
+            }
+            IfEmptyText(n1, n2) => {
+                n1.replace(old.clone(), new.clone());
+                n2.replace(old, new);
+            }
+            Repeat(_) => panic!("`Repeat` cannot be nested"),
+            Left => (),
+            Right => (),
+            Surrounded => (),
         }
     }
 }

@@ -1,31 +1,48 @@
-use crate::geometry::{Bound, Col, MAX_WIDTH};
+use crate::geometry::{Col, MAX_WIDTH};
 use crate::layout::boundset::BoundSet;
-use crate::notation::Notation::*;
-use crate::notation::{Notation, RepeatInner};
-use utility::error;
+use crate::notation::Notation;
+use crate::notation_ops::{apply_notation, NotationOps};
 
+/// Every node must keep an up-to-date `Bounds`, computed using
+/// [`compute_bounds`](compute_bounds). It contains pre-computed information to
+/// speed up pretty-printing.
+#[derive(Debug, Clone)]
 pub struct Bounds {
-    flat_width: Option<usize>,
-    bound_set: BoundSet,
+    pub(super) flat_width: Option<Col>,
+    pub(super) bound_set: BoundSet,
 }
 
-struct ComputeBounds<'a> {
-    child_bounds: &'a [Bounds],
+/// Compute the [`Bounds`](Bounds) of a node, given (i) the Bounds of its
+/// children, (ii) if it is a text node, whether its text is empty, and (iii)
+/// the Notation with which it is being displayed.
+///
+/// If the node is texty, then `child_bounds` should contain exactly one
+/// `Bounds`, computed by [`text_bounds()`](text_bounds). If the node is not
+/// texty, then `is_empty_text` will not be used and can have any value.
+pub fn compute_bounds(child_bounds: &[Bounds], is_empty_text: bool, notation: &Notation) -> Bounds {
+    apply_notation(child_bounds, is_empty_text, notation)
 }
 
-impl Lay for Option<usize> {
-    fn empty() -> Option<usize> {
+/// Compute the [`Bounds`](Bounds) of a piece of text.
+pub fn text_bounds(text: &str) -> Bounds {
+    Bounds::literal(text)
+}
+
+// TODO:
+// 1. Remember flat_width
+// 2. Do not clone
+
+impl NotationOps for Option<Col> {
+    fn empty() -> Option<Col> {
         Some(0)
     }
 
-    fn literal(s: &str) -> Option<usize> {
-        Some(s.chars().count())
+    fn literal(s: &str) -> Option<Col> {
+        Some(s.chars().count() as Col)
     }
 
-    fn nest(self, other: Option<usize>) -> Option<usize> {
-        let fw1 = self?;
-        let fw2 = other?;
-        let fw = fw1 + fw2;
+    fn nest(fw1: &Option<Col>, fw2: &Option<Col>) -> Option<Col> {
+        let fw = (*fw1)? + (*fw2)?;
         if fw <= MAX_WIDTH {
             Some(fw)
         } else {
@@ -33,209 +50,48 @@ impl Lay for Option<usize> {
         }
     }
 
-    fn vert(self, other: Option<usize>) -> Option<usize> {
+    fn vert(_fw1: &Option<Col>, _fw2: &Option<Col>) -> Option<Col> {
         None
     }
 
-    fn if_flat(self, other: Option<usize>) -> Option<usize> {
-        self.or(other)
+    fn if_flat(fw1: &Option<Col>, fw2: &Option<Col>) -> Option<Col> {
+        fw1.or(*fw2)
     }
 }
 
-impl Lay for BoundSet {
-    fn empty() -> BoundSet {
-        BoundSet::singleton(Bound::empty())
-    }
-
-    fn literal(s: &str) -> BoundSet {
-        BoundSet::singleton(Bound::literal(s))
-    }
-
-    fn nest(self, other: BoundSet) -> BoundSet {
-        let mut set = BoundSet::new();
-        for width in 0..MAX_WIDTH {
-            let bound_1 = self[width];
-            let remaining_width = width - bound_1.index;
-            let bound_2 = other[remaining_width];
-            set.insert(bound_1.nest(bound_2));
-        }
-        set
-    }
-
-    fn vert(self, other: BoundSet) -> BoundSet {
-        let mut set = BoundSet::new();
-        for width in 0..MAX_WIDTH {
-            let bound_1 = self[width];
-            let bound_2 = other[width];
-            set.insert(bound_1.vert(bound_2));
-        }
-        set
-    }
-
-    fn if_flat(self, other: BoundSet) -> BoundSet {
-        let mut set = BoundSet::new();
-        for width in 0..MAX_WIDTH {
-            let bound_1 = self[width];
-            if bound_1.height > 1 {
-                set.insert(bound_1);
-            } else {
-                set.insert(other[width]);
-            }
-        }
-        set
-    }
-}
-
-impl Lay for Bounds {
+impl NotationOps for Bounds {
     fn empty() -> Bounds {
         Bounds {
-            flat_width: Option<usize>::empty(),
+            flat_width: <Option<Col>>::empty(),
             bound_set: BoundSet::empty(),
         }
     }
 
     fn literal(s: &str) -> Bounds {
         Bounds {
-            flat_width: Option<usize>::literal(s),
+            flat_width: <Option<Col>>::literal(s),
             bound_set: BoundSet::literal(s),
         }
     }
 
-    fn nest(self, other: Bounds) -> Bounds {
+    fn nest(b1: &Bounds, b2: &Bounds) -> Bounds {
         Bounds {
-            flat_width: self.flat_width.nest(other.flat_width),
-            bound_set: self.bound_set.nest(other.bound_set),
+            flat_width: <Option<Col>>::nest(&b1.flat_width, &b2.flat_width),
+            bound_set: BoundSet::nest(&b1.bound_set, &b2.bound_set),
         }
     }
 
-    fn vert(&self, other: Bounds) -> Bounds {
+    fn vert(b1: &Bounds, b2: &Bounds) -> Bounds {
         Bounds {
-            flat_width: self.flat_width.vert(other.flat_width),
-            bound_set: self.bound_set.vert(other.bound_set),
+            flat_width: <Option<Col>>::vert(&b1.flat_width, &b2.flat_width),
+            bound_set: BoundSet::vert(&b1.bound_set, &b2.bound_set),
         }
     }
 
-    fn if_flat(&self, other: Bounds) -> Bounds {
+    fn if_flat(b1: &Bounds, b2: &Bounds) -> Bounds {
         Bounds {
-            flat_width: self.flat_width.if_flat(other.flat_width),
-            bound_set: self.bound_set.if_flat(other.bound_set),
+            flat_width: <Option<Col>>::if_flat(&b1.flat_width, &b2.flat_width),
+            bound_set: BoundSet::if_flat(&b1.bound_set, &b2.bound_set),
         }
     }
-}
-
-impl<'a> ComputeBounds<'a> {
-    fn new(child_bounds: &[Bounds]) -> ComputeBounds {
-        ComputeBounds { child_bounds }
-    }
-
-    fn compute(
-        &self,
-        notation: &Notation,
-        in_join: Option<(Bounds, Bounds)>,
-        in_surround: Option<Bounds>,
-    ) -> Option<Bounds> {
-        match notation {
-            Empty => Bounds {
-                flat_width: Some(0),
-                bound_set: BoundSet::singleton(Bound::empty()),
-            },
-            Literal(s, _) => Bounds {
-                flat_width: Some(s.chars().count()),
-                bound_set: BoundSet::singleton(Bound::literal(s)),
-            },
-            Text(_) => self.child_bounds[0],
-            Child(i) => self.child_bounds[*i],
-            Nest(notations) => {
-                let mut accum_bounds = Bounds {
-                    flat_width: Some(0),
-                    bound_set: BoundSet::singleton(Bound::empty()),
-                };
-                for notation in notations {
-                    let bounds = self.compute(notation, in_join, in_surround);
-                    match bounds.flat_width {
-                        None => total_bounds.flat_width = None,
-                        Some(w) => total_bounds.flat_width.value += w,
-                    }
-                    for width in 0..MAX_WIDTH {
-                        let outer_bound = accum_bounds[width];
-                        let remaining_width = width - outer_bound.indent;
-                        let inner_bound = bounds[remaining_width];
-                    }
-                }
-            }
-        }
-    }
-
-    fn compute_flat_width(
-        &self,
-        notation: &Notation,
-        in_join: Option<(usize, usize)>,
-        in_surround: Option<usize>,
-    ) -> Option<usize> {
-        match notation {
-            Empty => Some(0),
-            Literal(s, _) => Some(s.chars().count()),
-            Text(_) => self.child_bounds[0].flat_width,
-            Child(i) => self.child_bounds[*i].flat_width,
-            Nest(notations) => {
-                let mut flat_width = 0;
-                for notation in notations {
-                    match self.compute_flat_width(notation, in_join, in_surround) {
-                        None => return None,
-                        Some(w) => flat_width += w,
-                    }
-                }
-                Some(flat_width)
-            }
-            // assume Notation is normalized
-            Vert(notations) => None,
-            IfFlat(n1, n2) => self
-                .compute_flat_width(n1, in_join, in_surround)
-                .or_else(|| self.compute_flat_width(n2, in_join, in_surround)),
-            IfEmptyText(n1, n2) => {
-                if self.child_bounds[0].flat_width == Some(0) {
-                    self.compute_flat_width(n1, in_join, in_surround)
-                } else {
-                    self.compute_flat_width(n2, in_join, in_surround)
-                }
-            }
-            Repeat(box RepeatInner {
-                empty,
-                lone,
-                join,
-                surround,
-            }) => match self.child_bounds.len() {
-                0 => self.compute_flat_width(empty, in_join, in_surround),
-                1 => self.compute_flat_width(lone, in_join, in_surround),
-                _ => {
-                    let mut flat_width = self.child_bounds[0].flat_width?;
-                    for fw in self.child_bounds.iter().skip(1).map(|b| b.flat_width) {
-                        let in_join = Some((flat_width, fw?));
-                        flat_width = self.compute_flat_width(join, in_join, None)?;
-                    }
-                    let in_surround = Some(flat_width);
-                    self.compute_flat_width(surround, None, in_surround)
-                }
-            },
-            Left => Some(in_join.expect("ComputeBounds: unexpected Left").0),
-            Right => Some(in_join.expect("ComputeBounds: unexpected Right").1),
-            Surrounded => Some(in_surround.expect("ComputeBounds: unexpected Surrounded")),
-        }
-    }
-
-    fn compute_bound_set(&self, notation: &Notation) -> BoundSet {
-        unimplemented!()
-    }
-
-    fn compute_bounds(&self, notation: &Notation) -> Bounds {
-        Bounds {
-            flat_width: self.compute_flat_width(notation, None, None),
-            bound_set: self.compute_bound_set(notation),
-        }
-    }
-}
-
-// If the node is texty, `child_bounds` should be a singleton vec of the text bounds.
-pub fn compute_bounds(child_bounds: &[Bounds], notation: &Notation) -> Bounds {
-    ComputeBounds::new(child_bounds).compute_bounds(notation)
 }

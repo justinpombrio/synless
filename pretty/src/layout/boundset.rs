@@ -1,9 +1,9 @@
-use std::fmt;
-use std::iter;
-use std::ops;
-
-use crate::geometry::{Bound, Col};
+use crate::geometry::{Bound, Col, MAX_WIDTH};
+use crate::notation_ops::NotationOps;
+use crate::style::Style;
 use utility::error;
+
+use std::ops;
 
 /// A map from width (Col) to Bound. If a Notation has a particular BoundSet `BS`,
 /// that means that for each width `w`, if the Notation is rendered with that
@@ -65,6 +65,58 @@ impl ops::Index<Col> for BoundSet {
     /// A shorthand for `fit_width`.
     fn index(&self, width: Col) -> &Bound {
         self.fit_width(width)
+    }
+}
+
+impl NotationOps for BoundSet {
+    fn empty() -> BoundSet {
+        BoundSet::singleton(Bound::empty())
+    }
+
+    fn literal(string: &str, style: Style) -> BoundSet {
+        BoundSet::singleton(Bound::literal(string, style))
+    }
+
+    fn text(child: &BoundSet, _style: Style) -> BoundSet {
+        child.clone()
+    }
+
+    fn child(children: &[BoundSet], i: usize) -> BoundSet {
+        children[i].clone()
+    }
+
+    fn nest(set_1: BoundSet, set_2: BoundSet) -> BoundSet {
+        let mut set = BoundSet::new();
+        for width in 0..MAX_WIDTH {
+            let bound_1 = set_1[width];
+            let remaining_width = width - bound_1.indent;
+            let bound_2 = set_2[remaining_width];
+            set.insert(Bound::nest(bound_1, bound_2));
+        }
+        set
+    }
+
+    fn vert(set_1: BoundSet, set_2: BoundSet) -> BoundSet {
+        let mut set = BoundSet::new();
+        for width in 0..MAX_WIDTH {
+            let bound_1 = set_1[width];
+            let bound_2 = set_2[width];
+            set.insert(Bound::vert(bound_1, bound_2));
+        }
+        set
+    }
+
+    fn if_flat(set_1: BoundSet, set_2: BoundSet) -> BoundSet {
+        let mut set = BoundSet::new();
+        for width in 0..MAX_WIDTH {
+            let bound_1 = set_1[width];
+            if bound_1.height > 1 {
+                set.insert(bound_1);
+            } else {
+                set.insert(set_2[width]);
+            }
+        }
+        set
     }
 }
 
