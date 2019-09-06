@@ -1,5 +1,5 @@
 use pretty::{Pos, Region};
-use pretty::{Shade, Style};
+use pretty::{Shade, ShadedStyle, Style};
 
 use super::Error;
 
@@ -20,7 +20,7 @@ pub struct ScreenBuf {
 struct CharCell {
     ch: char,
     shade: Shade,
-    style: Style, // TODO except background is ignored?
+    style: Style,
 }
 
 /// Stores both the new unprinted state of a character, and the old state that was last printed to the screen.
@@ -37,7 +37,7 @@ pub enum ScreenOp {
     /// Print a character at the current cursor position, and advance the cursor by 1.
     Print(char),
     /// Set a persistent style that will apply to anything printed, until a new style is applied.
-    Apply(Style),
+    Apply(ShadedStyle),
     /// Set the cursor position.
     Goto(Pos),
 }
@@ -53,7 +53,7 @@ enum State {
 pub struct ScreenBufIter<'a> {
     buf: &'a mut ScreenBuf,
     /// The last style applied to the screen. It will persist until a new style is applied.
-    current_style: Option<Style>,
+    current_style: Option<ShadedStyle>,
     /// On the very first iteration, we don't know where the terminal cursor is
     /// yet. We have to set it after we find the first dirty character cell,
     /// before printing the character.
@@ -172,10 +172,8 @@ impl ScreenBuf {
 }
 
 impl CharCell {
-    fn shaded_style(&self) -> Style {
-        let mut style = self.style;
-        style.shade = self.shade;
-        style
+    fn shaded_style(&self) -> ShadedStyle {
+        ShadedStyle::new(self.style, self.shade)
     }
 }
 
@@ -214,8 +212,8 @@ impl Default for CharCell {
     fn default() -> Self {
         CharCell {
             ch: ' ',
-            shade: Shade::default(),
-            style: Style::default(),
+            shade: Shade::background(),
+            style: Style::plain(),
         }
     }
 }
@@ -394,12 +392,12 @@ mod screen_buf_tests {
             actual_ops,
             vec![
                 ScreenOp::Goto(Pos::zero()),
-                ScreenOp::Apply(Style::default()),
+                ScreenOp::Apply(ShadedStyle::plain()),
                 ScreenOp::Print(' '),
                 ScreenOp::Print(' '),
-                ScreenOp::Apply(style1),
+                ScreenOp::Apply(ShadedStyle::new(style1, Shade::background())),
                 ScreenOp::Print('x'),
-                ScreenOp::Apply(Style::default()),
+                ScreenOp::Apply(ShadedStyle::plain()),
                 ScreenOp::Print(' '),
                 ScreenOp::Print(' '),
                 ScreenOp::Print(' '),
@@ -410,7 +408,7 @@ mod screen_buf_tests {
             actual_ops,
             vec![
                 ScreenOp::Goto(pos),
-                ScreenOp::Apply(Style::default()),
+                ScreenOp::Apply(ShadedStyle::plain()),
                 ScreenOp::Print(' '),
             ]
         );
@@ -430,12 +428,12 @@ mod screen_buf_tests {
             actual_ops,
             vec![
                 ScreenOp::Goto(Pos::zero()),
-                ScreenOp::Apply(Style::default()),
+                ScreenOp::Apply(ShadedStyle::plain()),
                 ScreenOp::Print(' '),
                 ScreenOp::Print(' '),
-                ScreenOp::Apply(style1),
+                ScreenOp::Apply(ShadedStyle::new(style1, Shade::background())),
                 ScreenOp::Print('x'),
-                ScreenOp::Apply(Style::default()),
+                ScreenOp::Apply(ShadedStyle::plain()),
                 ScreenOp::Print(' '),
                 ScreenOp::Print(' '),
                 ScreenOp::Print(' '),
@@ -460,7 +458,7 @@ mod screen_buf_tests {
             actual_ops,
             vec![
                 ScreenOp::Goto(Pos::zero()),
-                ScreenOp::Apply(style1),
+                ScreenOp::Apply(ShadedStyle::new(style1, Shade::background())),
                 ScreenOp::Print('x'),
                 ScreenOp::Print('y'),
                 ScreenOp::Print('z'),
@@ -473,7 +471,7 @@ mod screen_buf_tests {
             actual_ops,
             vec![
                 ScreenOp::Goto(Pos { col: 2, row: 0 }),
-                ScreenOp::Apply(Style::default()),
+                ScreenOp::Apply(ShadedStyle::plain()),
                 ScreenOp::Print(' '),
             ]
         );
@@ -484,7 +482,7 @@ mod screen_buf_tests {
             actual_ops,
             vec![
                 ScreenOp::Goto(Pos { col: 1, row: 0 }),
-                ScreenOp::Apply(Style::default()),
+                ScreenOp::Apply(ShadedStyle::plain()),
                 ScreenOp::Print(' '),
             ]
         );
@@ -495,7 +493,7 @@ mod screen_buf_tests {
             actual_ops,
             vec![
                 ScreenOp::Goto(Pos { col: 1, row: 0 }),
-                ScreenOp::Apply(style1),
+                ScreenOp::Apply(ShadedStyle::new(style1, Shade::background())),
                 ScreenOp::Print('y'),
             ]
         );
@@ -525,18 +523,18 @@ mod screen_buf_tests {
             actual_ops,
             vec![
                 ScreenOp::Goto(Pos::zero()),
-                ScreenOp::Apply(Style::default()),
+                ScreenOp::Apply(ShadedStyle::plain()),
                 ScreenOp::Print(' '),
-                ScreenOp::Apply(style1),
+                ScreenOp::Apply(ShadedStyle::new(style1, Shade::background())),
                 ScreenOp::Print('f'),
                 ScreenOp::Print('o'),
-                ScreenOp::Apply(style2),
+                ScreenOp::Apply(ShadedStyle::new(style2, Shade::background())),
                 ScreenOp::Print('O'),
                 ScreenOp::Print('B'),
-                ScreenOp::Apply(style1),
+                ScreenOp::Apply(ShadedStyle::new(style1, Shade::background())),
                 ScreenOp::Print('a'),
                 ScreenOp::Print('r'),
-                ScreenOp::Apply(Style::default()),
+                ScreenOp::Apply(ShadedStyle::plain()),
                 ScreenOp::Print(' '),
                 ScreenOp::Print(' '),
                 ScreenOp::Print(' '),
@@ -549,7 +547,7 @@ mod screen_buf_tests {
             actual_ops,
             vec![
                 ScreenOp::Goto(Pos { col: 1, row: 0 }),
-                ScreenOp::Apply(Style::default()),
+                ScreenOp::Apply(ShadedStyle::plain()),
                 ScreenOp::Print(' '),
                 ScreenOp::Print(' '),
                 ScreenOp::Print(' '),
@@ -570,10 +568,10 @@ mod screen_buf_tests {
             actual_ops,
             vec![
                 ScreenOp::Goto(Pos { col: 0, row: 2 }),
-                ScreenOp::Apply(style2),
+                ScreenOp::Apply(ShadedStyle::new(style2, Shade::background())),
                 ScreenOp::Print(' '),
                 ScreenOp::Goto(Pos { col: 2, row: 3 }),
-                ScreenOp::Apply(Style::default()),
+                ScreenOp::Apply(ShadedStyle::plain()),
                 ScreenOp::Print('!'),
             ]
         );
@@ -600,7 +598,7 @@ mod screen_buf_tests {
             actual_ops,
             vec![
                 ScreenOp::Goto(Pos::zero()),
-                ScreenOp::Apply(style1),
+                ScreenOp::Apply(ShadedStyle::new(style1, Shade::background())),
                 ScreenOp::Print('0'),
                 ScreenOp::Print('1'),
                 ScreenOp::Print('2'),
@@ -638,10 +636,7 @@ mod screen_buf_tests {
             actual_ops,
             vec![
                 ScreenOp::Goto(Pos { col: 1, row: 1 }),
-                ScreenOp::Apply(Style {
-                    shade: cursor,
-                    ..style1
-                }),
+                ScreenOp::Apply(ShadedStyle::new(style1, cursor)),
                 ScreenOp::Print('5'),
                 ScreenOp::Print('6'),
                 ScreenOp::Print('7'),
@@ -666,12 +661,9 @@ mod screen_buf_tests {
             actual_ops,
             vec![
                 ScreenOp::Goto(Pos { col: 0, row: 1 }),
-                ScreenOp::Apply(style2),
+                ScreenOp::Apply(ShadedStyle::new(style2, Shade::background())),
                 ScreenOp::Print('x'),
-                ScreenOp::Apply(Style {
-                    shade: cursor,
-                    ..style2
-                }),
+                ScreenOp::Apply(ShadedStyle::new(style2, cursor)),
                 ScreenOp::Print('y'),
                 ScreenOp::Print('z'),
             ]

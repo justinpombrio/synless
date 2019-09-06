@@ -67,12 +67,11 @@ mod example {
     }
 
     fn txt() -> Notation {
-        text(Style::new(
-            Color::Base0D,
-            Emph::underlined(),
-            Shade::background(),
-            false,
-        ))
+        text(Style {
+            color: Color::Base0D,
+            emph: Emph::underlined(),
+            reversed: false,
+        })
     }
 
     /// An example language for testing.

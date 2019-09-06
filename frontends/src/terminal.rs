@@ -16,7 +16,10 @@ use termion::raw::{IntoRawMode, RawTerminal};
 use termion::screen::AlternateScreen;
 use termion::style::{Bold, NoBold, NoUnderline, Reset, Underline};
 
-use pretty::{Col, ColorTheme, Pane, PaneError, Pos, PrettyWindow, Region, Rgb, Row, Shade, Style};
+use pretty::{
+    Col, ColorTheme, Pane, PaneError, Pos, PrettyWindow, Region, Rgb, Row, Shade, ShadedStyle,
+    Style,
+};
 
 use crate::frontend::{Event, Frontend};
 
@@ -56,7 +59,7 @@ impl Terminal {
         self.write(cursor::Goto(x, y))
     }
 
-    fn apply_style(&mut self, style: Style) -> Result<(), io::Error> {
+    fn apply_style(&mut self, style: ShadedStyle) -> Result<(), io::Error> {
         if style.emph.bold {
             self.write(Bold)?;
         } else {
