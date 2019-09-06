@@ -1,5 +1,6 @@
 use std::ops::{Add, BitOr, BitXor};
 
+use crate::geometry::Col;
 use crate::style::Style;
 use crate::utility::error;
 
@@ -25,8 +26,9 @@ pub enum Notation {
     /// A.k.a. vertical concatentation.
     Vert(Vec<Notation>),
     /// Display the first notation if it fits on one, or else the second
-    /// notation.
-    IfFlat(Box<Notation>, Box<Notation>),
+    /// notation. The third argument is for internal use; you can initialize it
+    /// as `None`.
+    IfFlat(Box<Notation>, Box<Notation>, Option<Col>),
     /// Display the first notation in case this tree has empty text,
     /// otherwise show the second notation.
     IfEmptyText(Box<Notation>, Box<Notation>),
@@ -95,7 +97,7 @@ pub fn vert(notations: Vec<Notation>) -> Notation {
 /// Construct an [`IfFlat`](IfFlat). You can also use
 /// [`|`](enum.Notation.html#impl-BitOr<Notation>) for this.
 pub fn if_flat(notation1: Notation, notation2: Notation) -> Notation {
-    IfFlat(Box::new(notation1), Box::new(notation2))
+    IfFlat(Box::new(notation1), Box::new(notation2), None)
 }
 
 /// Construct an [`IfEmptyText`](IfEmptyText).
@@ -131,7 +133,7 @@ impl BitOr<Notation> for Notation {
     type Output = Notation;
     /// Shorthand for [`IfFlat`](IfFlat).
     fn bitor(self, other: Notation) -> Notation {
-        IfFlat(Box::new(self), Box::new(other))
+        IfFlat(Box::new(self), Box::new(other), None)
     }
 }
 
@@ -167,7 +169,7 @@ impl Notation {
                 Vert(notations).flatten_verts(&mut flattened);
                 Vert(flattened)
             }
-            IfFlat(n1, n2) => if_flat(n1.normalize(), n2.normalize()),
+            IfFlat(n1, n2, _fw) => if_flat(n1.normalize(), n2.normalize()),
             IfEmptyText(n1, n2) => if_empty_text(n1.normalize(), n2.normalize()),
             Repeat(box RepeatInner {
                 empty,
@@ -186,74 +188,6 @@ impl Notation {
         }
     }
 
-    /*
-    // TODO
-    /// Expand any instances of `Repeat` in this notation, knowing how many
-    /// children there are.
-    pub fn expand(self, num_children: usize, is_empty_text: bool) -> Notation {
-        match self {
-            Empty => Empty,
-            Literal(string, style) => Literal(string, style),
-            Text(style) => Text(style),
-            Child(i) => Child(i),
-            Nest(mut notations) => {
-                for notation in &mut notations {
-                    *notation = notation.expand(num_children, is_empty_text);
-                }
-                Nest(notations)
-            }
-            Vert(mut notations) => {
-                for notation in &mut notations {
-                    *notation = notation.expand(num_children, is_empty_text);
-                }
-                Nest(notations)
-            }
-            IfFlat(mut n1, mut n2) => {
-                *n1 = n1.expand(num_children, is_empty_text);
-                *n2 = n2.expand(num_children, is_empty_text);
-                IfFlat(n1, n2)
-            }
-            IfEmptyText(n1, n2) => {
-                if is_empty_text {
-                    n1.expand(num_children, is_empty_text)
-                } else {
-                    n2.expand(num_children, is_empty_text)
-                }
-            }
-            Repeat(box RepeatInner {
-                empty,
-                lone,
-                join,
-                surround,
-            }) => {
-                // NOTE: this is only correct because it is illegal to have
-                // nested Repeats.
-                match num_children {
-                    0 => empty,
-                    1 => lone,
-                    n => {
-                        let mut notation = Child(n - 1);
-                        for i in (0..n - 1).rev() {
-                            let mut join = join.clone();
-                            // INEFFICIENT: two walks instead of one;
-                            // could also not walk all of `join`?
-                            join.replace(Left, Child(i));
-                            join.replace(Right, notation);
-                            notation = join;
-                        }
-                        let mut surround = surround.clone();
-                        surround.replace(Surrounded, notation);
-                        surround
-                    }
-                }
-            }
-            Left => panic!("`Left` outside of `Repeat`"),
-            Right => panic!("`Right` outside of `Repeat`"),
-            Surrounded => panic!("`Surrounded` outside of `Repeat`"),
-        }
-    }
-     */
-
     fn flatten_nests(self, flattened: &mut Vec<Notation>) {
         match self {
             Nest(notations) => notations
@@ -271,40 +205,13 @@ impl Notation {
             other => flattened.push(other),
         }
     }
+}
 
-    fn replace(&mut self, old: Notation, new: Notation) {
-        // INEFFICIENT: These `clones` will typically be unnecessary.
-        if self == &old {
-            *self = new;
-            return;
-        }
-        match self {
-            Empty => (),
-            Literal(_, _) => (),
-            Text(_) => (),
-            Child(_) => (),
-            Nest(notations) => {
-                for notation in notations {
-                    notation.replace(old.clone(), new.clone());
-                }
-            }
-            Vert(notations) => {
-                for notation in notations {
-                    notation.replace(old.clone(), new.clone());
-                }
-            }
-            IfFlat(n1, n2) => {
-                n1.replace(old.clone(), new.clone());
-                n2.replace(old, new);
-            }
-            IfEmptyText(n1, n2) => {
-                n1.replace(old.clone(), new.clone());
-                n2.replace(old, new);
-            }
-            Repeat(_) => panic!("`Repeat` cannot be nested"),
-            Left => (),
-            Right => (),
-            Surrounded => (),
-        }
-    }
+pub trait NotationOps: Clone {
+    fn empty() -> Self;
+    fn literal(string: &str) -> Self;
+    // TODO: add `nests()` and `verts()` with default implementations.
+    fn nest(left: Self, right: Self) -> Self;
+    fn vert(left: Self, right: Self) -> Self;
+    fn if_flat(left: Self, right: Self) -> Self;
 }

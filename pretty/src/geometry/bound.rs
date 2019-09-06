@@ -3,8 +3,7 @@ use std::fmt;
 
 use super::pos::{Col, Pos, Row, MAX_WIDTH};
 use super::rect::Rect;
-use crate::notation_ops::NotationOps;
-use crate::style::Style;
+use crate::notation::NotationOps;
 
 /// A "paragraph" shape: it is like a rectangle, except that the last
 /// line may be shorter than the rest.
@@ -99,6 +98,7 @@ impl Bound {
         if self.height > 30 {
             return write!(f, "[very large bound]");
         }
+        write!(f, "\n")?;
         for _ in 0..(self.height - 1) {
             write!(f, "{}", ch.to_string().repeat(self.width as usize))?;
             write!(f, "\n")?;
@@ -123,21 +123,13 @@ impl NotationOps for Bound {
         }
     }
 
-    fn literal(string: &str, _style: Style) -> Bound {
+    fn literal(string: &str) -> Bound {
         let width = string.chars().count() as Col;
         Bound {
             width: width,
             indent: width,
             height: 1,
         }
-    }
-
-    fn text(child: &Bound, _style: Style) -> Bound {
-        child.clone()
-    }
-
-    fn child(children: &[Bound], i: usize) -> Bound {
-        children[i].clone()
     }
 
     fn nest(b1: Bound, b2: Bound) -> Bound {
@@ -181,7 +173,8 @@ mod tests {
         write!(&mut s, "{:?}", r).unwrap();
         assert_eq!(
             s,
-            "**********
+            "
+**********
 **********
 ******"
         );
@@ -196,7 +189,7 @@ mod tests {
         };
         let mut s = String::new();
         write!(&mut s, "{:?}", r).unwrap();
-        assert_eq!(s, "");
+        assert_eq!(s, "\n");
     }
 
     #[test]

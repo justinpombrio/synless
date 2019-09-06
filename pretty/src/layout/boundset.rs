@@ -1,9 +1,6 @@
 use crate::geometry::{Bound, Col, MAX_WIDTH};
-use crate::notation_ops::NotationOps;
-use crate::style::Style;
+use crate::notation::NotationOps;
 use utility::error;
-
-use std::ops;
 
 /// A map from width (Col) to Bound. If a Notation has a particular BoundSet `BS`,
 /// that means that for each width `w`, if the Notation is rendered with that
@@ -22,12 +19,13 @@ impl BoundSet {
         BoundSet { set: Vec::new() }
     }
 
-    /// Find the largest Bound that fits within the given width. Panics if none
-    /// fit.
-    pub fn fit_width(&self, width: Col) -> &Bound {
+    /// Find the largest Bound that fits within the given width. Returns `None`
+    /// if no Bound fits.
+    pub fn fit_width(&self, width: Col) -> Option<Bound> {
         match self.set.binary_search_by_key(&width, |b| b.width) {
-            Ok(i) => &self.set[i],
-            Err(i) => &self.set[i - 1],
+            Ok(i) => Some(self.set[i]),
+            Err(0) => None,
+            Err(i) => Some(self.set[i - 1]),
         }
     }
 
@@ -59,61 +57,51 @@ impl BoundSet {
     }
 }
 
-impl ops::Index<Col> for BoundSet {
-    type Output = Bound;
-
-    /// A shorthand for `fit_width`.
-    fn index(&self, width: Col) -> &Bound {
-        self.fit_width(width)
-    }
-}
-
 impl NotationOps for BoundSet {
     fn empty() -> BoundSet {
         BoundSet::singleton(Bound::empty())
     }
 
-    fn literal(string: &str, style: Style) -> BoundSet {
-        BoundSet::singleton(Bound::literal(string, style))
+    fn literal(string: &str) -> BoundSet {
+        BoundSet::singleton(Bound::literal(string))
     }
 
-    fn text(child: &BoundSet, _style: Style) -> BoundSet {
-        child.clone()
-    }
-
-    fn child(children: &[BoundSet], i: usize) -> BoundSet {
-        children[i].clone()
-    }
-
-    fn nest(set_1: BoundSet, set_2: BoundSet) -> BoundSet {
+    fn nest(set1: BoundSet, set2: BoundSet) -> BoundSet {
         let mut set = BoundSet::new();
         for width in 0..MAX_WIDTH {
-            let bound_1 = set_1[width];
-            let remaining_width = width - bound_1.indent;
-            let bound_2 = set_2[remaining_width];
-            set.insert(Bound::nest(bound_1, bound_2));
+            if let Some(bound1) = set1.fit_width(width) {
+                let remaining_width = width - bound1.indent;
+                if let Some(bound2) = set2.fit_width(remaining_width) {
+                    set.insert(Bound::nest(bound1, bound2));
+                }
+            }
         }
         set
     }
 
-    fn vert(set_1: BoundSet, set_2: BoundSet) -> BoundSet {
+    fn vert(set1: BoundSet, set2: BoundSet) -> BoundSet {
         let mut set = BoundSet::new();
         for width in 0..MAX_WIDTH {
-            let bound_1 = set_1[width];
-            let bound_2 = set_2[width];
-            set.insert(Bound::vert(bound_1, bound_2));
+            if let Some(bound1) = set1.fit_width(width) {
+                if let Some(bound2) = set2.fit_width(width) {
+                    set.insert(Bound::vert(bound1, bound2));
+                }
+            }
         }
         set
     }
 
-    fn if_flat(set_1: BoundSet, set_2: BoundSet) -> BoundSet {
+    fn if_flat(set1: BoundSet, set2: BoundSet) -> BoundSet {
         let mut set = BoundSet::new();
         for width in 0..MAX_WIDTH {
-            let bound_1 = set_1[width];
-            if bound_1.height > 1 {
-                set.insert(bound_1);
-            } else {
-                set.insert(set_2[width]);
+            if let Some(bound1) = set1.fit_width(width) {
+                if bound1.height == 1 {
+                    set.insert(bound1);
+                } else if let Some(bound2) = set2.fit_width(width) {
+                    set.insert(bound2);
+                }
+            } else if let Some(bound2) = set2.fit_width(width) {
+                set.insert(bound2);
             }
         }
         set
@@ -134,10 +122,10 @@ mod test {
         set.insert(bound2);
         set.insert(bound1);
         assert_eq!(set.set.len(), 2);
-        assert!(set[1] == bound2);
-        assert!(set[2] == bound2);
-        assert!(set[3] == bound1);
-        assert!(set[4] == bound1);
-        assert!(set[5] == bound1);
+        assert!(set.fit_width(1) == Some(bound2));
+        assert!(set.fit_width(2) == Some(bound2));
+        assert!(set.fit_width(3) == Some(bound1));
+        assert!(set.fit_width(4) == Some(bound1));
+        assert!(set.fit_width(5) == Some(bound1));
     }
 }
