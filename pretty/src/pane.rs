@@ -133,24 +133,16 @@ where
         self.window.print(abs_pos, text, style)
     }
 
-    /// Shade the background. It is possible that the same position will be
-    /// shaded more than once, or will be `.print`ed before being shaded. If so,
-    /// the new shade should override the background color, but not the text.
     /// The region position is relative to the `Pane` (where 0,0 is the
     /// top left corner of the `Pane`).
-    pub fn shade(&mut self, region: Region, shade: Shade) -> Result<(), T::Error> {
+    pub fn highlight(
+        &mut self,
+        region: Region,
+        shade: Option<Shade>,
+        reverse: bool,
+    ) -> Result<(), T::Error> {
         let abs_region = region + self.rect.pos();
-        self.window.shade(abs_region, shade)
-    }
-
-    /// Shade a particular character position. This is used to highlight the
-    /// cursor position while in text mode. It should behave the same way as
-    /// `.shade` would with a small Region that included just `pos`. The
-    /// position is relative to the `Pane` (where 0,0 is the top left
-    /// corner of the `Pane`).
-    pub fn highlight(&mut self, pos: Pos, style: Style) -> Result<(), T::Error> {
-        let abs_pos = pos + self.rect.pos();
-        self.window.highlight(abs_pos, style)
+        self.window.highlight(abs_region, shade, reverse)
     }
 
     /// Render to this pane according to the given [PaneNotation], `note`. Use

@@ -114,15 +114,22 @@ impl ScreenBuf {
         Ok(())
     }
 
-    pub fn shade_region(&mut self, region: Region, shade: Shade) -> Result<(), Error> {
+    pub fn highlight(
+        &mut self,
+        region: Region,
+        shade: Option<Shade>,
+        reverse: bool,
+    ) -> Result<(), Error> {
         for pos in region.positions() {
-            self.get_mut(pos)?.set_shade(shade);
+            let cell = self.get_mut(pos)?;
+            if let Some(s) = shade {
+                cell.set_shade(s);
+            }
+            if reverse {
+                cell.reverse();
+            }
         }
         Ok(())
-    }
-
-    pub fn set_style(&mut self, pos: Pos, style: Style) -> Result<(), Error> {
-        Ok(self.get_mut(pos)?.set_style(style))
     }
 
     fn set_char_with_style(&mut self, pos: Pos, ch: char, style: Style) -> Result<(), Error> {
@@ -188,6 +195,11 @@ impl DoubleCharCell {
 
     fn set_shade(&mut self, shade: Shade) {
         self.new.shade = shade;
+    }
+
+    /// Toggle whether the foreground and background are reversed
+    fn reverse(&mut self) {
+        self.new.style.reversed ^= true;
     }
 
     fn get(&self) -> CharCell {
@@ -559,7 +571,12 @@ mod screen_buf_tests {
             ]
         );
 
-        buf.set_style(Pos { col: 0, row: 2 }, style2).unwrap();
+        buf.highlight(
+            Region::char_region(Pos { col: 0, row: 2 }),
+            Some(Shade(2)),
+            false,
+        )
+        .unwrap();
         buf.set_char_with_style(Pos { col: 2, row: 3 }, '!', Style::default())
             .unwrap();
 
@@ -568,7 +585,7 @@ mod screen_buf_tests {
             actual_ops,
             vec![
                 ScreenOp::Goto(Pos { col: 0, row: 2 }),
-                ScreenOp::Apply(ShadedStyle::new(style2, Shade::background())),
+                ScreenOp::Apply(ShadedStyle::new(Style::plain(), Shade(2))),
                 ScreenOp::Print(' '),
                 ScreenOp::Goto(Pos { col: 2, row: 3 }),
                 ScreenOp::Apply(ShadedStyle::plain()),
@@ -628,7 +645,7 @@ mod screen_buf_tests {
             .unwrap();
         buf.write_str(Pos { row: 2, col: 0 }, "89ab", style1)
             .unwrap();
-        buf.shade_region(region, cursor).unwrap();
+        buf.highlight(region, Some(cursor), false).unwrap();
 
         // Ensure that the shade overrides the original style within the cursor region
         let actual_ops: Vec<_> = buf.drain_changes().collect();
@@ -651,7 +668,7 @@ mod screen_buf_tests {
             .unwrap();
         buf.write_str(Pos { row: 2, col: 0 }, "89ab", style1)
             .unwrap();
-        buf.shade_region(region, cursor).unwrap();
+        buf.highlight(region, Some(cursor), false).unwrap();
         buf.write_str(Pos { col: 0, row: 1 }, "xyz", style2)
             .unwrap();
 

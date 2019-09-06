@@ -85,7 +85,7 @@ pub trait PrettyDocument: Sized + Clone {
                 pos: cursor_region.pos - doc_pos,
                 ..cursor_region
             };
-            pane.shade(region, Shade(0))?;
+            pane.highlight(region, Some(Shade(0)), false)?;
         }
         Ok(())
     }

@@ -112,12 +112,13 @@ impl PrettyWindow for Terminal {
         self.buf.write_str(pos, text, style)
     }
 
-    fn highlight(&mut self, pos: Pos, style: Style) -> Result<(), Self::Error> {
-        self.buf.set_style(pos, style)
-    }
-
-    fn shade(&mut self, region: Region, shade: Shade) -> Result<(), Self::Error> {
-        self.buf.shade_region(region, shade)
+    fn highlight(
+        &mut self,
+        region: Region,
+        shade: Option<Shade>,
+        reverse: bool,
+    ) -> Result<(), Self::Error> {
+        self.buf.highlight(region, shade, reverse)
     }
 }
 

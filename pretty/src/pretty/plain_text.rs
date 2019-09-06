@@ -74,11 +74,12 @@ impl PrettyWindow for PlainText {
         Ok(())
     }
 
-    fn shade(&mut self, _region: Region, _shade: Shade) -> Result<(), Self::Error> {
-        Ok(())
-    }
-
-    fn highlight(&mut self, _pos: Pos, _style: Style) -> Result<(), Self::Error> {
+    fn highlight(
+        &mut self,
+        _region: Region,
+        _shade: Option<Shade>,
+        _reverse: bool,
+    ) -> Result<(), Self::Error> {
         Ok(())
     }
 }
