@@ -2,11 +2,12 @@ use super::bounds::Bounds;
 use crate::geometry::{Bound, Col, Pos, Region};
 use crate::notation::{Notation, NotationOps, RepeatInner};
 use crate::style::Style;
+use std::fmt;
 use std::iter;
 
 use Notation::*;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 /// A concrete plan for how to lay out a `Notation`, once the program
 /// and screen width are known.
 pub struct Layout {
@@ -169,6 +170,65 @@ impl<'a> ComputeLayout<'a> {
             Right => {
                 let (_join, i) = in_repeat.expect("Exposed `Right`");
                 self.lay_out(&Child(i), pos, width, None)
+            }
+        }
+    }
+}
+
+struct LayoutDebugPrinter {
+    lines: Vec<Vec<char>>,
+}
+
+impl fmt::Debug for Layout {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut printer = LayoutDebugPrinter::new();
+        for element in &self.elements {
+            printer.write_element(element);
+        }
+        for line in &printer.lines {
+            writeln!(f)?;
+            for ch in line {
+                write!(f, "{}", ch)?;
+            }
+        }
+        Ok(())
+    }
+}
+
+impl LayoutDebugPrinter {
+    fn new() -> LayoutDebugPrinter {
+        LayoutDebugPrinter { lines: vec![] }
+    }
+
+    fn write_char(&mut self, ch: char, pos: Pos) {
+        while pos.row as usize >= self.lines.len() {
+            self.lines.push(vec![]);
+        }
+        let line = &mut self.lines[pos.row as usize];
+        while pos.col as usize >= line.len() {
+            line.push(' ');
+        }
+        line[pos.col as usize] = ch;
+    }
+
+    fn write_element(&mut self, element: &LayoutElement) {
+        match element {
+            LayoutElement::Literal(region, string, _) => {
+                let mut pos = region.beginning();
+                for ch in string.chars() {
+                    self.write_char(ch, pos);
+                    pos.col += 1;
+                }
+            }
+            LayoutElement::Text(region, _) => {
+                for pos in region.positions() {
+                    self.write_char('0', pos);
+                }
+            }
+            LayoutElement::Child(region, i) => {
+                for pos in region.positions() {
+                    self.write_char((('0' as u8) + (*i as u8)).into(), pos);
+                }
             }
         }
     }

@@ -178,7 +178,7 @@ impl ComputeBounds<'_> {
                 _ => {
                     let mut total_bounds = Bounds::empty();
                     for child in self.child_bounds {
-                        let in_join = (&total_bounds, &child.clone());
+                        let in_join = (&total_bounds, child);
                         total_bounds = self.compute(join, Some(in_join), None);
                     }
                     self.compute(surround, None, Some(&total_bounds))

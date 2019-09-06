@@ -82,6 +82,21 @@ pub fn child(index: usize) -> Notation {
     Child(index)
 }
 
+/// Construct a [`Surrounded`](Surrounded) for use in Repeat.surround.
+pub fn surrounded() -> Notation {
+    Surrounded
+}
+
+/// Construct a [`Left`](Left) for use in Repeat.join.
+pub fn left() -> Notation {
+    Left
+}
+
+/// Construct a [`Right`](Right) for use in Repeat.join.
+pub fn right() -> Notation {
+    Right
+}
+
 /// Construct a [`Nest`](Nest). You can also use
 /// [`+`](enum.Notation.html#impl-Add<Notation>) for this.
 pub fn nest(notations: Vec<Notation>) -> Notation {
