@@ -222,22 +222,24 @@ impl Ed {
         let messages = self.message_doc.ast_ref();
         self.term.draw_frame(|mut pane: Pane<Terminal>| {
             pane.render(&notation, |label: &DocLabel| match label {
-                DocLabel::ActiveDoc => {
-                    Some((doc.clone(), CursorVis::Show, DocPosSpec::CursorAtTop))
-                }
+                DocLabel::ActiveDoc => Some((
+                    doc.clone(),
+                    CursorVis::Show,
+                    DocPosSpec::CursorHeight { fraction: 0.6 },
+                )),
                 DocLabel::ActiveDocName => {
-                    Some((doc_name.clone(), CursorVis::Hide, DocPosSpec::CursorAtTop))
+                    Some((doc_name.clone(), CursorVis::Hide, DocPosSpec::Beginning))
                 }
                 DocLabel::KeymapName => Some((
                     key_hints_name.clone(),
                     CursorVis::Hide,
-                    DocPosSpec::CursorAtTop,
+                    DocPosSpec::Beginning,
                 )),
                 DocLabel::KeyHints => {
-                    Some((key_hints.clone(), CursorVis::Hide, DocPosSpec::CursorAtTop))
+                    Some((key_hints.clone(), CursorVis::Hide, DocPosSpec::Beginning))
                 }
                 DocLabel::Messages => {
-                    Some((messages.clone(), CursorVis::Hide, DocPosSpec::CursorAtTop))
+                    Some((messages.clone(), CursorVis::Hide, DocPosSpec::Beginning))
                 }
                 _ => None,
             })?;

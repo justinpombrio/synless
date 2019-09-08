@@ -142,16 +142,28 @@ fn test_json_cursor_at_top() {
         DocPosSpec::Fixed(Pos::zero()),
     );
 
-    ed.assert_render_with(" null]", width, DocPosSpec::CursorAtTop);
+    ed.assert_render_with(" null]", width, DocPosSpec::CursorHeight { fraction: 1.0 });
 
     ed.exec(TreeNavCmd::Left).unwrap();
-    ed.assert_render_with(" false,\n null]", width, DocPosSpec::CursorAtTop);
+    ed.assert_render_with(
+        " false,\n null]",
+        width,
+        DocPosSpec::CursorHeight { fraction: 1.0 },
+    );
 
     ed.exec(TreeNavCmd::Left).unwrap();
-    ed.assert_render_with("[true,\n false,\n null]", width, DocPosSpec::CursorAtTop);
+    ed.assert_render_with(
+        "[true,\n false,\n null]",
+        width,
+        DocPosSpec::CursorHeight { fraction: 1.0 },
+    );
 
     ed.exec(TreeNavCmd::Parent).unwrap();
-    ed.assert_render_with("[true,\n false,\n null]", width, DocPosSpec::CursorAtTop);
+    ed.assert_render_with(
+        "[true,\n false,\n null]",
+        width,
+        DocPosSpec::CursorHeight { fraction: 1.0 },
+    );
 }
 
 #[test]
