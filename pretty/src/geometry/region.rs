@@ -99,6 +99,26 @@ impl Region {
         self.body().contains(pos) || self.last_line().contains(pos)
     }
 
+    /// Return the intersection between the region and the rectangle, or None if they don't intersect.
+    pub fn crop(&self, frame: Rect) -> Option<Region> {
+        match (
+            self.body().intersect(frame),
+            self.last_line().intersect(frame),
+        ) {
+            (None, None) => None,
+            (Some(body), None) => Some(Region::from(body)),
+            (None, Some(last_line)) => Some(Region::from(last_line)),
+            (Some(body), Some(last_line)) => Some(Region {
+                pos: body.pos(),
+                bound: Bound {
+                    width: body.width(),
+                    height: body.height() + last_line.height(),
+                    indent: last_line.width(),
+                },
+            }),
+        }
+    }
+
     /// Transform a point to the coordinate system given by this region.
     ///
     /// Returns `None` if the point is not contained in this region.
@@ -200,9 +220,16 @@ impl Region {
     }
 }
 
+impl From<Rect> for Region {
+    fn from(rect: Rect) -> Region {
+        Region::new_rectangle(rect.pos(), rect.size())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::geometry::range::Range;
 
     static REGION: Region = Region {
         pos: Pos { row: 2, col: 3 },
@@ -363,4 +390,101 @@ mod tests {
             ]
         );
     }
+
+    #[test]
+    fn test_crop_region() {
+        assert_eq!(REGION.crop(REGION.bounding_box()), Some(REGION));
+        assert_eq!(
+            REGION.crop(Rect {
+                rows: Range(1, 7),
+                cols: Range(2, 8)
+            }),
+            Some(REGION)
+        );
+        assert_eq!(
+            REGION.crop(Rect {
+                rows: Range(1, 4),
+                cols: Range(2, 8)
+            }),
+            Some(Region {
+                pos: Pos { row: 2, col: 3 },
+                bound: Bound {
+                    width: 4,
+                    height: 2,
+                    indent: 4,
+                },
+            })
+        );
+        assert_eq!(
+            REGION.crop(Rect {
+                rows: Range(3, 7),
+                cols: Range(2, 8)
+            }),
+            Some(Region {
+                pos: Pos { row: 3, col: 3 },
+                bound: Bound {
+                    width: 4,
+                    height: 3,
+                    indent: 2,
+                },
+            })
+        );
+        assert_eq!(
+            REGION.crop(Rect {
+                rows: Range(3, 6),
+                cols: Range(3, 5)
+            }),
+            Some(Region {
+                pos: Pos { row: 3, col: 3 },
+                bound: Bound {
+                    width: 2,
+                    height: 3,
+                    indent: 2,
+                },
+            })
+        );
+        assert_eq!(
+            REGION.crop(Rect {
+                rows: Range(2, 6),
+                cols: Range(4, 6)
+            }),
+            Some(Region {
+                pos: Pos { row: 2, col: 4 },
+                bound: Bound {
+                    width: 2,
+                    height: 4,
+                    indent: 1,
+                },
+            })
+        );
+        assert_eq!(
+            REGION.crop(Rect {
+                rows: Range(2, 6),
+                cols: Range(5, 7)
+            }),
+            Some(Region {
+                pos: Pos { row: 2, col: 5 },
+                bound: Bound {
+                    width: 2,
+                    height: 3,
+                    indent: 2,
+                },
+            })
+        );
+        assert_eq!(
+            REGION.crop(Rect {
+                rows: Range(5, 6),
+                cols: Range(3, 5)
+            }),
+            Some(Region {
+                pos: Pos { row: 5, col: 3 },
+                bound: Bound {
+                    width: 2,
+                    height: 1,
+                    indent: 2,
+                },
+            })
+        );
+    }
+
 }
