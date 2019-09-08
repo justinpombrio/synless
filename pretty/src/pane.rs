@@ -161,7 +161,7 @@ where
         get_content: F,
     ) -> Result<(), PaneError<T::Error>>
     where
-        F: Fn(&DocLabel) -> Option<(U, CursorVis)>,
+        F: Fn(&DocLabel) -> Option<(U, CursorVis, DocPosSpec)>,
         F: Clone,
         U: PrettyDocument,
     {
@@ -198,7 +198,7 @@ where
                             // Convert dynamic height into a fixed height, based on the currrent document.
                             if let PaneNotation::Doc { label, .. } = &p.1 {
                                 let f = get_content.clone();
-                                let (doc, _) =
+                                let (doc, _, _) =
                                     f(label).ok_or(PaneError::Missing(label.to_owned()))?;
                                 let height =
                                     available_height.min(doc.required_height(self.rect().width()));
@@ -227,10 +227,9 @@ where
             }
             PaneNotation::Doc { label } => {
                 let width = self.rect().width();
-
-                let (doc, cursor_visibility) =
+                let (doc, cursor_visibility, doc_pos_spec) =
                     get_content(label).ok_or(PaneError::Missing(label.to_owned()))?;
-                doc.pretty_print(width, self, DocPosSpec::CursorAtTop, cursor_visibility)?;
+                doc.pretty_print(width, self, doc_pos_spec, cursor_visibility)?;
             }
             PaneNotation::Fill { ch, style } => {
                 let line: String = iter::repeat(ch)

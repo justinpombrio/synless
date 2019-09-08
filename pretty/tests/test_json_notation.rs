@@ -279,7 +279,7 @@ fn test_pane_content() {
     };
     let mut pane = window.pane().unwrap();
     pane.render(&pane_note, |_: &DocLabel| {
-        Some((doc.as_ref(), CursorVis::Hide))
+        Some((doc.as_ref(), CursorVis::Hide, DocPosSpec::CursorAtTop))
     })
     .unwrap();
     assert_strings_eq(&window.to_string(), "true");
@@ -309,8 +309,8 @@ fn test_pane_horz() {
 
     let mut pane = window.pane().unwrap();
     pane.render(&pane_note, |label: &DocLabel| match label {
-        DocLabel::ActiveDoc => Some((doc1.as_ref(), CursorVis::Hide)),
-        DocLabel::KeyHints => Some((doc2.as_ref(), CursorVis::Hide)),
+        DocLabel::ActiveDoc => Some((doc1.as_ref(), CursorVis::Hide, DocPosSpec::CursorAtTop)),
+        DocLabel::KeyHints => Some((doc2.as_ref(), CursorVis::Hide, DocPosSpec::CursorAtTop)),
         _ => None,
     })
     .unwrap();
@@ -355,8 +355,8 @@ fn test_pane_vert() {
 
     let mut pane = window.pane().unwrap();
     pane.render(&pane_note, |label: &DocLabel| match label {
-        DocLabel::ActiveDoc => Some((doc1.as_ref(), CursorVis::Hide)),
-        DocLabel::KeyHints => Some((doc2.as_ref(), CursorVis::Hide)),
+        DocLabel::ActiveDoc => Some((doc1.as_ref(), CursorVis::Hide, DocPosSpec::CursorAtTop)),
+        DocLabel::KeyHints => Some((doc2.as_ref(), CursorVis::Hide, DocPosSpec::CursorAtTop)),
         _ => None,
     })
     .unwrap();
@@ -385,7 +385,7 @@ fn test_pane_fill() {
 
     let mut pane = window.pane().unwrap();
     pane.render(&pane_note, |_label: &DocLabel| {
-        Some((doc1.as_ref(), CursorVis::Hide))
+        Some((doc1.as_ref(), CursorVis::Hide, DocPosSpec::CursorAtTop))
     })
     .unwrap();
     assert_strings_eq(&window.to_string(), "true\n------\n------");
@@ -421,7 +421,7 @@ fn assert_proportional(expected: &str, width: Col, hungers: (usize, usize, usize
     let mut window = PlainText::new(Pos { row: 1, col: width });
     let mut pane = window.pane().unwrap();
     pane.render(&pane_note, |_label: &DocLabel| {
-        Some((doc1.as_ref(), CursorVis::Hide))
+        Some((doc1.as_ref(), CursorVis::Hide, DocPosSpec::CursorAtTop))
     })
     .unwrap();
     assert_strings_eq(&window.to_string(), expected);
@@ -469,7 +469,7 @@ fn test_pane_dyn_height() {
         let mut window = PlainText::new(Pos { row: 3, col: 6 });
         let mut pane = window.pane().unwrap();
         pane.render(&pane_note, |_label: &DocLabel| {
-            Some((doc.as_ref(), CursorVis::Hide))
+            Some((doc.as_ref(), CursorVis::Hide, DocPosSpec::CursorAtTop))
         })
         .unwrap();
         assert_strings_eq(&window.to_string(), expected);
@@ -506,7 +506,7 @@ fn test_print_outside() {
 
     let mut pane = window.pane().unwrap();
     pane.render(&pane_note, |_label: &DocLabel| {
-        Some((doc1.as_ref(), CursorVis::Hide))
+        Some((doc1.as_ref(), CursorVis::Hide, DocPosSpec::CursorAtTop))
     })
     .unwrap();
     assert_strings_eq(&window.to_string(), "fals----");
