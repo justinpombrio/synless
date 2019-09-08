@@ -129,6 +129,8 @@ where
     /// given relative position (where 0,0 is the top left corner of the
     /// `Pane`). No newlines allowed.
     pub fn print(&mut self, pos: Pos, text: &str, style: Style) -> Result<(), T::Error> {
+        // TODO check if this fits in the pane. Currently, `fit_bound()` panics
+        // if it doesn't fit in the pane, so there's not much point in checking yet.
         let abs_pos = pos + self.rect.pos();
         self.window.print(abs_pos, text, style)
     }
@@ -141,8 +143,12 @@ where
         shade: Option<Shade>,
         reverse: bool,
     ) -> Result<(), T::Error> {
-        let abs_region = region + self.rect.pos();
-        self.window.highlight(abs_region, shade, reverse)
+        if let Some(abs_region) = (region + self.rect.pos()).crop(self.rect) {
+            self.window.highlight(abs_region, shade, reverse)
+        } else {
+            // None of the region is visible in this pane, do nothing.
+            Ok(())
+        }
     }
 
     /// Render to this pane according to the given [PaneNotation], `note`. Use
@@ -346,5 +352,4 @@ mod tests {
             vec!(4455, 7937, 4454, 567, 972, 16198)
         );
     }
-
 }

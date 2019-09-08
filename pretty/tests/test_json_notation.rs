@@ -480,3 +480,34 @@ fn test_pane_dyn_height() {
     assert_render(doc2, "[true,\n true]\n------");
     assert_render(doc3, "[true,\n true,\n true]");
 }
+
+// TODO this test currently panics, but should eventually be enabled
+// #[test]
+fn test_print_outside() {
+    let notations = make_json_notation();
+
+    let doc1 = Doc::new_branch(notations["false"].clone(), Vec::new());
+    let mut window = PlainText::new(Pos { row: 1, col: 8 });
+
+    let content1 = PaneNotation::Doc {
+        label: DocLabel::ActiveDoc,
+    };
+    let content2 = PaneNotation::Fill {
+        ch: '-',
+        style: Style::plain(),
+    };
+
+    let pane_note = PaneNotation::Horz {
+        panes: vec![
+            (PaneSize::Fixed(4), content1),
+            (PaneSize::Fixed(4), content2),
+        ],
+    };
+
+    let mut pane = window.pane().unwrap();
+    pane.render(&pane_note, |_label: &DocLabel| {
+        Some((doc1.as_ref(), CursorVis::Hide))
+    })
+    .unwrap();
+    assert_strings_eq(&window.to_string(), "fals----");
+}
