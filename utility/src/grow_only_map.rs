@@ -2,6 +2,7 @@ use std::borrow::Borrow;
 use std::cell::UnsafeCell;
 use std::sync::Mutex;
 
+// TODO: Use an existing solution, like https://docs.rs/typed-arena/1.5.0/typed_arena/struct.Arena.html
 /// Like a HashMap, but it can only get bigger.
 /// It is (hopefully) safe to extend
 pub struct GrowOnlyMap<K, V> {
