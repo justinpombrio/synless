@@ -1,7 +1,6 @@
 use std::fmt;
 
-use crate::geometry::{Pos, Rect, Region};
-use crate::pane::Pane;
+use crate::geometry::{Pos, Region};
 use crate::style::{Shade, Style};
 
 /// A "window" that supports the methods necessary to render a set of [PrettyDocument]s.
@@ -24,10 +23,4 @@ pub trait PrettyWindow: Sized {
     /// cursor position while in text mode. It should behave the same way as
     /// `.shade` would with a small Region that included just `pos`.
     fn highlight(&mut self, pos: Pos, style: Style) -> Result<(), Self::Error>;
-
-    /// Get a `Pane` that covers the full window area (and can be pretty-printed to).
-    fn pane<'a>(&'a mut self) -> Result<Pane<'a, Self>, Self::Error> {
-        let rect = Rect::new(Pos::zero(), self.size()?);
-        Ok(Pane { window: self, rect })
-    }
 }

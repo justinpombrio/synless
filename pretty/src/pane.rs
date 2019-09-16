@@ -1,4 +1,6 @@
-use crate::{Col, DocPosSpec, Pos, PrettyDocument, PrettyWindow, Rect, Region, Row, Shade, Style};
+use crate::geometry::{Col, Pos, Rect, Region, Row};
+use crate::pretty::{DocPosSpec, PrettyDocument, PrettyWindow};
+use crate::style::{Shade, Style};
 
 use std::{fmt, iter};
 
@@ -88,13 +90,6 @@ pub enum PaneNotation {
     Fill { ch: char, style: Option<Style> },
 }
 
-/// The visibility of the cursor in some document.
-#[derive(Debug, Clone, Copy)]
-pub enum CursorVis {
-    Show,
-    Hide,
-}
-
 /// Errors that can occur while attempting to render to a `Pane`.
 #[derive(Debug)]
 pub enum PaneError<T>
@@ -175,7 +170,7 @@ where
     ) -> Result<(), PaneError<T::Error>>
     where
         F: Fn(&DocLabel) -> Option<(U, CursorVis)>,
-        F: Clone,
+        F: Clone, // TODO: remove clone
         U: PrettyDocument,
     {
         if self.rect().is_empty() {
@@ -349,6 +344,12 @@ fn proportionally_divide(cookies: usize, child_hungers: &[usize]) -> Vec<usize> 
     cookie_allocation
 }
 
+/// Get a `Pane` that covers the full window area (and can be pretty-printed to).
+fn pane<'a>(&'a mut self) -> Result<Pane<'a, Self>, Self::Error> {
+    let rect = Rect::new(Pos::zero(), self.size()?);
+    Ok(Pane { window: self, rect })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -370,5 +371,5 @@ mod tests {
             vec!(4455, 7937, 4454, 567, 972, 16198)
         );
     }
-
 }
+*/

@@ -22,15 +22,9 @@ mod layout_tests {
             compute_bounds(self, child_bounds, is_empty_text)
         }
 
-        fn layout(
-            &mut self,
-            pos: Pos,
-            width: Col,
-            child_bounds: &[Bounds],
-            is_empty_text: bool,
-        ) -> Layout {
+        fn layout(&mut self, width: Col, child_bounds: &[Bounds], is_empty_text: bool) -> Layout {
             self.bounds(child_bounds, is_empty_text);
-            compute_layout(self, pos, width, child_bounds, is_empty_text)
+            compute_layout(self, width, child_bounds, is_empty_text)
         }
     }
 
@@ -125,29 +119,22 @@ mod layout_tests {
     #[test]
     fn test_show_layout() {
         let mut notation = lit("abc") + (lit("def") ^ lit("g"));
-        let layout = notation.layout(Pos::zero(), 80, &[], false);
+        let layout = notation.layout(80, &[], false);
         assert_eq!(format!("{:?}", layout), "\nabcdef\n   g");
     }
 
     #[test]
-    fn test_expand_notation() {
+    fn test_repeat_notation() {
         let child = (lit("abc") ^ lit("de")).bounds(&[], false);
-        let zero = example_repeat_notation().layout(Pos::zero(), 80, &[], false);
-        let one = example_repeat_notation().layout(Pos::zero(), 80, &[child.clone()], false);
-        let two = example_repeat_notation().layout(
-            Pos::zero(),
-            80,
-            &[child.clone(), child.clone()],
-            false,
-        );
+        let zero = example_repeat_notation().layout(80, &[], false);
+        let one = example_repeat_notation().layout(80, &[child.clone()], false);
+        let two = example_repeat_notation().layout(80, &[child.clone(), child.clone()], false);
         let three = example_repeat_notation().layout(
-            Pos::zero(),
             80,
             &[child.clone(), child.clone(), child.clone()],
             false,
         );
         let four = example_repeat_notation().layout(
-            Pos::zero(),
             80,
             &[child.clone(), child.clone(), child.clone(), child.clone()],
             false,

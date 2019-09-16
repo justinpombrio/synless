@@ -15,7 +15,7 @@ pub struct Bounds {
 impl Bounds {
     /// Find the largest Bound that fits within the given width. Panics if none
     /// fits.
-    pub fn fit_width(&self, width: Col) -> Bound {
+    pub(crate) fn fit_width(&self, width: Col) -> Bound {
         match self.bound_set.fit_width(width) {
             None => panic!("No bound fit within width {}", width),
             Some(bound) => bound,
@@ -129,8 +129,8 @@ impl ComputeBounds<'_> {
         match notation {
             Empty => Bounds::empty(),
             Literal(string, _) => Bounds::literal(string),
-            Text(_) => self.child_bounds[0].clone(),
-            Child(i) => self.child_bounds[*i].clone(),
+            Text(_) => self.child_bounds[0].to_owned(),
+            Child(i) => self.child_bounds[*i].to_owned(),
             Nest(notations) => {
                 let mut notations = notations.iter_mut();
                 // Assume that the Notation has been normalized, so `notations.len()` >= 2.
@@ -184,9 +184,9 @@ impl ComputeBounds<'_> {
                     self.compute(surround, None, Some(&total_bounds))
                 }
             },
-            Left => in_join.expect("Exposed `Left`").0.clone(),
-            Right => in_join.expect("Exposed `Right`").1.clone(),
-            Surrounded => in_surround.expect("Exposed `Surround`").clone(),
+            Left => in_join.expect("Exposed `Left`").0.to_owned(),
+            Right => in_join.expect("Exposed `Right`").1.to_owned(),
+            Surrounded => in_surround.expect("Exposed `Surround`").to_owned(),
         }
     }
 }

@@ -26,12 +26,13 @@ impl Layout {
 }
 
 /// Lay out a node in preparation for rendering it. Doing this requires knowing
-/// (i) the Bounds of its children, (ii) if it is a text node, whether its text
-/// is empty or not, (iii) the Notation with which it is being displayed, and
-/// (iv) the available screen width.
 ///
-/// If the node is not texty, then `is_empty_text` will not be used and can have
-/// any value.
+/// 1. The Notation with which it is being displayed.
+/// 2. The upper-left position to lay out at
+/// 3. The available screen width.
+/// 4. The Bounds of the node.
+/// 5. The Bounds of each of its children.
+/// 6. Whether it is empty text
 pub fn compute_layout(
     notation: &Notation,
     pos: Pos,
@@ -55,14 +56,24 @@ pub enum LayoutElement {
     Child(Region, usize),
 }
 
+impl LayoutElement {
+    pub fn region(&self) -> Region {
+        match self {
+            LayoutElement::Literal(region, _, _) => *region,
+            LayoutElement::Text(region, _) => *region,
+            LayoutElement::Child(region, _) => *region,
+        }
+    }
+}
+
 struct ComputeLayout<'a> {
     layout: Layout,
     child_bounds: &'a [Bounds],
     is_empty_text: bool,
 }
 
-impl<'a> ComputeLayout<'a> {
-    fn new(child_bounds: &'a [Bounds], is_empty_text: bool) -> ComputeLayout<'a> {
+impl ComputeLayout<'_> {
+    fn new(child_bounds: &[Bounds], is_empty_text: bool) -> ComputeLayout {
         ComputeLayout {
             layout: Layout {
                 elements: vec![],
