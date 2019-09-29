@@ -2,13 +2,15 @@ use crate::ast::Ast;
 use forest::Bookmark;
 
 #[derive(Debug)]
-pub enum CommandGroup<'l> {
-    /// Execute all the commands as one group.
-    Group(Vec<Command<'l>>),
-    /// Undo the last group.
+pub enum MetaCommand<'l> {
+    /// Execute the given command.
+    Do(Command<'l>),
+    /// Undo the most recent undo-group.
     Undo,
-    /// Redo the last group.
+    /// Redo the most recently undone undo-group.
     Redo,
+    /// End the current undo-group. Commands executed after this will be placed in a new undo-group.
+    EndGroup,
 }
 
 #[derive(Debug)]
@@ -114,12 +116,11 @@ impl<'l> From<EditorCmd> for Command<'l> {
     }
 }
 
-impl<'l, T> From<T> for CommandGroup<'l>
+impl<'l, T> From<T> for MetaCommand<'l>
 where
     T: Into<Command<'l>>,
 {
-    fn from(cmd_like: T) -> CommandGroup<'l> {
-        let cmd: Command = cmd_like.into();
-        CommandGroup::Group(vec![cmd])
+    fn from(cmd_like: T) -> MetaCommand<'l> {
+        MetaCommand::Do(cmd_like.into())
     }
 }

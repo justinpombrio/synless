@@ -9,7 +9,7 @@ mod text;
 
 pub use self::ast::{Ast, AstForest, AstRef};
 pub use self::command::{
-    Command, CommandGroup, EditorCmd, TextCmd, TextNavCmd, TreeCmd, TreeNavCmd,
+    Command, EditorCmd, MetaCommand, TextCmd, TextNavCmd, TreeCmd, TreeNavCmd,
 };
 pub use self::doc::{Clipboard, Doc, DocError};
 pub use self::notationset::NotationSet;

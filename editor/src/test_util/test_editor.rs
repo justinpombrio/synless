@@ -1,4 +1,4 @@
-use crate::{Ast, AstForest, Clipboard, CommandGroup, Doc, DocError, NotationSet};
+use crate::{Ast, AstForest, Clipboard, Doc, DocError, MetaCommand, NotationSet};
 use language::{Language, LanguageName, LanguageSet};
 use pretty::{Col, CursorVis, DocPosSpec, PlainText, Pos, PrettyDocument, PrettyWindow, Row};
 
@@ -42,10 +42,10 @@ impl<'l> TestEditor<'l> {
         }
     }
 
-    /// Execute the given command or command group, and return its result.
+    /// Execute the given command or meta-command, and return its result.
     pub fn exec<T>(&mut self, cmd: T) -> Result<(), DocError<'l>>
     where
-        T: Into<CommandGroup<'l>>,
+        T: Into<MetaCommand<'l>>,
     {
         self.doc.execute(cmd.into(), &mut self.clipboard)
     }

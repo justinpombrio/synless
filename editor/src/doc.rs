@@ -1,7 +1,7 @@
 use std::{iter, mem, vec};
 
 use crate::ast::{Ast, AstKind, AstRef};
-use crate::command::{Command, CommandGroup, EditorCmd, TextCmd, TextNavCmd, TreeCmd, TreeNavCmd};
+use crate::command::{Command, EditorCmd, MetaCommand, TextCmd, TextNavCmd, TreeCmd, TreeNavCmd};
 use forest::Bookmark;
 
 #[derive(Debug)]
@@ -155,9 +155,15 @@ impl<'l> Doc<'l> {
         mem::replace(&mut self.recent, UndoGroup::new())
     }
 
+    fn end_undo_group(&mut self) {
+        if !self.recent.is_empty() {
+            let undos = self.take_recent();
+            self.undo_stack.push(undos)
+        }
+    }
+
     fn undo(&mut self, clipboard: &mut Clipboard<'l>) -> Result<(), DocError<'l>> {
-        assert!(self.recent.commands.is_empty());
-        assert!(!self.recent.contains_edit);
+        self.end_undo_group();
 
         // Find the most recent group that contains an edit
         let index = self
@@ -172,8 +178,10 @@ impl<'l> Doc<'l> {
                     .undo_stack
                     .pop()
                     .expect("undo stack shouldn't be empty!");
-                self.execute_group(group, clipboard)
-                    .expect("Failed to undo");
+                for cmd in group {
+                    self.execute_command(cmd, clipboard)
+                        .expect("Failed to undo");
+                }
                 let recent = self.take_recent();
                 self.redo_stack.push(recent);
             }
@@ -184,8 +192,7 @@ impl<'l> Doc<'l> {
     }
 
     fn redo(&mut self, clipboard: &mut Clipboard<'l>) -> Result<(), DocError<'l>> {
-        assert!(self.recent.commands.is_empty());
-        assert!(!self.recent.contains_edit);
+        self.end_undo_group();
 
         // Find the most recent group that contains an edit
         let index = self
@@ -200,8 +207,10 @@ impl<'l> Doc<'l> {
                     .redo_stack
                     .pop()
                     .expect("redo stack shouldn't be empty!");
-                self.execute_group(group, clipboard)
-                    .expect("Failed to redo");
+                for cmd in group {
+                    self.execute_command(cmd, clipboard)
+                        .expect("Failed to redo");
+                }
                 let recent = self.take_recent();
                 self.undo_stack.push(recent);
             }
@@ -213,42 +222,33 @@ impl<'l> Doc<'l> {
 
     pub fn execute(
         &mut self,
-        cmds: CommandGroup<'l>,
+        meta_cmd: MetaCommand<'l>,
         clipboard: &mut Clipboard<'l>,
     ) -> Result<(), DocError<'l>> {
-        match cmds {
-            CommandGroup::Undo => self.undo(clipboard),
-            CommandGroup::Redo => self.redo(clipboard),
-            CommandGroup::Group(group) => {
-                let result = self.execute_group(group, clipboard);
-                let undos = self.take_recent();
-                if !undos.is_empty() {
-                    self.undo_stack.push(undos);
-                }
+        match meta_cmd {
+            MetaCommand::Undo => self.undo(clipboard),
+            MetaCommand::Redo => self.redo(clipboard),
+            MetaCommand::EndGroup => Ok(self.end_undo_group()),
+            MetaCommand::Do(cmd) => {
                 self.redo_stack.clear();
-                result
+                self.execute_command(cmd, clipboard)
             }
         }
     }
 
-    fn execute_group<I>(
+    fn execute_command(
         &mut self,
-        cmds: I,
+        cmd: Command<'l>,
         clipboard: &mut Clipboard<'l>,
-    ) -> Result<(), DocError<'l>>
-    where
-        I: IntoIterator<Item = Command<'l>>,
-    {
-        for cmd in cmds {
-            let undos = match cmd {
-                Command::Ed(cmd) => self.execute_ed(cmd, clipboard)?,
-                Command::Tree(cmd) => self.execute_tree(cmd)?,
-                Command::TreeNav(cmd) => self.execute_tree_nav(cmd)?,
-                Command::Text(cmd) => self.execute_text(cmd)?,
-                Command::TextNav(cmd) => self.execute_text_nav(cmd)?,
-            };
-            self.recent.append(undos);
-        }
+    ) -> Result<(), DocError<'l>> {
+        let undos = match cmd {
+            Command::Ed(cmd) => self.execute_ed(cmd, clipboard)?,
+            Command::Tree(cmd) => self.execute_tree(cmd)?,
+            Command::TreeNav(cmd) => self.execute_tree_nav(cmd)?,
+            Command::Text(cmd) => self.execute_text(cmd)?,
+            Command::TextNav(cmd) => self.execute_text_nav(cmd)?,
+        };
+        self.recent.append(undos);
         Ok(())
     }
 

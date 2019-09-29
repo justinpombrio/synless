@@ -5,7 +5,7 @@ use std::fmt::Debug;
 use termion::event::Key;
 
 use editor::{
-    make_json_lang, Ast, AstForest, Clipboard, CommandGroup, Doc, EditorCmd, NotationSet, TextCmd,
+    make_json_lang, Ast, AstForest, Clipboard, Doc, EditorCmd, MetaCommand, NotationSet, TextCmd,
     TextNavCmd, TreeCmd, TreeNavCmd,
 };
 use forest::Bookmark;
@@ -434,8 +434,8 @@ impl Ed {
                 let index = self.stack.pop_usize()?;
                 self.exec(TreeNavCmd::Child(index))?;
             }
-            Word::Undo => self.exec(CommandGroup::Undo)?,
-            Word::Redo => self.exec(CommandGroup::Redo)?,
+            Word::Undo => self.exec(MetaCommand::Undo)?,
+            Word::Redo => self.exec(MetaCommand::Redo)?,
             Word::Cut => self.exec(EditorCmd::Cut)?,
             Word::Copy => self.exec(EditorCmd::Copy)?,
             Word::PasteSwap => self.exec(EditorCmd::PasteSwap)?,
@@ -464,9 +464,13 @@ impl Ed {
 
     fn exec<T>(&mut self, cmd: T) -> Result<(), Error>
     where
-        T: Debug + Into<CommandGroup<'static>>,
+        T: Debug + Into<MetaCommand<'static>>,
     {
-        self.doc.execute(cmd.into(), &mut self.cut_stack)?;
+        let result = self.doc.execute(cmd.into(), &mut self.cut_stack);
+        self.doc
+            .execute(MetaCommand::EndGroup, &mut self.cut_stack)
+            .unwrap();
+        result?;
         self.update_key_hints()?;
         Ok(())
     }
