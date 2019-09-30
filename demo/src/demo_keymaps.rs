@@ -2,7 +2,7 @@ use std::iter;
 use termion::event::Key;
 
 use crate::keymap::{ArityType, Kmap, KmapFilter, TreeKmapFactory};
-use crate::prog::{Prog, Word};
+use crate::prog::{Prog, Value, Word};
 
 use language::{Language, LanguageName};
 
@@ -20,7 +20,10 @@ pub fn make_node_map<'l>(lang: &Language) -> TreeKmapFactory<'l> {
                             // Push the new node onto the stack, and then
                             // apply the quoted command (eg. InsertAfter)
                             // that was already on the top of the stack.
-                            Word::LangConstruct(lang.name().into(), construct_name.to_owned()),
+                            Word::Literal(Value::LangConstruct(
+                                lang.name().into(),
+                                construct_name.to_owned(),
+                            )),
                             Word::NodeByName,
                             Word::Swap,
                             Word::Apply,
@@ -76,7 +79,7 @@ pub fn make_tree_map<'l>() -> TreeKmapFactory<'l> {
         (
             Key::Down,
             KmapFilter::Always,
-            Prog::named("Child", &[Word::Usize(0), Word::Child]),
+            Prog::named("Child", &[Word::Literal(Value::Usize(0)), Word::Child]),
         ),
         (
             Key::Char('i'),
@@ -105,7 +108,7 @@ pub fn make_tree_map<'l>() -> TreeKmapFactory<'l> {
                 "Replace",
                 &[
                     Word::Replace.quote(),
-                    Word::MapName("node".into()),
+                    Word::Literal(Value::MapName("node".into())),
                     Word::SelfSort,
                     Word::PushMap,
                 ],
@@ -117,7 +120,7 @@ pub fn make_tree_map<'l>() -> TreeKmapFactory<'l> {
             Prog::named(
                 "SpeedBoolMode",
                 &[
-                    Word::MapName("speed_bool".into()),
+                    Word::Literal(Value::MapName("speed_bool".into())),
                     Word::AnySort,
                     Word::PushMap,
                 ],
@@ -126,12 +129,18 @@ pub fn make_tree_map<'l>() -> TreeKmapFactory<'l> {
         (
             Key::Char('m'),
             KmapFilter::Always,
-            Prog::named("Mark", &[Word::Char('m'), Word::SetBookmark]),
+            Prog::named(
+                "Mark",
+                &[Word::Literal(Value::Char('m')), Word::SetBookmark],
+            ),
         ),
         (
             Key::Char('\''),
             KmapFilter::Always,
-            Prog::named("GotoMark", &[Word::Char('m'), Word::GotoBookmark]),
+            Prog::named(
+                "GotoMark",
+                &[Word::Literal(Value::Char('m')), Word::GotoBookmark],
+            ),
         ),
     ])
 }
@@ -145,7 +154,7 @@ pub fn make_speed_bool_map<'l>() -> TreeKmapFactory<'l> {
             Prog::named(
                 "True",
                 &[
-                    Word::LangConstruct(lang.clone(), "true".into()),
+                    Word::Literal(Value::LangConstruct(lang.clone(), "true".into())),
                     Word::InsertHoleAfter,
                     Word::NodeByName,
                     Word::Replace,
@@ -158,7 +167,7 @@ pub fn make_speed_bool_map<'l>() -> TreeKmapFactory<'l> {
             Prog::named(
                 "False",
                 &[
-                    Word::LangConstruct(lang, "false".into()),
+                    Word::Literal(Value::LangConstruct(lang, "false".into())),
                     Word::InsertHoleAfter,
                     Word::NodeByName,
                     Word::Replace,

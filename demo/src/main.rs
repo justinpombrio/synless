@@ -27,7 +27,7 @@ use error::Error;
 use keymap::{Kmap, TreeKmapFactory};
 use keymap_lang::make_keymap_lang;
 use message_lang::make_message_lang;
-use prog::{KmapSpec, Stack, Word};
+use prog::{DataStack, KmapSpec, Value, Word};
 
 lazy_static! {
     pub static ref LANG_SET: LanguageSet = LanguageSet::new();
@@ -52,7 +52,7 @@ struct Ed {
     messages: VecDeque<String>,
     message_doc: Doc<'static>,
     message_lang_name: LanguageName,
-    stack: Stack<'static>,
+    data_stack: DataStack<'static>,
     tree_keymaps: HashMap<String, TreeKmapFactory<'static>>,
     tree_keymap_stack: Vec<KmapSpec>,
     text_keymap: Kmap<'static>,
@@ -103,7 +103,7 @@ impl Ed {
             messages: VecDeque::new(),
             message_doc: msg_doc,
             message_lang_name: msg_lang_name,
-            stack: Stack::new(),
+            data_stack: DataStack::new(),
             tree_keymaps,
             text_keymap: demo_keymaps::make_text_map(),
             kmap_lang_name,
@@ -114,16 +114,19 @@ impl Ed {
         };
 
         // Set initial keymap
-        ed.push(Word::MapName("tree".into()))?;
-        ed.push(Word::AnySort)?;
-        ed.push(Word::PushMap)?;
+        ed.call(Word::Literal(Value::MapName("tree".into())))?;
+        ed.call(Word::AnySort)?;
+        ed.call(Word::PushMap)?;
 
         // Add an empty list to the document
-        ed.push(Word::Usize(0))?;
-        ed.push(Word::Child)?;
-        ed.push(Word::LangConstruct(ed.lang_name.clone(), "list".into()))?;
-        ed.push(Word::NodeByName)?;
-        ed.push(Word::Replace)?;
+        ed.call(Word::Literal(Value::Usize(0)))?;
+        ed.call(Word::Child)?;
+        ed.call(Word::Literal(Value::LangConstruct(
+            ed.lang_name.clone(),
+            "list".into(),
+        )))?;
+        ed.call(Word::NodeByName)?;
+        ed.call(Word::Replace)?;
 
         ed.messages.clear();
         Ok(ed)
@@ -323,7 +326,7 @@ impl Ed {
     fn handle_key(&mut self, key: Key) -> Result<(), Error> {
         let prog = self.active_keymap()?.lookup(key)?;
         for word in prog.words {
-            self.push(word)?;
+            self.call(word)?;
         }
         Ok(())
     }
@@ -342,38 +345,31 @@ impl Ed {
         }
     }
 
-    fn push(&mut self, word: Word<'static>) -> Result<(), Error> {
+    fn call(&mut self, word: Word<'static>) -> Result<(), Error> {
         Ok(match word {
-            Word::Tree(..) => self.stack.push(word),
-            Word::Usize(..) => self.stack.push(word),
-            Word::MapName(..) => self.stack.push(word),
-            Word::Sort(..) => self.stack.push(word),
-            Word::LangConstruct(..) => self.stack.push(word),
-            Word::Message(..) => self.stack.push(word),
-            Word::Char(..) => self.stack.push(word),
-            Word::Quote(..) => self.stack.push(word),
+            Word::Literal(value) => self.data_stack.push(value),
             Word::Apply => {
-                let word = self.stack.pop_quote()?;
-                self.push(word)?;
+                let word = self.data_stack.pop_quote()?;
+                self.call(word)?;
             }
             Word::Swap => {
-                self.stack.swap()?;
+                self.data_stack.swap()?;
             }
             Word::Pop => {
-                self.stack.pop()?;
+                self.data_stack.pop()?;
             }
             Word::Echo => {
-                let message = self.stack.pop_message()?;
+                let message = self.data_stack.pop_message()?;
                 self.msg(&message)?;
             }
             Word::NodeByName => {
-                let (lang_name, construct_name) = self.stack.pop_lang_construct()?;
+                let (lang_name, construct_name) = self.data_stack.pop_lang_construct()?;
                 let node = self.node_by_name(&construct_name, &lang_name)?;
-                self.push(Word::Tree(node))?;
+                self.data_stack.push(Value::Tree(node));
             }
             Word::PushMap => {
-                let sort = self.stack.pop_sort()?;
-                let name = self.stack.pop_map_name()?;
+                let sort = self.data_stack.pop_sort()?;
+                let name = self.data_stack.pop_map_name()?;
                 self.tree_keymap_stack.push(KmapSpec {
                     name,
                     required_sort: sort,
@@ -386,7 +382,7 @@ impl Ed {
             }
             Word::ChildSort => {
                 let sort = self.doc.ast_ref().arity().uniform_child_sort().to_owned();
-                self.stack.push(Word::Sort(sort));
+                self.data_stack.push(Value::Sort(sort));
             }
             Word::SelfSort => {
                 let (parent, index) = self
@@ -395,7 +391,7 @@ impl Ed {
                     .parent()
                     .expect("you shouldn't be at the root!");
                 let sort = parent.arity().child_sort(index).to_owned();
-                self.stack.push(Word::Sort(sort));
+                self.data_stack.push(Value::Sort(sort));
             }
             Word::SiblingSort => {
                 let (parent, _) = self
@@ -404,10 +400,10 @@ impl Ed {
                     .parent()
                     .expect("you shouldn't be at the root!");
                 let sort = parent.arity().uniform_child_sort().to_owned();
-                self.stack.push(Word::Sort(sort));
+                self.data_stack.push(Value::Sort(sort));
             }
             Word::AnySort => {
-                self.stack.push(Word::Sort(Sort::any()));
+                self.data_stack.push(Value::Sort(Sort::any()));
             }
             Word::Remove => self.exec(TreeCmd::Remove)?,
             Word::Clear => self.exec(TreeCmd::Clear)?,
@@ -424,14 +420,14 @@ impl Ed {
                 self.exec(TreeCmd::InsertHolePostpend)?;
             }
             Word::Replace => {
-                let tree = self.stack.pop_tree()?;
+                let tree = self.data_stack.pop_tree()?;
                 self.exec(TreeCmd::Replace(tree))?;
             }
             Word::Left => self.exec(TreeNavCmd::Left)?,
             Word::Right => self.exec(TreeNavCmd::Right)?,
             Word::Parent => self.exec(TreeNavCmd::Parent)?,
             Word::Child => {
-                let index = self.stack.pop_usize()?;
+                let index = self.data_stack.pop_usize()?;
                 self.exec(TreeNavCmd::Child(index))?;
             }
             Word::Undo => self.exec(MetaCommand::Undo)?,
@@ -441,17 +437,17 @@ impl Ed {
             Word::PasteSwap => self.exec(EditorCmd::PasteSwap)?,
             Word::PopClipboard => self.exec(EditorCmd::PopClipboard)?,
             Word::GotoBookmark => {
-                let name = self.stack.pop_char()?;
+                let name = self.data_stack.pop_char()?;
                 let mark = self.bookmarks.get(&name).ok_or(Error::UnknownBookmark)?;
                 self.exec(TreeNavCmd::GotoBookmark(*mark))?;
             }
             Word::SetBookmark => {
-                let name = self.stack.pop_char()?;
+                let name = self.data_stack.pop_char()?;
                 let mark = self.doc.bookmark();
                 self.bookmarks.insert(name, mark);
             }
             Word::InsertChar => {
-                let ch = self.stack.pop_char()?;
+                let ch = self.data_stack.pop_char()?;
                 self.exec(TextCmd::InsertChar(ch))?;
             }
             Word::DeleteCharBackward => self.exec(TextCmd::DeleteCharBackward)?,

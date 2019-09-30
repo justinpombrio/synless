@@ -19,7 +19,7 @@ pub enum Error {
         lang: LanguageName,
     },
     UnknownBookmark,
-    ExpectedWord(String),
+    ExpectedValue(String),
     EmptyStack,
     Pane(PaneError<terminal::Error>),
     DocExec(DocError<'static>),

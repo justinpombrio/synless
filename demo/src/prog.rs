@@ -10,7 +10,7 @@ pub struct Prog<'l> {
     pub name: Option<String>,
 }
 
-pub struct Stack<'l>(Vec<Word<'l>>);
+pub struct DataStack<'l>(Vec<Value<'l>>);
 
 #[derive(Clone, Debug)]
 pub struct KmapSpec {
@@ -20,8 +20,7 @@ pub struct KmapSpec {
 
 #[allow(dead_code)]
 #[derive(Clone, Debug)]
-pub enum Word<'l> {
-    // data:
+pub enum Value<'l> {
     Tree(Ast<'l>),
     Usize(usize),
     Char(char),
@@ -29,12 +28,17 @@ pub enum Word<'l> {
     Sort(Sort),
     LangConstruct(LanguageName, ConstructName),
     Message(String),
-    Quote(Box<Word<'l>>),
+    Quote(Box<Word<'l>>), // TODO vec, not box
+}
 
-    // stack manipulation:
+#[allow(dead_code)]
+#[derive(Clone, Debug)]
+pub enum Word<'l> {
+    // data-stack manipulation:
     Swap,
     Apply,
     Pop,
+    Literal(Value<'l>),
 
     // editor-specific:
     PushMap,
@@ -91,16 +95,16 @@ impl<'l> Prog<'l> {
     }
 }
 
-impl<'l> Stack<'l> {
+impl<'l> DataStack<'l> {
     pub fn new() -> Self {
-        Stack(Vec::new())
+        Self(Vec::new())
     }
 
-    pub fn push(&mut self, word: Word<'l>) {
-        self.0.push(word);
+    pub fn push(&mut self, value: Value<'l>) {
+        self.0.push(value);
     }
 
-    pub fn pop(&mut self) -> Result<Word<'l>, Error> {
+    pub fn pop(&mut self) -> Result<Value<'l>, Error> {
         self.0.pop().ok_or(Error::EmptyStack)
     }
 
@@ -113,72 +117,72 @@ impl<'l> Stack<'l> {
     }
 
     pub fn pop_tree(&mut self) -> Result<Ast<'l>, Error> {
-        if let Word::Tree(tree) = self.pop()? {
+        if let Value::Tree(tree) = self.pop()? {
             Ok(tree)
         } else {
-            Err(Error::ExpectedWord("Tree".into()))
+            Err(Error::ExpectedValue("Tree".into()))
         }
     }
 
     pub fn pop_usize(&mut self) -> Result<usize, Error> {
-        if let Word::Usize(num) = self.pop()? {
+        if let Value::Usize(num) = self.pop()? {
             Ok(num)
         } else {
-            Err(Error::ExpectedWord("Usize".into()))
+            Err(Error::ExpectedValue("Usize".into()))
         }
     }
 
     pub fn pop_map_name(&mut self) -> Result<String, Error> {
-        if let Word::MapName(s) = self.pop()? {
+        if let Value::MapName(s) = self.pop()? {
             Ok(s)
         } else {
-            Err(Error::ExpectedWord("MapName".into()))
+            Err(Error::ExpectedValue("MapName".into()))
         }
     }
 
     pub fn pop_sort(&mut self) -> Result<Sort, Error> {
-        if let Word::Sort(s) = self.pop()? {
+        if let Value::Sort(s) = self.pop()? {
             Ok(s)
         } else {
-            Err(Error::ExpectedWord("Sort".into()))
+            Err(Error::ExpectedValue("Sort".into()))
         }
     }
 
     pub fn pop_lang_construct(&mut self) -> Result<(LanguageName, ConstructName), Error> {
-        if let Word::LangConstruct(lang_name, construct_name) = self.pop()? {
+        if let Value::LangConstruct(lang_name, construct_name) = self.pop()? {
             Ok((lang_name, construct_name))
         } else {
-            Err(Error::ExpectedWord("LangConstruct".into()))
+            Err(Error::ExpectedValue("LangConstruct".into()))
         }
     }
 
     pub fn pop_message(&mut self) -> Result<String, Error> {
-        if let Word::Message(s) = self.pop()? {
+        if let Value::Message(s) = self.pop()? {
             Ok(s)
         } else {
-            Err(Error::ExpectedWord("Message".into()))
+            Err(Error::ExpectedValue("Message".into()))
         }
     }
 
     pub fn pop_char(&mut self) -> Result<char, Error> {
-        if let Word::Char(ch) = self.pop()? {
+        if let Value::Char(ch) = self.pop()? {
             Ok(ch)
         } else {
-            Err(Error::ExpectedWord("Char".into()))
+            Err(Error::ExpectedValue("Char".into()))
         }
     }
 
     pub fn pop_quote(&mut self) -> Result<Word<'l>, Error> {
-        if let Word::Quote(word) = self.pop()? {
+        if let Value::Quote(word) = self.pop()? {
             Ok(*word)
         } else {
-            Err(Error::ExpectedWord("Quote".into()))
+            Err(Error::ExpectedValue("Quote".into()))
         }
     }
 }
 
 impl<'l> Word<'l> {
     pub fn quote(self) -> Self {
-        Word::Quote(Box::new(self))
+        Word::Literal(Value::Quote(Box::new(self)))
     }
 }

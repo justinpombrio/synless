@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use termion::event::Key;
 
 use crate::error::Error;
-use crate::prog::{Prog, Word};
+use crate::prog::{Prog, Value, Word};
 use editor::AstRef;
 use language::{Arity, Sort};
 
@@ -79,7 +79,10 @@ impl<'l> Kmap<'l> {
                 if let Some(binding) = map.get(&key) {
                     Ok(binding.to_owned())
                 } else if let Key::Char(c) = key {
-                    Ok(Prog::named(c, &[Word::Char(c), Word::InsertChar]))
+                    Ok(Prog::named(
+                        c,
+                        &[Word::Literal(Value::Char(c)), Word::InsertChar],
+                    ))
                 } else {
                     Err(Error::UnknownKey(key))
                 }
