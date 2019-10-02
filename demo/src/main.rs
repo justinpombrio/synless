@@ -27,7 +27,7 @@ use error::Error;
 use keymap::{Kmap, TreeKmapFactory};
 use keymap_lang::make_keymap_lang;
 use message_lang::make_message_lang;
-use prog::{DataStack, KmapSpec, Value, Word};
+use prog::{CallStack, DataStack, KmapSpec, Prog, Value, Word};
 
 lazy_static! {
     pub static ref LANG_SET: LanguageSet = LanguageSet::new();
@@ -53,6 +53,7 @@ struct Ed {
     message_doc: Doc<'static>,
     message_lang_name: LanguageName,
     data_stack: DataStack<'static>,
+    call_stack: CallStack<'static>,
     tree_keymaps: HashMap<String, TreeKmapFactory<'static>>,
     tree_keymap_stack: Vec<KmapSpec>,
     text_keymap: Kmap<'static>,
@@ -104,6 +105,7 @@ impl Ed {
             message_doc: msg_doc,
             message_lang_name: msg_lang_name,
             data_stack: DataStack::new(),
+            call_stack: CallStack::new(),
             tree_keymaps,
             text_keymap: demo_keymaps::make_text_map(),
             kmap_lang_name,
@@ -133,9 +135,21 @@ impl Ed {
     }
 
     fn run(&mut self) -> Result<(), Error> {
+        self.redisplay()?;
         loop {
-            self.redisplay()?;
-            self.handle_event()?;
+            if let Some(word) = self.call_stack.next() {
+                if let Err(err) = self.call(word) {
+                    self.msg(&format!("Error: {:?}", err))?;
+                }
+            } else {
+                self.redisplay()?;
+                self.exec(MetaCommand::EndGroup)?;
+                match self.handle_event() {
+                    Ok(prog) => self.call_stack.push(prog),
+                    Err(Error::KeyboardInterrupt) => Err(Error::KeyboardInterrupt)?,
+                    Err(err) => self.msg(&format!("Error: {:?}", err))?,
+                }
+            }
         }
     }
 
@@ -323,23 +337,10 @@ impl Ed {
         Ok(())
     }
 
-    fn handle_key(&mut self, key: Key) -> Result<(), Error> {
-        let prog = self.active_keymap()?.lookup(key)?;
-        for word in prog.words {
-            self.call(word)?;
-        }
-        Ok(())
-    }
-
-    fn handle_event(&mut self) -> Result<(), Error> {
+    fn handle_event(&mut self) -> Result<Prog<'static>, Error> {
         match self.term.next_event() {
             Some(Ok(Event::KeyEvent(Key::Ctrl('c')))) => Err(Error::KeyboardInterrupt),
-            Some(Ok(Event::KeyEvent(key))) => {
-                if let Err(err) = self.handle_key(key) {
-                    self.msg(&format!("Error: {:?}", err))?;
-                }
-                Ok(())
-            }
+            Some(Ok(Event::KeyEvent(key))) => self.active_keymap()?.lookup(key),
             Some(Err(err)) => Err(err.into()),
             _ => Err(Error::UnknownEvent),
         }
@@ -462,11 +463,7 @@ impl Ed {
     where
         T: Debug + Into<MetaCommand<'static>>,
     {
-        let result = self.doc.execute(cmd.into(), &mut self.cut_stack);
-        self.doc
-            .execute(MetaCommand::EndGroup, &mut self.cut_stack)
-            .unwrap();
-        result?;
+        self.doc.execute(cmd.into(), &mut self.cut_stack)?;
         self.update_key_hints()?;
         Ok(())
     }

@@ -95,7 +95,7 @@ impl<'l> Kmap<'l> {
             Kmap::Tree(map) | Kmap::Text(map) => {
                 let mut v: Vec<_> = map
                     .iter()
-                    .map(|(key, prog)| (format_key(key), format_prog(prog)))
+                    .map(|(key, prog)| (format_key(key), prog.name().unwrap_or("...").to_owned()))
                     .collect();
                 v.sort_unstable();
                 v
@@ -113,16 +113,6 @@ impl ArityType {
             (ArityType::Mixed, Arity::Mixed(..)) => true,
             _ => false,
         }
-    }
-}
-
-pub fn format_prog(prog: &Prog) -> String {
-    if let Some(ref name) = prog.name {
-        name.to_string()
-    } else if prog.words.len() == 1 {
-        format!("{:?}", prog.words[0])
-    } else {
-        "...".into()
     }
 }
 

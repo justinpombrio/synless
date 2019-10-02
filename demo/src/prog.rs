@@ -6,11 +6,15 @@ use crate::error::Error;
 
 #[derive(Clone)]
 pub struct Prog<'l> {
-    pub words: Vec<Word<'l>>,
+    /// Optional display name for this program.
     pub name: Option<String>,
+    /// A stack of words to execute, starting at the highest index.
+    words: Vec<Word<'l>>,
 }
 
 pub struct DataStack<'l>(Vec<Value<'l>>);
+
+pub struct CallStack<'l>(Vec<Prog<'l>>);
 
 #[derive(Clone, Debug)]
 pub struct KmapSpec {
@@ -81,16 +85,66 @@ pub enum Word<'l> {
 }
 
 impl<'l> Prog<'l> {
+    /// Construct a program containing one word. Use the word's debug
+    /// representation as the program name.
     pub fn single(word: Word<'l>) -> Self {
         Prog {
+            name: Some(format!("{:?}", word)),
             words: vec![word],
-            name: None,
         }
     }
-    pub fn named<T: ToString>(name: T, words: &[Word<'l>]) -> Self {
+
+    /// Construct a program in which the given words will be executed in order,
+    /// starting from index 0 of the slice.
+    pub fn named<T: ToString>(name: T, forward_words: &[Word<'l>]) -> Self {
         Prog {
-            words: words.into(),
+            words: forward_words.iter().cloned().rev().collect(),
             name: Some(name.to_string()),
+        }
+    }
+
+    /// Pop the next word from the program.
+    pub fn pop(&mut self) -> Option<Word<'l>> {
+        self.words.pop()
+    }
+
+    /// True if there are no words in the program
+    pub fn is_empty(&self) -> bool {
+        self.words.is_empty()
+    }
+
+    /// The display name of the program, if it has one.
+    pub fn name(&self) -> Option<&str> {
+        self.name.as_ref().map(String::as_str)
+    }
+}
+
+impl<'l> CallStack<'l> {
+    pub fn new() -> Self {
+        Self(Vec::new())
+    }
+
+    /// Push a program onto the call stack.
+    pub fn push(&mut self, prog: Prog<'l>) {
+        self.0.push(prog)
+    }
+
+    /// Return the next word to execute, removing it from the call stack. Or
+    /// None if the call stack is empty.
+    pub fn next(&mut self) -> Option<Word<'l>> {
+        loop {
+            let prog = self.0.last_mut()?;
+            let word = prog.pop();
+            if word.is_some() {
+                if prog.is_empty() {
+                    // Do a sort of tail-call optimization, immediately removing
+                    // the empty program from the stack.
+                    self.0.pop().expect("call stack shouldn't have been empty");
+                }
+                return word; // Success!
+            }
+            // Remove empty program and try again
+            self.0.pop().expect("call stack shouldn't have been empty");
         }
     }
 }
