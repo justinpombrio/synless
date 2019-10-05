@@ -3,6 +3,7 @@ use std::{iter, mem, vec};
 use crate::ast::{Ast, AstKind, AstRef};
 use crate::command::{Command, EditorCmd, MetaCommand, TextCmd, TextNavCmd, TreeCmd, TreeNavCmd};
 use forest::Bookmark;
+use language::Sort;
 
 #[derive(Debug)]
 pub enum DocError<'l> {
@@ -149,6 +150,26 @@ impl<'l> Doc<'l> {
     /// Get a Bookmark pointing to the current node.
     pub fn bookmark(&mut self) -> Bookmark {
         self.ast.bookmark()
+    }
+
+    pub fn self_sort(&self) -> Sort {
+        let (parent, index) = self
+            .ast_ref()
+            .parent()
+            .expect("you shouldn't be at the root!");
+        parent.arity().child_sort(index).to_owned()
+    }
+
+    pub fn sibling_sort(&self) -> Sort {
+        let (parent, _) = self
+            .ast_ref()
+            .parent()
+            .expect("you shouldn't be at the root!");
+        parent.arity().uniform_child_sort().to_owned()
+    }
+
+    pub fn child_sort(&self) -> Sort {
+        self.ast_ref().arity().uniform_child_sort().to_owned()
     }
 
     fn take_recent(&mut self) -> UndoGroup<'l> {

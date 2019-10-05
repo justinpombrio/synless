@@ -5,7 +5,7 @@ use std::fmt::Debug;
 use editor::{make_json_lang, Ast, AstForest, Clipboard, Doc, MetaCommand, NotationSet};
 use forest::Bookmark;
 use frontends::{Frontend, Terminal};
-use language::{Language, LanguageName, LanguageSet, Sort};
+use language::{Language, LanguageName, LanguageSet};
 use pretty::{Color, CursorVis, DocLabel, DocPosSpec, Pane, PaneNotation, PaneSize, Style};
 use utility::GrowOnlyMap;
 
@@ -319,36 +319,6 @@ impl Core {
             .active_mut()
             .execute(cmd.into(), &mut self.cut_stack)?;
         Ok(())
-    }
-
-    // TODO weirdly specific to active doc. Maybe that's ok?
-    pub fn self_sort(&self) -> Sort {
-        let (parent, index) = self
-            .docs
-            .active()
-            .ast_ref()
-            .parent()
-            .expect("you shouldn't be at the root!");
-        parent.arity().child_sort(index).to_owned()
-    }
-
-    pub fn child_sort(&self) -> Sort {
-        self.docs
-            .active()
-            .ast_ref()
-            .arity()
-            .uniform_child_sort()
-            .to_owned()
-    }
-
-    pub fn sibling_sort(&self) -> Sort {
-        let (parent, _) = self
-            .docs
-            .active()
-            .ast_ref()
-            .parent()
-            .expect("you shouldn't be at the root!");
-        parent.arity().uniform_child_sort().to_owned()
     }
 
     pub fn add_bookmark(&mut self, name: char) {

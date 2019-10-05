@@ -237,13 +237,16 @@ impl Ed {
                 self.tree_keymap_stack.pop();
             }
             Word::ChildSort => {
-                self.data_stack.push(Value::Sort(self.core.child_sort()));
+                self.data_stack
+                    .push(Value::Sort(self.core.docs.active().child_sort()));
             }
             Word::SelfSort => {
-                self.data_stack.push(Value::Sort(self.core.self_sort()));
+                self.data_stack
+                    .push(Value::Sort(self.core.docs.active().self_sort()));
             }
             Word::SiblingSort => {
-                self.data_stack.push(Value::Sort(self.core.sibling_sort()));
+                self.data_stack
+                    .push(Value::Sort(self.core.docs.active().sibling_sort()));
             }
             Word::AnySort => {
                 self.data_stack.push(Value::Sort(Sort::any()));
