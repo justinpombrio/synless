@@ -1,21 +1,14 @@
-use lazy_static::lazy_static;
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 use std::fmt::Debug;
 
 use termion::event::Key;
 
-use editor::{
-    make_json_lang, Ast, AstForest, Clipboard, Doc, EditorCmd, MetaCommand, NotationSet, TextCmd,
-    TextNavCmd, TreeCmd, TreeNavCmd,
-};
-use forest::Bookmark;
+use editor::{Doc, EditorCmd, MetaCommand, NotationSet, TextCmd, TextNavCmd, TreeCmd, TreeNavCmd};
 use frontends::{Event, Frontend, Terminal};
-use language::{LanguageName, LanguageSet, Sort};
-use pretty::{
-    Color, ColorTheme, CursorVis, DocLabel, DocPosSpec, Pane, PaneNotation, PaneSize, Style,
-};
-use utility::GrowOnlyMap;
+use language::Sort;
+use pretty::ColorTheme;
 
+mod core_editor;
 mod demo_keymaps;
 mod error;
 mod keymap;
@@ -23,16 +16,10 @@ mod keymap_lang;
 mod message_lang;
 mod prog;
 
+use core_editor::{Core, DocName};
 use error::Error;
 use keymap::{Kmap, TreeKmapFactory};
-use keymap_lang::make_keymap_lang;
-use message_lang::make_message_lang;
 use prog::{CallStack, DataStack, KmapSpec, Prog, Value, Word};
-
-lazy_static! {
-    pub static ref LANG_SET: LanguageSet = LanguageSet::new();
-    pub static ref NOTE_SETS: GrowOnlyMap<LanguageName, NotationSet> = GrowOnlyMap::new();
-}
 
 fn main() -> Result<(), Error> {
     let mut ed = Ed::new()?;
@@ -45,46 +32,18 @@ fn main() -> Result<(), Error> {
 
 /// Demonstrate a basic interactive tree editor
 struct Ed {
-    doc: Doc<'static>,
-    lang_name: LanguageName,
-    forest: AstForest<'static>,
-    term: Terminal,
-    messages: VecDeque<String>,
-    message_doc: Doc<'static>,
-    message_lang_name: LanguageName,
+    core: Core,
+    frontend: Terminal,
     data_stack: DataStack<'static>,
     call_stack: CallStack<'static>,
     tree_keymaps: HashMap<String, TreeKmapFactory<'static>>,
     tree_keymap_stack: Vec<KmapSpec>,
     text_keymap: Kmap<'static>,
-    kmap_lang_name: LanguageName,
-    key_hints: Doc<'static>,
-    cut_stack: Clipboard<'static>,
-    bookmarks: HashMap<char, Bookmark>,
 }
 
 impl Ed {
     fn new() -> Result<Self, Error> {
-        let (json_lang, json_notes) = make_json_lang();
-        let (kmap_lang, kmap_notes) = make_keymap_lang();
-        let (msg_lang, msg_notes) = make_message_lang();
-        let json_lang_name = json_lang.name().to_owned();
-        let kmap_lang_name = kmap_lang.name().to_owned();
-        let msg_lang_name = msg_lang.name().to_owned();
-
-        LANG_SET.insert(json_lang_name.clone(), json_lang);
-        LANG_SET.insert(kmap_lang_name.clone(), kmap_lang);
-        LANG_SET.insert(msg_lang_name.clone(), msg_lang);
-        NOTE_SETS.insert(json_lang_name.clone(), json_notes);
-        NOTE_SETS.insert(kmap_lang_name.clone(), kmap_notes);
-        NOTE_SETS.insert(msg_lang_name.clone(), msg_notes);
-
-        let forest = AstForest::new(&LANG_SET);
-
-        let doc = new_doc("DemoJsonDoc", &json_lang_name, &forest);
-        let key_hints = new_doc("(no keymap)", &kmap_lang_name, &forest);
-        let msg_doc = new_doc("Messages", &msg_lang_name, &forest);
-
+        let core = Core::new()?;
         let mut tree_keymaps = HashMap::new();
         tree_keymaps.insert("tree".to_string(), demo_keymaps::make_tree_map());
         tree_keymaps.insert(
@@ -93,26 +52,20 @@ impl Ed {
         );
         tree_keymaps.insert(
             "node".to_string(),
-            demo_keymaps::make_node_map(LANG_SET.get(&json_lang_name).unwrap()),
+            demo_keymaps::make_node_map(
+                core.lang(&core.lang_name(&DocName::Active).expect("no active doc"))
+                    .unwrap(),
+            ),
         );
 
         let mut ed = Ed {
-            doc,
-            lang_name: json_lang_name,
-            forest,
-            term: Terminal::new(ColorTheme::default_dark())?,
-            messages: VecDeque::new(),
-            message_doc: msg_doc,
-            message_lang_name: msg_lang_name,
+            core,
+            frontend: Terminal::new(ColorTheme::default_dark())?,
             data_stack: DataStack::new(),
             call_stack: CallStack::new(),
             tree_keymaps,
             text_keymap: demo_keymaps::make_text_map(),
-            kmap_lang_name,
-            key_hints,
             tree_keymap_stack: Vec::new(),
-            cut_stack: Clipboard::new(),
-            bookmarks: HashMap::new(),
         };
 
         // Set initial keymap
@@ -124,155 +77,50 @@ impl Ed {
         ed.call(Word::Literal(Value::Usize(0)))?;
         ed.call(Word::Child)?;
         ed.call(Word::Literal(Value::LangConstruct(
-            ed.lang_name.clone(),
+            ed.core
+                .lang_name(&DocName::Active)
+                .expect("no active doc")
+                .to_owned(),
             "list".into(),
         )))?;
         ed.call(Word::NodeByName)?;
         ed.call(Word::Replace)?;
 
-        ed.messages.clear();
+        ed.core.clear_messages();
         Ok(ed)
     }
 
     fn run(&mut self) -> Result<(), Error> {
-        self.redisplay()?;
+        self.update_key_hints()?;
+        self.core.redisplay(&mut self.frontend)?;
         loop {
             if let Some(word) = self.call_stack.next() {
                 if let Err(err) = self.call(word) {
-                    self.msg(&format!("Error: {:?}", err))?;
+                    self.core.msg(&format!("Error: {:?}", err))?;
                 }
             } else {
-                self.redisplay()?;
+                self.update_key_hints()?;
+                self.core.redisplay(&mut self.frontend)?;
                 self.exec(MetaCommand::EndGroup)?;
                 match self.handle_event() {
                     Ok(prog) => self.call_stack.push(prog),
                     Err(Error::KeyboardInterrupt) => Err(Error::KeyboardInterrupt)?,
-                    Err(err) => self.msg(&format!("Error: {:?}", err))?,
+                    Err(err) => self.core.msg(&format!("Error: {:?}", err))?,
                 }
             }
         }
     }
 
-    fn msg(&mut self, msg: &str) -> Result<(), Error> {
-        self.messages.push_front(msg.to_owned());
-        self.messages.truncate(5);
-
-        let mut list_node = self.node_by_name("list", &self.message_lang_name)?;
-        for (i, msg) in self.messages.iter().enumerate() {
-            let mut msg_node = self.node_by_name("message", &self.message_lang_name)?;
-            msg_node.inner().unwrap_text().text_mut(|t| {
-                t.activate();
-                t.set(msg.to_owned());
-                t.inactivate();
-            });
-            list_node
-                .inner()
-                .unwrap_flexible()
-                .insert_child(i, msg_node)
-                .unwrap();
-        }
-        let mut root_node = self.node_by_name("root", &self.message_lang_name)?;
-        root_node
-            .inner()
-            .unwrap_fixed()
-            .replace_child(0, list_node)
-            .unwrap();
-        self.message_doc = Doc::new(self.message_doc.name(), root_node);
-        Ok(())
-    }
-
-    fn pane_notation(&self) -> PaneNotation {
-        let doc = PaneNotation::Doc {
-            label: DocLabel::ActiveDoc,
-        };
-
-        let doc_name = PaneNotation::Doc {
-            label: DocLabel::ActiveDocName,
-        };
-
-        let key_hints_name = PaneNotation::Doc {
-            label: DocLabel::KeymapName,
-        };
-
-        let key_hints = PaneNotation::Doc {
-            label: DocLabel::KeyHints,
-        };
-
-        let messages = PaneNotation::Doc {
-            label: DocLabel::Messages,
-        };
-
-        let divider = PaneNotation::Fill {
-            ch: '=',
-            style: Style::color(Color::Base03),
-        };
-
-        let status_bar = PaneNotation::Horz {
-            panes: vec![
-                (PaneSize::Proportional(1), divider.clone()),
-                (PaneSize::Proportional(1), key_hints_name),
-                (PaneSize::Proportional(1), divider.clone()),
-                (PaneSize::Proportional(1), doc_name),
-                (PaneSize::Proportional(1), divider.clone()),
-            ],
-        };
-
-        PaneNotation::Vert {
-            panes: vec![
-                (PaneSize::Proportional(1), doc),
-                (PaneSize::Fixed(1), status_bar),
-                (PaneSize::DynHeight, key_hints),
-                (PaneSize::Fixed(1), divider),
-                (PaneSize::DynHeight, messages),
-            ],
-        }
-    }
-
-    fn redisplay(&mut self) -> Result<(), Error> {
-        let notation = self.pane_notation();
-        let doc = self.doc.ast_ref();
-        let doc_name_ast = self.to_ast(self.doc.name())?;
-        let doc_name = doc_name_ast.ast_ref();
-        let key_hints = self.key_hints.ast_ref();
-        let key_hints_name_ast = self.to_ast(self.key_hints.name())?;
-        let key_hints_name = key_hints_name_ast.ast_ref();
-        let messages = self.message_doc.ast_ref();
-        self.term.draw_frame(|mut pane: Pane<Terminal>| {
-            pane.render(&notation, |label: &DocLabel| match label {
-                DocLabel::ActiveDoc => Some((
-                    doc.clone(),
-                    CursorVis::Show,
-                    DocPosSpec::CursorHeight { fraction: 0.6 },
-                )),
-                DocLabel::ActiveDocName => {
-                    Some((doc_name.clone(), CursorVis::Hide, DocPosSpec::Beginning))
-                }
-                DocLabel::KeymapName => Some((
-                    key_hints_name.clone(),
-                    CursorVis::Hide,
-                    DocPosSpec::Beginning,
-                )),
-                DocLabel::KeyHints => {
-                    Some((key_hints.clone(), CursorVis::Hide, DocPosSpec::Beginning))
-                }
-                DocLabel::Messages => {
-                    Some((messages.clone(), CursorVis::Hide, DocPosSpec::Beginning))
-                }
-                _ => None,
-            })?;
-            Ok(())
-        })?;
-        Ok(())
-    }
-
     fn active_keymap(&self) -> Result<Kmap<'static>, Error> {
-        if self.doc.in_tree_mode() {
+        if self.core.docs.active().in_tree_mode() {
             let kmap = self.tree_keymap_stack.last().ok_or(Error::NoKeymap)?;
+
+            // TODO pass context struct to filter instead of entire ast!
             Ok(self
                 .tree_keymaps
                 .get(&kmap.name)
                 .ok_or_else(|| Error::UnknownKeymap(kmap.name.to_owned()))?
-                .filter(self.doc.ast_ref(), &kmap.required_sort))
+                .filter(self.core.docs.active().ast_ref(), &kmap.required_sort))
         } else {
             // TODO avoid cloning every time!
             Ok(self.text_keymap.clone())
@@ -280,24 +128,29 @@ impl Ed {
     }
 
     fn update_key_hints(&mut self) -> Result<(), Error> {
-        let mut dict_node = self.node_by_name("dict", &self.kmap_lang_name)?;
+        let lang_name = self
+            .core
+            .lang_name(&DocName::KeyHints)
+            .expect("no keyhints lang"); // TODO return error
+
+        let mut dict_node = self.core.node_by_name("dict", lang_name)?;
 
         for (key, prog) in self.active_keymap()?.hints() {
-            let mut key_node = self.node_by_name("key", &self.kmap_lang_name)?;
+            let mut key_node = self.core.node_by_name("key", lang_name)?;
             key_node.inner().unwrap_text().text_mut(|t| {
                 t.activate();
                 t.set(key);
                 t.inactivate();
             });
 
-            let mut prog_node = self.node_by_name("prog", &self.kmap_lang_name)?;
+            let mut prog_node = self.core.node_by_name("prog", lang_name)?;
             prog_node.inner().unwrap_text().text_mut(|t| {
                 t.activate();
                 t.set(prog);
                 t.inactivate();
             });
 
-            let mut entry_node = self.node_by_name("entry", &self.kmap_lang_name)?;
+            let mut entry_node = self.core.node_by_name("entry", &lang_name)?;
             entry_node
                 .inner()
                 .unwrap_fixed()
@@ -313,14 +166,14 @@ impl Ed {
                 .insert_child(inner_dict.num_children(), entry_node)
                 .unwrap();
         }
-        let mut root_node = self.node_by_name("root", &self.kmap_lang_name)?;
+        let mut root_node = self.core.node_by_name("root", &lang_name)?;
         root_node
             .inner()
             .unwrap_fixed()
             .replace_child(0, dict_node)
             .unwrap();
 
-        let kmap_name = if self.doc.in_tree_mode() {
+        let kmap_name = if self.core.in_tree_mode() {
             let mut s = String::new();
             for (i, spec) in self.tree_keymap_stack.iter().enumerate() {
                 if i != 0 {
@@ -330,15 +183,19 @@ impl Ed {
             }
             s
         } else {
-            "text".to_owned()
+            "text".to_string()
         };
-
-        self.key_hints = Doc::new(&kmap_name, root_node);
+        // TODO modify the ast instead of replacing the whole doc?
+        self.core.set_doc(
+            DocName::KeyHints,
+            Doc::new(&kmap_name, root_node),
+            lang_name.to_owned(),
+        );
         Ok(())
     }
 
     fn handle_event(&mut self) -> Result<Prog<'static>, Error> {
-        match self.term.next_event() {
+        match self.frontend.next_event() {
             Some(Ok(Event::KeyEvent(Key::Ctrl('c')))) => Err(Error::KeyboardInterrupt),
             Some(Ok(Event::KeyEvent(key))) => self.active_keymap()?.lookup(key),
             Some(Err(err)) => Err(err.into()),
@@ -361,11 +218,11 @@ impl Ed {
             }
             Word::Echo => {
                 let message = self.data_stack.pop_message()?;
-                self.msg(&message)?;
+                self.core.msg(&message)?;
             }
             Word::NodeByName => {
                 let (lang_name, construct_name) = self.data_stack.pop_lang_construct()?;
-                let node = self.node_by_name(&construct_name, &lang_name)?;
+                let node = self.core.node_by_name(&construct_name, &lang_name)?;
                 self.data_stack.push(Value::Tree(node));
             }
             Word::PushMap => {
@@ -375,33 +232,18 @@ impl Ed {
                     name,
                     required_sort: sort,
                 });
-                self.update_key_hints()?;
             }
             Word::PopMap => {
                 self.tree_keymap_stack.pop();
-                self.update_key_hints()?;
             }
             Word::ChildSort => {
-                let sort = self.doc.ast_ref().arity().uniform_child_sort().to_owned();
-                self.data_stack.push(Value::Sort(sort));
+                self.data_stack.push(Value::Sort(self.core.child_sort()));
             }
             Word::SelfSort => {
-                let (parent, index) = self
-                    .doc
-                    .ast_ref()
-                    .parent()
-                    .expect("you shouldn't be at the root!");
-                let sort = parent.arity().child_sort(index).to_owned();
-                self.data_stack.push(Value::Sort(sort));
+                self.data_stack.push(Value::Sort(self.core.self_sort()));
             }
             Word::SiblingSort => {
-                let (parent, _) = self
-                    .doc
-                    .ast_ref()
-                    .parent()
-                    .expect("you shouldn't be at the root!");
-                let sort = parent.arity().uniform_child_sort().to_owned();
-                self.data_stack.push(Value::Sort(sort));
+                self.data_stack.push(Value::Sort(self.core.sibling_sort()));
             }
             Word::AnySort => {
                 self.data_stack.push(Value::Sort(Sort::any()));
@@ -439,13 +281,12 @@ impl Ed {
             Word::PopClipboard => self.exec(EditorCmd::PopClipboard)?,
             Word::GotoBookmark => {
                 let name = self.data_stack.pop_char()?;
-                let mark = self.bookmarks.get(&name).ok_or(Error::UnknownBookmark)?;
-                self.exec(TreeNavCmd::GotoBookmark(*mark))?;
+                let mark = self.core.get_bookmark(name)?;
+                self.exec(TreeNavCmd::GotoBookmark(mark))?;
             }
             Word::SetBookmark => {
                 let name = self.data_stack.pop_char()?;
-                let mark = self.doc.bookmark();
-                self.bookmarks.insert(name, mark);
+                self.core.add_bookmark(name);
             }
             Word::InsertChar => {
                 let ch = self.data_stack.pop_char()?;
@@ -463,58 +304,7 @@ impl Ed {
     where
         T: Debug + Into<MetaCommand<'static>>,
     {
-        self.doc.execute(cmd.into(), &mut self.cut_stack)?;
-        self.update_key_hints()?;
+        self.core.exec(cmd.into())?;
         Ok(())
     }
-
-    fn node_by_name(
-        &self,
-        construct_name: &str,
-        lang_name: &LanguageName,
-    ) -> Result<Ast<'static>, Error> {
-        let construct_name = construct_name.to_string();
-        let lang = LANG_SET
-            .get(lang_name)
-            .ok_or_else(|| Error::UnknownLang(lang_name.to_owned()))?;
-        let notes = NOTE_SETS
-            .get(lang_name)
-            .ok_or_else(|| Error::UnknownLang(lang_name.to_owned()))?;
-
-        self.forest
-            .new_tree(lang, &construct_name, notes)
-            .ok_or_else(|| Error::UnknownConstruct {
-                construct: construct_name.to_owned(),
-                lang: lang_name.to_owned(),
-            })
-    }
-
-    /// Create a quick and dirty Ast for storing only this string.
-    fn to_ast<T: Into<String>>(&self, text: T) -> Result<Ast<'static>, Error> {
-        let mut text_node = self.node_by_name("message", &self.message_lang_name)?;
-        text_node.inner().unwrap_text().text_mut(|t| {
-            t.activate();
-            t.set(text.into());
-            t.inactivate();
-        });
-        let mut root_node = self.node_by_name("root", &self.message_lang_name)?;
-        root_node
-            .inner()
-            .unwrap_fixed()
-            .replace_child(0, text_node)
-            .unwrap();
-        Ok(root_node)
-    }
-}
-
-fn new_doc(doc_name: &str, lang_name: &LanguageName, forest: &AstForest<'static>) -> Doc<'static> {
-    let lang = LANG_SET.get(lang_name).unwrap();
-    Doc::new(
-        doc_name,
-        forest.new_fixed_tree(
-            lang,
-            lang.lookup_construct("root"),
-            NOTE_SETS.get(lang_name).unwrap(),
-        ),
-    )
 }
