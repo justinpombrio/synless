@@ -9,7 +9,7 @@ use language::{Language, LanguageName, LanguageSet};
 use pretty::{Color, CursorVis, DocLabel, DocPosSpec, Pane, PaneNotation, PaneSize, Style};
 use utility::GrowOnlyMap;
 
-use crate::error::Error;
+use crate::error::CoreError;
 use crate::keymap_lang::make_keymap_lang;
 use crate::message_lang::make_message_lang;
 
@@ -89,7 +89,7 @@ pub struct Core {
 }
 
 impl Core {
-    pub fn new() -> Result<Self, Error> {
+    pub fn new() -> Result<Self, CoreError> {
         let (json_lang, json_notes) = make_json_lang();
         let (kmap_lang, kmap_notes) = make_keymap_lang();
         let (msg_lang, msg_notes) = make_message_lang();
@@ -136,7 +136,7 @@ impl Core {
         LANG_SET.get(lang_name)
     }
 
-    pub fn msg(&mut self, msg: &str) -> Result<(), Error> {
+    pub fn msg(&mut self, msg: &str) -> Result<(), CoreError> {
         self.messages.push_front(msg.to_owned());
         self.messages.truncate(5);
 
@@ -232,7 +232,7 @@ impl Core {
     // where
     //     F: Frontend,
     // {
-    pub fn redisplay(&self, frontend: &mut Terminal) -> Result<(), Error> {
+    pub fn redisplay(&self, frontend: &mut Terminal) -> Result<(), CoreError> {
         let notation = self.pane_notation();
         let doc = self.docs.active().ast_ref();
         let doc_name_ast = self.to_ast(self.docs.active().name())?;
@@ -273,25 +273,25 @@ impl Core {
         &self,
         construct_name: &str,
         lang_name: &LanguageName,
-    ) -> Result<Ast<'static>, Error> {
+    ) -> Result<Ast<'static>, CoreError> {
         let construct_name = construct_name.to_string();
         let lang = LANG_SET
             .get(lang_name)
-            .ok_or_else(|| Error::UnknownLang(lang_name.to_owned()))?;
+            .ok_or_else(|| CoreError::UnknownLang(lang_name.to_owned()))?;
         let notes = NOTE_SETS
             .get(lang_name)
-            .ok_or_else(|| Error::UnknownLang(lang_name.to_owned()))?;
+            .ok_or_else(|| CoreError::UnknownLang(lang_name.to_owned()))?;
 
         self.forest
             .new_tree(lang, &construct_name, notes)
-            .ok_or_else(|| Error::UnknownConstruct {
+            .ok_or_else(|| CoreError::UnknownConstruct {
                 construct: construct_name.to_owned(),
                 lang: lang_name.to_owned(),
             })
     }
 
     /// Create a quick and dirty Ast for storing only this string.
-    fn to_ast<T: Into<String>>(&self, text: T) -> Result<Ast<'static>, Error> {
+    fn to_ast<T: Into<String>>(&self, text: T) -> Result<Ast<'static>, CoreError> {
         let lang_name = self
             .lang_name(&DocName::Messages)
             .expect("no messages lang");
@@ -311,7 +311,7 @@ impl Core {
     }
 
     // TODO exec on things other than the active doc?
-    pub fn exec<T>(&mut self, cmd: T) -> Result<(), Error>
+    pub fn exec<T>(&mut self, cmd: T) -> Result<(), CoreError>
     where
         T: Debug + Into<MetaCommand<'static>>,
     {
@@ -326,12 +326,12 @@ impl Core {
         self.bookmarks.insert(name, mark);
     }
 
-    pub fn get_bookmark(&mut self, name: char) -> Result<Bookmark, Error> {
+    pub fn get_bookmark(&mut self, name: char) -> Result<Bookmark, CoreError> {
         // TODO handle bookmarks into multiple documents
         self.bookmarks
             .get(&name)
             .cloned()
-            .ok_or(Error::UnknownBookmark)
+            .ok_or(CoreError::UnknownBookmark)
     }
     pub fn set_doc(&mut self, doc_name: DocName, doc: Doc<'static>, lang_name: LanguageName) {
         self.docs.insert(doc_name, DocEntry { doc, lang_name });

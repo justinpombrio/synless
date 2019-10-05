@@ -17,11 +17,11 @@ mod message_lang;
 mod prog;
 
 use core_editor::{Core, DocName};
-use error::Error;
+use error::ShellError;
 use keymap::{Kmap, TreeKmapFactory};
 use prog::{CallStack, DataStack, KmapSpec, Prog, Value, Word};
 
-fn main() -> Result<(), Error> {
+fn main() -> Result<(), ShellError> {
     let mut ed = Ed::new()?;
     let err = ed.run();
     drop(ed);
@@ -42,7 +42,7 @@ struct Ed {
 }
 
 impl Ed {
-    fn new() -> Result<Self, Error> {
+    fn new() -> Result<Self, ShellError> {
         let core = Core::new()?;
         let mut tree_keymaps = HashMap::new();
         tree_keymaps.insert("tree".to_string(), demo_keymaps::make_tree_map());
@@ -90,7 +90,7 @@ impl Ed {
         Ok(ed)
     }
 
-    fn run(&mut self) -> Result<(), Error> {
+    fn run(&mut self) -> Result<(), ShellError> {
         self.update_key_hints()?;
         self.core.redisplay(&mut self.frontend)?;
         loop {
@@ -104,22 +104,22 @@ impl Ed {
                 self.exec(MetaCommand::EndGroup)?;
                 match self.handle_event() {
                     Ok(prog) => self.call_stack.push(prog),
-                    Err(Error::KeyboardInterrupt) => Err(Error::KeyboardInterrupt)?,
+                    Err(ShellError::KeyboardInterrupt) => Err(ShellError::KeyboardInterrupt)?,
                     Err(err) => self.core.msg(&format!("Error: {:?}", err))?,
                 }
             }
         }
     }
 
-    fn active_keymap(&self) -> Result<Kmap<'static>, Error> {
+    fn active_keymap(&self) -> Result<Kmap<'static>, ShellError> {
         if self.core.docs.active().in_tree_mode() {
-            let kmap = self.tree_keymap_stack.last().ok_or(Error::NoKeymap)?;
+            let kmap = self.tree_keymap_stack.last().ok_or(ShellError::NoKeymap)?;
 
             // TODO pass context struct to filter instead of entire ast!
             Ok(self
                 .tree_keymaps
                 .get(&kmap.name)
-                .ok_or_else(|| Error::UnknownKeymap(kmap.name.to_owned()))?
+                .ok_or_else(|| ShellError::UnknownKeymap(kmap.name.to_owned()))?
                 .filter(self.core.docs.active().ast_ref(), &kmap.required_sort))
         } else {
             // TODO avoid cloning every time!
@@ -127,7 +127,7 @@ impl Ed {
         }
     }
 
-    fn update_key_hints(&mut self) -> Result<(), Error> {
+    fn update_key_hints(&mut self) -> Result<(), ShellError> {
         let lang_name = self
             .core
             .lang_name(&DocName::KeyHints)
@@ -194,16 +194,16 @@ impl Ed {
         Ok(())
     }
 
-    fn handle_event(&mut self) -> Result<Prog<'static>, Error> {
+    fn handle_event(&mut self) -> Result<Prog<'static>, ShellError> {
         match self.frontend.next_event() {
-            Some(Ok(Event::KeyEvent(Key::Ctrl('c')))) => Err(Error::KeyboardInterrupt),
+            Some(Ok(Event::KeyEvent(Key::Ctrl('c')))) => Err(ShellError::KeyboardInterrupt),
             Some(Ok(Event::KeyEvent(key))) => self.active_keymap()?.lookup(key),
             Some(Err(err)) => Err(err.into()),
-            _ => Err(Error::UnknownEvent),
+            _ => Err(ShellError::UnknownEvent),
         }
     }
 
-    fn call(&mut self, word: Word<'static>) -> Result<(), Error> {
+    fn call(&mut self, word: Word<'static>) -> Result<(), ShellError> {
         Ok(match word {
             Word::Literal(value) => self.data_stack.push(value),
             Word::Apply => {
@@ -303,7 +303,7 @@ impl Ed {
         })
     }
 
-    fn exec<T>(&mut self, cmd: T) -> Result<(), Error>
+    fn exec<T>(&mut self, cmd: T) -> Result<(), ShellError>
     where
         T: Debug + Into<MetaCommand<'static>>,
     {

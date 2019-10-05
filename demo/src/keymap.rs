@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use termion::event::Key;
 
-use crate::error::Error;
+use crate::error::ShellError;
 use crate::prog::{Prog, Value, Word};
 use editor::AstRef;
 use language::{Arity, Sort};
@@ -72,9 +72,9 @@ impl<'l> TreeKmapFactory<'l> {
 }
 
 impl<'l> Kmap<'l> {
-    pub fn lookup(&self, key: Key) -> Result<Prog<'l>, Error> {
+    pub fn lookup(&self, key: Key) -> Result<Prog<'l>, ShellError> {
         match self {
-            Kmap::Tree(map) => map.get(&key).cloned().ok_or(Error::UnknownKey(key)),
+            Kmap::Tree(map) => map.get(&key).cloned().ok_or(ShellError::UnknownKey(key)),
             Kmap::Text(map) => {
                 if let Some(binding) = map.get(&key) {
                     Ok(binding.to_owned())
@@ -84,7 +84,7 @@ impl<'l> Kmap<'l> {
                         &[Word::Literal(Value::Char(c)), Word::InsertChar],
                     ))
                 } else {
-                    Err(Error::UnknownKey(key))
+                    Err(ShellError::UnknownKey(key))
                 }
             }
         }

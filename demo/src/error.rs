@@ -7,46 +7,57 @@ use language::{ConstructName, LanguageName};
 use pretty::PaneError;
 
 #[derive(Debug)]
-pub enum Error {
+pub enum ShellError {
     UnknownKey(Key),
     UnknownKeymap(String),
     NoKeymap,
     UnknownEvent,
     KeyboardInterrupt,
+    ExpectedValue(String),
+    EmptyStack,
+    Io(io::Error),
+    Term(terminal::Error),
+    Core(CoreError),
+}
+
+#[derive(Debug)]
+pub enum CoreError {
     UnknownLang(LanguageName),
     UnknownConstruct {
         construct: ConstructName,
         lang: LanguageName,
     },
     UnknownBookmark,
-    ExpectedValue(String),
-    EmptyStack,
     Pane(PaneError<terminal::Error>),
     DocExec(DocError<'static>),
-    Io(io::Error),
-    Term(terminal::Error),
 }
 
-impl From<PaneError<terminal::Error>> for Error {
-    fn from(e: PaneError<terminal::Error>) -> Error {
-        Error::Pane(e)
+impl From<PaneError<terminal::Error>> for CoreError {
+    fn from(e: PaneError<terminal::Error>) -> CoreError {
+        CoreError::Pane(e)
     }
 }
 
-impl From<io::Error> for Error {
-    fn from(e: io::Error) -> Error {
-        Error::Io(e)
+impl From<DocError<'static>> for CoreError {
+    fn from(e: DocError<'static>) -> CoreError {
+        CoreError::DocExec(e)
     }
 }
 
-impl From<terminal::Error> for Error {
-    fn from(e: terminal::Error) -> Error {
-        Error::Term(e)
+impl From<CoreError> for ShellError {
+    fn from(e: CoreError) -> ShellError {
+        ShellError::Core(e)
     }
 }
 
-impl From<DocError<'static>> for Error {
-    fn from(e: DocError<'static>) -> Error {
-        Error::DocExec(e)
+impl From<io::Error> for ShellError {
+    fn from(e: io::Error) -> ShellError {
+        ShellError::Io(e)
+    }
+}
+
+impl From<terminal::Error> for ShellError {
+    fn from(e: terminal::Error) -> ShellError {
+        ShellError::Term(e)
     }
 }

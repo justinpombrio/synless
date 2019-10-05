@@ -2,7 +2,7 @@ use editor::Ast;
 
 use language::{ConstructName, LanguageName, Sort};
 
-use crate::error::Error;
+use crate::error::ShellError;
 
 #[derive(Clone)]
 pub struct Prog<'l> {
@@ -158,11 +158,11 @@ impl<'l> DataStack<'l> {
         self.0.push(value);
     }
 
-    pub fn pop(&mut self) -> Result<Value<'l>, Error> {
-        self.0.pop().ok_or(Error::EmptyStack)
+    pub fn pop(&mut self) -> Result<Value<'l>, ShellError> {
+        self.0.pop().ok_or(ShellError::EmptyStack)
     }
 
-    pub fn swap(&mut self) -> Result<(), Error> {
+    pub fn swap(&mut self) -> Result<(), ShellError> {
         let first = self.pop()?;
         let second = self.pop()?;
         self.push(first);
@@ -170,67 +170,67 @@ impl<'l> DataStack<'l> {
         Ok(())
     }
 
-    pub fn pop_tree(&mut self) -> Result<Ast<'l>, Error> {
+    pub fn pop_tree(&mut self) -> Result<Ast<'l>, ShellError> {
         if let Value::Tree(tree) = self.pop()? {
             Ok(tree)
         } else {
-            Err(Error::ExpectedValue("Tree".into()))
+            Err(ShellError::ExpectedValue("Tree".into()))
         }
     }
 
-    pub fn pop_usize(&mut self) -> Result<usize, Error> {
+    pub fn pop_usize(&mut self) -> Result<usize, ShellError> {
         if let Value::Usize(num) = self.pop()? {
             Ok(num)
         } else {
-            Err(Error::ExpectedValue("Usize".into()))
+            Err(ShellError::ExpectedValue("Usize".into()))
         }
     }
 
-    pub fn pop_map_name(&mut self) -> Result<String, Error> {
+    pub fn pop_map_name(&mut self) -> Result<String, ShellError> {
         if let Value::MapName(s) = self.pop()? {
             Ok(s)
         } else {
-            Err(Error::ExpectedValue("MapName".into()))
+            Err(ShellError::ExpectedValue("MapName".into()))
         }
     }
 
-    pub fn pop_sort(&mut self) -> Result<Sort, Error> {
+    pub fn pop_sort(&mut self) -> Result<Sort, ShellError> {
         if let Value::Sort(s) = self.pop()? {
             Ok(s)
         } else {
-            Err(Error::ExpectedValue("Sort".into()))
+            Err(ShellError::ExpectedValue("Sort".into()))
         }
     }
 
-    pub fn pop_lang_construct(&mut self) -> Result<(LanguageName, ConstructName), Error> {
+    pub fn pop_lang_construct(&mut self) -> Result<(LanguageName, ConstructName), ShellError> {
         if let Value::LangConstruct(lang_name, construct_name) = self.pop()? {
             Ok((lang_name, construct_name))
         } else {
-            Err(Error::ExpectedValue("LangConstruct".into()))
+            Err(ShellError::ExpectedValue("LangConstruct".into()))
         }
     }
 
-    pub fn pop_message(&mut self) -> Result<String, Error> {
+    pub fn pop_message(&mut self) -> Result<String, ShellError> {
         if let Value::Message(s) = self.pop()? {
             Ok(s)
         } else {
-            Err(Error::ExpectedValue("Message".into()))
+            Err(ShellError::ExpectedValue("Message".into()))
         }
     }
 
-    pub fn pop_char(&mut self) -> Result<char, Error> {
+    pub fn pop_char(&mut self) -> Result<char, ShellError> {
         if let Value::Char(ch) = self.pop()? {
             Ok(ch)
         } else {
-            Err(Error::ExpectedValue("Char".into()))
+            Err(ShellError::ExpectedValue("Char".into()))
         }
     }
 
-    pub fn pop_quote(&mut self) -> Result<Word<'l>, Error> {
+    pub fn pop_quote(&mut self) -> Result<Word<'l>, ShellError> {
         if let Value::Quote(word) = self.pop()? {
             Ok(*word)
         } else {
-            Err(Error::ExpectedValue("Quote".into()))
+            Err(ShellError::ExpectedValue("Quote".into()))
         }
     }
 }
