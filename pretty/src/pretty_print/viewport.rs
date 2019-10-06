@@ -1,23 +1,31 @@
-use super::pretty_doc::ScrollApproach;
 use super::pretty_window::PrettyWindow;
 use crate::geometry::{Pos, Rect, Region};
 use crate::style::{Shade, Style};
 use std::cmp;
+
+/// What part of the document to show.
+#[derive(Debug, Clone)]
+pub enum ScrollStrategy {
+    /// Put this row and column of the document at the top left corner of the Pane.
+    Fixed(Pos),
+    /// Put the top edge of the cursor at the top of the Pane.
+    CursorAtTop,
+}
 
 /// A viewport from the window into the document. You can ask it to render
 /// things _in document coordinates_, and it will know how to transform and
 /// (when necessary) clip them before asking the Window to render them.
 pub struct Viewport<'a, W: PrettyWindow> {
     window: &'a mut W,
-    doc_pos: Pos,
-    win_pos: Pos,
-    doc_rect: Rect,
+    doc_pos: Pos,   // Pos<DocCoords>
+    win_pos: Pos,   // Pos<WinCoords>
+    doc_rect: Rect, // Rect<DocCoords>
 }
 
 impl<'a, W: PrettyWindow> Viewport<'a, W> {
     pub fn new(
         window: &'a mut W,
-        scroll_approach: &ScrollApproach,
+        scroll_strategy: &ScrollStrategy,
         cursor_region: Region,
         win_rect: Rect,
     ) -> Viewport<'a, W> {
@@ -25,18 +33,19 @@ impl<'a, W: PrettyWindow> Viewport<'a, W> {
         // window that ought to be aligned.
         let doc_pos: Pos;
         let win_pos: Pos;
-        match scroll_approach {
-            ScrollApproach::Fixed(pos) => {
+        match scroll_strategy {
+            ScrollStrategy::Fixed(pos) => {
                 doc_pos = *pos;
                 win_pos = win_rect.pos();
             }
-            ScrollApproach::CursorAtTop => {
+            ScrollStrategy::CursorAtTop => {
                 doc_pos = cursor_region.pos;
                 win_pos = win_rect.pos();
             }
         }
         // Take `win_rect` and translate it to document coordinates, clipping as
         // needed.
+        // TODO: implement saturating_sub for points
         let top = (win_rect.rows.0 + doc_pos.row).saturating_sub(win_pos.row);
         let bot = (win_rect.rows.1 + doc_pos.row).saturating_sub(win_pos.row);
         let left = (win_rect.cols.0 + doc_pos.col).saturating_sub(win_pos.col);
@@ -100,11 +109,16 @@ impl<'a, W: PrettyWindow> Viewport<'a, W> {
     /// Shade a particular character position. This is used to highlight the
     /// cursor position while in text mode. It should behave the same way as
     /// `.shade` would with a small Region that included just `pos`.
-    fn highlight(&mut self, pos: Pos, style: Style) -> Result<(), W::Error> {
+    pub fn highlight(&mut self, pos: Pos, style: Style) -> Result<(), W::Error> {
         match self.transform_pos(pos) {
             None => Ok(()),
             Some(pos) => self.window.highlight(pos, style),
         }
+    }
+
+    /// Check whether a document region is visible through the viewport.
+    pub fn is_region_visible(&self, region: Region) -> bool {
+        self.transform_region(region).is_some()
     }
 
     fn transform_pos(&self, pos: Pos) -> Option<Pos> {
@@ -115,14 +129,11 @@ impl<'a, W: PrettyWindow> Viewport<'a, W> {
         }
     }
 
-    /// Check whether a document region is visible through the viewport.
-    pub fn is_region_visible(&self, region: Region) -> bool {
-        self.transform_region(region).is_some()
-    }
-
     /// Transform a document region into window coordinates, clipping as needed.
     /// Returns `None` if there's nothing left after clipping.
-    pub fn transform_region(&self, _region: Region) -> Option<Region> {
-        unimplemented!()
+    fn transform_region(&self, region: Region) -> Option<Region> {
+        let mut region = region.crop(self.doc_rect);
+        region.pos = self.transform_pos(region.pos)?;
+        Some(region)
     }
 }

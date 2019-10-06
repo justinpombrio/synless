@@ -24,7 +24,7 @@ mod layout_tests {
 
         fn layout(&mut self, width: Col, child_bounds: &[Bounds], is_empty_text: bool) -> Layout {
             self.bounds(child_bounds, is_empty_text);
-            compute_layout(self, width, child_bounds, is_empty_text)
+            compute_layout(self, Pos::zero(), width, child_bounds, is_empty_text)
         }
     }
 

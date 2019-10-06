@@ -1,22 +1,6 @@
-use crate::geometry::{Col, Pos};
+use crate::geometry::{Col, Pos, Row};
 use crate::layout::{compute_bounds, compute_layout, compute_text_bounds, Bounds, Layout};
 use crate::notation::Notation;
-
-/// What part of the document to show.
-#[derive(Debug, Clone)]
-pub enum ScrollApproach {
-    /// Put this row and column of the document at the top left corner of the Pane.
-    Fixed(Pos),
-    /// Put the top edge of the cursor at the top of the Pane.
-    CursorAtTop,
-}
-
-/// The visibility of the cursor in some document.
-#[derive(Debug, Clone, Copy)]
-pub enum CursorVisibility {
-    Show,
-    Hide,
-}
 
 /// A "document" that supports the necessary methods to be pretty-printed.
 pub trait PrettyDocument: Sized + Clone {
@@ -68,6 +52,11 @@ pub trait PrettyDocument: Sized + Clone {
                 .collect(),
             Some(text) => vec![compute_text_bounds(text.as_ref())],
         }
+    }
+    /// Find the minimum height required to pretty-print this document with the
+    /// given width.
+    fn required_height(&self, width: Col) -> Row {
+        self.bounds().fit_width(width).height
     }
 }
 

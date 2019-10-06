@@ -1,27 +1,34 @@
-use super::pretty_doc::{CursorVisibility, PrettyDocument, ScrollApproach};
+use super::pretty_doc::PrettyDocument;
 use super::pretty_window::PrettyWindow;
-use super::viewport::Viewport;
+use super::viewport::{ScrollStrategy, Viewport};
 use crate::geometry::{Col, Pos, Rect, Region};
 use crate::layout::{Layout, LayoutElement};
 use crate::style::Shade;
+
+/// The visibility of the cursor in some document.
+#[derive(Debug, Clone, Copy)]
+pub enum CursorVisibility {
+    Show,
+    Hide,
+}
 
 /// Render the document onto a `PrettyWindow`. This function behaves as if it did
 /// the following:
 ///
 /// 1. Pretty-print the entire document with width `width`.
-/// 2. Position the document under the `PrettyWindow`, aligning `doc_pos` with
-/// the `PrettyWindow`'s upper left corner.
-/// 3. Render the portion of the document under the `PrettyWindow` onto the
+/// 2. Position the document under the `window_rect` section of `PrettyWindow`,
+/// aligning the document and `window_rect` according to `scroll_strategy`.
+/// 3. Render the portion of the document under `window_rect` onto the
 /// `PrettyWindow`.
 ///
 /// However, this function is more efficient than that, and does an amount of
-/// work that is approximately proportional to the size of the `PrettyWindow`,
+/// work that is approximately proportional to the size of `window_rect`,
 /// regardless of the size of the document.
-fn pretty_print<D, W, E>(
+pub fn pretty_print<D, W>(
     doc: D,
     window: &mut W,
     window_rect: Rect,
-    scroll_approach: ScrollApproach,
+    scroll_strategy: ScrollStrategy,
     cursor_visibility: CursorVisibility,
 ) -> Result<(), W::Error>
 where
@@ -29,7 +36,7 @@ where
     W: PrettyWindow,
 {
     let cursor_region = locate_cursor(doc.clone(), window_rect.width());
-    let mut viewport = Viewport::new(window, &scroll_approach, cursor_region, window_rect);
+    let mut viewport = Viewport::new(window, &scroll_strategy, cursor_region, window_rect);
 
     // Shade the cursor.
     // TODO handle multiple levels of cursor shading
@@ -41,6 +48,7 @@ where
     render(doc, &mut viewport, Pos::zero(), window_rect.width())
 }
 
+/// The inductive part of `pretty_print`.
 fn render<'a, D, W>(
     node: D,
     viewport: &mut Viewport<'a, W>,
