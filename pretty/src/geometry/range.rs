@@ -37,6 +37,18 @@ where
         self.1 <= other.0
     }
 
+    /// Return the intersection of the two ranges, or None if they don't
+    /// intersect.
+    pub fn intersect(self, other: Range<N>) -> Option<Range<N>> {
+        let start = N::max(self.0, other.0);
+        let end = N::min(self.1, other.1);
+        if start >= end {
+            None
+        } else {
+            Some(Range(start, end))
+        }
+    }
+
     pub fn transform(self, n: N) -> Option<N> {
         if self.contains(n) {
             Some(n - self.0)
@@ -157,4 +169,15 @@ mod tests {
         assert_eq!(Range(3, 3).split(1), None);
         assert_eq!(Range(3, 3).split(0), Some((Range(3, 3), Range(3, 3))));
     }
+
+    #[test]
+    fn test_intersect_range() {
+        assert_eq!(Range(2, 6).intersect(Range(3, 8)), Some(Range(3, 6)));
+        assert_eq!(Range(3, 8).intersect(Range(2, 6)), Some(Range(3, 6)));
+        assert_eq!(Range(2, 6).intersect(Range(2, 6)), Some(Range(2, 6)));
+        assert_eq!(Range(3, 9).intersect(Range(5, 6)), Some(Range(5, 6)));
+        assert_eq!(Range(3, 5).intersect(Range(5, 9)), None);
+        assert_eq!(Range(3, 5).intersect(Range(6, 9)), None);
+    }
+
 }

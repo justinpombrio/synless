@@ -43,6 +43,14 @@ impl Rect {
         self.cols.contains(pos.col) && self.rows.contains(pos.row)
     }
 
+    /// Return the intersection of the two rectangles, or None if they don't
+    /// intersect.
+    pub fn intersect(&self, other: Rect) -> Option<Rect> {
+        let rows = self.rows.intersect(other.rows)?;
+        let cols = self.cols.intersect(other.cols)?;
+        Some(Rect { rows, cols })
+    }
+
     /// Transform a point to the coordinate system given by this rectangle.
     pub fn transform(&self, pos: Pos) -> Option<Pos> {
         match (self.cols.transform(pos.col), self.rows.transform(pos.row)) {
@@ -469,5 +477,53 @@ mod tests {
             })
         );
         assert_eq!(it.next(), None);
+    }
+
+    #[test]
+    fn test_intersect_rect() {
+        // Covered:
+        assert_eq!(RECT.intersect(BIG), Some(RECT));
+
+        // Overlapping:
+        assert_eq!(
+            TINY.intersect(SQUARE),
+            Some(Rect {
+                rows: Range(1, 2),
+                cols: Range(2, 3),
+            })
+        );
+
+        // Too far right:
+        assert_eq!(
+            RECT.intersect(Rect {
+                rows: Range(5, 6),
+                cols: Range(2, 6),
+            }),
+            None
+        );
+        // Sharing an edge:
+        assert_eq!(
+            RECT.intersect(Rect {
+                rows: Range(4, 6),
+                cols: Range(2, 6),
+            }),
+            None
+        );
+        // Sharing two edges:
+        assert_eq!(
+            RECT.intersect(Rect {
+                rows: Range(4, 6),
+                cols: Range(0, 1),
+            }),
+            None
+        );
+        // Too far below:
+        assert_eq!(
+            RECT.intersect(Rect {
+                rows: Range(2, 3),
+                cols: Range(6, 7),
+            }),
+            None
+        );
     }
 }
