@@ -26,7 +26,7 @@ struct DocEntry<'l> {
     lang_name: LanguageName,
 }
 
-pub struct Docs<'l> {
+struct Docs<'l> {
     map: HashMap<DocLabel, DocEntry<'l>>,
 }
 
@@ -53,7 +53,7 @@ impl<'l> Docs<'l> {
         self.map.get_mut(label).map(|entry| &mut entry.doc)
     }
 
-    pub fn lang_name<'a>(&'a self, label: &DocLabel) -> Option<&'a LanguageName> {
+    fn lang_name<'a>(&'a self, label: &DocLabel) -> Option<&'a LanguageName> {
         self.map.get(label).map(|entry| &entry.lang_name)
     }
 
@@ -62,7 +62,7 @@ impl<'l> Docs<'l> {
     }
 
     // TODO get rid of these lazy specific getters
-    pub fn active(&self) -> &Doc<'l> {
+    fn active(&self) -> &Doc<'l> {
         &self.get(&DocLabel::ActiveDoc).expect("no active doc")
     }
 
@@ -71,9 +71,8 @@ impl<'l> Docs<'l> {
     }
 }
 
-// TODO all private
 pub struct Core {
-    pub docs: Docs<'static>,
+    docs: Docs<'static>,
     forest: AstForest<'static>,
     bookmarks: HashMap<char, Bookmark>,
     cut_stack: Clipboard<'static>,
@@ -111,8 +110,16 @@ impl Core {
         Ok(core)
     }
 
-    pub fn lang_name<'a>(&'a self, label: &DocLabel) -> Option<&'a LanguageName> {
-        self.docs.lang_name(label)
+    pub fn active_doc(&self) -> Result<&Doc<'static>, CoreError> {
+        self.docs
+            .get(&DocLabel::ActiveDoc)
+            .ok_or_else(|| CoreError::UnknownDocLabel(DocLabel::ActiveDoc))
+    }
+
+    pub fn lang_name_of<'a>(&'a self, label: &DocLabel) -> Result<&'a LanguageName, CoreError> {
+        self.docs
+            .lang_name(label)
+            .ok_or_else(|| CoreError::UnknownDocLabel(label.to_owned()))
     }
 
     pub fn language(&self, lang_name: &LanguageName) -> Result<&'static Language, CoreError> {
@@ -169,10 +176,7 @@ impl Core {
         construct_name: &str,
         doc_label: &DocLabel,
     ) -> Result<Ast<'static>, CoreError> {
-        let lang_name = self
-            .lang_name(doc_label)
-            .ok_or_else(|| CoreError::UnknownDocLabel(doc_label.to_owned()))?;
-        self.node_by_name(construct_name, lang_name)
+        self.node_by_name(construct_name, self.lang_name_of(doc_label)?)
     }
 
     pub fn node_by_name(

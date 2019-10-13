@@ -52,9 +52,7 @@ impl Ed {
         );
         tree_keymaps.insert(
             "node".to_string(),
-            demo_keymaps::make_node_map(
-                core.language(&core.lang_name(&DocLabel::ActiveDoc).expect("no active doc"))?,
-            ),
+            demo_keymaps::make_node_map(core.language(core.lang_name_of(&DocLabel::ActiveDoc)?)?),
         );
 
         let mut ed = Ed {
@@ -75,7 +73,7 @@ impl Ed {
         // Add an empty list to the document
         ed.call(Word::Literal(Value::LangConstruct(
             ed.core
-                .lang_name(&DocLabel::ActiveDoc)
+                .lang_name_of(&DocLabel::ActiveDoc)
                 .expect("no active doc")
                 .to_owned(),
             "list".into(),
@@ -109,7 +107,7 @@ impl Ed {
     }
 
     fn active_keymap(&self) -> Result<Kmap<'static>, ShellError> {
-        if self.core.docs.active().in_tree_mode() {
+        if self.core.active_doc()?.in_tree_mode() {
             let kmap = self.tree_keymap_stack.last().ok_or(ShellError::NoKeymap)?;
 
             // TODO pass context struct to filter instead of entire ast!
@@ -117,7 +115,7 @@ impl Ed {
                 .tree_keymaps
                 .get(&kmap.name)
                 .ok_or_else(|| ShellError::UnknownKeymap(kmap.name.to_owned()))?
-                .filter(self.core.docs.active().ast_ref(), &kmap.required_sort))
+                .filter(self.core.active_doc()?.ast_ref(), &kmap.required_sort))
         } else {
             // TODO avoid cloning every time!
             Ok(self.text_keymap.clone())
@@ -125,10 +123,7 @@ impl Ed {
     }
 
     fn update_key_hints(&mut self) -> Result<(), ShellError> {
-        let lang_name = self
-            .core
-            .lang_name(&DocLabel::KeyHints)
-            .expect("no keyhints lang"); // TODO return error
+        let lang_name = self.core.lang_name_of(&DocLabel::KeyHints)?;
 
         let mut dict_node = self.core.node_by_name("dict", lang_name)?;
 
@@ -237,15 +232,15 @@ impl Ed {
             }
             Word::ChildSort => {
                 self.data_stack
-                    .push(Value::Sort(self.core.docs.active().child_sort()));
+                    .push(Value::Sort(self.core.active_doc()?.child_sort()));
             }
             Word::SelfSort => {
                 self.data_stack
-                    .push(Value::Sort(self.core.docs.active().self_sort()));
+                    .push(Value::Sort(self.core.active_doc()?.self_sort()));
             }
             Word::SiblingSort => {
                 self.data_stack
-                    .push(Value::Sort(self.core.docs.active().sibling_sort()));
+                    .push(Value::Sort(self.core.active_doc()?.sibling_sort()));
             }
             Word::AnySort => {
                 self.data_stack.push(Value::Sort(Sort::any()));
