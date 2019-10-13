@@ -4,7 +4,7 @@ use termion::event::Key;
 use editor::DocError;
 use frontends::terminal;
 use language::{ConstructName, LanguageName};
-use pretty::PaneError;
+use pretty::{DocLabel, PaneError};
 
 #[derive(Debug)]
 pub enum ShellError {
@@ -28,6 +28,7 @@ pub enum CoreError {
         lang: LanguageName,
     },
     UnknownBookmark,
+    UnknownDocLabel(DocLabel),
     Pane(PaneError<terminal::Error>),
     DocExec(DocError<'static>),
 }
