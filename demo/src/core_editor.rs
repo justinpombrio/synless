@@ -9,7 +9,7 @@ use editor::{
 use forest::Bookmark;
 use frontends::{Frontend, Terminal};
 use language::{Language, LanguageName, LanguageSet};
-use pretty::{Color, CursorVis, DocLabel, DocPosSpec, Pane, PaneNotation, PaneSize, Style};
+use pretty::{DocLabel, Pane, PaneNotation};
 use utility::GrowOnlyMap;
 
 use crate::error::CoreError;
@@ -77,10 +77,11 @@ pub struct Core {
     forest: AstForest<'static>,
     bookmarks: HashMap<char, Bookmark>,
     cut_stack: Clipboard<'static>,
+    pane_notation: PaneNotation,
 }
 
 impl Core {
-    pub fn new() -> Result<Self, CoreError> {
+    pub fn new(pane_notation: PaneNotation) -> Result<Self, CoreError> {
         let (json_lang, json_notes) = make_json_lang();
         let (kmap_lang, kmap_notes) = make_keymap_lang();
         let (msg_lang, msg_notes) = make_message_lang();
@@ -100,6 +101,7 @@ impl Core {
             forest: AstForest::new(&LANG_SET),
             cut_stack: Clipboard::new(),
             bookmarks: HashMap::new(),
+            pane_notation,
         };
         core.new_doc(DocLabel::KeyHints, "KeyHints", kmap_lang_name.clone())?;
         core.new_doc(DocLabel::KeymapName, "KeymapName", msg_lang_name.clone())?;
@@ -145,55 +147,6 @@ impl Core {
         )
     }
 
-    fn pane_notation(&self) -> PaneNotation {
-        let active = PaneNotation::Doc {
-            label: DocLabel::ActiveDoc,
-            cursor_visibility: CursorVis::Show,
-            scroll_strategy: DocPosSpec::CursorHeight { fraction: 0.6 },
-        };
-
-        let key_hints_name = PaneNotation::Doc {
-            label: DocLabel::KeymapName,
-            cursor_visibility: CursorVis::Hide,
-            scroll_strategy: DocPosSpec::Beginning,
-        };
-
-        let key_hints = PaneNotation::Doc {
-            label: DocLabel::KeyHints,
-            cursor_visibility: CursorVis::Hide,
-            scroll_strategy: DocPosSpec::Beginning,
-        };
-
-        let messages = PaneNotation::Doc {
-            label: DocLabel::Messages,
-            cursor_visibility: CursorVis::Hide,
-            scroll_strategy: DocPosSpec::Beginning,
-        };
-
-        let divider = PaneNotation::Fill {
-            ch: '=',
-            style: Style::color(Color::Base03),
-        };
-
-        let status_bar = PaneNotation::Horz {
-            panes: vec![
-                (PaneSize::Proportional(1), divider.clone()),
-                (PaneSize::Proportional(1), key_hints_name),
-                (PaneSize::Proportional(1), divider.clone()),
-            ],
-        };
-
-        PaneNotation::Vert {
-            panes: vec![
-                (PaneSize::Proportional(1), active),
-                (PaneSize::Fixed(1), status_bar),
-                (PaneSize::DynHeight, key_hints),
-                (PaneSize::Fixed(1), divider),
-                (PaneSize::Fixed(5), messages),
-            ],
-        }
-    }
-
     // TODO take generic Frontend. Requires type param in Error? Wait until the
     // `pretty` rewrite is merged.
     //
@@ -202,9 +155,10 @@ impl Core {
     //     F: Frontend,
     // {
     pub fn redisplay(&self, frontend: &mut Terminal) -> Result<(), CoreError> {
-        let notation = self.pane_notation();
         frontend.draw_frame(|mut pane: Pane<<Terminal as Frontend>::Window>| {
-            pane.render(&notation, |label: &DocLabel| self.docs.content(label))
+            pane.render(&self.pane_notation, |label: &DocLabel| {
+                self.docs.content(label)
+            })
         })?;
         Ok(())
     }

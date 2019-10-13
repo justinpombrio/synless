@@ -6,7 +6,7 @@ use termion::event::Key;
 use editor::{EditorCmd, MetaCommand, NotationSet, TextCmd, TextNavCmd, TreeCmd, TreeNavCmd};
 use frontends::{Event, Frontend, Terminal};
 use language::Sort;
-use pretty::{ColorTheme, DocLabel};
+use pretty::{Color, ColorTheme, CursorVis, DocLabel, DocPosSpec, PaneNotation, PaneSize, Style};
 
 mod core_editor;
 mod demo_keymaps;
@@ -43,7 +43,7 @@ struct Ed {
 
 impl Ed {
     fn new() -> Result<Self, ShellError> {
-        let core = Core::new()?;
+        let core = Core::new(demo_pane_notation())?;
         let mut tree_keymaps = HashMap::new();
         tree_keymaps.insert("tree".to_string(), demo_keymaps::make_tree_map());
         tree_keymaps.insert(
@@ -308,5 +308,54 @@ impl Ed {
     {
         self.core.exec(cmd.into())?;
         Ok(())
+    }
+}
+
+fn demo_pane_notation() -> PaneNotation {
+    let active = PaneNotation::Doc {
+        label: DocLabel::ActiveDoc,
+        cursor_visibility: CursorVis::Show,
+        scroll_strategy: DocPosSpec::CursorHeight { fraction: 0.6 },
+    };
+
+    let key_hints_name = PaneNotation::Doc {
+        label: DocLabel::KeymapName,
+        cursor_visibility: CursorVis::Hide,
+        scroll_strategy: DocPosSpec::Beginning,
+    };
+
+    let key_hints = PaneNotation::Doc {
+        label: DocLabel::KeyHints,
+        cursor_visibility: CursorVis::Hide,
+        scroll_strategy: DocPosSpec::Beginning,
+    };
+
+    let messages = PaneNotation::Doc {
+        label: DocLabel::Messages,
+        cursor_visibility: CursorVis::Hide,
+        scroll_strategy: DocPosSpec::Beginning,
+    };
+
+    let divider = PaneNotation::Fill {
+        ch: '=',
+        style: Style::color(Color::Base03),
+    };
+
+    let status_bar = PaneNotation::Horz {
+        panes: vec![
+            (PaneSize::Proportional(1), divider.clone()),
+            (PaneSize::Proportional(1), key_hints_name),
+            (PaneSize::Proportional(1), divider.clone()),
+        ],
+    };
+
+    PaneNotation::Vert {
+        panes: vec![
+            (PaneSize::Proportional(1), active),
+            (PaneSize::Fixed(1), status_bar),
+            (PaneSize::DynHeight, key_hints),
+            (PaneSize::Fixed(1), divider),
+            (PaneSize::Fixed(5), messages),
+        ],
     }
 }
