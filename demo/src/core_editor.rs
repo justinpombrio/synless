@@ -181,22 +181,32 @@ impl Core {
     fn pane_notation(&self) -> PaneNotation {
         let doc = PaneNotation::Doc {
             label: DocLabel::ActiveDoc,
+            cursor_visibility: CursorVis::Show,
+            scroll_strategy: DocPosSpec::CursorHeight { fraction: 0.6 },
         };
 
         let doc_name = PaneNotation::Doc {
             label: DocLabel::ActiveDocName,
+            cursor_visibility: CursorVis::Hide,
+            scroll_strategy: DocPosSpec::Beginning,
         };
 
         let key_hints_name = PaneNotation::Doc {
             label: DocLabel::KeymapName,
+            cursor_visibility: CursorVis::Hide,
+            scroll_strategy: DocPosSpec::Beginning,
         };
 
         let key_hints = PaneNotation::Doc {
             label: DocLabel::KeyHints,
+            cursor_visibility: CursorVis::Hide,
+            scroll_strategy: DocPosSpec::Beginning,
         };
 
         let messages = PaneNotation::Doc {
             label: DocLabel::Messages,
+            cursor_visibility: CursorVis::Hide,
+            scroll_strategy: DocPosSpec::Beginning,
         };
 
         let divider = PaneNotation::Fill {
@@ -243,25 +253,11 @@ impl Core {
         let messages = self.docs.messages().ast_ref();
         frontend.draw_frame(|mut pane: Pane<<Terminal as Frontend>::Window>| {
             pane.render(&notation, |label: &DocLabel| match label {
-                DocLabel::ActiveDoc => Some((
-                    doc.clone(),
-                    CursorVis::Show,
-                    DocPosSpec::CursorHeight { fraction: 0.6 },
-                )),
-                DocLabel::ActiveDocName => {
-                    Some((doc_name.clone(), CursorVis::Hide, DocPosSpec::Beginning))
-                }
-                DocLabel::KeymapName => Some((
-                    key_hints_name.clone(),
-                    CursorVis::Hide,
-                    DocPosSpec::Beginning,
-                )),
-                DocLabel::KeyHints => {
-                    Some((key_hints.clone(), CursorVis::Hide, DocPosSpec::Beginning))
-                }
-                DocLabel::Messages => {
-                    Some((messages.clone(), CursorVis::Hide, DocPosSpec::Beginning))
-                }
+                DocLabel::ActiveDoc => Some(doc.clone()),
+                DocLabel::ActiveDocName => Some(doc_name.clone()),
+                DocLabel::KeymapName => Some(key_hints_name.clone()),
+                DocLabel::KeyHints => Some(key_hints.clone()),
+                DocLabel::Messages => Some(messages.clone()),
                 _ => None,
             })?;
             Ok(())

@@ -11,6 +11,7 @@ use crate::pane::{CursorVis, Pane};
 use crate::style::{Shade, Style};
 
 /// What part of the document to show.
+#[derive(Debug, Clone, Copy)]
 pub enum DocPosSpec {
     /// Put this row and column of the document at the top left corner of the Pane.
     Fixed(Pos),

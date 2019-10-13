@@ -75,7 +75,11 @@ pub enum PaneNotation {
     /// Render a `PrettyDocument` into this `Pane`. The given `DocLabel` will
     /// be used to dynamically look up a `PrettyDocument` every time the `Pane`
     /// is rendered.
-    Doc { label: DocLabel },
+    Doc {
+        label: DocLabel,
+        cursor_visibility: CursorVis,
+        scroll_strategy: DocPosSpec,
+    },
     /// Fill the entire `Pane` by repeating the given character and style.
     Fill { ch: char, style: Style },
 }
@@ -161,7 +165,7 @@ where
         get_content: F,
     ) -> Result<(), PaneError<T::Error>>
     where
-        F: Fn(&DocLabel) -> Option<(U, CursorVis, DocPosSpec)>,
+        F: Fn(&DocLabel) -> Option<U>,
         F: Clone,
         U: PrettyDocument,
     {
@@ -198,8 +202,7 @@ where
                             // Convert dynamic height into a fixed height, based on the currrent document.
                             if let PaneNotation::Doc { label, .. } = &p.1 {
                                 let f = get_content.clone();
-                                let (doc, _, _) =
-                                    f(label).ok_or(PaneError::Missing(label.to_owned()))?;
+                                let doc = f(label).ok_or(PaneError::Missing(label.to_owned()))?;
                                 let height =
                                     available_height.min(doc.required_height(self.rect().width()));
                                 available_height -= height;
@@ -225,11 +228,14 @@ where
                     child_pane.render(child_note, get_content.clone())?;
                 }
             }
-            PaneNotation::Doc { label } => {
+            PaneNotation::Doc {
+                label,
+                cursor_visibility,
+                scroll_strategy,
+            } => {
                 let width = self.rect().width();
-                let (doc, cursor_visibility, doc_pos_spec) =
-                    get_content(label).ok_or(PaneError::Missing(label.to_owned()))?;
-                doc.pretty_print(width, self, doc_pos_spec, cursor_visibility)?;
+                let doc = get_content(label).ok_or(PaneError::Missing(label.to_owned()))?;
+                doc.pretty_print(width, self, *scroll_strategy, *cursor_visibility)?;
             }
             PaneNotation::Fill { ch, style } => {
                 let line: String = iter::repeat(ch)
