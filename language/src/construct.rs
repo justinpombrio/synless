@@ -144,6 +144,26 @@ impl fmt::Display for Arity {
     }
 }
 
+/// Like `Arity`, but without any data in the variants.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ArityType {
+    Text,
+    Fixed,
+    Flexible,
+    Mixed,
+}
+
+impl From<Arity> for ArityType {
+    fn from(arity: Arity) -> ArityType {
+        match arity {
+            Arity::Flexible(..) => ArityType::Flexible,
+            Arity::Fixed(..) => ArityType::Fixed,
+            Arity::Text => ArityType::Text,
+            Arity::Mixed(..) => ArityType::Mixed,
+        }
+    }
+}
+
 lazy_static! {
     /// Built-in constructs that can appear in any document.
     pub static ref BUILTIN_CONSTRUCTS: HashMap<ConstructName, Construct> = vec![
