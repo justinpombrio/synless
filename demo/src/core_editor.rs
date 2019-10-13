@@ -125,7 +125,7 @@ impl Core {
             .ok_or_else(|| CoreError::UnknownLang(lang_name.to_owned()))
     }
 
-    pub fn msg(&mut self, msg: &str) -> Result<(), CoreError> {
+    pub fn show_message(&mut self, msg: &str) -> Result<(), CoreError> {
         let mut msg_node = self.node_in_doc_lang("message", &DocLabel::Messages)?;
         msg_node.inner().unwrap_text().text_mut(|t| {
             t.activate();

@@ -93,7 +93,7 @@ impl Ed {
         loop {
             if let Some(word) = self.call_stack.next() {
                 if let Err(err) = self.call(word) {
-                    self.core.msg(&format!("Error: {:?}", err))?;
+                    self.core.show_message(&format!("Error: {:?}", err))?;
                 }
             } else {
                 self.update_key_hints()?;
@@ -102,7 +102,7 @@ impl Ed {
                 match self.handle_event() {
                     Ok(prog) => self.call_stack.push(prog),
                     Err(ShellError::KeyboardInterrupt) => Err(ShellError::KeyboardInterrupt)?,
-                    Err(err) => self.core.msg(&format!("Error: {:?}", err))?,
+                    Err(err) => self.core.show_message(&format!("Error: {:?}", err))?,
                 }
             }
         }
@@ -217,7 +217,7 @@ impl Ed {
             }
             Word::Echo => {
                 let message = self.data_stack.pop_message()?;
-                self.core.msg(&message)?;
+                self.core.show_message(&message)?;
             }
             Word::NodeByName => {
                 let (lang_name, construct_name) = self.data_stack.pop_lang_construct()?;
