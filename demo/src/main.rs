@@ -6,7 +6,7 @@ use termion::event::Key;
 use editor::{Doc, EditorCmd, MetaCommand, NotationSet, TextCmd, TextNavCmd, TreeCmd, TreeNavCmd};
 use frontends::{Event, Frontend, Terminal};
 use language::Sort;
-use pretty::ColorTheme;
+use pretty::{ColorTheme, DocLabel};
 
 mod core_editor;
 mod demo_keymaps;
@@ -16,7 +16,7 @@ mod keymap_lang;
 mod message_lang;
 mod prog;
 
-use core_editor::{Core, DocName};
+use core_editor::Core;
 use error::ShellError;
 use keymap::{Kmap, TreeKmapFactory};
 use prog::{CallStack, DataStack, KmapSpec, Prog, Value, Word};
@@ -53,8 +53,7 @@ impl Ed {
         tree_keymaps.insert(
             "node".to_string(),
             demo_keymaps::make_node_map(
-                core.lang(&core.lang_name(&DocName::Active).expect("no active doc"))
-                    .unwrap(),
+                core.language(&core.lang_name(&DocLabel::ActiveDoc).expect("no active doc"))?,
             ),
         );
 
@@ -78,7 +77,7 @@ impl Ed {
         ed.call(Word::Child)?;
         ed.call(Word::Literal(Value::LangConstruct(
             ed.core
-                .lang_name(&DocName::Active)
+                .lang_name(&DocLabel::ActiveDoc)
                 .expect("no active doc")
                 .to_owned(),
             "list".into(),
@@ -130,7 +129,7 @@ impl Ed {
     fn update_key_hints(&mut self) -> Result<(), ShellError> {
         let lang_name = self
             .core
-            .lang_name(&DocName::KeyHints)
+            .lang_name(&DocLabel::KeyHints)
             .expect("no keyhints lang"); // TODO return error
 
         let mut dict_node = self.core.node_by_name("dict", lang_name)?;
@@ -173,6 +172,13 @@ impl Ed {
             .replace_child(0, dict_node)
             .unwrap();
 
+        // TODO modify the ast instead of replacing the whole doc?
+        self.core.set_doc(
+            DocLabel::KeyHints,
+            Doc::new("KeyHints", root_node),
+            lang_name.to_owned(),
+        );
+
         let kmap_name = if self.core.in_tree_mode() {
             let mut s = String::new();
             for (i, spec) in self.tree_keymap_stack.iter().enumerate() {
@@ -185,12 +191,15 @@ impl Ed {
         } else {
             "text".to_string()
         };
-        // TODO modify the ast instead of replacing the whole doc?
+
+        let kmap_name_ast = self.core.to_ast(kmap_name)?;
+        let name_lang_name = self.core.lang_name(&DocLabel::KeymapName).unwrap(); // TODO return error
         self.core.set_doc(
-            DocName::KeyHints,
-            Doc::new(&kmap_name, root_node),
-            lang_name.to_owned(),
+            DocLabel::KeymapName,
+            Doc::new("KeymapName", kmap_name_ast),
+            name_lang_name.to_owned(),
         );
+
         Ok(())
     }
 
