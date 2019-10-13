@@ -1,5 +1,3 @@
-#![feature(try_from)]
-
 mod frontend;
 mod key;
 pub mod terminal;

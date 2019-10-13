@@ -59,7 +59,7 @@ impl<'a> Index<&'a [usize]> for Doc {
     fn index(&self, path: &[usize]) -> &Doc {
         match &path {
             [] => self,
-            [i, path..] => match &self.node {
+            [i, path @ ..] => match &self.node {
                 Node::Branch(children) => children[*i].index(path),
                 Node::Leaf(_) => panic!("leaf node"),
             },

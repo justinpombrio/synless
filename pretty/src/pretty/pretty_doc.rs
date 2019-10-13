@@ -176,7 +176,7 @@ where
 {
     match path {
         [] => lay.region,
-        [i, path..] => {
+        [i, path @ ..] => {
             let child_region = lay
                 .find_child(*i)
                 .expect("PrettyDocument::locate_cursor - got lost looking for cursor")
