@@ -3,7 +3,7 @@ use std::fmt::Debug;
 
 use termion::event::Key;
 
-use editor::{Doc, EditorCmd, MetaCommand, NotationSet, TextCmd, TextNavCmd, TreeCmd, TreeNavCmd};
+use editor::{EditorCmd, MetaCommand, NotationSet, TextCmd, TextNavCmd, TreeCmd, TreeNavCmd};
 use frontends::{Event, Frontend, Terminal};
 use language::Sort;
 use pretty::{ColorTheme, DocLabel};
@@ -73,8 +73,6 @@ impl Ed {
         ed.call(Word::PushMap)?;
 
         // Add an empty list to the document
-        ed.call(Word::Literal(Value::Usize(0)))?;
-        ed.call(Word::Child)?;
         ed.call(Word::Literal(Value::LangConstruct(
             ed.core
                 .lang_name(&DocLabel::ActiveDoc)
@@ -85,7 +83,7 @@ impl Ed {
         ed.call(Word::NodeByName)?;
         ed.call(Word::Replace)?;
 
-        ed.core.clear_messages();
+        ed.core.clear_messages()?;
         Ok(ed)
     }
 
@@ -165,19 +163,8 @@ impl Ed {
                 .insert_child(inner_dict.num_children(), entry_node)
                 .unwrap();
         }
-        let mut root_node = self.core.node_by_name("root", &lang_name)?;
-        root_node
-            .inner()
-            .unwrap_fixed()
-            .replace_child(0, dict_node)
-            .unwrap();
-
-        // TODO modify the ast instead of replacing the whole doc?
-        self.core.set_doc(
-            DocLabel::KeyHints,
-            Doc::new("KeyHints", root_node),
-            lang_name.to_owned(),
-        );
+        self.core
+            .exec_on(TreeCmd::Replace(dict_node), &DocLabel::KeyHints)?;
 
         let kmap_name = if self.core.in_tree_mode() {
             let mut s = String::new();
@@ -192,13 +179,16 @@ impl Ed {
             "text".to_string()
         };
 
-        let kmap_name_ast = self.core.to_ast(kmap_name)?;
-        let name_lang_name = self.core.lang_name(&DocLabel::KeymapName).unwrap(); // TODO return error
-        self.core.set_doc(
-            DocLabel::KeymapName,
-            Doc::new("KeymapName", kmap_name_ast),
-            name_lang_name.to_owned(),
-        );
+        let mut kmap_name_node = self
+            .core
+            .node_in_doc_lang("message", &DocLabel::KeymapName)?;
+        kmap_name_node.inner().unwrap_text().text_mut(|t| {
+            t.activate();
+            t.set(kmap_name);
+            t.inactivate();
+        });
+        self.core
+            .exec_on(TreeCmd::Replace(kmap_name_node), &DocLabel::KeymapName)?;
 
         Ok(())
     }

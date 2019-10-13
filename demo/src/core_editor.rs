@@ -1,8 +1,11 @@
 use lazy_static::lazy_static;
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 use std::fmt::Debug;
 
-use editor::{make_json_lang, Ast, AstForest, AstRef, Clipboard, Doc, MetaCommand, NotationSet};
+use editor::{
+    make_json_lang, Ast, AstForest, AstRef, Clipboard, Doc, MetaCommand, NotationSet, TreeCmd,
+    TreeNavCmd,
+};
 use forest::Bookmark;
 use frontends::{Frontend, Terminal};
 use language::{Language, LanguageName, LanguageSet};
@@ -72,7 +75,6 @@ impl<'l> Docs<'l> {
 pub struct Core {
     pub docs: Docs<'static>,
     forest: AstForest<'static>,
-    messages: VecDeque<String>,
     bookmarks: HashMap<char, Bookmark>,
     cut_stack: Clipboard<'static>,
 }
@@ -96,15 +98,14 @@ impl Core {
         let mut core = Core {
             docs: Docs::new(),
             forest: AstForest::new(&LANG_SET),
-            messages: VecDeque::new(),
             cut_stack: Clipboard::new(),
             bookmarks: HashMap::new(),
         };
-        core.new_doc(DocLabel::Messages, "Messages", msg_lang_name.clone())?;
         core.new_doc(DocLabel::KeyHints, "KeyHints", kmap_lang_name.clone())?;
         core.new_doc(DocLabel::KeymapName, "KeymapName", msg_lang_name.clone())?;
         core.new_doc(DocLabel::ActiveDoc, "DemoJsonDoc", json_lang_name.clone())?;
-        core.new_doc(DocLabel::ActiveDocName, "ActiveName", msg_lang_name.clone())?;
+        core.new_doc(DocLabel::Messages, "Messages", msg_lang_name)?;
+        core.clear_messages()?;
         Ok(core)
     }
 
@@ -125,45 +126,23 @@ impl Core {
     }
 
     pub fn msg(&mut self, msg: &str) -> Result<(), CoreError> {
-        self.messages.push_front(msg.to_owned());
-        self.messages.truncate(5);
-
-        let lang_name = self
-            .lang_name(&DocLabel::Messages)
-            .expect("no messages lang");
-
-        let mut list_node = self.node_by_name("list", lang_name)?;
-        for (i, msg) in self.messages.iter().enumerate() {
-            let mut msg_node = self.node_by_name("message", lang_name)?;
-            msg_node.inner().unwrap_text().text_mut(|t| {
-                t.activate();
-                t.set(msg.to_owned());
-                t.inactivate();
-            });
-            list_node
-                .inner()
-                .unwrap_flexible()
-                .insert_child(i, msg_node)
-                .unwrap();
-        }
-        let mut root_node = self.node_by_name("root", lang_name)?;
-        root_node
-            .inner()
-            .unwrap_fixed()
-            .replace_child(0, list_node)
-            .unwrap();
-
-        self.set_doc(
-            DocLabel::Messages,
-            // TODO don't hardcode name
-            Doc::new("Messages", root_node),
-            lang_name.to_owned(),
-        );
+        let mut msg_node = self.node_in_doc_lang("message", &DocLabel::Messages)?;
+        msg_node.inner().unwrap_text().text_mut(|t| {
+            t.activate();
+            t.set(msg.to_owned());
+            t.inactivate();
+        });
+        self.exec_on(TreeCmd::InsertHolePrepend, &DocLabel::Messages)?;
+        self.exec_on(TreeCmd::Replace(msg_node), &DocLabel::Messages)?;
+        self.exec_on(TreeNavCmd::Parent, &DocLabel::Messages)?;
         Ok(())
     }
 
-    pub fn clear_messages(&mut self) {
-        self.messages.clear()
+    pub fn clear_messages(&mut self) -> Result<(), CoreError> {
+        self.exec_on(
+            TreeCmd::Replace(self.node_in_doc_lang("list", &DocLabel::Messages)?),
+            &DocLabel::Messages,
+        )
     }
 
     fn pane_notation(&self) -> PaneNotation {
@@ -171,12 +150,6 @@ impl Core {
             label: DocLabel::ActiveDoc,
             cursor_visibility: CursorVis::Show,
             scroll_strategy: DocPosSpec::CursorHeight { fraction: 0.6 },
-        };
-
-        let active_name = PaneNotation::Doc {
-            label: DocLabel::ActiveDocName,
-            cursor_visibility: CursorVis::Hide,
-            scroll_strategy: DocPosSpec::Beginning,
         };
 
         let key_hints_name = PaneNotation::Doc {
@@ -207,8 +180,6 @@ impl Core {
                 (PaneSize::Proportional(1), divider.clone()),
                 (PaneSize::Proportional(1), key_hints_name),
                 (PaneSize::Proportional(1), divider.clone()),
-                (PaneSize::Proportional(1), active_name),
-                (PaneSize::Proportional(1), divider.clone()),
             ],
         };
 
@@ -218,7 +189,7 @@ impl Core {
                 (PaneSize::Fixed(1), status_bar),
                 (PaneSize::DynHeight, key_hints),
                 (PaneSize::Fixed(1), divider),
-                (PaneSize::DynHeight, messages),
+                (PaneSize::Fixed(5), messages),
             ],
         }
     }
@@ -238,6 +209,18 @@ impl Core {
         Ok(())
     }
 
+    /// Create a new node in the same language as the given doc.
+    pub fn node_in_doc_lang(
+        &self,
+        construct_name: &str,
+        doc_label: &DocLabel,
+    ) -> Result<Ast<'static>, CoreError> {
+        let lang_name = self
+            .lang_name(doc_label)
+            .ok_or_else(|| CoreError::UnknownDocLabel(doc_label.to_owned()))?;
+        self.node_by_name(construct_name, lang_name)
+    }
+
     pub fn node_by_name(
         &self,
         construct_name: &str,
@@ -255,33 +238,20 @@ impl Core {
             })
     }
 
-    /// Create a quick and dirty Ast for storing only this string.
-    pub fn to_ast<T: Into<String>>(&self, text: T) -> Result<Ast<'static>, CoreError> {
-        let lang_name = self
-            .lang_name(&DocLabel::Messages)
-            .expect("no messages lang");
-        let mut text_node = self.node_by_name("message", &lang_name)?;
-        text_node.inner().unwrap_text().text_mut(|t| {
-            t.activate();
-            t.set(text.into());
-            t.inactivate();
-        });
-        let mut root_node = self.node_by_name("root", &lang_name)?;
-        root_node
-            .inner()
-            .unwrap_fixed()
-            .replace_child(0, text_node)
-            .unwrap();
-        Ok(root_node)
-    }
-
-    // TODO exec on things other than the active doc?
     pub fn exec<T>(&mut self, cmd: T) -> Result<(), CoreError>
     where
         T: Debug + Into<MetaCommand<'static>>,
     {
+        self.exec_on(cmd.into(), &DocLabel::ActiveDoc)
+    }
+
+    pub fn exec_on<T>(&mut self, cmd: T, doc_label: &DocLabel) -> Result<(), CoreError>
+    where
+        T: Debug + Into<MetaCommand<'static>>,
+    {
         self.docs
-            .active_mut()
+            .get_mut(doc_label)
+            .ok_or_else(|| CoreError::UnknownDocLabel(doc_label.to_owned()))?
             .execute(cmd.into(), &mut self.cut_stack)?;
         Ok(())
     }
@@ -299,28 +269,31 @@ impl Core {
             .ok_or(CoreError::UnknownBookmark)
     }
 
+    /// Create and store a new document. The document will consist of a root
+    /// with a hole as its child, and the cursor will be positioned on the hole.
     fn new_doc(
         &mut self,
         label: DocLabel,
         doc_name: &str,
         lang_name: LanguageName,
     ) -> Result<(), CoreError> {
-        let lang = self.language(&lang_name)?;
-        let doc = Doc::new(
-            doc_name,
-            self.forest.new_fixed_tree(
-                lang,
-                lang.lookup_construct("root"),
-                NOTE_SETS.get(&lang_name).unwrap(),
-            ),
-        );
-        self.docs.insert(label, DocEntry { doc, lang_name });
-        Ok(())
-    }
+        let mut root_node = self.node_by_name("root", &lang_name)?;
+        let hole = root_node.new_hole();
+        root_node
+            .inner()
+            .unwrap_fixed()
+            .replace_child(0, hole)
+            .unwrap();
+        root_node.inner().unwrap_fixed().goto_child(0);
 
-    // TODO redesign
-    pub fn set_doc(&mut self, label: DocLabel, doc: Doc<'static>, lang_name: LanguageName) {
-        self.docs.insert(label, DocEntry { doc, lang_name });
+        self.docs.insert(
+            label,
+            DocEntry {
+                doc: Doc::new(doc_name, root_node),
+                lang_name,
+            },
+        );
+        Ok(())
     }
 
     pub fn in_tree_mode(&self) -> bool {
