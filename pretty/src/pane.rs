@@ -42,7 +42,7 @@ pub enum PaneSize {
 /// A set of standard document labels that `PaneNotation`s can refer to.
 /// Every time `Pane.render()` is called, it will dynamically look up the document that is currently
 /// associated with each referenced label.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 #[non_exhaustive]
 pub enum DocLabel {
     /// The document that currently has focus / is being actively edited.
