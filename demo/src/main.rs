@@ -125,24 +125,24 @@ impl Ed {
     fn update_key_hints(&mut self) -> Result<(), ShellError> {
         let lang_name = self.core.lang_name_of(&DocLabel::KeyHints)?;
 
-        let mut dict_node = self.core.node_by_name("dict", lang_name)?;
+        let mut dict_node = self.core.new_node("dict", lang_name)?;
 
         for (key, prog) in self.active_keymap()?.hints() {
-            let mut key_node = self.core.node_by_name("key", lang_name)?;
+            let mut key_node = self.core.new_node("key", lang_name)?;
             key_node.inner().unwrap_text().text_mut(|t| {
                 t.activate();
                 t.set(key);
                 t.inactivate();
             });
 
-            let mut prog_node = self.core.node_by_name("prog", lang_name)?;
+            let mut prog_node = self.core.new_node("prog", lang_name)?;
             prog_node.inner().unwrap_text().text_mut(|t| {
                 t.activate();
                 t.set(prog);
                 t.inactivate();
             });
 
-            let mut entry_node = self.core.node_by_name("entry", &lang_name)?;
+            let mut entry_node = self.core.new_node("entry", &lang_name)?;
             entry_node
                 .inner()
                 .unwrap_fixed()
@@ -161,7 +161,7 @@ impl Ed {
         self.core
             .exec_on(TreeCmd::Replace(dict_node), &DocLabel::KeyHints)?;
 
-        let kmap_name = if self.core.in_tree_mode() {
+        let kmap_name = if self.core.active_doc()?.in_tree_mode() {
             let mut s = String::new();
             for (i, spec) in self.tree_keymap_stack.iter().enumerate() {
                 if i != 0 {
@@ -176,7 +176,7 @@ impl Ed {
 
         let mut kmap_name_node = self
             .core
-            .node_in_doc_lang("message", &DocLabel::KeymapName)?;
+            .new_node_in_doc_lang("message", &DocLabel::KeymapName)?;
         kmap_name_node.inner().unwrap_text().text_mut(|t| {
             t.activate();
             t.set(kmap_name);
@@ -216,7 +216,7 @@ impl Ed {
             }
             Word::NodeByName => {
                 let (lang_name, construct_name) = self.data_stack.pop_lang_construct()?;
-                let node = self.core.node_by_name(&construct_name, &lang_name)?;
+                let node = self.core.new_node(&construct_name, &lang_name)?;
                 self.data_stack.push(Value::Tree(node));
             }
             Word::PushMap => {
@@ -283,7 +283,7 @@ impl Ed {
             }
             Word::SetBookmark => {
                 let name = self.data_stack.pop_char()?;
-                self.core.add_bookmark(name);
+                self.core.add_bookmark(name, &DocLabel::ActiveDoc)?;
             }
             Word::InsertChar => {
                 let ch = self.data_stack.pop_char()?;

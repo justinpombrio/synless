@@ -21,53 +21,39 @@ lazy_static! {
     pub static ref NOTE_SETS: GrowOnlyMap<LanguageName, NotationSet> = GrowOnlyMap::new();
 }
 
+/// This assumes that there is a single language associated with each Doc. That
+/// might not be true forever! But it's a huge pain to create new nodes for the
+/// Doc if we don't know what language to use.
 struct DocEntry<'l> {
     doc: Doc<'l>,
     lang_name: LanguageName,
 }
 
-struct Docs<'l> {
-    map: HashMap<DocLabel, DocEntry<'l>>,
-}
+struct Docs<'l>(HashMap<DocLabel, DocEntry<'l>>);
 
 impl<'l> Docs<'l> {
     fn new() -> Self {
-        Self {
-            map: HashMap::new(),
-        }
+        Self(HashMap::new())
     }
 
-    // fn insert(&mut self, name: DocLabel, doc: Doc<'l>, lang_name: LanguageName) {
-    //     self.map.insert(name, DocEntry { doc, lang_name });
-    // }
-    // TODO keep entry private
-    fn insert(&mut self, label: DocLabel, entry: DocEntry<'l>) {
-        self.map.insert(label, entry);
+    fn insert(&mut self, label: DocLabel, doc: Doc<'l>, lang_name: LanguageName) {
+        self.0.insert(label, DocEntry { doc, lang_name });
     }
 
-    fn get<'a>(&'a self, label: &DocLabel) -> Option<&'a Doc<'l>> {
-        self.map.get(label).map(|entry| &entry.doc)
+    fn get_doc<'a>(&'a self, label: &DocLabel) -> Option<&'a Doc<'l>> {
+        self.0.get(label).map(|entry| &entry.doc)
     }
 
-    fn get_mut<'a>(&'a mut self, label: &DocLabel) -> Option<&'a mut Doc<'l>> {
-        self.map.get_mut(label).map(|entry| &mut entry.doc)
+    fn get_doc_mut<'a>(&'a mut self, label: &DocLabel) -> Option<&'a mut Doc<'l>> {
+        self.0.get_mut(label).map(|entry| &mut entry.doc)
     }
 
-    fn lang_name<'a>(&'a self, label: &DocLabel) -> Option<&'a LanguageName> {
-        self.map.get(label).map(|entry| &entry.lang_name)
+    fn get_lang_name<'a>(&'a self, label: &DocLabel) -> Option<&'a LanguageName> {
+        self.0.get(label).map(|entry| &entry.lang_name)
     }
 
-    fn content<'a>(&'a self, label: &DocLabel) -> Option<AstRef<'a, 'l>> {
-        self.get(label).map(|doc| (doc.ast_ref()))
-    }
-
-    // TODO get rid of these lazy specific getters
-    fn active(&self) -> &Doc<'l> {
-        &self.get(&DocLabel::ActiveDoc).expect("no active doc")
-    }
-
-    fn active_mut(&mut self) -> &mut Doc<'l> {
-        self.get_mut(&DocLabel::ActiveDoc).expect("no active doc")
+    fn get_ast_ref<'a>(&'a self, label: &DocLabel) -> Option<AstRef<'a, 'l>> {
+        self.get_doc(label).map(|doc| (doc.ast_ref()))
     }
 }
 
@@ -81,6 +67,7 @@ pub struct Core {
 
 impl Core {
     pub fn new(pane_notation: PaneNotation) -> Result<Self, CoreError> {
+        // TODO don't hardcode all the languages here.
         let (json_lang, json_notes) = make_json_lang();
         let (kmap_lang, kmap_notes) = make_keymap_lang();
         let (msg_lang, msg_notes) = make_message_lang();
@@ -112,13 +99,13 @@ impl Core {
 
     pub fn active_doc(&self) -> Result<&Doc<'static>, CoreError> {
         self.docs
-            .get(&DocLabel::ActiveDoc)
+            .get_doc(&DocLabel::ActiveDoc)
             .ok_or_else(|| CoreError::UnknownDocLabel(DocLabel::ActiveDoc))
     }
 
     pub fn lang_name_of<'a>(&'a self, label: &DocLabel) -> Result<&'a LanguageName, CoreError> {
         self.docs
-            .lang_name(label)
+            .get_lang_name(label)
             .ok_or_else(|| CoreError::UnknownDocLabel(label.to_owned()))
     }
 
@@ -135,7 +122,7 @@ impl Core {
     }
 
     pub fn show_message(&mut self, msg: &str) -> Result<(), CoreError> {
-        let mut msg_node = self.node_in_doc_lang("message", &DocLabel::Messages)?;
+        let mut msg_node = self.new_node_in_doc_lang("message", &DocLabel::Messages)?;
         msg_node.inner().unwrap_text().text_mut(|t| {
             t.activate();
             t.set(msg.to_owned());
@@ -149,7 +136,7 @@ impl Core {
 
     pub fn clear_messages(&mut self) -> Result<(), CoreError> {
         self.exec_on(
-            TreeCmd::Replace(self.node_in_doc_lang("list", &DocLabel::Messages)?),
+            TreeCmd::Replace(self.new_node_in_doc_lang("list", &DocLabel::Messages)?),
             &DocLabel::Messages,
         )
     }
@@ -164,22 +151,22 @@ impl Core {
     pub fn redisplay(&self, frontend: &mut Terminal) -> Result<(), CoreError> {
         frontend.draw_frame(|mut pane: Pane<<Terminal as Frontend>::Window>| {
             pane.render(&self.pane_notation, |label: &DocLabel| {
-                self.docs.content(label)
+                self.docs.get_ast_ref(label)
             })
         })?;
         Ok(())
     }
 
     /// Create a new node in the same language as the given doc.
-    pub fn node_in_doc_lang(
+    pub fn new_node_in_doc_lang(
         &self,
         construct_name: &str,
         doc_label: &DocLabel,
     ) -> Result<Ast<'static>, CoreError> {
-        self.node_by_name(construct_name, self.lang_name_of(doc_label)?)
+        self.new_node(construct_name, self.lang_name_of(doc_label)?)
     }
 
-    pub fn node_by_name(
+    pub fn new_node(
         &self,
         construct_name: &str,
         lang_name: &LanguageName,
@@ -208,15 +195,20 @@ impl Core {
         T: Debug + Into<MetaCommand<'static>>,
     {
         self.docs
-            .get_mut(doc_label)
+            .get_doc_mut(doc_label)
             .ok_or_else(|| CoreError::UnknownDocLabel(doc_label.to_owned()))?
             .execute(cmd.into(), &mut self.cut_stack)?;
         Ok(())
     }
 
-    pub fn add_bookmark(&mut self, name: char) {
-        let mark = self.docs.active_mut().bookmark();
+    pub fn add_bookmark(&mut self, name: char, doc_label: &DocLabel) -> Result<(), CoreError> {
+        let mark = self
+            .docs
+            .get_doc_mut(doc_label)
+            .ok_or_else(|| CoreError::UnknownDocLabel(doc_label.to_owned()))?
+            .bookmark();
         self.bookmarks.insert(name, mark);
+        Ok(())
     }
 
     pub fn get_bookmark(&mut self, name: char) -> Result<Bookmark, CoreError> {
@@ -235,7 +227,7 @@ impl Core {
         doc_name: &str,
         lang_name: LanguageName,
     ) -> Result<(), CoreError> {
-        let mut root_node = self.node_by_name("root", &lang_name)?;
+        let mut root_node = self.new_node("root", &lang_name)?;
         let hole = root_node.new_hole();
         root_node
             .inner()
@@ -244,17 +236,8 @@ impl Core {
             .unwrap();
         root_node.inner().unwrap_fixed().goto_child(0);
 
-        self.docs.insert(
-            label,
-            DocEntry {
-                doc: Doc::new(doc_name, root_node),
-                lang_name,
-            },
-        );
+        self.docs
+            .insert(label, Doc::new(doc_name, root_node), lang_name);
         Ok(())
-    }
-
-    pub fn in_tree_mode(&self) -> bool {
-        self.docs.active().in_tree_mode()
     }
 }
