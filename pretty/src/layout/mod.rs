@@ -3,6 +3,7 @@ mod boundset;
 // TODO rename modules to fix this for real
 #[allow(clippy::module_inception)]
 mod layout;
+mod staircase;
 
 pub use self::layout::{
     compute_bounds, compute_layouts, text_bounds, Bounds, Lay, Layout, LayoutRegion, Layouts,
