@@ -5,7 +5,7 @@ use crate::error::ShellError;
 use crate::prog::{Prog, Value, Word};
 
 use super::factory::{FilterContext, TextKeymapFactory, TreeKeymapFactory};
-use super::keymap::{Keymap, Menu, MenuName, Mode, ModeName};
+use super::keymap::{FilteredKeymap, Menu, MenuName, Mode, ModeName};
 
 /// Manage various forms of keymaps
 pub struct KeymapManager<'l> {
@@ -85,9 +85,9 @@ impl<'l> KeymapManager<'l> {
     }
 
     /// Return the program that's mapped to this key in the given keymap, or None if the key isn't found.
-    pub fn lookup(&self, key: Key, keymap: &Keymap) -> Option<Prog<'l>> {
+    pub fn lookup(&self, key: Key, keymap: &FilteredKeymap) -> Option<Prog<'l>> {
         match keymap {
-            Keymap::Mode {
+            FilteredKeymap::Mode {
                 filtered_keys,
                 name,
             } => {
@@ -97,7 +97,7 @@ impl<'l> KeymapManager<'l> {
                     None
                 }
             }
-            Keymap::Menu {
+            FilteredKeymap::Menu {
                 filtered_keys,
                 name,
             } => {
@@ -107,7 +107,7 @@ impl<'l> KeymapManager<'l> {
                     None
                 }
             }
-            Keymap::Text => {
+            FilteredKeymap::Text => {
                 if let Some(prog) = self.text_keymap.get(&key) {
                     Some(prog.to_owned())
                 } else if let Key::Char(c) = key {
@@ -123,23 +123,23 @@ impl<'l> KeymapManager<'l> {
     }
 
     /// Return a list of 'key name' and 'program name' pairs for the given keymap.
-    pub fn hints(&self, keymap: &Keymap) -> Vec<(String, String)> {
+    pub fn hints(&self, keymap: &FilteredKeymap) -> Vec<(String, String)> {
         let keys_and_names: Vec<(_, _)> = match keymap {
-            Keymap::Mode {
+            FilteredKeymap::Mode {
                 filtered_keys,
                 name,
             } => filtered_keys
                 .iter()
                 .map(|key| (key, self.modes.get(name).unwrap().get(key).unwrap().name()))
                 .collect(),
-            Keymap::Menu {
+            FilteredKeymap::Menu {
                 filtered_keys,
                 name,
             } => filtered_keys
                 .iter()
                 .map(|key| (key, self.menus.get(name).unwrap().get(key).unwrap().name()))
                 .collect(),
-            Keymap::Text => self.text_keymap.keys_and_names(),
+            FilteredKeymap::Text => self.text_keymap.keys_and_names(),
         };
 
         let mut hints: Vec<_> = keys_and_names
@@ -157,7 +157,7 @@ impl<'l> KeymapManager<'l> {
     pub fn get_active_keymap(
         &self,
         tree_context: Option<FilterContext>,
-    ) -> Result<Keymap, ShellError> {
+    ) -> Result<FilteredKeymap, ShellError> {
         if let Some(context) = tree_context {
             if let Some(menu_name) = &self.active_menu {
                 let menu = self
@@ -174,7 +174,7 @@ impl<'l> KeymapManager<'l> {
                 Ok(mode.filter(&context))
             }
         } else {
-            Ok(Keymap::Text)
+            Ok(FilteredKeymap::Text)
         }
     }
 }

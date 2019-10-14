@@ -7,7 +7,7 @@ use pretty::{ColorTheme, DocLabel};
 
 use crate::core_editor::Core;
 use crate::error::ShellError;
-use crate::keymaps::{FilterContext, Keymap, KeymapManager};
+use crate::keymaps::{FilterContext, FilteredKeymap, KeymapManager};
 use crate::prog::{CallStack, DataStack, Prog, Value, Word};
 
 use crate::data::example_keymaps;
@@ -87,11 +87,11 @@ impl ShellEditor {
         } else {
             None
         };
-        let kmap = self.keymap_manager.get_active_keymap(tree_context)?;
+        let keymap = self.keymap_manager.get_active_keymap(tree_context)?;
 
-        self.update_key_hints(&kmap)?;
+        self.update_key_hints(&keymap)?;
         self.core.redisplay(&mut self.frontend)?;
-        match self.next_event(&kmap) {
+        match self.next_event(&keymap) {
             Ok(prog) => {
                 self.call_stack.push(prog);
                 self.keymap_manager.deactivate_menu();
@@ -102,12 +102,12 @@ impl ShellEditor {
         }
     }
 
-    fn update_key_hints(&mut self, kmap: &Keymap) -> Result<(), ShellError> {
+    fn update_key_hints(&mut self, keymap: &FilteredKeymap) -> Result<(), ShellError> {
         let lang_name = self.core.lang_name_of(&DocLabel::KeyHints)?;
 
         let mut dict_node = self.core.new_node("dict", lang_name)?;
 
-        for (key, prog) in self.keymap_manager.hints(kmap) {
+        for (key, prog) in self.keymap_manager.hints(keymap) {
             let mut key_node = self.core.new_node("key", lang_name)?;
             key_node.inner().unwrap_text().text_mut(|t| {
                 t.activate();
@@ -146,7 +146,7 @@ impl ShellEditor {
             .new_node_in_doc_lang("message", &DocLabel::KeymapName)?;
         description_node.inner().unwrap_text().text_mut(|t| {
             t.activate();
-            t.set(kmap.name());
+            t.set(keymap.name());
             t.inactivate();
         });
         self.core
@@ -154,12 +154,12 @@ impl ShellEditor {
         Ok(())
     }
 
-    fn next_event(&mut self, kmap: &Keymap) -> Result<Prog<'static>, ShellError> {
+    fn next_event(&mut self, keymap: &FilteredKeymap) -> Result<Prog<'static>, ShellError> {
         match self.frontend.next_event() {
             Some(Ok(Event::KeyEvent(Key::Ctrl('c')))) => Err(ShellError::KeyboardInterrupt),
             Some(Ok(Event::KeyEvent(key))) => self
                 .keymap_manager
-                .lookup(key, kmap)
+                .lookup(key, keymap)
                 .ok_or_else(|| ShellError::UnknownKey(key)),
             Some(Err(err)) => Err(err.into()),
             _ => Err(ShellError::UnknownEvent),

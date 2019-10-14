@@ -6,7 +6,7 @@ use super::factory::{FilterContext, TreeKeymapFactory};
 
 // INVARIANT: The filtered keys must be present in the given mode or menu
 #[derive(Clone)]
-pub enum Keymap {
+pub enum FilteredKeymap {
     Mode {
         filtered_keys: Vec<Key>,
         name: ModeName,
@@ -40,8 +40,8 @@ impl<'l> Mode<'l> {
         self.factory.get(key)
     }
 
-    pub fn filter(&self, context: &FilterContext) -> Keymap {
-        Keymap::Mode {
+    pub fn filter(&self, context: &FilterContext) -> FilteredKeymap {
+        FilteredKeymap::Mode {
             filtered_keys: self.factory.filter(context),
             name: self.name.clone(),
         }
@@ -53,20 +53,20 @@ impl<'l> Menu<'l> {
         self.factory.get(key)
     }
 
-    pub fn filter(&self, context: &FilterContext) -> Keymap {
-        Keymap::Menu {
+    pub fn filter(&self, context: &FilterContext) -> FilteredKeymap {
+        FilteredKeymap::Menu {
             filtered_keys: self.factory.filter(context),
             name: self.name.clone(),
         }
     }
 }
 
-impl Keymap {
+impl FilteredKeymap {
     pub fn name(&self) -> String {
         match self {
-            Keymap::Menu { name, .. } => name.into(),
-            Keymap::Mode { name, .. } => name.into(),
-            Keymap::Text => "text".into(),
+            FilteredKeymap::Menu { name, .. } => name.into(),
+            FilteredKeymap::Mode { name, .. } => name.into(),
+            FilteredKeymap::Text => "text".into(),
         }
     }
 }
