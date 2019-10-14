@@ -3,7 +3,7 @@ use std::{iter, mem, vec};
 use crate::ast::{Ast, AstKind, AstRef};
 use crate::command::{Command, EditorCmd, MetaCommand, TextCmd, TextNavCmd, TreeCmd, TreeNavCmd};
 use forest::Bookmark;
-use language::Sort;
+use language::{ArityType, Sort};
 
 #[derive(Debug)]
 pub enum DocError<'l> {
@@ -170,6 +170,18 @@ impl<'l> Doc<'l> {
 
     pub fn child_sort(&self) -> Sort {
         self.ast_ref().arity().uniform_child_sort().to_owned()
+    }
+
+    pub fn self_arity_type(&self) -> ArityType {
+        self.ast_ref().arity().into()
+    }
+
+    pub fn parent_arity_type(&self) -> ArityType {
+        let (parent, _) = self
+            .ast_ref()
+            .parent()
+            .expect("you shouldn't be at the root!");
+        parent.arity().into()
     }
 
     fn take_recent(&mut self) -> UndoGroup<'l> {
