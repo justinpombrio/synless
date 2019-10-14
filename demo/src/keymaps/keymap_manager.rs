@@ -8,8 +8,8 @@ use super::factory::{FilterContext, TextKeymapFactory, TreeKeymapFactory};
 use super::keymap::{Keymap, Menu, MenuName, Mode, ModeName};
 
 pub struct KeymapManager<'l> {
-    pub mode_stack: Vec<ModeName>,
-    pub active_menu: Option<MenuName>,
+    mode_stack: Vec<ModeName>,
+    active_menu: Option<MenuName>,
     modes: HashMap<ModeName, Mode<'l>>,
     menus: HashMap<MenuName, Menu<'l>>,
     text_keymap: TextKeymapFactory<'l>,
@@ -26,16 +26,36 @@ impl<'l> KeymapManager<'l> {
         }
     }
 
-    pub fn insert_mode(&mut self, name: ModeName, factory: TreeKeymapFactory<'l>) {
+    pub fn register_mode(&mut self, name: ModeName, factory: TreeKeymapFactory<'l>) {
         self.modes.insert(name.clone(), Mode { factory, name });
     }
 
-    pub fn insert_menu(&mut self, name: MenuName, factory: TreeKeymapFactory<'l>) {
+    pub fn register_menu(&mut self, name: MenuName, factory: TreeKeymapFactory<'l>) {
         self.menus.insert(name.clone(), Menu { factory, name });
     }
 
-    pub fn set_text_keymap(&mut self, text_keymap: TextKeymapFactory<'l>) {
+    pub fn register_text_keymap(&mut self, text_keymap: TextKeymapFactory<'l>) {
         self.text_keymap = text_keymap;
+    }
+
+    pub fn push_mode(&mut self, name: ModeName) {
+        self.mode_stack.push(name)
+    }
+
+    pub fn pop_mode(&mut self) -> Option<ModeName> {
+        self.mode_stack.pop()
+    }
+
+    pub fn activate_menu(&mut self, name: MenuName) {
+        self.active_menu = Some(name);
+    }
+
+    pub fn deactivate_menu(&mut self) {
+        self.active_menu = None;
+    }
+
+    pub fn has_active_menu(&self) -> bool {
+        self.active_menu.is_some()
     }
 
     pub fn lookup(&self, key: Key, kmap: &Keymap) -> Result<Prog<'l>, ShellError> {

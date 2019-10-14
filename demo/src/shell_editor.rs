@@ -33,15 +33,15 @@ impl ShellEditor {
             make_json_lang(),
         )?;
         let mut keymaps = KeymapManager::new();
-        keymaps.insert_mode("tree".into(), example_keymaps::make_tree_map());
-        keymaps.insert_mode("speed_bool".into(), example_keymaps::make_speed_bool_map());
-        keymaps.insert_menu(
+        keymaps.register_mode("tree".into(), example_keymaps::make_tree_map());
+        keymaps.register_mode("speed_bool".into(), example_keymaps::make_speed_bool_map());
+        keymaps.register_menu(
             "node".into(),
             example_keymaps::make_node_map(
                 core.language(core.lang_name_of(&DocLabel::ActiveDoc)?)?,
             ),
         );
-        keymaps.set_text_keymap(example_keymaps::make_text_map());
+        keymaps.register_text_keymap(example_keymaps::make_text_map());
 
         let mut ed = ShellEditor {
             core,
@@ -61,7 +61,7 @@ impl ShellEditor {
 
     pub fn run(&mut self) -> Result<(), ShellError> {
         loop {
-            if self.keymaps.active_menu.is_some() {
+            if self.keymaps.has_active_menu() {
                 self.handle_input()?;
             } else {
                 if let Some(word) = self.call_stack.next() {
@@ -90,7 +90,7 @@ impl ShellEditor {
         match self.next_event(&kmap) {
             Ok(prog) => {
                 self.call_stack.push(prog);
-                self.keymaps.active_menu = None;
+                self.keymaps.deactivate_menu();
                 Ok(())
             }
             Err(ShellError::KeyboardInterrupt) => Err(ShellError::KeyboardInterrupt),
@@ -183,18 +183,18 @@ impl ShellEditor {
             }
             Word::PushMode => {
                 let name = self.data_stack.pop_mode_name()?;
-                self.keymaps.mode_stack.push(name);
+                self.keymaps.push_mode(name);
             }
             Word::PopMode => {
-                self.keymaps.mode_stack.pop();
+                self.keymaps.pop_mode();
             }
             Word::ActivateMenu => {
                 let name = self.data_stack.pop_menu_name()?;
-                if self.keymaps.active_menu.is_some() {
+                if self.keymaps.has_active_menu() {
                     // TODO decide how to handle this
                     panic!("Another menu is already active");
                 }
-                self.keymaps.active_menu = Some(name);
+                self.keymaps.activate_menu(name);
             }
             Word::ChildSort => {
                 self.data_stack
