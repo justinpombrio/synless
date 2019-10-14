@@ -54,21 +54,21 @@ impl<'l> Docs<'l> {
     }
 }
 
-pub struct Core {
-    docs: Docs<'static>,
-    forest: AstForest<'static>,
+pub struct Core<'l> {
+    docs: Docs<'l>,
+    forest: AstForest<'l>,
     bookmarks: HashMap<char, Bookmark>,
-    cut_stack: Clipboard<'static>,
+    cut_stack: Clipboard<'l>,
     pane_notation: PaneNotation,
 }
 
-impl Core {
+impl<'l> Core<'l> {
     pub fn new(
         pane_notation: PaneNotation,
         keyhint_lang: (Language, NotationSet),
         message_lang: (Language, NotationSet),
         active_lang: (Language, NotationSet),
-    ) -> Result<Self, CoreError> {
+    ) -> Result<Self, CoreError<'l>> {
         let mut core = Core {
             docs: Docs::new(),
             forest: AstForest::new(&LANG_SET),
@@ -100,31 +100,31 @@ impl Core {
         name
     }
 
-    pub fn active_doc(&self) -> Result<&Doc<'static>, CoreError> {
+    pub fn active_doc(&self) -> Result<&Doc<'l>, CoreError<'l>> {
         self.docs
             .get_doc(&DocLabel::ActiveDoc)
             .ok_or_else(|| CoreError::UnknownDocLabel(DocLabel::ActiveDoc))
     }
 
-    pub fn lang_name_of<'a>(&'a self, label: &DocLabel) -> Result<&'a LanguageName, CoreError> {
+    pub fn lang_name_of<'a>(&'a self, label: &DocLabel) -> Result<&'a LanguageName, CoreError<'l>> {
         self.docs
             .get_lang_name(label)
             .ok_or_else(|| CoreError::UnknownDocLabel(label.to_owned()))
     }
 
-    pub fn language(&self, lang_name: &LanguageName) -> Result<&'static Language, CoreError> {
+    pub fn language(&self, lang_name: &LanguageName) -> Result<&'l Language, CoreError<'l>> {
         LANG_SET
             .get(lang_name)
             .ok_or_else(|| CoreError::UnknownLang(lang_name.to_owned()))
     }
 
-    fn notation_set(&self, lang_name: &LanguageName) -> Result<&'static NotationSet, CoreError> {
+    fn notation_set(&self, lang_name: &LanguageName) -> Result<&'l NotationSet, CoreError<'l>> {
         NOTE_SETS
             .get(lang_name)
             .ok_or_else(|| CoreError::UnknownLang(lang_name.to_owned()))
     }
 
-    pub fn show_message(&mut self, msg: &str) -> Result<(), CoreError> {
+    pub fn show_message(&mut self, msg: &str) -> Result<(), CoreError<'l>> {
         let mut msg_node = self.new_node_in_doc_lang("message", &DocLabel::Messages)?;
         msg_node.inner().unwrap_text().text_mut(|t| {
             t.activate();
@@ -137,7 +137,7 @@ impl Core {
         Ok(())
     }
 
-    pub fn clear_messages(&mut self) -> Result<(), CoreError> {
+    pub fn clear_messages(&mut self) -> Result<(), CoreError<'l>> {
         self.exec_on(
             TreeCmd::Replace(self.new_node_in_doc_lang("list", &DocLabel::Messages)?),
             &DocLabel::Messages,
@@ -151,7 +151,7 @@ impl Core {
     // where
     //     F: Frontend,
     // {
-    pub fn redisplay(&self, frontend: &mut Terminal) -> Result<(), CoreError> {
+    pub fn redisplay(&self, frontend: &mut Terminal) -> Result<(), CoreError<'l>> {
         frontend.draw_frame(|mut pane: Pane<<Terminal as Frontend>::Window>| {
             pane.render(&self.pane_notation, |label: &DocLabel| {
                 self.docs.get_ast_ref(label)
@@ -165,7 +165,7 @@ impl Core {
         &self,
         construct_name: &str,
         doc_label: &DocLabel,
-    ) -> Result<Ast<'static>, CoreError> {
+    ) -> Result<Ast<'l>, CoreError<'l>> {
         self.new_node(construct_name, self.lang_name_of(doc_label)?)
     }
 
@@ -173,7 +173,7 @@ impl Core {
         &self,
         construct_name: &str,
         lang_name: &LanguageName,
-    ) -> Result<Ast<'static>, CoreError> {
+    ) -> Result<Ast<'l>, CoreError<'l>> {
         let construct_name = construct_name.to_string();
         let lang = self.language(lang_name)?;
         let notes = self.notation_set(lang_name)?;
@@ -186,16 +186,16 @@ impl Core {
             })
     }
 
-    pub fn exec<T>(&mut self, cmd: T) -> Result<(), CoreError>
+    pub fn exec<T>(&mut self, cmd: T) -> Result<(), CoreError<'l>>
     where
-        T: Debug + Into<MetaCommand<'static>>,
+        T: Debug + Into<MetaCommand<'l>>,
     {
         self.exec_on(cmd.into(), &DocLabel::ActiveDoc)
     }
 
-    pub fn exec_on<T>(&mut self, cmd: T, doc_label: &DocLabel) -> Result<(), CoreError>
+    pub fn exec_on<T>(&mut self, cmd: T, doc_label: &DocLabel) -> Result<(), CoreError<'l>>
     where
-        T: Debug + Into<MetaCommand<'static>>,
+        T: Debug + Into<MetaCommand<'l>>,
     {
         self.docs
             .get_doc_mut(doc_label)
@@ -204,7 +204,7 @@ impl Core {
         Ok(())
     }
 
-    pub fn add_bookmark(&mut self, name: char, doc_label: &DocLabel) -> Result<(), CoreError> {
+    pub fn add_bookmark(&mut self, name: char, doc_label: &DocLabel) -> Result<(), CoreError<'l>> {
         let mark = self
             .docs
             .get_doc_mut(doc_label)
@@ -214,7 +214,7 @@ impl Core {
         Ok(())
     }
 
-    pub fn get_bookmark(&mut self, name: char) -> Result<Bookmark, CoreError> {
+    pub fn get_bookmark(&mut self, name: char) -> Result<Bookmark, CoreError<'l>> {
         // TODO handle bookmarks into multiple documents
         self.bookmarks
             .get(&name)
@@ -229,7 +229,7 @@ impl Core {
         label: DocLabel,
         doc_name: &str,
         lang_name: LanguageName,
-    ) -> Result<(), CoreError> {
+    ) -> Result<(), CoreError<'l>> {
         let mut root_node = self.new_node("root", &lang_name)?;
         let hole = root_node.new_hole();
         root_node

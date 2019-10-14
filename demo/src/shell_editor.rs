@@ -19,7 +19,7 @@ use crate::data::message_lang::make_message_lang;
 
 /// Demonstrate a basic interactive tree editor
 pub struct ShellEditor {
-    core: Core,
+    core: Core<'static>,
     frontend: Terminal,
     data_stack: DataStack<'static>,
     call_stack: CallStack<'static>,
