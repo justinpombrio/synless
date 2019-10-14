@@ -7,7 +7,7 @@ use pretty::{ColorTheme, DocLabel};
 
 use crate::core_editor::Core;
 use crate::error::ShellError;
-use crate::keymaps::{FilterContext, KeymapManager, Kmap};
+use crate::keymaps::{FilterContext, Keymap, KeymapManager};
 use crate::prog::{CallStack, DataStack, Prog, Value, Word};
 
 use crate::data::example_keymaps;
@@ -98,7 +98,7 @@ impl ShellEditor {
         }
     }
 
-    fn update_key_hints(&mut self, kmap: &Kmap) -> Result<(), ShellError> {
+    fn update_key_hints(&mut self, kmap: &Keymap) -> Result<(), ShellError> {
         let lang_name = self.core.lang_name_of(&DocLabel::KeyHints)?;
 
         let mut dict_node = self.core.new_node("dict", lang_name)?;
@@ -150,7 +150,7 @@ impl ShellEditor {
         Ok(())
     }
 
-    fn next_event(&mut self, kmap: &Kmap) -> Result<Prog<'static>, ShellError> {
+    fn next_event(&mut self, kmap: &Keymap) -> Result<Prog<'static>, ShellError> {
         match self.frontend.next_event() {
             Some(Ok(Event::KeyEvent(Key::Ctrl('c')))) => Err(ShellError::KeyboardInterrupt),
             Some(Ok(Event::KeyEvent(key))) => self.keymaps.lookup(key, kmap),

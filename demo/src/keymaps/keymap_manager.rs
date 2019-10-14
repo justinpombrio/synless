@@ -5,7 +5,7 @@ use crate::error::ShellError;
 use crate::prog::{Prog, Value, Word};
 
 use super::factory::{FilterContext, TreeKmapFactory};
-use super::keymap::{Kmap, Menu, MenuName, Mode, ModeName};
+use super::keymap::{Keymap, Menu, MenuName, Mode, ModeName};
 
 pub struct KeymapManager<'l> {
     pub mode_stack: Vec<ModeName>,
@@ -38,9 +38,9 @@ impl<'l> KeymapManager<'l> {
         self.text_keymap = text_keymap;
     }
 
-    pub fn lookup(&self, key: Key, kmap: &Kmap) -> Result<Prog<'l>, ShellError> {
+    pub fn lookup(&self, key: Key, kmap: &Keymap) -> Result<Prog<'l>, ShellError> {
         let prog = match kmap {
-            Kmap::Mode {
+            Keymap::Mode {
                 filtered_keys,
                 name,
             } => {
@@ -50,7 +50,7 @@ impl<'l> KeymapManager<'l> {
                     None
                 }
             }
-            Kmap::Menu {
+            Keymap::Menu {
                 filtered_keys,
                 name,
             } => {
@@ -60,7 +60,7 @@ impl<'l> KeymapManager<'l> {
                     None
                 }
             }
-            Kmap::Text => {
+            Keymap::Text => {
                 if let Some(prog) = self.text_keymap.get(&key) {
                     Some(prog.to_owned())
                 } else if let Key::Char(c) = key {
@@ -76,23 +76,23 @@ impl<'l> KeymapManager<'l> {
         prog.ok_or(ShellError::UnknownKey(key))
     }
 
-    pub fn hints(&self, kmap: &Kmap) -> Vec<(String, String)> {
+    pub fn hints(&self, kmap: &Keymap) -> Vec<(String, String)> {
         let keys_and_names: Vec<(_, _)> = match kmap {
-            Kmap::Mode {
+            Keymap::Mode {
                 filtered_keys,
                 name,
             } => filtered_keys
                 .iter()
                 .map(|key| (key, self.modes.get(name).unwrap().get(key).unwrap().name()))
                 .collect(),
-            Kmap::Menu {
+            Keymap::Menu {
                 filtered_keys,
                 name,
             } => filtered_keys
                 .iter()
                 .map(|key| (key, self.menus.get(name).unwrap().get(key).unwrap().name()))
                 .collect(),
-            Kmap::Text => self
+            Keymap::Text => self
                 .text_keymap
                 .iter()
                 .map(|(key, prog)| (key, prog.name()))
@@ -111,10 +111,10 @@ impl<'l> KeymapManager<'l> {
         &self,
         in_tree_mode: bool,
         context: &FilterContext,
-    ) -> Result<Kmap, ShellError> {
+    ) -> Result<Keymap, ShellError> {
         if !in_tree_mode {
             // TODO avoid cloning every time!
-            Ok(Kmap::Text)
+            Ok(Keymap::Text)
         } else {
             if let Some(menu_name) = &self.active_menu {
                 let menu = self
