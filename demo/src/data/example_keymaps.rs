@@ -2,10 +2,10 @@ use std::collections::HashMap;
 use std::iter;
 use termion::event::Key;
 
+use language::{ArityType, Language, LanguageName};
+
 use crate::keymap::{KmapFilter, TreeKmapFactory};
 use crate::prog::{Prog, Value, Word};
-
-use language::{ArityType, Language, LanguageName};
 
 pub fn make_node_map<'l>(lang: &Language) -> TreeKmapFactory<'l> {
     TreeKmapFactory::new(

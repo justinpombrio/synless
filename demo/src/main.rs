@@ -8,14 +8,13 @@ use language::Sort;
 use pretty::{Color, ColorTheme, CursorVis, DocLabel, DocPosSpec, PaneNotation, PaneSize, Style};
 
 mod core_editor;
-mod demo_keymaps;
+mod data;
 mod error;
 mod keymap;
-mod keymap_lang;
-mod message_lang;
 mod prog;
 
 use core_editor::Core;
+use data::example_keymaps;
 use error::ShellError;
 use keymap::{FilterContext, Keymaps, Kmap};
 use prog::{CallStack, DataStack, Prog, Value, Word};
@@ -42,13 +41,15 @@ impl Ed {
     fn new() -> Result<Self, ShellError> {
         let core = Core::new(demo_pane_notation())?;
         let mut keymaps = Keymaps::new();
-        keymaps.insert_mode("tree".into(), demo_keymaps::make_tree_map());
-        keymaps.insert_mode("speed_bool".into(), demo_keymaps::make_speed_bool_map());
+        keymaps.insert_mode("tree".into(), example_keymaps::make_tree_map());
+        keymaps.insert_mode("speed_bool".into(), example_keymaps::make_speed_bool_map());
         keymaps.insert_menu(
             "node".into(),
-            demo_keymaps::make_node_map(core.language(core.lang_name_of(&DocLabel::ActiveDoc)?)?),
+            example_keymaps::make_node_map(
+                core.language(core.lang_name_of(&DocLabel::ActiveDoc)?)?,
+            ),
         );
-        keymaps.set_text_keymap(demo_keymaps::make_text_map());
+        keymaps.set_text_keymap(example_keymaps::make_text_map());
 
         let mut ed = Ed {
             core,

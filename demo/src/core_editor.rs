@@ -12,9 +12,9 @@ use language::{Language, LanguageName, LanguageSet};
 use pretty::{DocLabel, Pane, PaneNotation};
 use utility::GrowOnlyMap;
 
+use crate::data::keyhint_lang::make_keyhint_lang;
+use crate::data::message_lang::make_message_lang;
 use crate::error::CoreError;
-use crate::keymap_lang::make_keymap_lang;
-use crate::message_lang::make_message_lang;
 
 lazy_static! {
     pub static ref LANG_SET: LanguageSet = LanguageSet::new();
@@ -69,7 +69,7 @@ impl Core {
     pub fn new(pane_notation: PaneNotation) -> Result<Self, CoreError> {
         // TODO don't hardcode all the languages here.
         let (json_lang, json_notes) = make_json_lang();
-        let (kmap_lang, kmap_notes) = make_keymap_lang();
+        let (kmap_lang, kmap_notes) = make_keyhint_lang();
         let (msg_lang, msg_notes) = make_message_lang();
         let json_lang_name = json_lang.name().to_owned();
         let kmap_lang_name = kmap_lang.name().to_owned();
