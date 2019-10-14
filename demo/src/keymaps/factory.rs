@@ -6,7 +6,7 @@ use language::{ArityType, Sort};
 
 /// Rules for when a particular item should be included in a keymap
 #[derive(Clone, Debug)]
-pub enum KmapFilter {
+pub enum FilterRule {
     Always,
     Sort(Sort),
     ParentArity(Vec<ArityType>),
@@ -19,10 +19,10 @@ pub struct FilterContext {
     pub self_arity: ArityType,
 }
 
-pub struct TreeKmapFactory<'l>(HashMap<Key, (KmapFilter, Prog<'l>)>);
+pub struct TreeKmapFactory<'l>(HashMap<Key, (FilterRule, Prog<'l>)>);
 
 impl<'l> TreeKmapFactory<'l> {
-    pub fn new(v: Vec<(Key, KmapFilter, Prog<'l>)>) -> Self {
+    pub fn new(v: Vec<(Key, FilterRule, Prog<'l>)>) -> Self {
         TreeKmapFactory(
             v.into_iter()
                 .map(|(key, filter, prog)| (key, (filter, prog)))
@@ -38,22 +38,22 @@ impl<'l> TreeKmapFactory<'l> {
         self.0
             .iter()
             .filter_map(|(&key, (filter, _))| match filter {
-                KmapFilter::Always => Some(key),
-                KmapFilter::Sort(sort) => {
+                FilterRule::Always => Some(key),
+                FilterRule::Sort(sort) => {
                     if context.required_sort.accepts(sort) {
                         Some(key)
                     } else {
                         None
                     }
                 }
-                KmapFilter::ParentArity(arity_types) => {
+                FilterRule::ParentArity(arity_types) => {
                     if arity_types.contains(&context.parent_arity) {
                         Some(key)
                     } else {
                         None
                     }
                 }
-                KmapFilter::SelfArity(arity_types) => {
+                FilterRule::SelfArity(arity_types) => {
                     if arity_types.contains(&context.self_arity) {
                         Some(key)
                     } else {

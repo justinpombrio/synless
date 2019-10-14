@@ -4,7 +4,7 @@ use termion::event::Key;
 
 use language::{ArityType, Language, LanguageName};
 
-use crate::keymaps::{KmapFilter, TreeKmapFactory};
+use crate::keymaps::{FilterRule, TreeKmapFactory};
 use crate::prog::{Prog, Value, Word};
 
 pub fn make_node_map<'l>(lang: &Language) -> TreeKmapFactory<'l> {
@@ -14,7 +14,7 @@ pub fn make_node_map<'l>(lang: &Language) -> TreeKmapFactory<'l> {
             .map(|(&ch, construct_name)| {
                 (
                     Key::Char(ch),
-                    KmapFilter::Sort(lang.lookup_construct(construct_name).sort.clone()),
+                    FilterRule::Sort(lang.lookup_construct(construct_name).sort.clone()),
                     Prog::named(
                         construct_name,
                         &[
@@ -30,7 +30,7 @@ pub fn make_node_map<'l>(lang: &Language) -> TreeKmapFactory<'l> {
             })
             .chain(iter::once((
                 Key::Esc,
-                KmapFilter::Always,
+                FilterRule::Always,
                 Prog::named(
                     "Cancel",
                     &[
@@ -45,61 +45,61 @@ pub fn make_node_map<'l>(lang: &Language) -> TreeKmapFactory<'l> {
 
 pub fn make_tree_map<'l>() -> TreeKmapFactory<'l> {
     TreeKmapFactory::new(vec![
-        (Key::Char('d'), KmapFilter::Always, Prog::single(Word::Cut)),
-        (Key::Char('y'), KmapFilter::Always, Prog::single(Word::Copy)),
+        (Key::Char('d'), FilterRule::Always, Prog::single(Word::Cut)),
+        (Key::Char('y'), FilterRule::Always, Prog::single(Word::Copy)),
         (
             Key::Char('P'),
-            KmapFilter::Always,
+            FilterRule::Always,
             Prog::single(Word::PasteSwap),
         ),
         (
             Key::Char('p'),
-            KmapFilter::Always,
+            FilterRule::Always,
             Prog::named("PasteReplace", &[Word::PasteSwap, Word::PopClipboard]),
         ),
-        (Key::Char('u'), KmapFilter::Always, Prog::single(Word::Undo)),
-        (Key::Ctrl('r'), KmapFilter::Always, Prog::single(Word::Redo)),
-        (Key::Right, KmapFilter::Always, Prog::single(Word::Right)),
-        (Key::Left, KmapFilter::Always, Prog::single(Word::Left)),
-        (Key::Up, KmapFilter::Always, Prog::single(Word::Parent)),
+        (Key::Char('u'), FilterRule::Always, Prog::single(Word::Undo)),
+        (Key::Ctrl('r'), FilterRule::Always, Prog::single(Word::Redo)),
+        (Key::Right, FilterRule::Always, Prog::single(Word::Right)),
+        (Key::Left, FilterRule::Always, Prog::single(Word::Left)),
+        (Key::Up, FilterRule::Always, Prog::single(Word::Parent)),
         (
             Key::Backspace,
-            KmapFilter::ParentArity(vec![ArityType::Flexible, ArityType::Mixed]),
+            FilterRule::ParentArity(vec![ArityType::Flexible, ArityType::Mixed]),
             Prog::single(Word::Remove),
         ),
         (
             Key::Char('x'),
-            KmapFilter::Always,
+            FilterRule::Always,
             Prog::single(Word::Clear),
         ),
         (
             Key::Down,
-            KmapFilter::Always,
+            FilterRule::Always,
             Prog::named("Child", &[Word::Literal(Value::Usize(0)), Word::Child]),
         ),
         (
             Key::Char('i'),
-            KmapFilter::ParentArity(vec![ArityType::Flexible, ArityType::Mixed]),
+            FilterRule::ParentArity(vec![ArityType::Flexible, ArityType::Mixed]),
             Prog::single(Word::InsertHoleAfter),
         ),
         (
             Key::Char('I'),
-            KmapFilter::ParentArity(vec![ArityType::Flexible, ArityType::Mixed]),
+            FilterRule::ParentArity(vec![ArityType::Flexible, ArityType::Mixed]),
             Prog::single(Word::InsertHoleBefore),
         ),
         (
             Key::Char('o'),
-            KmapFilter::SelfArity(vec![ArityType::Flexible, ArityType::Mixed]),
+            FilterRule::SelfArity(vec![ArityType::Flexible, ArityType::Mixed]),
             Prog::single(Word::InsertHolePostpend),
         ),
         (
             Key::Char('O'),
-            KmapFilter::SelfArity(vec![ArityType::Flexible, ArityType::Mixed]),
+            FilterRule::SelfArity(vec![ArityType::Flexible, ArityType::Mixed]),
             Prog::single(Word::InsertHolePrepend),
         ),
         (
             Key::Char('r'),
-            KmapFilter::Always,
+            FilterRule::Always,
             Prog::named(
                 "Replace",
                 &[
@@ -111,7 +111,7 @@ pub fn make_tree_map<'l>() -> TreeKmapFactory<'l> {
         ),
         (
             Key::Char(' '),
-            KmapFilter::ParentArity(vec![ArityType::Flexible, ArityType::Mixed]),
+            FilterRule::ParentArity(vec![ArityType::Flexible, ArityType::Mixed]),
             Prog::named(
                 "SpeedBoolMode",
                 &[
@@ -122,7 +122,7 @@ pub fn make_tree_map<'l>() -> TreeKmapFactory<'l> {
         ),
         (
             Key::Char('m'),
-            KmapFilter::Always,
+            FilterRule::Always,
             Prog::named(
                 "Mark",
                 &[Word::Literal(Value::Char('m')), Word::SetBookmark],
@@ -130,7 +130,7 @@ pub fn make_tree_map<'l>() -> TreeKmapFactory<'l> {
         ),
         (
             Key::Char('\''),
-            KmapFilter::Always,
+            FilterRule::Always,
             Prog::named(
                 "GotoMark",
                 &[Word::Literal(Value::Char('m')), Word::GotoBookmark],
@@ -144,7 +144,7 @@ pub fn make_speed_bool_map<'l>() -> TreeKmapFactory<'l> {
     TreeKmapFactory::new(vec![
         (
             Key::Char('t'),
-            KmapFilter::ParentArity(vec![ArityType::Flexible, ArityType::Mixed]),
+            FilterRule::ParentArity(vec![ArityType::Flexible, ArityType::Mixed]),
             Prog::named(
                 "True",
                 &[
@@ -157,7 +157,7 @@ pub fn make_speed_bool_map<'l>() -> TreeKmapFactory<'l> {
         ),
         (
             Key::Char('f'),
-            KmapFilter::ParentArity(vec![ArityType::Flexible, ArityType::Mixed]),
+            FilterRule::ParentArity(vec![ArityType::Flexible, ArityType::Mixed]),
             Prog::named(
                 "False",
                 &[
@@ -170,7 +170,7 @@ pub fn make_speed_bool_map<'l>() -> TreeKmapFactory<'l> {
         ),
         (
             Key::Esc,
-            KmapFilter::Always,
+            FilterRule::Always,
             Prog::named("Exit", &[Word::PopMode]),
         ),
     ])
