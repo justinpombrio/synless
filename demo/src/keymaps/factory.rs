@@ -19,7 +19,30 @@ pub struct FilterContext {
     pub self_arity: ArityType,
 }
 
+pub struct TextKeymapFactory<'l>(HashMap<Key, Prog<'l>>);
+
 pub struct TreeKeymapFactory<'l>(HashMap<Key, (FilterRule, Prog<'l>)>);
+
+impl<'l> TextKeymapFactory<'l> {
+    pub fn new(non_literal_keys: HashMap<Key, Prog<'l>>) -> Self {
+        Self(non_literal_keys)
+    }
+
+    pub(super) fn empty() -> Self {
+        Self(HashMap::new())
+    }
+
+    pub(super) fn get<'a>(&'a self, key: &Key) -> Option<&'a Prog<'l>> {
+        self.0.get(key)
+    }
+
+    pub(super) fn keys_and_names<'a>(&'a self) -> Vec<(&'a Key, Option<&'a str>)> {
+        self.0
+            .iter()
+            .map(|(key, prog)| (key, prog.name()))
+            .collect()
+    }
+}
 
 impl<'l> TreeKeymapFactory<'l> {
     pub fn new(v: Vec<(Key, FilterRule, Prog<'l>)>) -> Self {
@@ -30,11 +53,11 @@ impl<'l> TreeKeymapFactory<'l> {
         )
     }
 
-    pub fn get<'a>(&'a self, key: &Key) -> Option<&'a Prog<'l>> {
+    pub(super) fn get<'a>(&'a self, key: &Key) -> Option<&'a Prog<'l>> {
         self.0.get(key).map(|(_filter, prog)| prog)
     }
 
-    pub fn filter<'a>(&'a self, context: &FilterContext) -> Vec<Key> {
+    pub(super) fn filter<'a>(&'a self, context: &FilterContext) -> Vec<Key> {
         self.0
             .iter()
             .filter_map(|(&key, (filter, _))| match filter {

@@ -4,7 +4,7 @@ use termion::event::Key;
 use crate::error::ShellError;
 use crate::prog::{Prog, Value, Word};
 
-use super::factory::{FilterContext, TreeKeymapFactory};
+use super::factory::{FilterContext, TextKeymapFactory, TreeKeymapFactory};
 use super::keymap::{Keymap, Menu, MenuName, Mode, ModeName};
 
 pub struct KeymapManager<'l> {
@@ -12,7 +12,7 @@ pub struct KeymapManager<'l> {
     pub active_menu: Option<MenuName>,
     modes: HashMap<ModeName, Mode<'l>>,
     menus: HashMap<MenuName, Menu<'l>>,
-    text_keymap: HashMap<Key, Prog<'l>>,
+    text_keymap: TextKeymapFactory<'l>,
 }
 
 impl<'l> KeymapManager<'l> {
@@ -22,7 +22,7 @@ impl<'l> KeymapManager<'l> {
             mode_stack: Vec::new(),
             menus: HashMap::new(),
             active_menu: None,
-            text_keymap: HashMap::new(),
+            text_keymap: TextKeymapFactory::empty(),
         }
     }
 
@@ -34,7 +34,7 @@ impl<'l> KeymapManager<'l> {
         self.menus.insert(name.clone(), Menu { factory, name });
     }
 
-    pub fn set_text_keymap(&mut self, text_keymap: HashMap<Key, Prog<'l>>) {
+    pub fn set_text_keymap(&mut self, text_keymap: TextKeymapFactory<'l>) {
         self.text_keymap = text_keymap;
     }
 
@@ -92,11 +92,7 @@ impl<'l> KeymapManager<'l> {
                 .iter()
                 .map(|key| (key, self.menus.get(name).unwrap().get(key).unwrap().name()))
                 .collect(),
-            Keymap::Text => self
-                .text_keymap
-                .iter()
-                .map(|(key, prog)| (key, prog.name()))
-                .collect(),
+            Keymap::Text => self.text_keymap.keys_and_names(),
         };
 
         let mut hints: Vec<_> = keys_and_names

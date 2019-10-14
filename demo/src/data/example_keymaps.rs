@@ -1,10 +1,9 @@
-use std::collections::HashMap;
 use std::iter;
 use termion::event::Key;
 
 use language::{ArityType, Language, LanguageName};
 
-use crate::keymaps::{FilterRule, TreeKeymapFactory};
+use crate::keymaps::{FilterRule, TextKeymapFactory, TreeKeymapFactory};
 use crate::prog::{Prog, Value, Word};
 
 pub fn make_node_map<'l>(lang: &Language) -> TreeKeymapFactory<'l> {
@@ -176,7 +175,7 @@ pub fn make_speed_bool_map<'l>() -> TreeKeymapFactory<'l> {
     ])
 }
 
-pub fn make_text_map<'l>() -> HashMap<Key, Prog<'l>> {
+pub fn make_text_map<'l>() -> TextKeymapFactory<'l> {
     let bindings = vec![
         (Key::Esc, Prog::single(Word::TreeMode)),
         (Key::Up, Prog::single(Word::TreeMode)),
@@ -186,5 +185,5 @@ pub fn make_text_map<'l>() -> HashMap<Key, Prog<'l>> {
         (Key::Delete, Prog::single(Word::DeleteCharForward)),
     ];
 
-    bindings.into_iter().collect()
+    TextKeymapFactory::new(bindings.into_iter().collect())
 }
