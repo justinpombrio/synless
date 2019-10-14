@@ -4,7 +4,7 @@ use termion::event::Key;
 
 use language::{ArityType, Language, LanguageName};
 
-use crate::keymap::{KmapFilter, TreeKmapFactory};
+use crate::keymaps::{KmapFilter, TreeKmapFactory};
 use crate::prog::{Prog, Value, Word};
 
 pub fn make_node_map<'l>(lang: &Language) -> TreeKmapFactory<'l> {

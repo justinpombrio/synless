@@ -6,7 +6,7 @@ use frontends::terminal;
 use language::{ConstructName, LanguageName};
 use pretty::{DocLabel, PaneError};
 
-use crate::keymap::{MenuName, ModeName};
+use crate::keymaps::{MenuName, ModeName};
 
 #[derive(Debug)]
 pub enum ShellError {

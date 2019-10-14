@@ -7,7 +7,7 @@ use pretty::{ColorTheme, DocLabel};
 
 use crate::core_editor::Core;
 use crate::error::ShellError;
-use crate::keymap::{FilterContext, Keymaps, Kmap};
+use crate::keymaps::{FilterContext, KeymapManager, Kmap};
 use crate::prog::{CallStack, DataStack, Prog, Value, Word};
 
 use crate::data::example_keymaps;
@@ -21,7 +21,7 @@ pub struct ShellEditor {
     frontend: Terminal,
     data_stack: DataStack<'static>,
     call_stack: CallStack<'static>,
-    keymaps: Keymaps<'static>,
+    keymaps: KeymapManager<'static>,
 }
 
 impl ShellEditor {
@@ -32,7 +32,7 @@ impl ShellEditor {
             make_message_lang(),
             make_json_lang(),
         )?;
-        let mut keymaps = Keymaps::new();
+        let mut keymaps = KeymapManager::new();
         keymaps.insert_mode("tree".into(), example_keymaps::make_tree_map());
         keymaps.insert_mode("speed_bool".into(), example_keymaps::make_speed_bool_map());
         keymaps.insert_menu(

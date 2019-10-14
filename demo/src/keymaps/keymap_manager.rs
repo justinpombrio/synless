@@ -3,40 +3,11 @@ use termion::event::Key;
 
 use crate::error::ShellError;
 use crate::prog::{Prog, Value, Word};
-use language::{ArityType, Sort};
 
-/// Rules for when a particular item should be included in a keymap
-#[derive(Clone, Debug)]
-pub enum KmapFilter {
-    Always,
-    Sort(Sort),
-    ParentArity(Vec<ArityType>),
-    SelfArity(Vec<ArityType>),
-}
+use super::factory::{FilterContext, TreeKmapFactory};
+use super::keymap::{Kmap, Menu, MenuName, Mode, ModeName};
 
-pub struct FilterContext {
-    pub required_sort: Sort,
-    pub parent_arity: ArityType,
-    pub self_arity: ArityType,
-}
-
-#[derive(Clone, Eq, PartialEq, Hash, Debug)]
-pub struct ModeName(pub String);
-
-#[derive(Clone, Eq, PartialEq, Hash, Debug)]
-pub struct MenuName(pub String);
-
-pub struct Mode<'l> {
-    factory: TreeKmapFactory<'l>,
-    name: ModeName,
-}
-
-pub struct Menu<'l> {
-    factory: TreeKmapFactory<'l>,
-    name: MenuName,
-}
-
-pub struct Keymaps<'l> {
+pub struct KeymapManager<'l> {
     pub mode_stack: Vec<ModeName>,
     pub active_menu: Option<MenuName>,
     modes: HashMap<ModeName, Mode<'l>>,
@@ -44,25 +15,9 @@ pub struct Keymaps<'l> {
     text_keymap: HashMap<Key, Prog<'l>>,
 }
 
-pub struct TreeKmapFactory<'l>(HashMap<Key, (KmapFilter, Prog<'l>)>);
-
-// INVARIANT: The filtered keys must be present in the given mode or menu
-#[derive(Clone)]
-pub enum Kmap {
-    Mode {
-        filtered_keys: Vec<Key>,
-        name: ModeName,
-    },
-    Menu {
-        filtered_keys: Vec<Key>,
-        name: MenuName,
-    },
-    Text,
-}
-
-impl<'l> Keymaps<'l> {
+impl<'l> KeymapManager<'l> {
     pub fn new() -> Self {
-        Keymaps {
+        KeymapManager {
             modes: HashMap::new(),
             mode_stack: Vec::new(),
             menus: HashMap::new(),
@@ -179,86 +134,6 @@ impl<'l> Keymaps<'l> {
     }
 }
 
-impl<'l> Mode<'l> {
-    pub fn get<'a>(&'a self, key: &Key) -> Option<&'a Prog<'l>> {
-        self.factory.get(key)
-    }
-
-    pub fn filter(&self, context: &FilterContext) -> Kmap {
-        Kmap::Mode {
-            filtered_keys: self.factory.filter(context),
-            name: self.name.clone(),
-        }
-    }
-}
-
-impl<'l> Menu<'l> {
-    pub fn get<'a>(&'a self, key: &Key) -> Option<&'a Prog<'l>> {
-        self.factory.get(key)
-    }
-
-    pub fn filter(&self, context: &FilterContext) -> Kmap {
-        Kmap::Menu {
-            filtered_keys: self.factory.filter(context),
-            name: self.name.clone(),
-        }
-    }
-}
-
-impl<'l> TreeKmapFactory<'l> {
-    pub fn new(v: Vec<(Key, KmapFilter, Prog<'l>)>) -> Self {
-        TreeKmapFactory(
-            v.into_iter()
-                .map(|(key, filter, prog)| (key, (filter, prog)))
-                .collect(),
-        )
-    }
-
-    fn get<'a>(&'a self, key: &Key) -> Option<&'a Prog<'l>> {
-        self.0.get(key).map(|(_filter, prog)| prog)
-    }
-
-    fn filter<'a>(&'a self, context: &FilterContext) -> Vec<Key> {
-        self.0
-            .iter()
-            .filter_map(|(&key, (filter, _))| match filter {
-                KmapFilter::Always => Some(key),
-                KmapFilter::Sort(sort) => {
-                    if context.required_sort.accepts(sort) {
-                        Some(key)
-                    } else {
-                        None
-                    }
-                }
-                KmapFilter::ParentArity(arity_types) => {
-                    if arity_types.contains(&context.parent_arity) {
-                        Some(key)
-                    } else {
-                        None
-                    }
-                }
-                KmapFilter::SelfArity(arity_types) => {
-                    if arity_types.contains(&context.self_arity) {
-                        Some(key)
-                    } else {
-                        None
-                    }
-                }
-            })
-            .collect()
-    }
-}
-
-impl Kmap {
-    pub fn name(&self) -> String {
-        match self {
-            Kmap::Menu { name, .. } => name.into(),
-            Kmap::Mode { name, .. } => name.into(),
-            Kmap::Text => "text".into(),
-        }
-    }
-}
-
 fn format_key(key: &Key) -> String {
     match key {
         Key::Backspace => "Bksp".to_string(),
@@ -282,53 +157,5 @@ fn format_key(key: &Key) -> String {
         Key::Null => "Null".to_string(),
         Key::Esc => "Esc".to_string(),
         _ => "(unknown)".to_string(),
-    }
-}
-
-impl From<String> for ModeName {
-    fn from(s: String) -> ModeName {
-        ModeName(s)
-    }
-}
-
-impl<'a> From<&'a str> for ModeName {
-    fn from(s: &'a str) -> ModeName {
-        ModeName(s.to_string())
-    }
-}
-
-impl From<ModeName> for String {
-    fn from(m: ModeName) -> String {
-        m.0
-    }
-}
-
-impl<'a> From<&'a ModeName> for String {
-    fn from(m: &'a ModeName) -> String {
-        m.0.to_owned()
-    }
-}
-
-impl From<String> for MenuName {
-    fn from(s: String) -> MenuName {
-        MenuName(s)
-    }
-}
-
-impl<'a> From<&'a str> for MenuName {
-    fn from(s: &'a str) -> MenuName {
-        MenuName(s.to_string())
-    }
-}
-
-impl From<MenuName> for String {
-    fn from(m: MenuName) -> String {
-        m.0
-    }
-}
-
-impl<'a> From<&'a MenuName> for String {
-    fn from(m: &'a MenuName) -> String {
-        m.0.to_owned()
     }
 }

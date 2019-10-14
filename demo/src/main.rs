@@ -3,7 +3,7 @@ use editor::NotationSet;
 mod core_editor;
 mod data;
 mod error;
-mod keymap;
+mod keymaps;
 mod prog;
 mod shell_editor;
 

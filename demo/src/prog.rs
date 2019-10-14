@@ -3,7 +3,7 @@ use editor::Ast;
 use language::{ConstructName, LanguageName, Sort};
 
 use crate::error::ShellError;
-use crate::keymap::{MenuName, ModeName};
+use crate::keymaps::{MenuName, ModeName};
 
 #[derive(Clone)]
 pub struct Prog<'l> {
