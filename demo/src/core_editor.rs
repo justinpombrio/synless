@@ -3,8 +3,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 
 use editor::{
-    make_json_lang, Ast, AstForest, AstRef, Clipboard, Doc, MetaCommand, NotationSet, TreeCmd,
-    TreeNavCmd,
+    Ast, AstForest, AstRef, Clipboard, Doc, MetaCommand, NotationSet, TreeCmd, TreeNavCmd,
 };
 use forest::Bookmark;
 use frontends::{Frontend, Terminal};
@@ -12,8 +11,6 @@ use language::{Language, LanguageName, LanguageSet};
 use pretty::{DocLabel, Pane, PaneNotation};
 use utility::GrowOnlyMap;
 
-use crate::data::keyhint_lang::make_keyhint_lang;
-use crate::data::message_lang::make_message_lang;
 use crate::error::CoreError;
 
 lazy_static! {
@@ -66,22 +63,12 @@ pub struct Core {
 }
 
 impl Core {
-    pub fn new(pane_notation: PaneNotation) -> Result<Self, CoreError> {
-        // TODO don't hardcode all the languages here.
-        let (json_lang, json_notes) = make_json_lang();
-        let (kmap_lang, kmap_notes) = make_keyhint_lang();
-        let (msg_lang, msg_notes) = make_message_lang();
-        let json_lang_name = json_lang.name().to_owned();
-        let kmap_lang_name = kmap_lang.name().to_owned();
-        let msg_lang_name = msg_lang.name().to_owned();
-
-        LANG_SET.insert(json_lang_name.clone(), json_lang);
-        LANG_SET.insert(kmap_lang_name.clone(), kmap_lang);
-        LANG_SET.insert(msg_lang_name.clone(), msg_lang);
-        NOTE_SETS.insert(json_lang_name.clone(), json_notes);
-        NOTE_SETS.insert(kmap_lang_name.clone(), kmap_notes);
-        NOTE_SETS.insert(msg_lang_name.clone(), msg_notes);
-
+    pub fn new(
+        pane_notation: PaneNotation,
+        keyhint_lang: (Language, NotationSet),
+        message_lang: (Language, NotationSet),
+        active_lang: (Language, NotationSet),
+    ) -> Result<Self, CoreError> {
         let mut core = Core {
             docs: Docs::new(),
             forest: AstForest::new(&LANG_SET),
@@ -89,12 +76,28 @@ impl Core {
             bookmarks: HashMap::new(),
             pane_notation,
         };
-        core.new_doc(DocLabel::KeyHints, "KeyHints", kmap_lang_name.clone())?;
-        core.new_doc(DocLabel::KeymapName, "KeymapName", msg_lang_name.clone())?;
-        core.new_doc(DocLabel::ActiveDoc, "DemoJsonDoc", json_lang_name.clone())?;
-        core.new_doc(DocLabel::Messages, "Messages", msg_lang_name)?;
+        let keyhint_lang_name = core.register_language(keyhint_lang);
+        let message_lang_name = core.register_language(message_lang);
+        let active_lang_name = core.register_language(active_lang);
+
+        core.new_doc(DocLabel::KeyHints, "KeyHints", keyhint_lang_name)?;
+        core.new_doc(
+            DocLabel::KeymapName,
+            "KeymapName",
+            message_lang_name.clone(),
+        )?;
+        core.new_doc(DocLabel::ActiveDoc, "DemoDoc", active_lang_name)?;
+        core.new_doc(DocLabel::Messages, "Messages", message_lang_name)?;
         core.clear_messages()?;
         Ok(core)
+    }
+
+    pub fn register_language(&self, lang_info: (Language, NotationSet)) -> LanguageName {
+        let (lang, notation_set) = lang_info;
+        let name = lang.name().to_owned();
+        LANG_SET.insert(name.clone(), lang);
+        NOTE_SETS.insert(name.clone(), notation_set);
+        name
     }
 
     pub fn active_doc(&self) -> Result<&Doc<'static>, CoreError> {

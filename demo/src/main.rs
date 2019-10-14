@@ -2,7 +2,9 @@ use std::fmt::Debug;
 
 use termion::event::Key;
 
-use editor::{EditorCmd, MetaCommand, NotationSet, TextCmd, TextNavCmd, TreeCmd, TreeNavCmd};
+use editor::{
+    make_json_lang, EditorCmd, MetaCommand, NotationSet, TextCmd, TextNavCmd, TreeCmd, TreeNavCmd,
+};
 use frontends::{Event, Frontend, Terminal};
 use language::Sort;
 use pretty::{Color, ColorTheme, CursorVis, DocLabel, DocPosSpec, PaneNotation, PaneSize, Style};
@@ -14,10 +16,13 @@ mod keymap;
 mod prog;
 
 use core_editor::Core;
-use data::example_keymaps;
 use error::ShellError;
 use keymap::{FilterContext, Keymaps, Kmap};
 use prog::{CallStack, DataStack, Prog, Value, Word};
+
+use data::example_keymaps;
+use data::keyhint_lang::make_keyhint_lang;
+use data::message_lang::make_message_lang;
 
 fn main() -> Result<(), ShellError> {
     let mut ed = Ed::new()?;
@@ -39,7 +44,12 @@ struct Ed {
 
 impl Ed {
     fn new() -> Result<Self, ShellError> {
-        let core = Core::new(demo_pane_notation())?;
+        let core = Core::new(
+            demo_pane_notation(),
+            make_keyhint_lang(),
+            make_message_lang(),
+            make_json_lang(),
+        )?;
         let mut keymaps = Keymaps::new();
         keymaps.insert_mode("tree".into(), example_keymaps::make_tree_map());
         keymaps.insert_mode("speed_bool".into(), example_keymaps::make_speed_bool_map());
