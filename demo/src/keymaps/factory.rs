@@ -4,23 +4,36 @@ use termion::event::Key;
 use crate::prog::Prog;
 use language::{ArityType, Sort};
 
-/// Rules for when a particular item should be included in a keymap
+/// Rules for when a particular item should be included in a keymap.
 #[derive(Clone, Debug)]
 pub enum FilterRule {
+    /// Unconditionally include the item.
     Always,
+    /// Only include the item if the given `Sort` is acceptable in the current position.
     Sort(Sort),
+    /// Only include the item if the arity-type of the current node's parent is contained in the given list.
     ParentArity(Vec<ArityType>),
+    /// Only include the item if the arity-type of the current node is contained in the given list.
     SelfArity(Vec<ArityType>),
 }
 
+/// Information needed to apply a FilterRule, based on the context within a
+/// document.
 pub struct FilterContext {
+    /// The Sort that any node in the current node's position is required to have.
     pub required_sort: Sort,
+    /// The arity of the current node's parent.
     pub parent_arity: ArityType,
+    /// The arity of the current node.
     pub self_arity: ArityType,
 }
 
+/// Stores all the keybindings of a text-keymap, except for keys that just
+/// insert themselves as literal characters.
 pub struct TextKeymapFactory<'l>(HashMap<Key, Prog<'l>>);
 
+/// Stores all the keybindings of a tree-keymap, along with rules for which
+/// keybindings should be available in which contexts.
 pub struct TreeKeymapFactory<'l>(HashMap<Key, (FilterRule, Prog<'l>)>);
 
 impl<'l> TextKeymapFactory<'l> {
@@ -60,30 +73,25 @@ impl<'l> TreeKeymapFactory<'l> {
     pub(super) fn filter<'a>(&'a self, context: &FilterContext) -> Vec<Key> {
         self.0
             .iter()
-            .filter_map(|(&key, (filter, _))| match filter {
-                FilterRule::Always => Some(key),
-                FilterRule::Sort(sort) => {
-                    if context.required_sort.accepts(sort) {
-                        Some(key)
-                    } else {
-                        None
-                    }
-                }
-                FilterRule::ParentArity(arity_types) => {
-                    if arity_types.contains(&context.parent_arity) {
-                        Some(key)
-                    } else {
-                        None
-                    }
-                }
-                FilterRule::SelfArity(arity_types) => {
-                    if arity_types.contains(&context.self_arity) {
-                        Some(key)
-                    } else {
-                        None
-                    }
+            .filter_map(|(&key, (filter, _))| {
+                if filter.matches(context) {
+                    Some(key)
+                } else {
+                    None
                 }
             })
             .collect()
+    }
+}
+
+impl FilterRule {
+    /// True if an item with this filter rule should be included in this context.
+    fn matches(&self, context: &FilterContext) -> bool {
+        match self {
+            FilterRule::Always => true,
+            FilterRule::Sort(sort) => context.required_sort.accepts(sort),
+            FilterRule::ParentArity(arity_types) => arity_types.contains(&context.parent_arity),
+            FilterRule::SelfArity(arity_types) => arity_types.contains(&context.self_arity),
+        }
     }
 }
