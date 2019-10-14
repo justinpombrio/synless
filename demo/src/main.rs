@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::fmt::Debug;
 
 use termion::event::Key;
@@ -18,7 +17,7 @@ mod prog;
 
 use core_editor::Core;
 use error::ShellError;
-use keymap::{FilterContext, Kmap, Menu, MenuName, Mode, ModeName};
+use keymap::{FilterContext, Keymaps, Kmap};
 use prog::{CallStack, DataStack, Prog, Value, Word};
 
 fn main() -> Result<(), ShellError> {
@@ -36,57 +35,27 @@ struct Ed {
     frontend: Terminal,
     data_stack: DataStack<'static>,
     call_stack: CallStack<'static>,
-    keymaps: Keymaps,
-}
-
-struct Keymaps {
-    modes: HashMap<ModeName, Mode<'static>>,
-    mode_stack: Vec<ModeName>,
-    menus: HashMap<MenuName, Menu<'static>>,
-    active_menu: Option<MenuName>,
-    text_keymap: Kmap<'static>,
+    keymaps: Keymaps<'static>,
 }
 
 impl Ed {
     fn new() -> Result<Self, ShellError> {
         let core = Core::new(demo_pane_notation())?;
-
-        let mut modes = HashMap::new();
-        modes.insert(
-            ModeName("tree".to_string()),
-            Mode {
-                factory: demo_keymaps::make_tree_map(),
-            },
+        let mut keymaps = Keymaps::new();
+        keymaps.insert_mode("tree".into(), demo_keymaps::make_tree_map());
+        keymaps.insert_mode("speed_bool".into(), demo_keymaps::make_speed_bool_map());
+        keymaps.insert_menu(
+            "node".into(),
+            demo_keymaps::make_node_map(core.language(core.lang_name_of(&DocLabel::ActiveDoc)?)?),
         );
-        modes.insert(
-            ModeName("speed_bool".to_string()),
-            Mode {
-                factory: demo_keymaps::make_speed_bool_map(),
-            },
-        );
-
-        let mut menus = HashMap::new();
-        menus.insert(
-            MenuName("node".to_string()),
-            Menu {
-                factory: demo_keymaps::make_node_map(
-                    core.language(core.lang_name_of(&DocLabel::ActiveDoc)?)?,
-                ),
-            },
-        );
+        keymaps.set_text_keymap(demo_keymaps::make_text_map());
 
         let mut ed = Ed {
             core,
             frontend: Terminal::new(ColorTheme::default_dark())?,
             data_stack: DataStack::new(),
             call_stack: CallStack::new(),
-            keymaps: Keymaps {
-                modes,
-                mode_stack: Vec::new(),
-                menus,
-                active_menu: None,
-                text_keymap: demo_keymaps::make_text_map(),
-            },
+            keymaps,
         };
 
         // Set initial keymap
@@ -132,9 +101,9 @@ impl Ed {
             self_arity: doc.self_arity_type(),
             parent_arity: doc.parent_arity_type(),
         };
-        let (kmap, kmap_name) = self.keymaps.active_keymap(doc.in_tree_mode(), &context)?;
+        let kmap = self.keymaps.active_keymap(doc.in_tree_mode(), &context)?;
 
-        self.update_key_hints(&kmap, kmap_name)?;
+        self.update_key_hints(&kmap)?;
         self.core.redisplay(&mut self.frontend)?;
         match self.next_event(&kmap) {
             Ok(prog) => {
@@ -147,16 +116,12 @@ impl Ed {
         }
     }
 
-    fn update_key_hints(
-        &mut self,
-        kmap: &Kmap<'static>,
-        description: String,
-    ) -> Result<(), ShellError> {
+    fn update_key_hints(&mut self, kmap: &Kmap) -> Result<(), ShellError> {
         let lang_name = self.core.lang_name_of(&DocLabel::KeyHints)?;
 
         let mut dict_node = self.core.new_node("dict", lang_name)?;
 
-        for (key, prog) in kmap.hints() {
+        for (key, prog) in self.keymaps.hints(kmap) {
             let mut key_node = self.core.new_node("key", lang_name)?;
             key_node.inner().unwrap_text().text_mut(|t| {
                 t.activate();
@@ -195,7 +160,7 @@ impl Ed {
             .new_node_in_doc_lang("message", &DocLabel::KeymapName)?;
         description_node.inner().unwrap_text().text_mut(|t| {
             t.activate();
-            t.set(description);
+            t.set(kmap.name());
             t.inactivate();
         });
         self.core
@@ -203,10 +168,10 @@ impl Ed {
         Ok(())
     }
 
-    fn next_event(&mut self, kmap: &Kmap<'static>) -> Result<Prog<'static>, ShellError> {
+    fn next_event(&mut self, kmap: &Kmap) -> Result<Prog<'static>, ShellError> {
         match self.frontend.next_event() {
             Some(Ok(Event::KeyEvent(Key::Ctrl('c')))) => Err(ShellError::KeyboardInterrupt),
-            Some(Ok(Event::KeyEvent(key))) => kmap.lookup(key),
+            Some(Ok(Event::KeyEvent(key))) => self.keymaps.lookup(key, kmap),
             Some(Err(err)) => Err(err.into()),
             _ => Err(ShellError::UnknownEvent),
         }
@@ -322,34 +287,6 @@ impl Ed {
     {
         self.core.exec(cmd.into())?;
         Ok(())
-    }
-}
-
-impl Keymaps {
-    fn active_keymap(
-        &self,
-        in_tree_mode: bool,
-        context: &FilterContext,
-    ) -> Result<(Kmap<'static>, String), ShellError> {
-        if !in_tree_mode {
-            // TODO avoid cloning every time!
-            Ok((self.text_keymap.clone(), "text".to_string()))
-        } else {
-            if let Some(menu_name) = &self.active_menu {
-                let menu = self
-                    .menus
-                    .get(menu_name)
-                    .ok_or_else(|| ShellError::UnknownMenuName(menu_name.to_owned()))?;
-                Ok((menu.filter(&context), format!("{:?}", menu_name)))
-            } else {
-                let mode_name = self.mode_stack.last().ok_or(ShellError::NoKeymap)?;
-                let mode = self
-                    .modes
-                    .get(mode_name)
-                    .ok_or_else(|| ShellError::UnknownModeName(mode_name.to_owned()))?;
-                Ok((mode.filter(&context), format!("{:?}", mode_name)))
-            }
-        }
     }
 }
 

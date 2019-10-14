@@ -1,13 +1,14 @@
+use std::collections::HashMap;
 use std::iter;
 use termion::event::Key;
 
-use crate::keymap::{Kmap, KmapFilter, TreeKmapFactory};
+use crate::keymap::{KmapFilter, TreeKmapFactory};
 use crate::prog::{Prog, Value, Word};
 
 use language::{ArityType, Language, LanguageName};
 
 pub fn make_node_map<'l>(lang: &Language) -> TreeKmapFactory<'l> {
-    TreeKmapFactory(
+    TreeKmapFactory::new(
         lang.keymap()
             .iter()
             .map(|(&ch, construct_name)| {
@@ -43,7 +44,7 @@ pub fn make_node_map<'l>(lang: &Language) -> TreeKmapFactory<'l> {
 }
 
 pub fn make_tree_map<'l>() -> TreeKmapFactory<'l> {
-    TreeKmapFactory(vec![
+    TreeKmapFactory::new(vec![
         (Key::Char('d'), KmapFilter::Always, Prog::single(Word::Cut)),
         (Key::Char('y'), KmapFilter::Always, Prog::single(Word::Copy)),
         (
@@ -140,7 +141,7 @@ pub fn make_tree_map<'l>() -> TreeKmapFactory<'l> {
 
 pub fn make_speed_bool_map<'l>() -> TreeKmapFactory<'l> {
     let lang: LanguageName = "json".into();
-    TreeKmapFactory(vec![
+    TreeKmapFactory::new(vec![
         (
             Key::Char('t'),
             KmapFilter::ParentArity(vec![ArityType::Flexible, ArityType::Mixed]),
@@ -175,7 +176,7 @@ pub fn make_speed_bool_map<'l>() -> TreeKmapFactory<'l> {
     ])
 }
 
-pub fn make_text_map<'l>() -> Kmap<'l> {
+pub fn make_text_map<'l>() -> HashMap<Key, Prog<'l>> {
     let bindings = vec![
         (Key::Esc, Prog::single(Word::TreeMode)),
         (Key::Up, Prog::single(Word::TreeMode)),
@@ -185,5 +186,5 @@ pub fn make_text_map<'l>() -> Kmap<'l> {
         (Key::Delete, Prog::single(Word::DeleteCharForward)),
     ];
 
-    Kmap::Text(bindings.into_iter().collect())
+    bindings.into_iter().collect()
 }

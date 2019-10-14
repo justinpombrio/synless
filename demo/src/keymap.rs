@@ -27,102 +27,239 @@ pub struct ModeName(pub String);
 pub struct MenuName(pub String);
 
 pub struct Mode<'l> {
-    pub factory: TreeKmapFactory<'l>,
+    factory: TreeKmapFactory<'l>,
+    name: ModeName,
 }
 
 pub struct Menu<'l> {
-    pub factory: TreeKmapFactory<'l>,
+    factory: TreeKmapFactory<'l>,
+    name: MenuName,
 }
 
-impl<'l> Mode<'l> {
-    pub fn filter<'a>(&'a self, context: &FilterContext) -> Kmap<'l> {
-        self.factory.filter(context)
-    }
+pub struct Keymaps<'l> {
+    pub mode_stack: Vec<ModeName>,
+    pub active_menu: Option<MenuName>,
+    modes: HashMap<ModeName, Mode<'l>>,
+    menus: HashMap<MenuName, Menu<'l>>,
+    text_keymap: HashMap<Key, Prog<'l>>,
 }
 
-impl<'l> Menu<'l> {
-    pub fn filter<'a>(&'a self, context: &FilterContext) -> Kmap<'l> {
-        self.factory.filter(context)
-    }
-}
+pub struct TreeKmapFactory<'l>(HashMap<Key, (KmapFilter, Prog<'l>)>);
 
-pub struct TreeKmapFactory<'l>(pub Vec<(Key, KmapFilter, Prog<'l>)>);
-
+// INVARIANT: The filtered keys must be present in the given mode or menu
 #[derive(Clone)]
-pub enum Kmap<'l> {
-    Tree(HashMap<Key, Prog<'l>>),
-    Text(HashMap<Key, Prog<'l>>),
+pub enum Kmap {
+    Mode {
+        filtered_keys: Vec<Key>,
+        name: ModeName,
+    },
+    Menu {
+        filtered_keys: Vec<Key>,
+        name: MenuName,
+    },
+    Text,
 }
 
-impl<'l> TreeKmapFactory<'l> {
-    pub fn filter<'a>(&'a self, context: &FilterContext) -> Kmap<'l> {
-        Kmap::Tree(
-            self.0
-                .iter()
-                .filter_map(|(key, filter, prog)| match filter {
-                    KmapFilter::Always => Some((key, prog)),
-                    KmapFilter::Sort(sort) => {
-                        if context.required_sort == *sort {
-                            Some((key, prog))
-                        } else {
-                            None
-                        }
-                    }
-                    KmapFilter::ParentArity(arity_types) => {
-                        if arity_types.contains(&context.parent_arity) {
-                            Some((key, prog))
-                        } else {
-                            None
-                        }
-                    }
-                    KmapFilter::SelfArity(arity_types) => {
-                        if arity_types.contains(&context.self_arity) {
-                            Some((key, prog))
-                        } else {
-                            None
-                        }
-                    }
-                })
-                .map(|(key, prog)| (key.to_owned(), prog.to_owned()))
-                .collect(),
-        )
+impl<'l> Keymaps<'l> {
+    pub fn new() -> Self {
+        Keymaps {
+            modes: HashMap::new(),
+            mode_stack: Vec::new(),
+            menus: HashMap::new(),
+            active_menu: None,
+            text_keymap: HashMap::new(),
+        }
     }
-}
 
-impl<'l> Kmap<'l> {
-    pub fn lookup(&self, key: Key) -> Result<Prog<'l>, ShellError> {
-        match self {
-            Kmap::Tree(map) => map.get(&key).cloned().ok_or(ShellError::UnknownKey(key)),
-            Kmap::Text(map) => {
-                if let Some(binding) = map.get(&key) {
-                    Ok(binding.to_owned())
+    pub fn insert_mode(&mut self, name: ModeName, factory: TreeKmapFactory<'l>) {
+        self.modes.insert(name.clone(), Mode { factory, name });
+    }
+
+    pub fn insert_menu(&mut self, name: MenuName, factory: TreeKmapFactory<'l>) {
+        self.menus.insert(name.clone(), Menu { factory, name });
+    }
+
+    pub fn set_text_keymap(&mut self, text_keymap: HashMap<Key, Prog<'l>>) {
+        self.text_keymap = text_keymap;
+    }
+
+    pub fn lookup(&self, key: Key, kmap: &Kmap) -> Result<Prog<'l>, ShellError> {
+        let prog = match kmap {
+            Kmap::Mode {
+                filtered_keys,
+                name,
+            } => {
+                if filtered_keys.contains(&key) {
+                    self.modes.get(name).unwrap().get(&key).cloned()
+                } else {
+                    None
+                }
+            }
+            Kmap::Menu {
+                filtered_keys,
+                name,
+            } => {
+                if filtered_keys.contains(&key) {
+                    self.menus.get(name).unwrap().get(&key).cloned()
+                } else {
+                    None
+                }
+            }
+            Kmap::Text => {
+                if let Some(prog) = self.text_keymap.get(&key) {
+                    Some(prog.to_owned())
                 } else if let Key::Char(c) = key {
-                    Ok(Prog::named(
+                    Some(Prog::named(
                         c,
                         &[Word::Literal(Value::Char(c)), Word::InsertChar],
                     ))
                 } else {
-                    Err(ShellError::UnknownKey(key))
+                    None
                 }
             }
-        }
+        };
+        prog.ok_or(ShellError::UnknownKey(key))
     }
 
-    pub fn hints(&self) -> Vec<(String, String)> {
-        match self {
-            Kmap::Tree(map) | Kmap::Text(map) => {
-                let mut v: Vec<_> = map
-                    .iter()
-                    .map(|(key, prog)| (format_key(key), prog.name().unwrap_or("...").to_owned()))
-                    .collect();
-                v.sort_unstable();
-                v
+    pub fn hints(&self, kmap: &Kmap) -> Vec<(String, String)> {
+        let keys_and_names: Vec<(_, _)> = match kmap {
+            Kmap::Mode {
+                filtered_keys,
+                name,
+            } => filtered_keys
+                .iter()
+                .map(|key| (key, self.modes.get(name).unwrap().get(key).unwrap().name()))
+                .collect(),
+            Kmap::Menu {
+                filtered_keys,
+                name,
+            } => filtered_keys
+                .iter()
+                .map(|key| (key, self.menus.get(name).unwrap().get(key).unwrap().name()))
+                .collect(),
+            Kmap::Text => self
+                .text_keymap
+                .iter()
+                .map(|(key, prog)| (key, prog.name()))
+                .collect(),
+        };
+
+        let mut hints: Vec<_> = keys_and_names
+            .into_iter()
+            .map(|(key, name)| (format_key(key), name.unwrap_or("...").to_owned()))
+            .collect();
+        hints.sort_unstable();
+        hints
+    }
+
+    pub fn active_keymap(
+        &self,
+        in_tree_mode: bool,
+        context: &FilterContext,
+    ) -> Result<Kmap, ShellError> {
+        if !in_tree_mode {
+            // TODO avoid cloning every time!
+            Ok(Kmap::Text)
+        } else {
+            if let Some(menu_name) = &self.active_menu {
+                let menu = self
+                    .menus
+                    .get(menu_name)
+                    .ok_or_else(|| ShellError::UnknownMenuName(menu_name.to_owned()))?;
+                Ok(menu.filter(&context))
+            } else {
+                let mode_name = self.mode_stack.last().ok_or(ShellError::NoKeymap)?;
+                let mode = self
+                    .modes
+                    .get(mode_name)
+                    .ok_or_else(|| ShellError::UnknownModeName(mode_name.to_owned()))?;
+                Ok(mode.filter(&context))
             }
         }
     }
 }
 
-pub fn format_key(key: &Key) -> String {
+impl<'l> Mode<'l> {
+    pub fn get<'a>(&'a self, key: &Key) -> Option<&'a Prog<'l>> {
+        self.factory.get(key)
+    }
+
+    pub fn filter(&self, context: &FilterContext) -> Kmap {
+        Kmap::Mode {
+            filtered_keys: self.factory.filter(context),
+            name: self.name.clone(),
+        }
+    }
+}
+
+impl<'l> Menu<'l> {
+    pub fn get<'a>(&'a self, key: &Key) -> Option<&'a Prog<'l>> {
+        self.factory.get(key)
+    }
+
+    pub fn filter(&self, context: &FilterContext) -> Kmap {
+        Kmap::Menu {
+            filtered_keys: self.factory.filter(context),
+            name: self.name.clone(),
+        }
+    }
+}
+
+impl<'l> TreeKmapFactory<'l> {
+    pub fn new(v: Vec<(Key, KmapFilter, Prog<'l>)>) -> Self {
+        TreeKmapFactory(
+            v.into_iter()
+                .map(|(key, filter, prog)| (key, (filter, prog)))
+                .collect(),
+        )
+    }
+
+    fn get<'a>(&'a self, key: &Key) -> Option<&'a Prog<'l>> {
+        self.0.get(key).map(|(_filter, prog)| prog)
+    }
+
+    fn filter<'a>(&'a self, context: &FilterContext) -> Vec<Key> {
+        self.0
+            .iter()
+            .filter_map(|(&key, (filter, _))| match filter {
+                KmapFilter::Always => Some(key),
+                KmapFilter::Sort(sort) => {
+                    if context.required_sort == *sort {
+                        Some(key)
+                    } else {
+                        None
+                    }
+                }
+                KmapFilter::ParentArity(arity_types) => {
+                    if arity_types.contains(&context.parent_arity) {
+                        Some(key)
+                    } else {
+                        None
+                    }
+                }
+                KmapFilter::SelfArity(arity_types) => {
+                    if arity_types.contains(&context.self_arity) {
+                        Some(key)
+                    } else {
+                        None
+                    }
+                }
+            })
+            .collect()
+    }
+}
+
+impl Kmap {
+    pub fn name(&self) -> String {
+        match self {
+            Kmap::Menu { name, .. } => name.into(),
+            Kmap::Mode { name, .. } => name.into(),
+            Kmap::Text => "text".into(),
+        }
+    }
+}
+
+fn format_key(key: &Key) -> String {
     match key {
         Key::Backspace => "Bksp".to_string(),
         Key::Left => "←".to_string(),
@@ -160,6 +297,18 @@ impl<'a> From<&'a str> for ModeName {
     }
 }
 
+impl From<ModeName> for String {
+    fn from(m: ModeName) -> String {
+        m.0
+    }
+}
+
+impl<'a> From<&'a ModeName> for String {
+    fn from(m: &'a ModeName) -> String {
+        m.0.to_owned()
+    }
+}
+
 impl From<String> for MenuName {
     fn from(s: String) -> MenuName {
         MenuName(s)
@@ -169,5 +318,17 @@ impl From<String> for MenuName {
 impl<'a> From<&'a str> for MenuName {
     fn from(s: &'a str) -> MenuName {
         MenuName(s.to_string())
+    }
+}
+
+impl From<MenuName> for String {
+    fn from(m: MenuName) -> String {
+        m.0
+    }
+}
+
+impl<'a> From<&'a MenuName> for String {
+    fn from(m: &'a MenuName) -> String {
+        m.0.to_owned()
     }
 }
