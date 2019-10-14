@@ -4,43 +4,62 @@ use crate::prog::Prog;
 
 use super::factory::{FilterContext, TreeKeymapFactory};
 
-// INVARIANT: The filtered keys must be present in the given mode or menu
+/// A description of which keybindings are available to use, based on the `KeymapManager` state and document context.
 #[derive(Clone)]
 pub enum FilteredKeymap {
+    /// Use this mode for looking up keys.
     Mode {
-        filtered_keys: Vec<Key>,
         name: ModeName,
-    },
-    Menu {
+        /// Which subset of the mode's keys are available.
         filtered_keys: Vec<Key>,
-        name: MenuName,
     },
+    /// Use this menu for looking up keys.
+    Menu {
+        name: MenuName,
+        /// Which subset of the menu's keys are available.
+        filtered_keys: Vec<Key>,
+    },
+    /// Use the one-and-only text keymap for looking up keys.
     Text,
 }
 
-// TODO use constructor instead of pub(super)?
-pub struct Mode<'l> {
+/// A persistent Mode that specifies which keybindings will be available in which contexts.
+/// Only applies when the `Doc` is in tree-mode, not text-mode. (Sorry that
+/// there are two different things here called 'modes'.)
+///
+/// Intended for things like a mode for a specific programming language that
+/// includes some convenient language-specific refactoring commands.
+pub(super) struct Mode<'l> {
     pub(super) factory: TreeKeymapFactory<'l>,
     pub(super) name: ModeName,
 }
 
-pub struct Menu<'l> {
+/// A temporary Menu that specifies which keybindings will be available in which contexts.
+/// Only applies when the `Doc` is in tree-mode, not text-mode.
+///
+/// Intended for things like selecting a node-type from a menu.
+pub(super) struct Menu<'l> {
     pub(super) factory: TreeKeymapFactory<'l>,
     pub(super) name: MenuName,
 }
 
+/// The name of a `Mode`.
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
-pub struct ModeName(pub String);
+pub struct ModeName(String);
 
+/// The name of a `Menu`.
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
-pub struct MenuName(pub String);
+pub struct MenuName(String);
 
 impl<'l> Mode<'l> {
-    pub fn get<'a>(&'a self, key: &Key) -> Option<&'a Prog<'l>> {
+    /// Get the program bound to the given key, if there is one.
+    pub(super) fn get<'a>(&'a self, key: &Key) -> Option<&'a Prog<'l>> {
         self.factory.get(key)
     }
 
-    pub fn filter(&self, context: &FilterContext) -> FilteredKeymap {
+    /// Produce a filtered keymap containing only the keys that would be
+    /// appropriate to use in this context.
+    pub(super) fn filter(&self, context: &FilterContext) -> FilteredKeymap {
         FilteredKeymap::Mode {
             filtered_keys: self.factory.filter(context),
             name: self.name.clone(),
@@ -49,11 +68,14 @@ impl<'l> Mode<'l> {
 }
 
 impl<'l> Menu<'l> {
-    pub fn get<'a>(&'a self, key: &Key) -> Option<&'a Prog<'l>> {
+    /// Get the program bound to the given key, if there is one.
+    pub(super) fn get<'a>(&'a self, key: &Key) -> Option<&'a Prog<'l>> {
         self.factory.get(key)
     }
 
-    pub fn filter(&self, context: &FilterContext) -> FilteredKeymap {
+    /// Produce a filtered keymap containing only the keys that would be
+    /// appropriate to use in this context.
+    pub(super) fn filter(&self, context: &FilterContext) -> FilteredKeymap {
         FilteredKeymap::Menu {
             filtered_keys: self.factory.filter(context),
             name: self.name.clone(),
