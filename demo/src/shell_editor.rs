@@ -1,5 +1,3 @@
-use std::fmt::Debug;
-
 use termion::event::Key;
 
 use editor::{make_json_lang, EditorCmd, MetaCommand, TextCmd, TextNavCmd, TreeCmd, TreeNavCmd};
@@ -71,7 +69,7 @@ impl ShellEditor {
                         self.core.show_message(&format!("Error: {:?}", err))?;
                     }
                 } else {
-                    self.exec(MetaCommand::EndGroup)?;
+                    self.core.exec(MetaCommand::EndGroup)?;
                     self.handle_input()?;
                 }
             }
@@ -213,41 +211,41 @@ impl ShellEditor {
             Word::AnySort => {
                 self.data_stack.push(Value::Sort(Sort::any()));
             }
-            Word::Remove => self.exec(TreeCmd::Remove)?,
-            Word::Clear => self.exec(TreeCmd::Clear)?,
+            Word::Remove => self.core.exec(TreeCmd::Remove)?,
+            Word::Clear => self.core.exec(TreeCmd::Clear)?,
             Word::InsertHoleAfter => {
-                self.exec(TreeCmd::InsertHoleAfter)?;
+                self.core.exec(TreeCmd::InsertHoleAfter)?;
             }
             Word::InsertHoleBefore => {
-                self.exec(TreeCmd::InsertHoleBefore)?;
+                self.core.exec(TreeCmd::InsertHoleBefore)?;
             }
             Word::InsertHolePrepend => {
-                self.exec(TreeCmd::InsertHolePrepend)?;
+                self.core.exec(TreeCmd::InsertHolePrepend)?;
             }
             Word::InsertHolePostpend => {
-                self.exec(TreeCmd::InsertHolePostpend)?;
+                self.core.exec(TreeCmd::InsertHolePostpend)?;
             }
             Word::Replace => {
                 let tree = self.data_stack.pop_tree()?;
-                self.exec(TreeCmd::Replace(tree))?;
+                self.core.exec(TreeCmd::Replace(tree))?;
             }
-            Word::Left => self.exec(TreeNavCmd::Left)?,
-            Word::Right => self.exec(TreeNavCmd::Right)?,
-            Word::Parent => self.exec(TreeNavCmd::Parent)?,
+            Word::Left => self.core.exec(TreeNavCmd::Left)?,
+            Word::Right => self.core.exec(TreeNavCmd::Right)?,
+            Word::Parent => self.core.exec(TreeNavCmd::Parent)?,
             Word::Child => {
                 let index = self.data_stack.pop_usize()?;
-                self.exec(TreeNavCmd::Child(index))?;
+                self.core.exec(TreeNavCmd::Child(index))?;
             }
-            Word::Undo => self.exec(MetaCommand::Undo)?,
-            Word::Redo => self.exec(MetaCommand::Redo)?,
-            Word::Cut => self.exec(EditorCmd::Cut)?,
-            Word::Copy => self.exec(EditorCmd::Copy)?,
-            Word::PasteSwap => self.exec(EditorCmd::PasteSwap)?,
-            Word::PopClipboard => self.exec(EditorCmd::PopClipboard)?,
+            Word::Undo => self.core.exec(MetaCommand::Undo)?,
+            Word::Redo => self.core.exec(MetaCommand::Redo)?,
+            Word::Cut => self.core.exec(EditorCmd::Cut)?,
+            Word::Copy => self.core.exec(EditorCmd::Copy)?,
+            Word::PasteSwap => self.core.exec(EditorCmd::PasteSwap)?,
+            Word::PopClipboard => self.core.exec(EditorCmd::PopClipboard)?,
             Word::GotoBookmark => {
                 let name = self.data_stack.pop_char()?;
                 let mark = self.core.get_bookmark(name)?;
-                self.exec(TreeNavCmd::GotoBookmark(mark))?;
+                self.core.exec(TreeNavCmd::GotoBookmark(mark))?;
             }
             Word::SetBookmark => {
                 let name = self.data_stack.pop_char()?;
@@ -255,21 +253,13 @@ impl ShellEditor {
             }
             Word::InsertChar => {
                 let ch = self.data_stack.pop_char()?;
-                self.exec(TextCmd::InsertChar(ch))?;
+                self.core.exec(TextCmd::InsertChar(ch))?;
             }
-            Word::DeleteCharBackward => self.exec(TextCmd::DeleteCharBackward)?,
-            Word::DeleteCharForward => self.exec(TextCmd::DeleteCharForward)?,
-            Word::TreeMode => self.exec(TextNavCmd::TreeMode)?,
-            Word::TextLeft => self.exec(TextNavCmd::Left)?,
-            Word::TextRight => self.exec(TextNavCmd::Right)?,
+            Word::DeleteCharBackward => self.core.exec(TextCmd::DeleteCharBackward)?,
+            Word::DeleteCharForward => self.core.exec(TextCmd::DeleteCharForward)?,
+            Word::TreeMode => self.core.exec(TextNavCmd::TreeMode)?,
+            Word::TextLeft => self.core.exec(TextNavCmd::Left)?,
+            Word::TextRight => self.core.exec(TextNavCmd::Right)?,
         })
-    }
-
-    fn exec<T>(&mut self, cmd: T) -> Result<(), ShellError>
-    where
-        T: Debug + Into<MetaCommand<'static>>,
-    {
-        self.core.exec(cmd.into())?;
-        Ok(())
     }
 }
