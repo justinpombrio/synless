@@ -224,7 +224,7 @@ impl<'l> TreeKmapFactory<'l> {
             .filter_map(|(&key, (filter, _))| match filter {
                 KmapFilter::Always => Some(key),
                 KmapFilter::Sort(sort) => {
-                    if context.required_sort == *sort {
+                    if context.required_sort.accepts(sort) {
                         Some(key)
                     } else {
                         None
