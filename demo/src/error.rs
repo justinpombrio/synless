@@ -13,7 +13,7 @@ pub enum ShellError {
     UnknownKey(Key),
     UnknownModeName(ModeName),
     UnknownMenuName(MenuName),
-    NoKeymap,
+    NoMode,
     UnknownEvent,
     KeyboardInterrupt,
     ExpectedValue(String),

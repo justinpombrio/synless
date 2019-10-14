@@ -7,11 +7,21 @@ use crate::prog::{Prog, Value, Word};
 use super::factory::{FilterContext, TextKeymapFactory, TreeKeymapFactory};
 use super::keymap::{Keymap, Menu, MenuName, Mode, ModeName};
 
+/// Manage various forms of keymaps
 pub struct KeymapManager<'l> {
+    /// The top of the stack is the current, persistent mode. It's keymap will
+    /// be used whenever the document is in tree-mode and there is no menu
+    /// active.
     mode_stack: Vec<ModeName>,
+    /// If there is an active menu, its keymap will be used instead of the current mode's.
+    /// Menu's are meant to be shortlived (eg. deactivated after a single keypress).
     active_menu: Option<MenuName>,
+    /// All known modes.
     modes: HashMap<ModeName, Mode<'l>>,
+    /// All known menus.
     menus: HashMap<MenuName, Menu<'l>>,
+    /// The one-and-only keymap used for entering text. Maybe we should allow
+    /// multiple text keymaps, someday.
     text_keymap: TextKeymapFactory<'l>,
 }
 
@@ -26,40 +36,57 @@ impl<'l> KeymapManager<'l> {
         }
     }
 
+    /// Register a new mode for later use.
     pub fn register_mode(&mut self, name: ModeName, factory: TreeKeymapFactory<'l>) {
         self.modes.insert(name.clone(), Mode { factory, name });
     }
 
+    /// Register a new menu for later use.
     pub fn register_menu(&mut self, name: MenuName, factory: TreeKeymapFactory<'l>) {
         self.menus.insert(name.clone(), Menu { factory, name });
     }
 
-    pub fn register_text_keymap(&mut self, text_keymap: TextKeymapFactory<'l>) {
+    /// Register a new text keymap for later use. Since we currently only
+    /// support one text keymap at a time, this replaces the existing one.
+    pub fn replace_text_keymap(&mut self, text_keymap: TextKeymapFactory<'l>) {
         self.text_keymap = text_keymap;
     }
 
-    pub fn push_mode(&mut self, name: ModeName) {
-        self.mode_stack.push(name)
+    /// Push this mode onto the stack, making it the current mode. Return an
+    /// error if the mode has not been registered.
+    pub fn push_mode(&mut self, name: ModeName) -> Result<(), ShellError> {
+        if self.modes.contains_key(&name) {
+            self.mode_stack.push(name);
+            Ok(())
+        } else {
+            Err(ShellError::UnknownModeName(name))
+        }
     }
 
+    /// Pop the mode stack, switching back to the previous mode.
     pub fn pop_mode(&mut self) -> Option<ModeName> {
         self.mode_stack.pop()
     }
 
+    /// Activate this menu, temporarily overriding the current mode until it's
+    /// deactivated.
     pub fn activate_menu(&mut self, name: MenuName) {
         self.active_menu = Some(name);
     }
 
+    /// Deactivate the active menu, if there is one.
     pub fn deactivate_menu(&mut self) {
         self.active_menu = None;
     }
 
+    /// True if there is an active menu overriding the current mode.
     pub fn has_active_menu(&self) -> bool {
         self.active_menu.is_some()
     }
 
-    pub fn lookup(&self, key: Key, kmap: &Keymap) -> Result<Prog<'l>, ShellError> {
-        let prog = match kmap {
+    /// Return the program that's mapped to this key in the given keymap, or None if the key isn't found.
+    pub fn lookup(&self, key: Key, keymap: &Keymap) -> Option<Prog<'l>> {
+        match keymap {
             Keymap::Mode {
                 filtered_keys,
                 name,
@@ -92,12 +119,12 @@ impl<'l> KeymapManager<'l> {
                     None
                 }
             }
-        };
-        prog.ok_or(ShellError::UnknownKey(key))
+        }
     }
 
-    pub fn hints(&self, kmap: &Keymap) -> Vec<(String, String)> {
-        let keys_and_names: Vec<(_, _)> = match kmap {
+    /// Return a list of 'key name' and 'program name' pairs for the given keymap.
+    pub fn hints(&self, keymap: &Keymap) -> Vec<(String, String)> {
+        let keys_and_names: Vec<(_, _)> = match keymap {
             Keymap::Mode {
                 filtered_keys,
                 name,
@@ -123,15 +150,15 @@ impl<'l> KeymapManager<'l> {
         hints
     }
 
-    pub fn active_keymap(
+    /// Return the keymap that should be used to lookup keypresses, based on the current state of the
+    /// KeymapManager and the context within a particular document.
+    ///
+    /// If the document is in text-mode, `tree_context` should be None.
+    pub fn get_active_keymap(
         &self,
-        in_tree_mode: bool,
-        context: &FilterContext,
+        tree_context: Option<FilterContext>,
     ) -> Result<Keymap, ShellError> {
-        if !in_tree_mode {
-            // TODO avoid cloning every time!
-            Ok(Keymap::Text)
-        } else {
+        if let Some(context) = tree_context {
             if let Some(menu_name) = &self.active_menu {
                 let menu = self
                     .menus
@@ -139,13 +166,15 @@ impl<'l> KeymapManager<'l> {
                     .ok_or_else(|| ShellError::UnknownMenuName(menu_name.to_owned()))?;
                 Ok(menu.filter(&context))
             } else {
-                let mode_name = self.mode_stack.last().ok_or(ShellError::NoKeymap)?;
+                let mode_name = self.mode_stack.last().ok_or(ShellError::NoMode)?;
                 let mode = self
                     .modes
                     .get(mode_name)
                     .ok_or_else(|| ShellError::UnknownModeName(mode_name.to_owned()))?;
                 Ok(mode.filter(&context))
             }
+        } else {
+            Ok(Keymap::Text)
         }
     }
 }

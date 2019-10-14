@@ -21,7 +21,7 @@ pub struct ShellEditor {
     frontend: Terminal,
     data_stack: DataStack<'static>,
     call_stack: CallStack<'static>,
-    keymaps: KeymapManager<'static>,
+    keymap_manager: KeymapManager<'static>,
 }
 
 impl ShellEditor {
@@ -32,23 +32,23 @@ impl ShellEditor {
             make_message_lang(),
             make_json_lang(),
         )?;
-        let mut keymaps = KeymapManager::new();
-        keymaps.register_mode("tree".into(), example_keymaps::make_tree_map());
-        keymaps.register_mode("speed_bool".into(), example_keymaps::make_speed_bool_map());
-        keymaps.register_menu(
+        let mut keymap_manager = KeymapManager::new();
+        keymap_manager.register_mode("tree".into(), example_keymaps::make_tree_map());
+        keymap_manager.register_mode("speed_bool".into(), example_keymaps::make_speed_bool_map());
+        keymap_manager.register_menu(
             "node".into(),
             example_keymaps::make_node_map(
                 core.language(core.lang_name_of(&DocLabel::ActiveDoc)?)?,
             ),
         );
-        keymaps.register_text_keymap(example_keymaps::make_text_map());
+        keymap_manager.replace_text_keymap(example_keymaps::make_text_map());
 
         let mut ed = ShellEditor {
             core,
             frontend: Terminal::new(ColorTheme::default_dark())?,
             data_stack: DataStack::new(),
             call_stack: CallStack::new(),
-            keymaps,
+            keymap_manager,
         };
 
         // Set initial keymap
@@ -61,7 +61,7 @@ impl ShellEditor {
 
     pub fn run(&mut self) -> Result<(), ShellError> {
         loop {
-            if self.keymaps.has_active_menu() {
+            if self.keymap_manager.has_active_menu() {
                 self.handle_input()?;
             } else {
                 if let Some(word) = self.call_stack.next() {
@@ -78,19 +78,23 @@ impl ShellEditor {
 
     fn handle_input(&mut self) -> Result<(), ShellError> {
         let doc = self.core.active_doc()?;
-        let context = FilterContext {
-            required_sort: doc.self_sort(),
-            self_arity: doc.self_arity_type(),
-            parent_arity: doc.parent_arity_type(),
+        let tree_context = if doc.in_tree_mode() {
+            Some(FilterContext {
+                required_sort: doc.self_sort(),
+                self_arity: doc.self_arity_type(),
+                parent_arity: doc.parent_arity_type(),
+            })
+        } else {
+            None
         };
-        let kmap = self.keymaps.active_keymap(doc.in_tree_mode(), &context)?;
+        let kmap = self.keymap_manager.get_active_keymap(tree_context)?;
 
         self.update_key_hints(&kmap)?;
         self.core.redisplay(&mut self.frontend)?;
         match self.next_event(&kmap) {
             Ok(prog) => {
                 self.call_stack.push(prog);
-                self.keymaps.deactivate_menu();
+                self.keymap_manager.deactivate_menu();
                 Ok(())
             }
             Err(ShellError::KeyboardInterrupt) => Err(ShellError::KeyboardInterrupt),
@@ -103,7 +107,7 @@ impl ShellEditor {
 
         let mut dict_node = self.core.new_node("dict", lang_name)?;
 
-        for (key, prog) in self.keymaps.hints(kmap) {
+        for (key, prog) in self.keymap_manager.hints(kmap) {
             let mut key_node = self.core.new_node("key", lang_name)?;
             key_node.inner().unwrap_text().text_mut(|t| {
                 t.activate();
@@ -153,7 +157,10 @@ impl ShellEditor {
     fn next_event(&mut self, kmap: &Keymap) -> Result<Prog<'static>, ShellError> {
         match self.frontend.next_event() {
             Some(Ok(Event::KeyEvent(Key::Ctrl('c')))) => Err(ShellError::KeyboardInterrupt),
-            Some(Ok(Event::KeyEvent(key))) => self.keymaps.lookup(key, kmap),
+            Some(Ok(Event::KeyEvent(key))) => self
+                .keymap_manager
+                .lookup(key, kmap)
+                .ok_or_else(|| ShellError::UnknownKey(key)),
             Some(Err(err)) => Err(err.into()),
             _ => Err(ShellError::UnknownEvent),
         }
@@ -183,18 +190,18 @@ impl ShellEditor {
             }
             Word::PushMode => {
                 let name = self.data_stack.pop_mode_name()?;
-                self.keymaps.push_mode(name);
+                self.keymap_manager.push_mode(name)?;
             }
             Word::PopMode => {
-                self.keymaps.pop_mode();
+                self.keymap_manager.pop_mode();
             }
             Word::ActivateMenu => {
                 let name = self.data_stack.pop_menu_name()?;
-                if self.keymaps.has_active_menu() {
+                if self.keymap_manager.has_active_menu() {
                     // TODO decide how to handle this
                     panic!("Another menu is already active");
                 }
-                self.keymaps.activate_menu(name);
+                self.keymap_manager.activate_menu(name);
             }
             Word::ChildSort => {
                 self.data_stack
