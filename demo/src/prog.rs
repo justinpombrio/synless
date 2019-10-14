@@ -3,6 +3,7 @@ use editor::Ast;
 use language::{ConstructName, LanguageName, Sort};
 
 use crate::error::ShellError;
+use crate::keymap::{MenuName, ModeName};
 
 #[derive(Clone)]
 pub struct Prog<'l> {
@@ -16,19 +17,14 @@ pub struct DataStack<'l>(Vec<Value<'l>>);
 
 pub struct CallStack<'l>(Vec<Prog<'l>>);
 
-#[derive(Clone, Debug)]
-pub struct KmapSpec {
-    pub name: String,
-    pub required_sort: Sort,
-}
-
 #[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub enum Value<'l> {
     Tree(Ast<'l>),
     Usize(usize),
     Char(char),
-    MapName(String),
+    ModeName(ModeName),
+    MenuName(MenuName),
     Sort(Sort),
     LangConstruct(LanguageName, ConstructName),
     Message(String),
@@ -45,8 +41,9 @@ pub enum Word<'l> {
     Literal(Value<'l>),
 
     // editor-specific:
-    PushMap,
-    PopMap,
+    PushMode,
+    PopMode,
+    ActivateMenu,
     SelfSort,
     ChildSort,
     SiblingSort,
@@ -186,19 +183,19 @@ impl<'l> DataStack<'l> {
         }
     }
 
-    pub fn pop_map_name(&mut self) -> Result<String, ShellError> {
-        if let Value::MapName(s) = self.pop()? {
+    pub fn pop_mode_name(&mut self) -> Result<ModeName, ShellError> {
+        if let Value::ModeName(s) = self.pop()? {
             Ok(s)
         } else {
-            Err(ShellError::ExpectedValue("MapName".into()))
+            Err(ShellError::ExpectedValue("ModeName".into()))
         }
     }
 
-    pub fn pop_sort(&mut self) -> Result<Sort, ShellError> {
-        if let Value::Sort(s) = self.pop()? {
+    pub fn pop_menu_name(&mut self) -> Result<MenuName, ShellError> {
+        if let Value::MenuName(s) = self.pop()? {
             Ok(s)
         } else {
-            Err(ShellError::ExpectedValue("Sort".into()))
+            Err(ShellError::ExpectedValue("MenuName".into()))
         }
     }
 

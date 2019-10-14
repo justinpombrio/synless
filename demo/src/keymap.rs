@@ -3,8 +3,7 @@ use termion::event::Key;
 
 use crate::error::ShellError;
 use crate::prog::{Prog, Value, Word};
-use editor::AstRef;
-use language::{Arity, Sort};
+use language::{ArityType, Sort};
 
 /// Rules for when a particular item should be included in a keymap
 #[derive(Clone, Debug)]
@@ -15,14 +14,36 @@ pub enum KmapFilter {
     SelfArity(Vec<ArityType>),
 }
 
-/// Like `Arity`, but without any data in the variants.
-#[derive(Clone, Copy, Debug)]
-#[allow(dead_code)]
-pub enum ArityType {
-    Text,
-    Fixed,
-    Flexible,
-    Mixed,
+pub struct FilterContext {
+    pub required_sort: Sort,
+    pub parent_arity: ArityType,
+    pub self_arity: ArityType,
+}
+
+#[derive(Clone, Eq, PartialEq, Hash, Debug)]
+pub struct ModeName(pub String);
+
+#[derive(Clone, Eq, PartialEq, Hash, Debug)]
+pub struct MenuName(pub String);
+
+pub struct Mode<'l> {
+    pub factory: TreeKmapFactory<'l>,
+}
+
+pub struct Menu<'l> {
+    pub factory: TreeKmapFactory<'l>,
+}
+
+impl<'l> Mode<'l> {
+    pub fn filter<'a>(&'a self, context: &FilterContext) -> Kmap<'l> {
+        self.factory.filter(context)
+    }
+}
+
+impl<'l> Menu<'l> {
+    pub fn filter<'a>(&'a self, context: &FilterContext) -> Kmap<'l> {
+        self.factory.filter(context)
+    }
 }
 
 pub struct TreeKmapFactory<'l>(pub Vec<(Key, KmapFilter, Prog<'l>)>);
@@ -34,35 +55,32 @@ pub enum Kmap<'l> {
 }
 
 impl<'l> TreeKmapFactory<'l> {
-    pub fn filter<'a>(&'a self, ast: AstRef<'a, 'l>, required_sort: &Sort) -> Kmap<'l> {
+    pub fn filter<'a>(&'a self, context: &FilterContext) -> Kmap<'l> {
         Kmap::Tree(
             self.0
                 .iter()
                 .filter_map(|(key, filter, prog)| match filter {
                     KmapFilter::Always => Some((key, prog)),
                     KmapFilter::Sort(sort) => {
-                        if required_sort.accepts(sort) {
+                        if context.required_sort == *sort {
                             Some((key, prog))
                         } else {
                             None
                         }
                     }
                     KmapFilter::ParentArity(arity_types) => {
-                        let (parent, _) = ast.parent()?;
-                        for arity_type in arity_types {
-                            if arity_type.is_type_of(parent.arity()) {
-                                return Some((key, prog));
-                            }
+                        if arity_types.contains(&context.parent_arity) {
+                            Some((key, prog))
+                        } else {
+                            None
                         }
-                        None
                     }
                     KmapFilter::SelfArity(arity_types) => {
-                        for arity_type in arity_types {
-                            if arity_type.is_type_of(ast.arity()) {
-                                return Some((key, prog));
-                            }
+                        if arity_types.contains(&context.self_arity) {
+                            Some((key, prog))
+                        } else {
+                            None
                         }
-                        None
                     }
                 })
                 .map(|(key, prog)| (key.to_owned(), prog.to_owned()))
@@ -104,18 +122,6 @@ impl<'l> Kmap<'l> {
     }
 }
 
-impl ArityType {
-    fn is_type_of(self, arity: Arity) -> bool {
-        match (self, arity) {
-            (ArityType::Flexible, Arity::Flexible(..)) => true,
-            (ArityType::Fixed, Arity::Fixed(..)) => true,
-            (ArityType::Text, Arity::Text) => true,
-            (ArityType::Mixed, Arity::Mixed(..)) => true,
-            _ => false,
-        }
-    }
-}
-
 pub fn format_key(key: &Key) -> String {
     match key {
         Key::Backspace => "Bksp".to_string(),
@@ -139,5 +145,29 @@ pub fn format_key(key: &Key) -> String {
         Key::Null => "Null".to_string(),
         Key::Esc => "Esc".to_string(),
         _ => "(unknown)".to_string(),
+    }
+}
+
+impl From<String> for ModeName {
+    fn from(s: String) -> ModeName {
+        ModeName(s)
+    }
+}
+
+impl<'a> From<&'a str> for ModeName {
+    fn from(s: &'a str) -> ModeName {
+        ModeName(s.to_string())
+    }
+}
+
+impl From<String> for MenuName {
+    fn from(s: String) -> MenuName {
+        MenuName(s)
+    }
+}
+
+impl<'a> From<&'a str> for MenuName {
+    fn from(s: &'a str) -> MenuName {
+        MenuName(s.to_string())
     }
 }

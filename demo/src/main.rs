@@ -18,8 +18,8 @@ mod prog;
 
 use core_editor::Core;
 use error::ShellError;
-use keymap::{Kmap, TreeKmapFactory};
-use prog::{CallStack, DataStack, KmapSpec, Prog, Value, Word};
+use keymap::{FilterContext, Kmap, Menu, MenuName, Mode, ModeName};
+use prog::{CallStack, DataStack, Prog, Value, Word};
 
 fn main() -> Result<(), ShellError> {
     let mut ed = Ed::new()?;
@@ -36,23 +36,39 @@ struct Ed {
     frontend: Terminal,
     data_stack: DataStack<'static>,
     call_stack: CallStack<'static>,
-    tree_keymaps: HashMap<String, TreeKmapFactory<'static>>,
-    tree_keymap_stack: Vec<KmapSpec>,
+    modes: HashMap<ModeName, Mode<'static>>,
+    mode_stack: Vec<ModeName>,
+    menus: HashMap<MenuName, Menu<'static>>,
+    active_menu: Option<MenuName>,
     text_keymap: Kmap<'static>,
 }
 
 impl Ed {
     fn new() -> Result<Self, ShellError> {
         let core = Core::new(demo_pane_notation())?;
-        let mut tree_keymaps = HashMap::new();
-        tree_keymaps.insert("tree".to_string(), demo_keymaps::make_tree_map());
-        tree_keymaps.insert(
-            "speed_bool".to_string(),
-            demo_keymaps::make_speed_bool_map(),
+
+        let mut modes = HashMap::new();
+        modes.insert(
+            ModeName("tree".to_string()),
+            Mode {
+                factory: demo_keymaps::make_tree_map(),
+            },
         );
-        tree_keymaps.insert(
-            "node".to_string(),
-            demo_keymaps::make_node_map(core.language(core.lang_name_of(&DocLabel::ActiveDoc)?)?),
+        modes.insert(
+            ModeName("speed_bool".to_string()),
+            Mode {
+                factory: demo_keymaps::make_speed_bool_map(),
+            },
+        );
+
+        let mut menus = HashMap::new();
+        menus.insert(
+            MenuName("node".to_string()),
+            Menu {
+                factory: demo_keymaps::make_node_map(
+                    core.language(core.lang_name_of(&DocLabel::ActiveDoc)?)?,
+                ),
+            },
         );
 
         let mut ed = Ed {
@@ -60,15 +76,16 @@ impl Ed {
             frontend: Terminal::new(ColorTheme::default_dark())?,
             data_stack: DataStack::new(),
             call_stack: CallStack::new(),
-            tree_keymaps,
+            modes,
+            mode_stack: Vec::new(),
+            menus,
+            active_menu: None,
             text_keymap: demo_keymaps::make_text_map(),
-            tree_keymap_stack: Vec::new(),
         };
 
         // Set initial keymap
-        ed.call(Word::Literal(Value::MapName("tree".into())))?;
-        ed.call(Word::AnySort)?;
-        ed.call(Word::PushMap)?;
+        ed.call(Word::Literal(Value::ModeName("tree".into())))?;
+        ed.call(Word::PushMode)?;
 
         // Add an empty list to the document
         ed.call(Word::Literal(Value::LangConstruct(
@@ -89,18 +106,32 @@ impl Ed {
         self.update_key_hints()?;
         self.core.redisplay(&mut self.frontend)?;
         loop {
-            if let Some(word) = self.call_stack.next() {
-                if let Err(err) = self.call(word) {
-                    self.core.show_message(&format!("Error: {:?}", err))?;
-                }
-            } else {
+            // TODO don't repeat code
+            if self.active_menu.is_some() {
                 self.update_key_hints()?;
                 self.core.redisplay(&mut self.frontend)?;
-                self.exec(MetaCommand::EndGroup)?;
                 match self.handle_event() {
-                    Ok(prog) => self.call_stack.push(prog),
+                    Ok(prog) => {
+                        self.call_stack.push(prog);
+                        self.active_menu = None;
+                    }
                     Err(ShellError::KeyboardInterrupt) => Err(ShellError::KeyboardInterrupt)?,
                     Err(err) => self.core.show_message(&format!("Error: {:?}", err))?,
+                }
+            } else {
+                if let Some(word) = self.call_stack.next() {
+                    if let Err(err) = self.call(word) {
+                        self.core.show_message(&format!("Error: {:?}", err))?;
+                    }
+                } else {
+                    self.update_key_hints()?;
+                    self.core.redisplay(&mut self.frontend)?;
+                    self.exec(MetaCommand::EndGroup)?;
+                    match self.handle_event() {
+                        Ok(prog) => self.call_stack.push(prog),
+                        Err(ShellError::KeyboardInterrupt) => Err(ShellError::KeyboardInterrupt)?,
+                        Err(err) => self.core.show_message(&format!("Error: {:?}", err))?,
+                    }
                 }
             }
         }
@@ -108,14 +139,26 @@ impl Ed {
 
     fn active_keymap(&self) -> Result<Kmap<'static>, ShellError> {
         if self.core.active_doc()?.in_tree_mode() {
-            let kmap = self.tree_keymap_stack.last().ok_or(ShellError::NoKeymap)?;
-
-            // TODO pass context struct to filter instead of entire ast!
-            Ok(self
-                .tree_keymaps
-                .get(&kmap.name)
-                .ok_or_else(|| ShellError::UnknownKeymap(kmap.name.to_owned()))?
-                .filter(self.core.active_doc()?.ast_ref(), &kmap.required_sort))
+            let doc = self.core.active_doc()?;
+            let context = FilterContext {
+                required_sort: doc.self_sort(),
+                self_arity: doc.self_arity_type(),
+                parent_arity: doc.parent_arity_type(),
+            };
+            if let Some(menu_name) = &self.active_menu {
+                let menu = self
+                    .menus
+                    .get(menu_name)
+                    .ok_or_else(|| ShellError::UnknownMenuName(menu_name.to_owned()))?;
+                Ok(menu.filter(&context))
+            } else {
+                let mode_name = self.mode_stack.last().ok_or(ShellError::NoKeymap)?;
+                let mode = self
+                    .modes
+                    .get(mode_name)
+                    .ok_or_else(|| ShellError::UnknownModeName(mode_name.to_owned()))?;
+                Ok(mode.filter(&context))
+            }
         } else {
             // TODO avoid cloning every time!
             Ok(self.text_keymap.clone())
@@ -163,11 +206,11 @@ impl Ed {
 
         let kmap_name = if self.core.active_doc()?.in_tree_mode() {
             let mut s = String::new();
-            for (i, spec) in self.tree_keymap_stack.iter().enumerate() {
+            for (i, mode_name) in self.mode_stack.iter().enumerate() {
                 if i != 0 {
                     s += "→";
                 }
-                s += &spec.name;
+                s += &mode_name.0;
             }
             s
         } else {
@@ -219,16 +262,20 @@ impl Ed {
                 let node = self.core.new_node(&construct_name, &lang_name)?;
                 self.data_stack.push(Value::Tree(node));
             }
-            Word::PushMap => {
-                let sort = self.data_stack.pop_sort()?;
-                let name = self.data_stack.pop_map_name()?;
-                self.tree_keymap_stack.push(KmapSpec {
-                    name,
-                    required_sort: sort,
-                });
+            Word::PushMode => {
+                let name = self.data_stack.pop_mode_name()?;
+                self.mode_stack.push(name);
             }
-            Word::PopMap => {
-                self.tree_keymap_stack.pop();
+            Word::PopMode => {
+                self.mode_stack.pop();
+            }
+            Word::ActivateMenu => {
+                let name = self.data_stack.pop_menu_name()?;
+                if self.active_menu.is_some() {
+                    // TODO decide how to handle this
+                    panic!("Another menu is already active");
+                }
+                self.active_menu = Some(name);
             }
             Word::ChildSort => {
                 self.data_stack

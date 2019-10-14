@@ -6,10 +6,13 @@ use frontends::terminal;
 use language::{ConstructName, LanguageName};
 use pretty::{DocLabel, PaneError};
 
+use crate::keymap::{MenuName, ModeName};
+
 #[derive(Debug)]
 pub enum ShellError {
     UnknownKey(Key),
-    UnknownKeymap(String),
+    UnknownModeName(ModeName),
+    UnknownMenuName(MenuName),
     NoKeymap,
     UnknownEvent,
     KeyboardInterrupt,
