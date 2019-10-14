@@ -2,5 +2,6 @@
 // hardcoded in rust.
 
 pub mod example_keymaps;
+pub mod example_pane_notation;
 pub mod keyhint_lang;
 pub mod message_lang;
