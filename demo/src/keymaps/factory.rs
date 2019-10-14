@@ -19,11 +19,11 @@ pub struct FilterContext {
     pub self_arity: ArityType,
 }
 
-pub struct TreeKmapFactory<'l>(HashMap<Key, (FilterRule, Prog<'l>)>);
+pub struct TreeKeymapFactory<'l>(HashMap<Key, (FilterRule, Prog<'l>)>);
 
-impl<'l> TreeKmapFactory<'l> {
+impl<'l> TreeKeymapFactory<'l> {
     pub fn new(v: Vec<(Key, FilterRule, Prog<'l>)>) -> Self {
-        TreeKmapFactory(
+        Self(
             v.into_iter()
                 .map(|(key, filter, prog)| (key, (filter, prog)))
                 .collect(),

@@ -4,11 +4,11 @@ use termion::event::Key;
 
 use language::{ArityType, Language, LanguageName};
 
-use crate::keymaps::{FilterRule, TreeKmapFactory};
+use crate::keymaps::{FilterRule, TreeKeymapFactory};
 use crate::prog::{Prog, Value, Word};
 
-pub fn make_node_map<'l>(lang: &Language) -> TreeKmapFactory<'l> {
-    TreeKmapFactory::new(
+pub fn make_node_map<'l>(lang: &Language) -> TreeKeymapFactory<'l> {
+    TreeKeymapFactory::new(
         lang.keymap()
             .iter()
             .map(|(&ch, construct_name)| {
@@ -43,8 +43,8 @@ pub fn make_node_map<'l>(lang: &Language) -> TreeKmapFactory<'l> {
     )
 }
 
-pub fn make_tree_map<'l>() -> TreeKmapFactory<'l> {
-    TreeKmapFactory::new(vec![
+pub fn make_tree_map<'l>() -> TreeKeymapFactory<'l> {
+    TreeKeymapFactory::new(vec![
         (Key::Char('d'), FilterRule::Always, Prog::single(Word::Cut)),
         (Key::Char('y'), FilterRule::Always, Prog::single(Word::Copy)),
         (
@@ -139,9 +139,9 @@ pub fn make_tree_map<'l>() -> TreeKmapFactory<'l> {
     ])
 }
 
-pub fn make_speed_bool_map<'l>() -> TreeKmapFactory<'l> {
+pub fn make_speed_bool_map<'l>() -> TreeKeymapFactory<'l> {
     let lang: LanguageName = "json".into();
-    TreeKmapFactory::new(vec![
+    TreeKeymapFactory::new(vec![
         (
             Key::Char('t'),
             FilterRule::ParentArity(vec![ArityType::Flexible, ArityType::Mixed]),

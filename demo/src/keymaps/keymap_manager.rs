@@ -4,7 +4,7 @@ use termion::event::Key;
 use crate::error::ShellError;
 use crate::prog::{Prog, Value, Word};
 
-use super::factory::{FilterContext, TreeKmapFactory};
+use super::factory::{FilterContext, TreeKeymapFactory};
 use super::keymap::{Keymap, Menu, MenuName, Mode, ModeName};
 
 pub struct KeymapManager<'l> {
@@ -26,11 +26,11 @@ impl<'l> KeymapManager<'l> {
         }
     }
 
-    pub fn insert_mode(&mut self, name: ModeName, factory: TreeKmapFactory<'l>) {
+    pub fn insert_mode(&mut self, name: ModeName, factory: TreeKeymapFactory<'l>) {
         self.modes.insert(name.clone(), Mode { factory, name });
     }
 
-    pub fn insert_menu(&mut self, name: MenuName, factory: TreeKmapFactory<'l>) {
+    pub fn insert_menu(&mut self, name: MenuName, factory: TreeKeymapFactory<'l>) {
         self.menus.insert(name.clone(), Menu { factory, name });
     }
 

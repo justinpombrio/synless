@@ -2,7 +2,7 @@ use termion::event::Key;
 
 use crate::prog::Prog;
 
-use super::factory::{FilterContext, TreeKmapFactory};
+use super::factory::{FilterContext, TreeKeymapFactory};
 
 // INVARIANT: The filtered keys must be present in the given mode or menu
 #[derive(Clone)]
@@ -20,12 +20,12 @@ pub enum Keymap {
 
 // TODO use constructor instead of pub(super)?
 pub struct Mode<'l> {
-    pub(super) factory: TreeKmapFactory<'l>,
+    pub(super) factory: TreeKeymapFactory<'l>,
     pub(super) name: ModeName,
 }
 
 pub struct Menu<'l> {
-    pub(super) factory: TreeKmapFactory<'l>,
+    pub(super) factory: TreeKeymapFactory<'l>,
     pub(super) name: MenuName,
 }
 
