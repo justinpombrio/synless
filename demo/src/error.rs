@@ -1,5 +1,5 @@
+use frontends::Key;
 use std::io;
-use termion::event::Key;
 
 use editor::DocError;
 use frontends::terminal;

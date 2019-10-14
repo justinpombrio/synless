@@ -4,6 +4,7 @@ use std::io;
 pub enum Error {
     Io(io::Error),
     OutOfBounds,
+    UnknownKey,
 }
 
 impl From<io::Error> for Error {

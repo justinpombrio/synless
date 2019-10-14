@@ -1,7 +1,5 @@
-use termion::event::Key;
-
 use editor::{make_json_lang, EditorCmd, MetaCommand, TextCmd, TextNavCmd, TreeCmd, TreeNavCmd};
-use frontends::{Event, Frontend, Terminal};
+use frontends::{Event, Frontend, Key, Terminal};
 use language::Sort;
 use pretty::{ColorTheme, DocLabel};
 

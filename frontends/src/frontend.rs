@@ -1,13 +1,13 @@
 use pretty::{ColorTheme, Pane, PaneError, Pos, PrettyWindow};
 
-pub use termion::event::Key;
+pub use super::key::Key;
 
 // TODO: mouse events
 
 /// An input event.
 pub enum Event {
     /// A key was pressed down.
-    KeyEvent(Key), // termion key. TODO: don't have trait depend on termion
+    KeyEvent(Key),
     /// The left mouse button was pressed at the given character
     /// position (relative to the terminal window).
     MouseEvent(Pos),

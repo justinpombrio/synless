@@ -5,6 +5,7 @@ mod term_error;
 use screen_buf::{ScreenBuf, ScreenOp};
 pub use term_error::Error;
 
+use std::convert::TryFrom;
 use std::fmt::Display;
 use std::io::{self, stdin, stdout, Stdin, Stdout, Write};
 
@@ -21,7 +22,7 @@ use pretty::{
     Style,
 };
 
-use crate::frontend::{Event, Frontend};
+use crate::frontend::{Event, Frontend, Key};
 
 use self::Event::{KeyEvent, MouseEvent};
 
@@ -141,7 +142,11 @@ impl Frontend for Terminal {
 
     fn next_event(&mut self) -> Option<Result<Event, Error>> {
         match self.events.next() {
-            Some(Ok(event::Event::Key(key))) => Some(Ok(KeyEvent(key))),
+            Some(Ok(event::Event::Key(termion_key))) => Some(match Key::try_from(termion_key) {
+                Ok(key) => Ok(KeyEvent(key)),
+                Err(()) => Err(Error::UnknownKey),
+            }),
+
             Some(Ok(event::Event::Mouse(event::MouseEvent::Press(
                 event::MouseButton::Left,
                 x,

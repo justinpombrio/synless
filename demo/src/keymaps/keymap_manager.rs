@@ -1,5 +1,5 @@
+use frontends::Key;
 use std::collections::HashMap;
-use termion::event::Key;
 
 use crate::error::ShellError;
 use crate::prog::{Prog, Value, Word};
@@ -201,6 +201,5 @@ fn format_key(key: &Key) -> String {
         Key::Ctrl(c) => format!("C-{}", c),
         Key::Null => "Null".to_string(),
         Key::Esc => "Esc".to_string(),
-        _ => "(unknown)".to_string(),
     }
 }

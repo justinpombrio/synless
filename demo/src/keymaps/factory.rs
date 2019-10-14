@@ -1,5 +1,5 @@
+use frontends::Key;
 use std::collections::HashMap;
-use termion::event::Key;
 
 use crate::prog::Prog;
 use language::{ArityType, Sort};

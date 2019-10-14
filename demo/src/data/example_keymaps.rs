@@ -1,5 +1,5 @@
+use frontends::Key;
 use std::iter;
-use termion::event::Key;
 
 use language::{ArityType, Language, LanguageName};
 

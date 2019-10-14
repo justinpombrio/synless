@@ -1,4 +1,4 @@
-use termion::event::Key;
+use frontends::Key;
 
 use crate::prog::Prog;
 
