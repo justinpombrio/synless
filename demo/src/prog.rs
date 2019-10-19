@@ -14,10 +14,8 @@ pub struct Prog<'l> {
 }
 
 pub struct DataStack<'l>(Vec<Value<'l>>);
-
 pub struct CallStack<'l>(Vec<Prog<'l>>);
 
-#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub enum Value<'l> {
     Tree(Ast<'l>),
@@ -127,6 +125,12 @@ impl<'l> Prog<'l> {
     }
 }
 
+impl<'l> Word<'l> {
+    pub fn quote(self) -> Self {
+        Word::Literal(Value::Quote(Box::new(self)))
+    }
+}
+
 impl<'l> From<Word<'l>> for Prog<'l> {
     fn from(word: Word<'l>) -> Prog<'l> {
         Prog {
@@ -137,6 +141,7 @@ impl<'l> From<Word<'l>> for Prog<'l> {
 }
 
 impl<'l> CallStack<'l> {
+    /// Construct a new empty callstack.
     pub fn new() -> Self {
         Self(Vec::new())
     }
@@ -167,18 +172,24 @@ impl<'l> CallStack<'l> {
 }
 
 impl<'l> DataStack<'l> {
+    /// Construct a new empty data stack.
     pub fn new() -> Self {
         Self(Vec::new())
     }
 
+    /// Push this value onto the data stack.
     pub fn push(&mut self, value: Value<'l>) {
         self.0.push(value);
     }
 
+    /// Pop a value from the data stack, returning it. If the stack is empty,
+    /// return an error.
     pub fn pop(&mut self) -> Result<Value<'l>, ShellError> {
         self.0.pop().ok_or(ShellError::EmptyStack)
     }
 
+    /// Swap the order of the two top-most values on the data stack. Return an
+    /// error if there are less than 2 values on the data stack.
     pub fn swap(&mut self) -> Result<(), ShellError> {
         let first = self.pop()?;
         let maybe_second = self.pop();
@@ -187,6 +198,8 @@ impl<'l> DataStack<'l> {
         Ok(())
     }
 
+    /// Pop a value from the stack. If it has type `Value::Tree`, return it.
+    /// Otherwise return an error.
     pub fn pop_tree(&mut self) -> Result<Ast<'l>, ShellError> {
         if let Value::Tree(tree) = self.pop()? {
             Ok(tree)
@@ -195,6 +208,8 @@ impl<'l> DataStack<'l> {
         }
     }
 
+    /// Pop a value from the stack. If it has type `Value::Usize`, return it.
+    /// Otherwise return an error.
     pub fn pop_usize(&mut self) -> Result<usize, ShellError> {
         if let Value::Usize(num) = self.pop()? {
             Ok(num)
@@ -203,6 +218,8 @@ impl<'l> DataStack<'l> {
         }
     }
 
+    /// Pop a value from the stack. If it has type `Value::ModeName`, return it.
+    /// Otherwise return an error.
     pub fn pop_mode_name(&mut self) -> Result<ModeName, ShellError> {
         if let Value::ModeName(s) = self.pop()? {
             Ok(s)
@@ -211,6 +228,8 @@ impl<'l> DataStack<'l> {
         }
     }
 
+    /// Pop a value from the stack. If it has type `Value::MenuName`, return it.
+    /// Otherwise return an error.
     pub fn pop_menu_name(&mut self) -> Result<MenuName, ShellError> {
         if let Value::MenuName(s) = self.pop()? {
             Ok(s)
@@ -219,6 +238,8 @@ impl<'l> DataStack<'l> {
         }
     }
 
+    /// Pop a value from the stack. If it has type `Value::LangConstruct`, return it.
+    /// Otherwise return an error.
     pub fn pop_lang_construct(&mut self) -> Result<(LanguageName, ConstructName), ShellError> {
         if let Value::LangConstruct(lang_name, construct_name) = self.pop()? {
             Ok((lang_name, construct_name))
@@ -227,6 +248,8 @@ impl<'l> DataStack<'l> {
         }
     }
 
+    /// Pop a value from the stack. If it has type `Value::Message`, return it.
+    /// Otherwise return an error.
     pub fn pop_message(&mut self) -> Result<String, ShellError> {
         if let Value::Message(s) = self.pop()? {
             Ok(s)
@@ -235,6 +258,8 @@ impl<'l> DataStack<'l> {
         }
     }
 
+    /// Pop a value from the stack. If it has type `Value::Char`, return it.
+    /// Otherwise return an error.
     pub fn pop_char(&mut self) -> Result<char, ShellError> {
         if let Value::Char(ch) = self.pop()? {
             Ok(ch)
@@ -243,17 +268,13 @@ impl<'l> DataStack<'l> {
         }
     }
 
+    /// Pop a value from the stack. If it has type `Value::Quote`, return it.
+    /// Otherwise return an error.
     pub fn pop_quote(&mut self) -> Result<Word<'l>, ShellError> {
         if let Value::Quote(word) = self.pop()? {
             Ok(*word)
         } else {
             Err(ShellError::ExpectedValue("Quote".into()))
         }
-    }
-}
-
-impl<'l> Word<'l> {
-    pub fn quote(self) -> Self {
-        Word::Literal(Value::Quote(Box::new(self)))
     }
 }
