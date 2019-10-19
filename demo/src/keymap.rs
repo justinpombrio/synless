@@ -110,9 +110,14 @@ impl<'l> KmapFactory<'l> {
             (Key::Char('d'), KmapFilter::Always, Prog::single(Word::Cut)),
             (Key::Char('y'), KmapFilter::Always, Prog::single(Word::Copy)),
             (
+                Key::Char('P'),
+                KmapFilter::Always,
+                Prog::single(Word::PasteSwap),
+            ),
+            (
                 Key::Char('p'),
                 KmapFilter::Always,
-                Prog::single(Word::PasteReplace),
+                Prog::named("PasteReplace", &[Word::PasteSwap, Word::PopClipboard]),
             ),
             (
                 Key::Char('a'),
@@ -126,8 +131,13 @@ impl<'l> KmapFactory<'l> {
             (Key::Up, KmapFilter::Always, Prog::single(Word::Parent)),
             (
                 Key::Backspace,
-                KmapFilter::Always,
+                KmapFilter::ParentArity(vec![ArityType::Flexible, ArityType::Mixed]),
                 Prog::single(Word::Remove),
+            ),
+            (
+                Key::Char('x'),
+                KmapFilter::Always,
+                Prog::single(Word::Clear),
             ),
             (
                 Key::Down,

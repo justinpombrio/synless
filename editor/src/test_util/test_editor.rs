@@ -7,7 +7,7 @@ use pretty::{Col, CursorVis, DocPosSpec, PlainText, Pos, PrettyDocument, PrettyW
 /// is rendered correctly.
 pub struct TestEditor<'l> {
     pub doc: Doc<'l>,
-    clipboard: Clipboard<'l>,
+    pub clipboard: Clipboard<'l>,
     forest: AstForest<'l>,
     /// Which language in the `lang_set` to use for the `doc`.
     lang_name: LanguageName,

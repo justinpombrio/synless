@@ -381,6 +381,7 @@ impl Ed {
                 self.stack.push(Word::Sort(Sort::any()));
             }
             Word::Remove => self.exec(TreeCmd::Remove)?,
+            Word::Clear => self.exec(TreeCmd::Clear)?,
             Word::InsertChar => {
                 let ch = self.stack.pop_char()?;
                 self.exec(TextCmd::InsertChar(ch))?;
@@ -412,7 +413,8 @@ impl Ed {
             Word::Redo => self.exec(CommandGroup::Redo)?,
             Word::Cut => self.exec(EditorCmd::Cut)?,
             Word::Copy => self.exec(EditorCmd::Copy)?,
-            Word::PasteReplace => self.exec(EditorCmd::PasteReplace)?,
+            Word::PasteSwap => self.exec(EditorCmd::PasteSwap)?,
+            Word::PopClipboard => self.exec(EditorCmd::PopClipboard)?,
         })
     }
 

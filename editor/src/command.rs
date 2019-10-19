@@ -25,8 +25,10 @@ pub enum EditorCmd {
     Cut,
     /// Copy onto the clipboard.
     Copy,
-    /// Paste over the current node, replacing it.
-    PasteReplace,
+    /// Swap the current node with the node on the top of the clipboard.
+    PasteSwap,
+    /// Discard the node on the top of the clipboard.
+    PopClipboard,
 }
 
 #[derive(Debug)]
@@ -43,6 +45,8 @@ pub enum TreeCmd<'l> {
     InsertHolePostpend,
     /// In a flexible sequence, remove the current node.
     Remove,
+    /// Replace the current node with a hole.
+    Clear,
 }
 
 #[derive(Debug)]
