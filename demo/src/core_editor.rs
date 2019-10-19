@@ -37,15 +37,15 @@ impl<'l> Docs<'l> {
         self.0.insert(label, DocEntry { doc, lang_name });
     }
 
-    fn get_doc<'a>(&'a self, label: &DocLabel) -> Option<&'a Doc<'l>> {
+    fn get_doc(&self, label: &DocLabel) -> Option<&Doc<'l>> {
         self.0.get(label).map(|entry| &entry.doc)
     }
 
-    fn get_doc_mut<'a>(&'a mut self, label: &DocLabel) -> Option<&'a mut Doc<'l>> {
+    fn get_doc_mut(&mut self, label: &DocLabel) -> Option<&mut Doc<'l>> {
         self.0.get_mut(label).map(|entry| &mut entry.doc)
     }
 
-    fn get_lang_name<'a>(&'a self, label: &DocLabel) -> Option<&'a LanguageName> {
+    fn get_lang_name(&self, label: &DocLabel) -> Option<&LanguageName> {
         self.0.get(label).map(|entry| &entry.lang_name)
     }
 
