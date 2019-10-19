@@ -15,8 +15,8 @@ pub trait PrettyWindow: Sized {
     /// given position. No newlines allowed.
     fn print(&mut self, pos: Pos, text: &str, style: Style) -> Result<(), Self::Error>;
 
-    /// Highlight the region by shading and/or reversing it. If `shade` is not
-    /// `None`, set the region's background color to that `Shade`. If `reverse`
+    /// Highlight the region by shading and/or reversing it. If `shade` is `Some`,
+    /// set the region's background color to that `Shade`. If `reverse`
     /// is true, toggle whether the foreground and background colors are swapped
     /// within the region.
     fn highlight(
