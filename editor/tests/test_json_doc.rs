@@ -12,17 +12,17 @@ macro_rules! group {
     }
 }
 
-/// Check if the pattern matches the expression, and panic with a informative
+/// Check if the expression matches the pattern, and panic with a informative
 /// message if it doesn't.
 macro_rules! assert_matches {
-    ($pattern:pat, $expression:expr) => {
+    ($expression:expr, $pattern:pat) => {
         if let $pattern = $expression {
             ()
         } else {
             panic!(
-                "assertion failed: `(pattern matches expr)`\n  pattern: {:?}\n  expr: {:?}",
-                stringify!($pattern),
-                $expression
+                "assertion failed: `(expr matches pattern)`\n  expr: {:?}\n  pattern: {:?}",
+                $expression,
+                stringify!($pattern)
             )
         }
     };
@@ -112,7 +112,7 @@ fn test_json_undo_redo() {
     ed.exec(CommandGroup::Redo).unwrap();
     ed.assert_render("[true, null, []]");
 
-    assert_matches!(Err(DocError::NothingToRedo), ed.exec(CommandGroup::Redo));
+    assert_matches!(ed.exec(CommandGroup::Redo), Err(DocError::NothingToRedo));
     ed.assert_render("[true, null, []]");
 }
 
@@ -194,12 +194,12 @@ fn test_insert() {
 
     // Cursor is now on the `[]`, and its parent (the root) isn't flexible:
     assert_matches!(
-        Err(DocError::CannotInsert),
-        ed.exec(TreeCmd::InsertHoleBefore)
+        ed.exec(TreeCmd::InsertHoleBefore),
+        Err(DocError::CannotInsert)
     );
     assert_matches!(
-        Err(DocError::CannotInsert),
-        ed.exec(TreeCmd::InsertHoleAfter)
+        ed.exec(TreeCmd::InsertHoleAfter),
+        Err(DocError::CannotInsert)
     );
 
     ed.exec(TreeCmd::InsertHolePrepend).unwrap();
@@ -209,12 +209,12 @@ fn test_insert() {
 
     // Cursor is now on the `true`, which isn't flexible:
     assert_matches!(
-        Err(DocError::CannotInsert),
-        ed.exec(TreeCmd::InsertHolePrepend)
+        ed.exec(TreeCmd::InsertHolePrepend),
+        Err(DocError::CannotInsert)
     );
     assert_matches!(
-        Err(DocError::CannotInsert),
-        ed.exec(TreeCmd::InsertHolePostpend)
+        ed.exec(TreeCmd::InsertHolePostpend),
+        Err(DocError::CannotInsert)
     );
 
     ed.exec(TreeCmd::InsertHoleBefore).unwrap();
@@ -256,20 +256,20 @@ fn test_insert() {
 
     // Can't do any type of insertion when cursor is on dict entry key.
     assert_matches!(
-        Err(DocError::CannotInsert),
-        ed.exec(TreeCmd::InsertHolePrepend)
+        ed.exec(TreeCmd::InsertHolePrepend),
+        Err(DocError::CannotInsert)
     );
     assert_matches!(
-        Err(DocError::CannotInsert),
-        ed.exec(TreeCmd::InsertHolePostpend)
+        ed.exec(TreeCmd::InsertHolePostpend),
+        Err(DocError::CannotInsert)
     );
     assert_matches!(
-        Err(DocError::CannotInsert),
-        ed.exec(TreeCmd::InsertHoleBefore)
+        ed.exec(TreeCmd::InsertHoleBefore),
+        Err(DocError::CannotInsert)
     );
     assert_matches!(
-        Err(DocError::CannotInsert),
-        ed.exec(TreeCmd::InsertHoleAfter)
+        ed.exec(TreeCmd::InsertHoleAfter),
+        Err(DocError::CannotInsert)
     );
 
     ed.exec(TreeNavCmd::Parent).unwrap();
@@ -327,15 +327,15 @@ fn test_remove() {
         .unwrap();
     ed.assert_render("[{?: ?}]");
     ed.exec(TreeNavCmd::Child(0)).unwrap();
-    assert_matches!(Err(DocError::CannotRemoveNode), ed.exec(TreeCmd::Remove));
+    assert_matches!(ed.exec(TreeCmd::Remove), Err(DocError::CannotRemoveNode));
     ed.exec(TreeNavCmd::Right).unwrap();
-    assert_matches!(Err(DocError::CannotRemoveNode), ed.exec(TreeCmd::Remove));
+    assert_matches!(ed.exec(TreeCmd::Remove), Err(DocError::CannotRemoveNode));
     ed.assert_render("[{?: ?}]");
     ed.exec(TreeNavCmd::Parent).unwrap();
     ed.exec(TreeNavCmd::Parent).unwrap();
     ed.exec(TreeCmd::Remove).unwrap();
     ed.assert_render("[]");
-    assert_matches!(Err(DocError::CannotRemoveNode), ed.exec(TreeCmd::Remove));
+    assert_matches!(ed.exec(TreeCmd::Remove), Err(DocError::CannotRemoveNode));
     ed.assert_render("[]");
 }
 
@@ -349,7 +349,7 @@ fn test_cut_copy_paste() {
     ed.assert_render("?");
     assert_eq!(ed.clipboard.len(), 0);
 
-    assert_matches!(Err(DocError::EmptyClipboard), ed.exec(EditorCmd::PasteSwap));
+    assert_matches!(ed.exec(EditorCmd::PasteSwap), Err(DocError::EmptyClipboard));
     ed.assert_render("?");
     assert_eq!(ed.clipboard.len(), 0);
 
@@ -379,8 +379,8 @@ fn test_cut_copy_paste() {
     ed.exec(EditorCmd::PopClipboard).unwrap();
     assert_eq!(ed.clipboard.len(), 0);
     assert_matches!(
-        Err(DocError::EmptyClipboard),
-        ed.exec(EditorCmd::PopClipboard)
+        ed.exec(EditorCmd::PopClipboard),
+        Err(DocError::EmptyClipboard)
     );
     assert_eq!(ed.clipboard.len(), 0);
 
