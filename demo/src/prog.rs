@@ -161,9 +161,9 @@ impl<'l> DataStack<'l> {
 
     pub fn swap(&mut self) -> Result<(), ShellError> {
         let first = self.pop()?;
-        let second = self.pop()?;
+        let maybe_second = self.pop();
         self.push(first);
-        self.push(second);
+        self.push(maybe_second?);
         Ok(())
     }
 
