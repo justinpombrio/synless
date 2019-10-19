@@ -108,7 +108,7 @@ impl ColorTheme {
     }
 
     /// The foreground color for a given style, in this color theme, as a terminal256-color.
-    pub fn foreground(&self, style: Style) -> Rgb {
+    pub fn foreground(&self, style: ShadedStyle) -> Rgb {
         if style.reversed {
             self.shade(style.shade)
         } else {
@@ -117,7 +117,7 @@ impl ColorTheme {
     }
 
     /// The background color for a given style, in this color theme, as a terminal256-color.
-    pub fn background(&self, style: Style) -> Rgb {
+    pub fn background(&self, style: ShadedStyle) -> Rgb {
         if style.reversed {
             self.color(style.color)
         } else {

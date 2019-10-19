@@ -15,15 +15,16 @@ pub trait PrettyWindow: Sized {
     /// given position. No newlines allowed.
     fn print(&mut self, pos: Pos, text: &str, style: Style) -> Result<(), Self::Error>;
 
-    /// Shade the background. It is possible that the same position will be
-    /// shaded more than once, or will be `.print`ed before being shaded. If so,
-    /// the new shade should override the background color, but not the text.
-    fn shade(&mut self, region: Region, shade: Shade) -> Result<(), Self::Error>;
-
-    /// Shade a particular character position. This is used to highlight the
-    /// cursor position while in text mode. It should behave the same way as
-    /// `.shade` would with a small Region that included just `pos`.
-    fn highlight(&mut self, pos: Pos, style: Style) -> Result<(), Self::Error>;
+    /// Highlight the region by shading and/or reversing it. If `shade` is `Some`,
+    /// set the region's background color to that `Shade`. If `reverse`
+    /// is true, toggle whether the foreground and background colors are swapped
+    /// within the region.
+    fn highlight(
+        &mut self,
+        region: Region,
+        shade: Option<Shade>,
+        reverse: bool,
+    ) -> Result<(), Self::Error>;
 
     /// Get a `Pane` that covers the full window area (and can be pretty-printed to).
     fn pane<'a>(&'a mut self) -> Result<Pane<'a, Self>, Self::Error> {

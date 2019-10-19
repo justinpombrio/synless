@@ -165,32 +165,27 @@ impl Ed {
     fn pane_notation(&self) -> PaneNotation {
         let doc = PaneNotation::Doc {
             label: DocLabel::ActiveDoc,
-            style: None,
         };
 
         let doc_name = PaneNotation::Doc {
             label: DocLabel::ActiveDocName,
-            style: None,
         };
 
         let key_hints_name = PaneNotation::Doc {
             label: DocLabel::KeymapName,
-            style: None,
         };
 
         let key_hints = PaneNotation::Doc {
             label: DocLabel::KeyHints,
-            style: None,
         };
 
         let messages = PaneNotation::Doc {
             label: DocLabel::Messages,
-            style: None,
         };
 
         let divider = PaneNotation::Fill {
             ch: '=',
-            style: Some(Style::color(Color::Base03)),
+            style: Style::color(Color::Base03),
         };
 
         let status_bar = PaneNotation::Horz {
@@ -201,7 +196,6 @@ impl Ed {
                 (PaneSize::Proportional(1), doc_name),
                 (PaneSize::Proportional(1), divider.clone()),
             ],
-            style: None,
         };
 
         PaneNotation::Vert {
@@ -212,7 +206,6 @@ impl Ed {
                 (PaneSize::Fixed(1), divider),
                 (PaneSize::DynHeight, messages),
             ],
-            style: None,
         }
     }
 
@@ -226,7 +219,7 @@ impl Ed {
         let key_hints_name = key_hints_name_ast.ast_ref();
         let messages = self.message_doc.ast_ref();
         self.term.draw_frame(|mut pane: Pane<Terminal>| {
-            pane.render(&notation, None, |label: &DocLabel| match label {
+            pane.render(&notation, |label: &DocLabel| match label {
                 DocLabel::ActiveDoc => Some((doc.clone(), CursorVis::Show)),
                 DocLabel::ActiveDocName => Some((doc_name.clone(), CursorVis::Hide)),
                 DocLabel::KeymapName => Some((key_hints_name.clone(), CursorVis::Hide)),

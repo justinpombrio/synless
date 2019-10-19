@@ -2,14 +2,22 @@
 
 use self::Color::*;
 
-/// The overall style to render text to the terminal.
-/// If `reversed`, swap the foreground and background.
+/// Just the components that can be chosen by Notations.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Style {
     pub color: Color,
     pub emph: Emph,
-    pub shade: Shade,
     pub reversed: bool,
+}
+
+/// The overall style to render text to the terminal.
+/// If `reversed`, swap the foreground and background.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ShadedStyle {
+    pub color: Color,
+    pub emph: Emph,
+    pub reversed: bool,
+    pub shade: Shade,
 }
 
 // TODO: I do not know how widespread terminal support for underlining is.
@@ -86,27 +94,20 @@ impl Emph {
 
 impl Style {
     /// Typically, ordinary white on black.
-    pub fn plain() -> Style {
-        Style::new(Base05, Emph::plain(), Shade::background(), false)
+    pub fn plain() -> Self {
+        Style {
+            color: Color::Base05,
+            emph: Emph::plain(),
+            reversed: false,
+        }
     }
 
     /// Ordinary colored text.
     pub fn color(color: Color) -> Style {
-        Style::new(color, Emph::plain(), Shade::background(), false)
-    }
-
-    /// Color the background. Visually very strong!
-    pub fn reverse_color(color: Color) -> Style {
-        Style::new(color, Emph::plain(), Shade::background(), true)
-    }
-
-    /// Fully customized style.
-    pub fn new(color: Color, emph: Emph, shade: Shade, reversed: bool) -> Style {
         Style {
-            color: color,
-            emph: emph,
-            shade: shade,
-            reversed: reversed,
+            color,
+            emph: Emph::plain(),
+            reversed: false,
         }
     }
 }
@@ -114,6 +115,20 @@ impl Style {
 impl Default for Style {
     fn default() -> Self {
         Style::plain()
+    }
+}
+
+impl ShadedStyle {
+    pub fn new(style: Style, shade: Shade) -> Self {
+        Self {
+            color: style.color,
+            emph: style.emph,
+            reversed: style.reversed,
+            shade,
+        }
+    }
+    pub fn plain() -> Self {
+        Self::new(Style::plain(), Shade::background())
     }
 }
 

@@ -62,30 +62,22 @@ pub enum DocLabel {
 pub enum PaneNotation {
     /// Split the pane horizontally into multiple subpanes, each with its own
     /// `PaneNotation`. Each subpane has the same height as this `Pane`, and a
-    /// width determined by its `PaneSize`. Optionally apply a `style` to any
-    /// subpane that doesn't already specify its own style.
+    /// width determined by its `PaneSize`.
     Horz {
         panes: Vec<(PaneSize, PaneNotation)>,
-        style: Option<Style>,
     },
     /// Split the pane vertically into multiple subpanes, each with its own
     /// `PaneNotation`. Each subpane has the same width as this `Pane`, and a
-    /// height determined by its `PaneSize`. Optionally apply a `style` to any
-    /// subpane that doesn't already specify its own style.
+    /// height determined by its `PaneSize`.
     Vert {
         panes: Vec<(PaneSize, PaneNotation)>,
-        style: Option<Style>,
     },
     /// Render a `PrettyDocument` into this `Pane`. The given `DocLabel` will
     /// be used to dynamically look up a `PrettyDocument` every time the `Pane`
     /// is rendered.
-    Doc {
-        label: DocLabel,
-        style: Option<Style>,
-    },
-    /// Fill the entire `Pane` by repeating the given character. Optionally
-    /// apply a `style`.
-    Fill { ch: char, style: Option<Style> },
+    Doc { label: DocLabel },
+    /// Fill the entire `Pane` by repeating the given character and style.
+    Fill { ch: char, style: Style },
 }
 
 /// The visibility of the cursor in some document.
@@ -141,36 +133,25 @@ where
         self.window.print(abs_pos, text, style)
     }
 
-    /// Shade the background. It is possible that the same position will be
-    /// shaded more than once, or will be `.print`ed before being shaded. If so,
-    /// the new shade should override the background color, but not the text.
     /// The region position is relative to the `Pane` (where 0,0 is the
     /// top left corner of the `Pane`).
-    pub fn shade(&mut self, region: Region, shade: Shade) -> Result<(), T::Error> {
+    pub fn highlight(
+        &mut self,
+        region: Region,
+        shade: Option<Shade>,
+        reverse: bool,
+    ) -> Result<(), T::Error> {
         let abs_region = region + self.rect.pos();
-        self.window.shade(abs_region, shade)
-    }
-
-    /// Shade a particular character position. This is used to highlight the
-    /// cursor position while in text mode. It should behave the same way as
-    /// `.shade` would with a small Region that included just `pos`. The
-    /// position is relative to the `Pane` (where 0,0 is the top left
-    /// corner of the `Pane`).
-    pub fn highlight(&mut self, pos: Pos, style: Style) -> Result<(), T::Error> {
-        let abs_pos = pos + self.rect.pos();
-        self.window.highlight(abs_pos, style)
+        self.window.highlight(abs_region, shade, reverse)
     }
 
     /// Render to this pane according to the given [PaneNotation], `note`. Use
     /// the `get_content` closure to map the document labels used in any
     /// `PaneNotation::Doc` variants to actual documents, and whether to
-    /// shade that document's cursor region. If `parent_style` is not `None`,
-    /// apply that style to [PaneNotation] sub-trees that don't
-    /// specify their own style.
+    /// shade that document's cursor region.
     pub fn render<F, U>(
         &mut self,
         note: &PaneNotation,
-        parent_style: Option<Style>,
         get_content: F,
     ) -> Result<(), PaneError<T::Error>>
     where
@@ -184,7 +165,7 @@ where
         }
 
         match note {
-            PaneNotation::Horz { panes, style } => {
+            PaneNotation::Horz { panes } => {
                 let child_notes: Vec<_> = panes.iter().map(|p| &p.1).collect();
                 let child_sizes: Vec<_> = panes.iter().map(|p| p.0).collect();
                 let total_width = usize::from(self.rect().width());
@@ -193,14 +174,13 @@ where
                     .into_iter()
                     .map(|n| n as Col)
                     .collect();
-                let style = style.or(parent_style);
                 let rects = self.rect().horz_splits(&widths);
                 for (rect, child_note) in rects.zip(child_notes.into_iter()) {
                     let mut child_pane = self.sub_pane(rect).ok_or(PaneError::NotSubPane)?;
-                    child_pane.render(child_note, style, get_content.clone())?;
+                    child_pane.render(child_note, get_content.clone())?;
                 }
             }
-            PaneNotation::Vert { panes, style } => {
+            PaneNotation::Vert { panes } => {
                 let child_notes: Vec<_> = panes.iter().map(|p| &p.1).collect();
                 let total_fixed: usize = panes.iter().filter_map(|p| p.0.get_fixed()).sum();
                 let total_height = self.rect().height();
@@ -232,17 +212,14 @@ where
                     .into_iter()
                     .map(|n| n as Row)
                     .collect();
-                let style = style.or(parent_style);
 
                 let rects = self.rect().vert_splits(&heights);
                 for (rect, child_note) in rects.zip(child_notes.into_iter()) {
                     let mut child_pane = self.sub_pane(rect).ok_or(PaneError::NotSubPane)?;
-                    child_pane.render(child_note, style, get_content.clone())?;
+                    child_pane.render(child_note, get_content.clone())?;
                 }
             }
-            PaneNotation::Doc { label, style } => {
-                // TODO how to use style? pretty_print doesn't take it.
-                let _style = style.or(parent_style).unwrap_or_default();
+            PaneNotation::Doc { label } => {
                 let width = self.rect().width();
 
                 let (doc, cursor_visibility) =
@@ -250,13 +227,12 @@ where
                 doc.pretty_print(width, self, DocPosSpec::CursorAtTop, cursor_visibility)?;
             }
             PaneNotation::Fill { ch, style } => {
-                let style = style.or(parent_style).unwrap_or_default();
                 let line: String = iter::repeat(ch)
                     .take(self.rect().width() as usize)
                     .collect();
                 let rows = self.rect().height();
                 for row in 0..rows {
-                    self.print(Pos { row, col: 0 }, &line, style)?;
+                    self.print(Pos { row, col: 0 }, &line, *style)?;
                 }
             }
         }
