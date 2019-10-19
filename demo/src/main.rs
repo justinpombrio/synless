@@ -8,6 +8,7 @@ use editor::{
     make_json_lang, Ast, AstForest, Clipboard, CommandGroup, Doc, EditorCmd, NotationSet, TextCmd,
     TextNavCmd, TreeCmd, TreeNavCmd,
 };
+use forest::Bookmark;
 use frontends::{Event, Frontend, Terminal};
 use language::{LanguageName, LanguageSet, Sort};
 use pretty::{Color, ColorTheme, CursorVis, DocLabel, Pane, PaneNotation, PaneSize, Style};
@@ -56,6 +57,7 @@ struct Ed {
     kmap_lang_name: LanguageName,
     key_hints: Doc<'static>,
     cut_stack: Clipboard<'static>,
+    bookmarks: HashMap<char, Bookmark>,
 }
 
 impl Ed {
@@ -106,6 +108,7 @@ impl Ed {
             key_hints,
             tree_keymap_stack: Vec::new(),
             cut_stack: Clipboard::new(),
+            bookmarks: HashMap::new(),
         };
 
         // Set initial keymap
@@ -428,6 +431,16 @@ impl Ed {
             Word::Copy => self.exec(EditorCmd::Copy)?,
             Word::PasteSwap => self.exec(EditorCmd::PasteSwap)?,
             Word::PopClipboard => self.exec(EditorCmd::PopClipboard)?,
+            Word::GotoBookmark => {
+                let name = self.stack.pop_char()?;
+                let mark = self.bookmarks.get(&name).ok_or(Error::UnknownBookmark)?;
+                self.exec(TreeNavCmd::GotoBookmark(*mark))?;
+            }
+            Word::SetBookmark => {
+                let name = self.stack.pop_char()?;
+                let mark = self.doc.bookmark();
+                self.bookmarks.insert(name, mark);
+            }
             Word::InsertChar => {
                 let ch = self.stack.pop_char()?;
                 self.exec(TextCmd::InsertChar(ch))?;

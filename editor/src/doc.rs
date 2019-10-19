@@ -2,6 +2,7 @@ use std::{iter, mem, vec};
 
 use crate::ast::{Ast, AstKind, AstRef};
 use crate::command::{Command, CommandGroup, EditorCmd, TextCmd, TextNavCmd, TreeCmd, TreeNavCmd};
+use forest::Bookmark;
 
 #[derive(Debug)]
 pub enum DocError<'l> {
@@ -143,6 +144,11 @@ impl<'l> Doc<'l> {
 
     pub fn in_tree_mode(&self) -> bool {
         self.mode.is_tree_mode()
+    }
+
+    /// Get a Bookmark pointing to the current node.
+    pub fn bookmark(&mut self) -> Bookmark {
+        self.ast.bookmark()
     }
 
     fn take_recent(&mut self) -> UndoGroup<'l> {
@@ -376,6 +382,14 @@ impl<'l> Doc<'l> {
                     vec![TreeNavCmd::Parent.into()]
                 }
             },
+            TreeNavCmd::GotoBookmark(bookmark) => {
+                let here = self.ast.bookmark();
+                if self.ast.goto_bookmark(bookmark) {
+                    vec![TreeNavCmd::GotoBookmark(here).into()]
+                } else {
+                    return Err(DocError::CannotMove);
+                }
+            }
         };
         Ok(UndoGroup {
             contains_edit: false,

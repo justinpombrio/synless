@@ -123,6 +123,16 @@ pub fn make_tree_map<'l>() -> TreeKmapFactory<'l> {
                 ],
             ),
         ),
+        (
+            Key::Char('m'),
+            KmapFilter::Always,
+            Prog::named("Mark", &[Word::Char('m'), Word::SetBookmark]),
+        ),
+        (
+            Key::Char('\''),
+            KmapFilter::Always,
+            Prog::named("GotoMark", &[Word::Char('m'), Word::GotoBookmark]),
+        ),
     ])
 }
 

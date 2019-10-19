@@ -601,3 +601,94 @@ fn test_undo_clipboard() {
     ed.assert_render("[true, true, false]");
     assert_eq!(ed.clipboard.len(), 1); // contains hole
 }
+
+#[test]
+fn test_bookmark() {
+    let (lang, note_set) = make_json_lang();
+    let (lang_set, lang_name) = make_singleton_lang_set(lang);
+    let mut ed = TestEditor::new(&lang_set, &note_set, lang_name);
+
+    ed.exec(group![
+        TreeNavCmd::Child(0),
+        TreeCmd::Replace(ed.node("list").unwrap()),
+        TreeCmd::InsertHolePostpend,
+        TreeCmd::Replace(ed.node("true").unwrap())
+    ])
+    .unwrap();
+
+    let mark_true = ed.doc.bookmark();
+    ed.exec(group![
+        TreeCmd::InsertHoleAfter,
+        TreeCmd::Replace(ed.node("false").unwrap())
+    ])
+    .unwrap();
+    let mark_false = ed.doc.bookmark();
+
+    ed.exec(group![
+        TreeCmd::InsertHoleAfter,
+        TreeCmd::Replace(ed.node("list").unwrap())
+    ])
+    .unwrap();
+    let mark_list = ed.doc.bookmark();
+
+    ed.exec(group![
+        TreeCmd::InsertHolePrepend,
+        TreeCmd::Replace(ed.node("null").unwrap())
+    ])
+    .unwrap();
+    let mark_null = ed.doc.bookmark();
+
+    ed.assert_render("[true, false, [null]]");
+
+    ed.exec(TreeNavCmd::GotoBookmark(mark_true)).unwrap();
+    ed.exec(TreeCmd::InsertHoleBefore).unwrap();
+    ed.assert_render("[?, true, false, [null]]");
+
+    ed.exec(TreeNavCmd::GotoBookmark(mark_null)).unwrap();
+    ed.exec(TreeCmd::Clear).unwrap();
+    ed.assert_render("[?, true, false, [?]]");
+
+    ed.exec(TreeNavCmd::GotoBookmark(mark_false)).unwrap();
+    ed.exec(TreeNavCmd::GotoBookmark(mark_false)).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node("false").unwrap()))
+        .unwrap();
+    ed.assert_render("[?, true, false, [?]]");
+
+    assert_matches!(
+        ed.exec(TreeNavCmd::GotoBookmark(mark_false)),
+        Err(DocError::CannotMove)
+    );
+    assert_matches!(
+        ed.exec(TreeNavCmd::GotoBookmark(mark_null)),
+        Err(DocError::CannotMove)
+    );
+    ed.exec(TreeNavCmd::GotoBookmark(mark_list)).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node("list").unwrap())).unwrap();
+    ed.assert_render("[?, true, false, []]");
+
+    ed.exec(TreeNavCmd::GotoBookmark(mark_true)).unwrap();
+    ed.exec(EditorCmd::Cut).unwrap();
+    ed.assert_render("[?, ?, false, []]");
+
+    ed.exec(TreeNavCmd::Left).unwrap();
+    ed.exec(EditorCmd::PasteSwap).unwrap();
+    ed.assert_render("[true, ?, false, []]");
+
+    // Cut does not preserve bookmarks
+    assert_matches!(
+        ed.exec(TreeNavCmd::GotoBookmark(mark_true)),
+        Err(DocError::CannotMove)
+    );
+    ed.exec(CommandGroup::Undo).unwrap();
+    ed.assert_render("[?, ?, false, []]");
+
+    ed.exec(CommandGroup::Undo).unwrap();
+    ed.assert_render("[?, true, false, []]");
+
+    // Undo preserves bookmarks
+    ed.exec(TreeNavCmd::Right).unwrap();
+    ed.exec(TreeNavCmd::Right).unwrap();
+    ed.exec(TreeNavCmd::GotoBookmark(mark_true)).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node("null").unwrap())).unwrap();
+    ed.assert_render("[?, null, false, []]");
+}

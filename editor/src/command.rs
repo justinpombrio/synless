@@ -1,4 +1,5 @@
 use crate::ast::Ast;
+use forest::Bookmark;
 
 #[derive(Debug)]
 pub enum CommandGroup<'l> {
@@ -59,6 +60,8 @@ pub enum TreeNavCmd {
     Child(usize),
     /// Move cursor to parent
     Parent,
+    /// Move to the node pointed to by the Bookmark
+    GotoBookmark(Bookmark),
 }
 
 #[derive(Debug)]

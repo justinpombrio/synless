@@ -56,7 +56,7 @@ where
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Bookmark {
     pub(super) id: Id,
 }
