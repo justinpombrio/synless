@@ -116,7 +116,7 @@ pub fn make_tree_map<'l>() -> TreeKeymapFactory<'l> {
             Key::Char('r'),
             FilterRule::Always,
             Prog::new(&[
-                Word::Replace.quote(),
+                Word::Literal(Prog::from(Word::Replace).quote()),
                 Word::Literal(Value::MenuName("node".into())),
                 Word::ActivateMenu,
             ])

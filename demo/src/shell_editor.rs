@@ -168,8 +168,8 @@ impl ShellEditor {
         Ok(match word {
             Word::Literal(value) => self.data_stack.push(value),
             Word::Apply => {
-                let word = self.data_stack.pop_quote()?;
-                self.call(word)?;
+                let prog = self.data_stack.pop_quote()?;
+                self.call_stack.push(prog);
             }
             Word::Swap => {
                 self.data_stack.swap()?;

@@ -5,7 +5,7 @@ use language::{ConstructName, LanguageName, Sort};
 use crate::error::ShellError;
 use crate::keymaps::{MenuName, ModeName};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Prog<'l> {
     /// Optional display name for this program.
     pub name: Option<String>,
@@ -26,7 +26,7 @@ pub enum Value<'l> {
     Sort(Sort),
     LangConstruct(LanguageName, ConstructName),
     Message(String),
-    Quote(Box<Word<'l>>), // TODO vec, not box
+    Quote(Prog<'l>),
 }
 
 #[allow(dead_code)]
@@ -123,11 +123,10 @@ impl<'l> Prog<'l> {
     pub fn name(&self) -> Option<&str> {
         self.name.as_ref().map(String::as_str)
     }
-}
 
-impl<'l> Word<'l> {
-    pub fn quote(self) -> Self {
-        Word::Literal(Value::Quote(Box::new(self)))
+    /// Produce a literal value containing this program.
+    pub fn quote(self) -> Value<'l> {
+        Value::Quote(self)
     }
 }
 
@@ -270,9 +269,9 @@ impl<'l> DataStack<'l> {
 
     /// Pop a value from the stack. If it has type `Value::Quote`, return it.
     /// Otherwise return an error.
-    pub fn pop_quote(&mut self) -> Result<Word<'l>, ShellError> {
-        if let Value::Quote(word) = self.pop()? {
-            Ok(*word)
+    pub fn pop_quote(&mut self) -> Result<Prog<'l>, ShellError> {
+        if let Value::Quote(prog) = self.pop()? {
+            Ok(prog)
         } else {
             Err(ShellError::ExpectedValue("Quote".into()))
         }
