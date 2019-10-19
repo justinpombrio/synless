@@ -178,8 +178,68 @@ fn test_json_string() {
     ed.exec(TreeNavCmd::Child(0)).unwrap();
     assert!(!ed.doc.in_tree_mode());
 
+    assert_matches!(
+        ed.exec(TextCmd::DeleteCharForward),
+        Err(DocError::CannotDeleteChar)
+    );
+    assert_matches!(
+        ed.exec(TextCmd::DeleteCharBackward),
+        Err(DocError::CannotDeleteChar)
+    );
+    assert_matches!(ed.exec(TextNavCmd::Left), Err(DocError::CannotMove));
+    assert_matches!(ed.exec(TextNavCmd::Right), Err(DocError::CannotMove));
+
     ed.exec(TextCmd::InsertChar('a')).unwrap();
     ed.assert_render("[\"a\"]");
+
+    assert_matches!(
+        ed.exec(TextCmd::DeleteCharForward),
+        Err(DocError::CannotDeleteChar)
+    );
+    assert_matches!(ed.exec(TextNavCmd::Right), Err(DocError::CannotMove));
+    ed.exec(TextNavCmd::Left).unwrap();
+    assert_matches!(ed.exec(TextNavCmd::Left), Err(DocError::CannotMove));
+    ed.exec(TextNavCmd::Right).unwrap();
+    assert_matches!(ed.exec(TextNavCmd::Right), Err(DocError::CannotMove));
+
+    ed.exec(TextCmd::DeleteCharBackward).unwrap();
+    ed.assert_render("[\"\"]");
+
+    ed.exec(TextCmd::InsertChar('a')).unwrap();
+    ed.exec(TextCmd::InsertChar('b')).unwrap();
+    ed.exec(TextCmd::InsertChar('c')).unwrap();
+    ed.assert_render("[\"abc\"]");
+
+    assert_matches!(ed.exec(TextNavCmd::Right), Err(DocError::CannotMove));
+    ed.exec(TextNavCmd::Left).unwrap();
+    ed.exec(TextNavCmd::Left).unwrap();
+    ed.exec(TextNavCmd::Left).unwrap();
+    assert_matches!(ed.exec(TextNavCmd::Left), Err(DocError::CannotMove));
+    ed.exec(TextCmd::DeleteCharForward).unwrap();
+    ed.assert_render("[\"bc\"]");
+
+    ed.exec(TextNavCmd::Right).unwrap();
+    ed.exec(TextCmd::InsertChar('d')).unwrap();
+    ed.assert_render("[\"bdc\"]");
+
+    ed.exec(TextCmd::DeleteCharForward).unwrap();
+    ed.assert_render("[\"bd\"]");
+
+    assert_matches!(
+        ed.exec(TextCmd::DeleteCharForward),
+        Err(DocError::CannotDeleteChar)
+    );
+
+    ed.exec(TextCmd::DeleteCharBackward).unwrap();
+    ed.assert_render("[\"b\"]");
+
+    ed.exec(TextCmd::DeleteCharBackward).unwrap();
+    ed.assert_render("[\"\"]");
+
+    assert_matches!(
+        ed.exec(TextCmd::DeleteCharBackward),
+        Err(DocError::CannotDeleteChar)
+    );
 }
 
 #[test]

@@ -46,8 +46,7 @@ pub enum Word<'l> {
     NodeByName,
     Echo,
 
-    // tree/text commands:
-    InsertChar,
+    // tree commands:
     InsertHoleAfter,
     InsertHoleBefore,
     InsertHolePrepend,
@@ -65,6 +64,14 @@ pub enum Word<'l> {
     PopClipboard,
     Undo,
     Redo,
+
+    // text commands:
+    InsertChar,
+    TreeMode,
+    DeleteCharBackward,
+    DeleteCharForward,
+    TextLeft,
+    TextRight,
 }
 
 impl<'l> Prog<'l> {
@@ -74,10 +81,10 @@ impl<'l> Prog<'l> {
             name: None,
         }
     }
-    pub fn named(name: &str, words: &[Word<'l>]) -> Self {
+    pub fn named<T: ToString>(name: T, words: &[Word<'l>]) -> Self {
         Prog {
             words: words.into(),
-            name: Some(name.to_owned()),
+            name: Some(name.to_string()),
         }
     }
 }
