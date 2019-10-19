@@ -82,21 +82,32 @@ pub enum Word<'l> {
 }
 
 impl<'l> Prog<'l> {
+    /// Construct a program in which the given words will be executed in order,
+    /// starting from index 0 of the slice.
+    pub fn new(forward_words: &[Word<'l>]) -> Self {
+        Prog {
+            words: forward_words.iter().cloned().rev().collect(),
+            name: None,
+        }
+    }
+
     /// Construct a program containing one word. Use the word's debug
     /// representation as the program name.
-    pub fn single(word: Word<'l>) -> Self {
+    pub fn new_single(word: Word<'l>) -> Self {
         Prog {
-            name: Some(format!("{:?}", word)),
+            name: Some(format!("{:?}", &word)),
             words: vec![word],
         }
     }
 
-    /// Construct a program in which the given words will be executed in order,
-    /// starting from index 0 of the slice.
-    pub fn named<T: ToString>(name: T, forward_words: &[Word<'l>]) -> Self {
+    /// Set the optional program name.
+    pub fn with_name<T>(self, name: T) -> Self
+    where
+        T: ToString,
+    {
         Prog {
-            words: forward_words.iter().cloned().rev().collect(),
             name: Some(name.to_string()),
+            ..self
         }
     }
 
@@ -113,6 +124,15 @@ impl<'l> Prog<'l> {
     /// The display name of the program, if it has one.
     pub fn name(&self) -> Option<&str> {
         self.name.as_ref().map(String::as_str)
+    }
+}
+
+impl<'l> From<Word<'l>> for Prog<'l> {
+    fn from(word: Word<'l>) -> Prog<'l> {
+        Prog {
+            name: None,
+            words: vec![word],
+        }
     }
 }
 
