@@ -11,7 +11,9 @@ use editor::{
 use forest::Bookmark;
 use frontends::{Event, Frontend, Terminal};
 use language::{LanguageName, LanguageSet, Sort};
-use pretty::{Color, ColorTheme, CursorVis, DocLabel, Pane, PaneNotation, PaneSize, Style};
+use pretty::{
+    Color, ColorTheme, CursorVis, DocLabel, DocPosSpec, Pane, PaneNotation, PaneSize, Style,
+};
 use utility::GrowOnlyMap;
 
 mod demo_keymaps;
@@ -220,11 +222,25 @@ impl Ed {
         let messages = self.message_doc.ast_ref();
         self.term.draw_frame(|mut pane: Pane<Terminal>| {
             pane.render(&notation, |label: &DocLabel| match label {
-                DocLabel::ActiveDoc => Some((doc.clone(), CursorVis::Show)),
-                DocLabel::ActiveDocName => Some((doc_name.clone(), CursorVis::Hide)),
-                DocLabel::KeymapName => Some((key_hints_name.clone(), CursorVis::Hide)),
-                DocLabel::KeyHints => Some((key_hints.clone(), CursorVis::Hide)),
-                DocLabel::Messages => Some((messages.clone(), CursorVis::Hide)),
+                DocLabel::ActiveDoc => Some((
+                    doc.clone(),
+                    CursorVis::Show,
+                    DocPosSpec::CursorHeight { fraction: 0.6 },
+                )),
+                DocLabel::ActiveDocName => {
+                    Some((doc_name.clone(), CursorVis::Hide, DocPosSpec::Beginning))
+                }
+                DocLabel::KeymapName => Some((
+                    key_hints_name.clone(),
+                    CursorVis::Hide,
+                    DocPosSpec::Beginning,
+                )),
+                DocLabel::KeyHints => {
+                    Some((key_hints.clone(), CursorVis::Hide, DocPosSpec::Beginning))
+                }
+                DocLabel::Messages => {
+                    Some((messages.clone(), CursorVis::Hide, DocPosSpec::Beginning))
+                }
                 _ => None,
             })?;
             Ok(())

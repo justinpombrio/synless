@@ -8,6 +8,7 @@ use pretty::{
     PrettyWindow, Style,
 };
 
+// TODO: test ScrollStrategies other than Beginning.
 // TODO: test horz concat
 
 #[test]
@@ -279,7 +280,7 @@ fn test_pane_content() {
     };
     let mut pane = window.pane().unwrap();
     pane.render(&pane_note, |_: &DocLabel| {
-        Some((doc.as_ref(), CursorVis::Hide))
+        Some((doc.as_ref(), CursorVis::Hide, DocPosSpec::Beginning))
     })
     .unwrap();
     assert_strings_eq(&window.to_string(), "true");
@@ -309,8 +310,8 @@ fn test_pane_horz() {
 
     let mut pane = window.pane().unwrap();
     pane.render(&pane_note, |label: &DocLabel| match label {
-        DocLabel::ActiveDoc => Some((doc1.as_ref(), CursorVis::Hide)),
-        DocLabel::KeyHints => Some((doc2.as_ref(), CursorVis::Hide)),
+        DocLabel::ActiveDoc => Some((doc1.as_ref(), CursorVis::Hide, DocPosSpec::Beginning)),
+        DocLabel::KeyHints => Some((doc2.as_ref(), CursorVis::Hide, DocPosSpec::Beginning)),
         _ => None,
     })
     .unwrap();
@@ -355,8 +356,8 @@ fn test_pane_vert() {
 
     let mut pane = window.pane().unwrap();
     pane.render(&pane_note, |label: &DocLabel| match label {
-        DocLabel::ActiveDoc => Some((doc1.as_ref(), CursorVis::Hide)),
-        DocLabel::KeyHints => Some((doc2.as_ref(), CursorVis::Hide)),
+        DocLabel::ActiveDoc => Some((doc1.as_ref(), CursorVis::Hide, DocPosSpec::Beginning)),
+        DocLabel::KeyHints => Some((doc2.as_ref(), CursorVis::Hide, DocPosSpec::Beginning)),
         _ => None,
     })
     .unwrap();
@@ -385,7 +386,7 @@ fn test_pane_fill() {
 
     let mut pane = window.pane().unwrap();
     pane.render(&pane_note, |_label: &DocLabel| {
-        Some((doc1.as_ref(), CursorVis::Hide))
+        Some((doc1.as_ref(), CursorVis::Hide, DocPosSpec::Beginning))
     })
     .unwrap();
     assert_strings_eq(&window.to_string(), "true\n------\n------");
@@ -421,7 +422,7 @@ fn assert_proportional(expected: &str, width: Col, hungers: (usize, usize, usize
     let mut window = PlainText::new(Pos { row: 1, col: width });
     let mut pane = window.pane().unwrap();
     pane.render(&pane_note, |_label: &DocLabel| {
-        Some((doc1.as_ref(), CursorVis::Hide))
+        Some((doc1.as_ref(), CursorVis::Hide, DocPosSpec::Beginning))
     })
     .unwrap();
     assert_strings_eq(&window.to_string(), expected);
@@ -469,7 +470,7 @@ fn test_pane_dyn_height() {
         let mut window = PlainText::new(Pos { row: 3, col: 6 });
         let mut pane = window.pane().unwrap();
         pane.render(&pane_note, |_label: &DocLabel| {
-            Some((doc.as_ref(), CursorVis::Hide))
+            Some((doc.as_ref(), CursorVis::Hide, DocPosSpec::Beginning))
         })
         .unwrap();
         assert_strings_eq(&window.to_string(), expected);
@@ -479,4 +480,35 @@ fn test_pane_dyn_height() {
     assert_render(doc1, "[true]\n------\n------");
     assert_render(doc2, "[true,\n true]\n------");
     assert_render(doc3, "[true,\n true,\n true]");
+}
+
+// TODO this test currently panics, but should eventually be enabled
+// #[test]
+fn test_print_outside() {
+    let notations = make_json_notation();
+
+    let doc1 = Doc::new_branch(notations["false"].clone(), Vec::new());
+    let mut window = PlainText::new(Pos { row: 1, col: 8 });
+
+    let content1 = PaneNotation::Doc {
+        label: DocLabel::ActiveDoc,
+    };
+    let content2 = PaneNotation::Fill {
+        ch: '-',
+        style: Style::plain(),
+    };
+
+    let pane_note = PaneNotation::Horz {
+        panes: vec![
+            (PaneSize::Fixed(4), content1),
+            (PaneSize::Fixed(4), content2),
+        ],
+    };
+
+    let mut pane = window.pane().unwrap();
+    pane.render(&pane_note, |_label: &DocLabel| {
+        Some((doc1.as_ref(), CursorVis::Hide, DocPosSpec::Beginning))
+    })
+    .unwrap();
+    assert_strings_eq(&window.to_string(), "fals----");
 }

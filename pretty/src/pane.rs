@@ -129,6 +129,8 @@ where
     /// given relative position (where 0,0 is the top left corner of the
     /// `Pane`). No newlines allowed.
     pub fn print(&mut self, pos: Pos, text: &str, style: Style) -> Result<(), T::Error> {
+        // TODO check if this fits in the pane. Currently, `fit_bound()` panics
+        // if it doesn't fit in the pane, so there's not much point in checking yet.
         let abs_pos = pos + self.rect.pos();
         self.window.print(abs_pos, text, style)
     }
@@ -141,8 +143,12 @@ where
         shade: Option<Shade>,
         reverse: bool,
     ) -> Result<(), T::Error> {
-        let abs_region = region + self.rect.pos();
-        self.window.highlight(abs_region, shade, reverse)
+        if let Some(abs_region) = (region + self.rect.pos()).crop(self.rect) {
+            self.window.highlight(abs_region, shade, reverse)
+        } else {
+            // None of the region is visible in this pane, do nothing.
+            Ok(())
+        }
     }
 
     /// Render to this pane according to the given [PaneNotation], `note`. Use
@@ -155,7 +161,7 @@ where
         get_content: F,
     ) -> Result<(), PaneError<T::Error>>
     where
-        F: Fn(&DocLabel) -> Option<(U, CursorVis)>,
+        F: Fn(&DocLabel) -> Option<(U, CursorVis, DocPosSpec)>,
         F: Clone,
         U: PrettyDocument,
     {
@@ -192,7 +198,7 @@ where
                             // Convert dynamic height into a fixed height, based on the currrent document.
                             if let PaneNotation::Doc { label, .. } = &p.1 {
                                 let f = get_content.clone();
-                                let (doc, _) =
+                                let (doc, _, _) =
                                     f(label).ok_or(PaneError::Missing(label.to_owned()))?;
                                 let height =
                                     available_height.min(doc.required_height(self.rect().width()));
@@ -221,10 +227,9 @@ where
             }
             PaneNotation::Doc { label } => {
                 let width = self.rect().width();
-
-                let (doc, cursor_visibility) =
+                let (doc, cursor_visibility, doc_pos_spec) =
                     get_content(label).ok_or(PaneError::Missing(label.to_owned()))?;
-                doc.pretty_print(width, self, DocPosSpec::CursorAtTop, cursor_visibility)?;
+                doc.pretty_print(width, self, doc_pos_spec, cursor_visibility)?;
             }
             PaneNotation::Fill { ch, style } => {
                 let line: String = iter::repeat(ch)
@@ -346,5 +351,4 @@ mod tests {
             vec!(4455, 7937, 4454, 567, 972, 16198)
         );
     }
-
 }

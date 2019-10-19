@@ -14,8 +14,12 @@ use crate::style::{Shade, Style};
 pub enum DocPosSpec {
     /// Put this row and column of the document at the top left corner of the Pane.
     Fixed(Pos),
-    /// Put the top edge of the cursor at the top of the Pane.
-    CursorAtTop,
+    /// Put the beginning of the document at the top left corner of the
+    /// Pane. Equivalent to `Fixed(Pos{row: 0, col: 0})`.
+    Beginning,
+    /// Position the document such that the top of the cursor is at this height,
+    /// where 1 is the top line of the Pane and 0 is the bottom line.
+    CursorHeight { fraction: f32 },
 }
 
 /// A "document" that supports the necessary methods to be pretty-printed.
@@ -69,11 +73,17 @@ pub trait PrettyDocument: Sized + Clone {
 
         let cursor_region = self.locate_cursor(width);
         let doc_pos = match doc_pos_spec {
-            DocPosSpec::CursorAtTop => Pos {
-                col: 0,
-                row: cursor_region.pos.row,
-            },
+            DocPosSpec::CursorHeight { fraction } => {
+                let fraction = f32::max(0.0, f32::min(1.0, fraction));
+                let offset_from_top =
+                    f32::round((pane.rect.height() - 1) as f32 * (1.0 - fraction)) as Row;
+                Pos {
+                    col: 0,
+                    row: u32::saturating_sub(cursor_region.pos.row, offset_from_top),
+                }
+            }
             DocPosSpec::Fixed(pos) => pos,
+            DocPosSpec::Beginning => Pos { row: 0, col: 0 },
         };
 
         let doc_rect = Rect::new(doc_pos, pane.rect().size());
