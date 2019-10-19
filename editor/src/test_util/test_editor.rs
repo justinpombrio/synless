@@ -18,15 +18,6 @@ pub struct TestEditor<'l> {
 }
 
 impl<'l> TestEditor<'l> {
-    /// Create a new LanguageSet containing only the given Language. Return the
-    /// LanguageSet along with the name of the given Language.
-    pub fn lang_set_from(lang: Language) -> (LanguageSet, LanguageName) {
-        let lang_name = lang.name().to_owned();
-        let lang_set = LanguageSet::new();
-        lang_set.insert(lang_name.clone(), lang);
-        (lang_set, lang_name)
-    }
-
     /// Create a new TestEditor containing a Doc in the given language.
     pub fn new(
         lang_set: &'l LanguageSet,
@@ -91,4 +82,13 @@ impl<'l> TestEditor<'l> {
             .unwrap();
         assert_eq!(window.to_string(), expected)
     }
+}
+
+/// Create a new LanguageSet containing only the given Language. Return the
+/// LanguageSet along with the name of the given Language.
+pub fn make_singleton_lang_set(lang: Language) -> (LanguageSet, LanguageName) {
+    let lang_name = lang.name().to_owned();
+    let lang_set = LanguageSet::new();
+    lang_set.insert(lang_name.clone(), lang);
+    (lang_set, lang_name)
 }

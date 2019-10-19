@@ -13,4 +13,4 @@ pub use self::command::{
 };
 pub use self::doc::{Clipboard, Doc, DocError};
 pub use self::notationset::NotationSet;
-pub use test_util::{make_json_lang, TestEditor};
+pub use test_util::{make_json_lang, make_singleton_lang_set, TestEditor};

@@ -1,4 +1,7 @@
-use editor::{make_json_lang, CommandGroup, TestEditor, TextCmd, TextNavCmd, TreeCmd, TreeNavCmd};
+use editor::{
+    make_json_lang, make_singleton_lang_set, CommandGroup, TestEditor, TextCmd, TextNavCmd,
+    TreeCmd, TreeNavCmd,
+};
 use pretty::{DocPosSpec, Pos};
 
 /// Create a CommandGroup containing any number of commands, each of which are
@@ -15,7 +18,7 @@ macro_rules! group {
 #[test]
 fn test_tree_clone_panic() {
     let (lang, note_set) = make_json_lang();
-    let (lang_set, lang_name) = TestEditor::lang_set_from(lang);
+    let (lang_set, lang_name) = make_singleton_lang_set(lang);
     let mut ed = TestEditor::new(&lang_set, &note_set, lang_name);
     ed.exec(TreeNavCmd::Child(0)).unwrap();
     ed.exec(TreeCmd::Replace(ed.node("entry").unwrap()))
@@ -25,7 +28,7 @@ fn test_tree_clone_panic() {
 #[test]
 fn test_json_undo_redo() {
     let (lang, note_set) = make_json_lang();
-    let (lang_set, lang_name) = TestEditor::lang_set_from(lang);
+    let (lang_set, lang_name) = make_singleton_lang_set(lang);
     let mut ed = TestEditor::new(&lang_set, &note_set, lang_name);
 
     ed.exec(TreeNavCmd::Child(0)).unwrap();
@@ -101,7 +104,7 @@ fn test_json_undo_redo() {
 fn test_json_cursor_at_top() {
     let width = 7;
     let (lang, note_set) = make_json_lang();
-    let (lang_set, lang_name) = TestEditor::lang_set_from(lang);
+    let (lang_set, lang_name) = make_singleton_lang_set(lang);
     let mut ed = TestEditor::new(&lang_set, &note_set, lang_name);
 
     ed.exec(TreeNavCmd::Child(0)).unwrap();
@@ -138,7 +141,7 @@ fn test_json_cursor_at_top() {
 #[test]
 fn test_json_string() {
     let (lang, note_set) = make_json_lang();
-    let (lang_set, lang_name) = TestEditor::lang_set_from(lang);
+    let (lang_set, lang_name) = make_singleton_lang_set(lang);
     let mut ed = TestEditor::new(&lang_set, &note_set, lang_name);
 
     ed.exec(TreeNavCmd::Child(0)).unwrap();
