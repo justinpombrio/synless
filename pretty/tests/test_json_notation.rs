@@ -8,6 +8,7 @@ use pretty::{
     PrettyWindow, Style,
 };
 
+// TODO: test ScrollStrategies other than Beginning.
 // TODO: test horz concat
 
 #[test]
