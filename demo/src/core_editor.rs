@@ -6,7 +6,7 @@ use editor::{
     Ast, AstForest, AstRef, Clipboard, Doc, MetaCommand, NotationSet, TreeCmd, TreeNavCmd,
 };
 use forest::Bookmark;
-use frontends::{Frontend, Terminal};
+use frontends::Frontend;
 use language::{Language, LanguageName, LanguageSet};
 use pretty::{DocLabel, Pane, PaneNotation};
 use utility::GrowOnlyMap;
@@ -144,15 +144,11 @@ impl<'l> Core<'l> {
         )
     }
 
-    // TODO take generic Frontend. Requires type param in Error? Wait until the
-    // `pretty` rewrite is merged.
-    //
-    // pub fn redisplay<F>(&self, window: &mut F) -> Result<(), Error>
-    // where
-    //     F: Frontend,
-    // {
-    pub fn redisplay(&self, frontend: &mut Terminal) -> Result<(), CoreError<'l>> {
-        frontend.draw_frame(|mut pane: Pane<<Terminal as Frontend>::Window>| {
+    pub fn redisplay<F>(&self, frontend: &mut F) -> Result<(), CoreError<'l>>
+    where
+        F: Frontend,
+    {
+        frontend.draw_frame(|mut pane: Pane<F::Window>| {
             pane.render(&self.pane_notation, |label: &DocLabel| {
                 self.docs.get_ast_ref(label)
             })
