@@ -1,7 +1,7 @@
 use pretty::{Pos, Region};
 use pretty::{Shade, ShadedStyle, Style};
 
-use super::Error;
+use super::TermError;
 
 /// Represents a screen full of characters. It buffers changes to the
 /// characters, and can produce a set of instructions for efficiently updating
@@ -106,7 +106,7 @@ impl ScreenBuf {
     /// No newlines allowed. If the string doesn't fit between the starting
     /// column position and the right edge of the screen, it's truncated and
     /// and an OutOfBounds error is returned.
-    pub fn write_str(&mut self, mut pos: Pos, s: &str, style: Style) -> Result<(), Error> {
+    pub fn write_str(&mut self, mut pos: Pos, s: &str, style: Style) -> Result<(), TermError> {
         for ch in s.chars() {
             self.set_char_with_style(pos, ch, style)?;
             pos.col += 1;
@@ -119,7 +119,7 @@ impl ScreenBuf {
         region: Region,
         shade: Option<Shade>,
         reverse: bool,
-    ) -> Result<(), Error> {
+    ) -> Result<(), TermError> {
         for pos in region.positions() {
             let cell = self.get_mut(pos)?;
             if let Some(s) = shade {
@@ -132,26 +132,26 @@ impl ScreenBuf {
         Ok(())
     }
 
-    fn set_char_with_style(&mut self, pos: Pos, ch: char, style: Style) -> Result<(), Error> {
+    fn set_char_with_style(&mut self, pos: Pos, ch: char, style: Style) -> Result<(), TermError> {
         let cell = self.get_mut(pos)?;
         cell.set_char(ch);
         cell.set_style(style);
         Ok(())
     }
 
-    fn get(&self, pos: Pos) -> Result<DoubleCharCell, Error> {
+    fn get(&self, pos: Pos) -> Result<DoubleCharCell, TermError> {
         self.cells
             .get(pos.row as usize)
             .and_then(|row| row.get(pos.col as usize))
             .map(|cell| *cell)
-            .ok_or(Error::OutOfBounds)
+            .ok_or(TermError::OutOfBounds)
     }
 
-    fn get_mut(&mut self, pos: Pos) -> Result<&mut DoubleCharCell, Error> {
+    fn get_mut(&mut self, pos: Pos) -> Result<&mut DoubleCharCell, TermError> {
         self.cells
             .get_mut(pos.row as usize)
             .and_then(|row| row.get_mut(pos.col as usize))
-            .ok_or(Error::OutOfBounds)
+            .ok_or(TermError::OutOfBounds)
     }
 
     fn next_pos(&self, old_pos: Pos) -> Option<Pos> {
@@ -342,9 +342,9 @@ mod screen_buf_tests {
     use super::*;
     use pretty::{Bound, Color, Pos, Region, Shade, Style};
 
-    fn assert_out_of_bounds(result: Result<(), Error>) {
+    fn assert_out_of_bounds(result: Result<(), TermError>) {
         match result {
-            Err(Error::OutOfBounds) => (),
+            Err(TermError::OutOfBounds) => (),
             x => panic!("expected OutOfBounds error, got {:?}", x),
         }
     }

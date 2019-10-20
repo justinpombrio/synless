@@ -2,7 +2,7 @@ use std::io;
 use thiserror;
 
 use editor::DocError;
-use frontends::{terminal, Key};
+use frontends::{terminal::TermError, Key};
 use language::{ConstructName, LanguageName};
 use pretty::{DocLabel, PaneError};
 
@@ -39,7 +39,7 @@ pub enum ShellError {
     Io(#[from] io::Error),
 
     #[error("terminal error: {0}")]
-    Term(#[from] terminal::Error),
+    Term(#[from] TermError),
 
     #[error("core error: {0}")]
     Core(#[from] CoreError<'static>),

@@ -2,7 +2,7 @@ use std::io;
 use thiserror;
 
 #[derive(thiserror::Error, Debug)]
-pub enum Error {
+pub enum TermError {
     #[error("terminal input/output error: {0}")]
     Io(#[from] io::Error),
 
