@@ -1,22 +1,16 @@
-use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::fmt::Debug;
 
 use editor::{
-    Ast, AstForest, AstRef, Clipboard, Doc, MetaCommand, NotationSet, TreeCmd, TreeNavCmd,
+    Ast, AstForest, AstRef, Clipboard, Doc, MetaCommand, NotationSet, NotationSets, TreeCmd,
+    TreeNavCmd,
 };
 use forest::Bookmark;
 use frontends::Frontend;
 use language::{Language, LanguageName, LanguageSet};
 use pretty::{DocLabel, Pane, PaneNotation};
-use utility::GrowOnlyMap;
 
 use crate::error::EngineError;
-
-lazy_static! {
-    pub static ref LANG_SET: LanguageSet = LanguageSet::new();
-    pub static ref NOTE_SETS: GrowOnlyMap<LanguageName, NotationSet> = GrowOnlyMap::new();
-}
 
 /// This assumes that there is a single language associated with each Doc. That
 /// might not be true forever! But it's a huge pain to create new nodes for the
@@ -60,10 +54,14 @@ pub struct Engine<'l> {
     bookmarks: HashMap<char, Bookmark>,
     cut_stack: Clipboard<'l>,
     pane_notation: PaneNotation,
+    language_set: &'l LanguageSet,
+    notation_sets: &'l NotationSets,
 }
 
 impl<'l> Engine<'l> {
     pub fn new(
+        language_set: &'l LanguageSet,
+        notation_sets: &'l NotationSets,
         pane_notation: PaneNotation,
         keyhint_lang: (Language, NotationSet),
         message_lang: (Language, NotationSet),
@@ -71,10 +69,12 @@ impl<'l> Engine<'l> {
     ) -> Result<Self, EngineError<'l>> {
         let mut engine = Engine {
             docs: Docs::new(),
-            forest: AstForest::new(&LANG_SET),
+            forest: AstForest::new(language_set),
             cut_stack: Clipboard::new(),
             bookmarks: HashMap::new(),
             pane_notation,
+            language_set,
+            notation_sets,
         };
         let keyhint_lang_name = engine.register_language(keyhint_lang);
         let message_lang_name = engine.register_language(message_lang);
@@ -92,11 +92,11 @@ impl<'l> Engine<'l> {
         Ok(engine)
     }
 
-    pub fn register_language(&self, lang_info: (Language, NotationSet)) -> LanguageName {
+    pub fn register_language(&mut self, lang_info: (Language, NotationSet)) -> LanguageName {
         let (lang, notation_set) = lang_info;
         let name = lang.name().to_owned();
-        LANG_SET.insert(name.clone(), lang);
-        NOTE_SETS.insert(name.clone(), notation_set);
+        self.language_set.insert(name.clone(), lang);
+        self.notation_sets.insert(name.clone(), notation_set);
         name
     }
 
@@ -116,13 +116,13 @@ impl<'l> Engine<'l> {
     }
 
     pub fn language(&self, lang_name: &LanguageName) -> Result<&'l Language, EngineError<'l>> {
-        LANG_SET
+        self.language_set
             .get(lang_name)
             .ok_or_else(|| EngineError::UnknownLang(lang_name.to_owned()))
     }
 
     fn notation_set(&self, lang_name: &LanguageName) -> Result<&'l NotationSet, EngineError<'l>> {
-        NOTE_SETS
+        self.notation_sets
             .get(lang_name)
             .ok_or_else(|| EngineError::UnknownLang(lang_name.to_owned()))
     }

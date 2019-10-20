@@ -54,7 +54,7 @@ impl<'l> KeymapManager<'l> {
 
     /// Push this mode onto the stack, making it the current mode. Return an
     /// error if the mode has not been registered.
-    pub fn push_mode(&mut self, name: ModeName) -> Result<(), ShellError> {
+    pub fn push_mode(&mut self, name: ModeName) -> Result<(), ShellError<'l>> {
         if self.modes.contains_key(&name) {
             self.mode_stack.push(name);
             Ok(())
@@ -154,7 +154,7 @@ impl<'l> KeymapManager<'l> {
     pub fn get_active_keymap(
         &self,
         tree_context: Option<FilterContext>,
-    ) -> Result<FilteredKeymap, ShellError> {
+    ) -> Result<FilteredKeymap, ShellError<'l>> {
         if let Some(context) = tree_context {
             if let Some(menu_name) = &self.active_menu {
                 let menu = self

@@ -1,6 +1,8 @@
-use editor::{make_json_lang, EditorCmd, MetaCommand, TextCmd, TextNavCmd, TreeCmd, TreeNavCmd};
+use editor::{
+    make_json_lang, EditorCmd, MetaCommand, NotationSets, TextCmd, TextNavCmd, TreeCmd, TreeNavCmd,
+};
 use frontends::{Event, Frontend, Key, Terminal};
-use language::Sort;
+use language::{LanguageSet, Sort};
 use pretty::{ColorTheme, DocLabel};
 
 use crate::engine::Engine;
@@ -14,17 +16,22 @@ use crate::data::keyhint_lang::make_keyhint_lang;
 use crate::data::message_lang::make_message_lang;
 
 /// Demonstrate a basic interactive tree editor
-pub struct ShellEditor {
-    engine: Engine<'static>,
+pub struct ShellEditor<'l> {
+    engine: Engine<'l>,
     frontend: Terminal,
-    data_stack: DataStack<'static>,
-    call_stack: CallStack<'static>,
-    keymap_manager: KeymapManager<'static>,
+    data_stack: DataStack<'l>,
+    call_stack: CallStack<'l>,
+    keymap_manager: KeymapManager<'l>,
 }
 
-impl ShellEditor {
-    pub fn new() -> Result<Self, ShellError> {
+impl<'l> ShellEditor<'l> {
+    pub fn new(
+        language_set: &'l LanguageSet,
+        notation_sets: &'l NotationSets,
+    ) -> Result<Self, ShellError<'l>> {
         let engine = Engine::new(
+            language_set,
+            notation_sets,
             make_example_pane_notation(),
             make_keyhint_lang(),
             make_message_lang(),
@@ -57,7 +64,7 @@ impl ShellEditor {
         Ok(ed)
     }
 
-    pub fn run(&mut self) -> Result<(), ShellError> {
+    pub fn run(&mut self) -> Result<(), ShellError<'l>> {
         loop {
             if self.keymap_manager.has_active_menu() {
                 self.handle_input()?;
@@ -74,7 +81,7 @@ impl ShellEditor {
         }
     }
 
-    fn handle_input(&mut self) -> Result<(), ShellError> {
+    fn handle_input(&mut self) -> Result<(), ShellError<'l>> {
         let doc = self.engine.active_doc()?;
         let tree_context = if doc.in_tree_mode() {
             Some(FilterContext {
@@ -100,7 +107,7 @@ impl ShellEditor {
         }
     }
 
-    fn update_key_hints(&mut self, keymap: &FilteredKeymap) -> Result<(), ShellError> {
+    fn update_key_hints(&mut self, keymap: &FilteredKeymap) -> Result<(), ShellError<'l>> {
         let lang_name = self.engine.lang_name_of(&DocLabel::KeyHints)?;
 
         let mut dict_node = self.engine.new_node("dict", lang_name)?;
@@ -152,7 +159,7 @@ impl ShellEditor {
         Ok(())
     }
 
-    fn next_event(&mut self, keymap: &FilteredKeymap) -> Result<Prog<'static>, ShellError> {
+    fn next_event(&mut self, keymap: &FilteredKeymap) -> Result<Prog<'l>, ShellError<'l>> {
         match self.frontend.next_event() {
             Some(Ok(Event::KeyEvent(Key::Ctrl('c')))) => Err(ShellError::KeyboardInterrupt),
             Some(Ok(Event::KeyEvent(key))) => self
@@ -164,7 +171,7 @@ impl ShellEditor {
         }
     }
 
-    fn call(&mut self, word: Word<'static>) -> Result<(), ShellError> {
+    fn call(&mut self, word: Word<'l>) -> Result<(), ShellError<'l>> {
         Ok(match word {
             Word::Literal(value) => self.data_stack.push(value),
             Word::Apply => {

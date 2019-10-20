@@ -9,7 +9,7 @@ use pretty::{DocLabel, PaneError};
 use crate::keymaps::{MenuName, ModeName};
 
 #[derive(thiserror::Error, Debug)]
-pub enum ShellError {
+pub enum ShellError<'l> {
     #[error("not in keymap: {0:?}")]
     UnknownKey(Key),
 
@@ -41,8 +41,16 @@ pub enum ShellError {
     #[error("terminal error: {0}")]
     Term(#[from] TermError),
 
+    // Note: we can't use the inner EngineError as the error source because it
+    // contains a non-static lifetime.
     #[error("engine error: {0}")]
-    Engine(#[from] EngineError<'static>),
+    Engine(EngineError<'l>),
+}
+
+impl<'l> From<EngineError<'l>> for ShellError<'l> {
+    fn from(e: EngineError<'l>) -> ShellError<'l> {
+        ShellError::Engine(e)
+    }
 }
 
 #[derive(thiserror::Error, Debug)]

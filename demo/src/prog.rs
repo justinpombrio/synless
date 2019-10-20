@@ -183,13 +183,13 @@ impl<'l> DataStack<'l> {
 
     /// Pop a value from the data stack, returning it. If the stack is empty,
     /// return an error.
-    pub fn pop(&mut self) -> Result<Value<'l>, ShellError> {
+    pub fn pop(&mut self) -> Result<Value<'l>, ShellError<'l>> {
         self.0.pop().ok_or(ShellError::EmptyDataStack)
     }
 
     /// Swap the order of the two top-most values on the data stack. Return an
     /// error if there are less than 2 values on the data stack.
-    pub fn swap(&mut self) -> Result<(), ShellError> {
+    pub fn swap(&mut self) -> Result<(), ShellError<'l>> {
         let first = self.pop()?;
         let maybe_second = self.pop();
         self.push(first);
@@ -199,7 +199,7 @@ impl<'l> DataStack<'l> {
 
     /// Pop a value from the stack. If it has type `Value::Tree`, return it.
     /// Otherwise return an error.
-    pub fn pop_tree(&mut self) -> Result<Ast<'l>, ShellError> {
+    pub fn pop_tree(&mut self) -> Result<Ast<'l>, ShellError<'l>> {
         if let Value::Tree(tree) = self.pop()? {
             Ok(tree)
         } else {
@@ -209,7 +209,7 @@ impl<'l> DataStack<'l> {
 
     /// Pop a value from the stack. If it has type `Value::Usize`, return it.
     /// Otherwise return an error.
-    pub fn pop_usize(&mut self) -> Result<usize, ShellError> {
+    pub fn pop_usize(&mut self) -> Result<usize, ShellError<'l>> {
         if let Value::Usize(num) = self.pop()? {
             Ok(num)
         } else {
@@ -219,7 +219,7 @@ impl<'l> DataStack<'l> {
 
     /// Pop a value from the stack. If it has type `Value::ModeName`, return it.
     /// Otherwise return an error.
-    pub fn pop_mode_name(&mut self) -> Result<ModeName, ShellError> {
+    pub fn pop_mode_name(&mut self) -> Result<ModeName, ShellError<'l>> {
         if let Value::ModeName(s) = self.pop()? {
             Ok(s)
         } else {
@@ -229,7 +229,7 @@ impl<'l> DataStack<'l> {
 
     /// Pop a value from the stack. If it has type `Value::MenuName`, return it.
     /// Otherwise return an error.
-    pub fn pop_menu_name(&mut self) -> Result<MenuName, ShellError> {
+    pub fn pop_menu_name(&mut self) -> Result<MenuName, ShellError<'l>> {
         if let Value::MenuName(s) = self.pop()? {
             Ok(s)
         } else {
@@ -239,7 +239,7 @@ impl<'l> DataStack<'l> {
 
     /// Pop a value from the stack. If it has type `Value::LangConstruct`, return it.
     /// Otherwise return an error.
-    pub fn pop_lang_construct(&mut self) -> Result<(LanguageName, ConstructName), ShellError> {
+    pub fn pop_lang_construct(&mut self) -> Result<(LanguageName, ConstructName), ShellError<'l>> {
         if let Value::LangConstruct(lang_name, construct_name) = self.pop()? {
             Ok((lang_name, construct_name))
         } else {
@@ -249,7 +249,7 @@ impl<'l> DataStack<'l> {
 
     /// Pop a value from the stack. If it has type `Value::Message`, return it.
     /// Otherwise return an error.
-    pub fn pop_message(&mut self) -> Result<String, ShellError> {
+    pub fn pop_message(&mut self) -> Result<String, ShellError<'l>> {
         if let Value::Message(s) = self.pop()? {
             Ok(s)
         } else {
@@ -259,7 +259,7 @@ impl<'l> DataStack<'l> {
 
     /// Pop a value from the stack. If it has type `Value::Char`, return it.
     /// Otherwise return an error.
-    pub fn pop_char(&mut self) -> Result<char, ShellError> {
+    pub fn pop_char(&mut self) -> Result<char, ShellError<'l>> {
         if let Value::Char(ch) = self.pop()? {
             Ok(ch)
         } else {
@@ -269,7 +269,7 @@ impl<'l> DataStack<'l> {
 
     /// Pop a value from the stack. If it has type `Value::Quote`, return it.
     /// Otherwise return an error.
-    pub fn pop_quote(&mut self) -> Result<Prog<'l>, ShellError> {
+    pub fn pop_quote(&mut self) -> Result<Prog<'l>, ShellError<'l>> {
         if let Value::Quote(prog) = self.pop()? {
             Ok(prog)
         } else {
