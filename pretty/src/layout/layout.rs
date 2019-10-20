@@ -10,7 +10,7 @@ use self::Layout::*;
 
 pub trait Lay
 where
-    Self: Clone,
+    Self: Clone + fmt::Debug,
 {
     fn empty() -> Self;
     fn literal(s: &str, style: Style) -> Self;
@@ -340,11 +340,13 @@ fn lay<L: Lay>(
         }
         Notation::Text(style) => child_bounds[0]
             .0
+            .clone()
             .into_iter()
             .map(|(bound, ())| (bound, L::text(bound, *style)))
             .collect(),
         Notation::Child(index) => child_bounds[*index]
             .0
+            .clone()
             .into_iter()
             .map(|(bound, ())| (bound, L::child(*index, bound)))
             .collect(),

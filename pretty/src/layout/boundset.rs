@@ -1,76 +1,106 @@
-use std::fmt;
-use std::iter;
-
+use super::staircase::{Staircase, StaircaseIter};
 use crate::geometry::Bound;
 #[cfg(test)]
 use crate::geometry::Col;
+use std::fmt;
+use std::iter;
+use std::vec;
 
 /// A set of Bounds. If one Bound is strictly smaller than another,
 /// only the smaller one will be kept.
 /// Each Bound may have some related data T.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct BoundSet<T>
 where
-    T: Clone,
+    T: Clone + fmt::Debug,
 {
-    set: Vec<(Bound, T)>,
+    /// Staircases, stored by increasing indent.
+    staircases: Vec<Staircase<T>>,
 }
 
 impl<T> BoundSet<T>
 where
-    T: Clone,
+    T: Clone + fmt::Debug,
 {
     /// Construct an empty BoundSet.
-    pub(super) fn new() -> BoundSet<T> {
-        BoundSet { set: vec![] }
+    pub fn new() -> BoundSet<T> {
+        BoundSet { staircases: vec![] }
     }
 
     /// Pick the best (i.e., shortest) Bound that fits within the
     /// given Bound. Panics if none fit.
-    pub(super) fn fit_bound(&self, space: Bound) -> (Bound, T) {
-        self.into_iter()
-            .filter(|(bound, _)| bound.dominates(space))
-            .min_by_key(|bound| bound.0.height)
-            .unwrap_or_else(|| {
-                panic!(
-                    "No bound fits within given width {}.\nBoundset: {:?}",
-                    space.width, self
-                )
-            })
+    pub fn fit_bound(&self, space: Bound) -> (Bound, T) {
+        let mut best = None;
+        for staircase in &self.staircases {
+            if let Some((bound, value)) = staircase.fit_bound(space) {
+                match best {
+                    None => best = Some((bound, value)),
+                    Some((best_bound, _)) => {
+                        if bound.height < best_bound.height {
+                            best = Some((bound, value));
+                        }
+                    }
+                }
+            }
+        }
+        match best {
+            None => panic!(
+                "No bound fits within the given bound {:?}.\nBoundset: {:?}",
+                space, self
+            ),
+            Some((bound, value)) => (bound, value.to_owned()),
+        }
     }
 
-    pub(super) fn singleton(bound: Bound, val: T) -> BoundSet<T> {
+    /// Construct a BoundSet that contains only a single bound.
+    pub fn singleton(bound: Bound, value: T) -> BoundSet<T> {
         let mut set = BoundSet::new();
-        set.insert(bound, val);
+        set.insert(bound, value);
         set
     }
 
-    // TODO: efficiency (can go from O(n) to O(sqrt(n)))
-    // MUST FILTER IDENTICALLY TO LayoutSet::insert
-    pub(super) fn insert(&mut self, bound: Bound, val: T) {
+    /// Insert a Bound into the BoundSet. If it is dominated by a Bound already
+    /// in the set, it will not be added. If it dominates Bounds already in the
+    /// set, they will be removed.
+    pub fn insert(&mut self, bound: Bound, value: T) {
         if bound.too_wide() {
             return;
         }
-        for (b, _) in &self.set {
-            if b.dominates(bound) {
+        for staircase in &mut self.staircases {
+            let indent = staircase.indent();
+            // Check to see if this bound is dominated.
+            if indent <= bound.indent && staircase.dominates(bound.width, bound.height) {
                 return;
             }
+            // Remove bounds that this bound dominates.
+            if indent >= bound.indent {
+                staircase.clear_dominated(bound.width, bound.height);
+            }
         }
-        self.set.retain(|&(b, _)| !bound.dominates(b));
-        self.set.push((bound, val));
+        match self
+            .staircases
+            .binary_search_by_key(&bound.indent, |s| s.indent())
+        {
+            Ok(i) => self.staircases[i].unchecked_insert(bound.width, bound.height, value),
+            Err(i) => {
+                let mut staircase = Staircase::new(bound.indent);
+                staircase.unchecked_insert(bound.width, bound.height, value);
+                self.staircases.insert(i, staircase);
+            }
+        }
     }
 
     /// Combine two boundsets. Produces a boundset whose elements are
     /// `(f(b1, b2), g(t1, t2))`
     /// for all `(b1, t1)` in `set1` and all `(b2, t2)` in `set2`.
-    pub(super) fn combine<F, G>(set1: &BoundSet<T>, set2: &BoundSet<T>, f: F, g: G) -> BoundSet<T>
+    pub fn combine<F, G>(set1: &BoundSet<T>, set2: &BoundSet<T>, f: F, g: G) -> BoundSet<T>
     where
         F: Fn(Bound, Bound) -> Bound,
         G: Fn(T, T) -> T,
     {
         let mut set = BoundSet::new();
-        for (bound1, val1) in set1.into_iter() {
-            for (bound2, val2) in set2.into_iter() {
+        for (bound1, val1) in set1.to_owned().into_iter() {
+            for (bound2, val2) in set2.to_owned().into_iter() {
                 let bound = f(bound1, bound2);
                 let val = g(val1.clone(), val2);
                 set.insert(bound, val);
@@ -82,63 +112,62 @@ where
     /// Pick the best (i.e., smallest) Bound that fits within the
     /// given width. Panics if none fit.
     #[cfg(test)]
-    pub(super) fn fit_width(&self, width: Col) -> (Bound, T) {
+    pub fn fit_width(&self, width: Col) -> (Bound, T) {
         let bound = Bound::infinite_scroll(width);
         self.fit_bound(bound)
     }
 }
 
-impl<T> fmt::Debug for BoundSet<T>
-where
-    T: Clone,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let set: Vec<&Bound> = self.set.iter().map(|(bound, _)| bound).collect();
-        write!(f, "{:?}", set)
-    }
-}
-
 /// Iterator over Bounds in a BoundSet.
-pub struct BoundIter<'a, T: 'a>
+pub struct BoundSetIter<T>
 where
-    T: Clone,
+    T: Clone + fmt::Debug,
 {
-    set: &'a Vec<(Bound, T)>,
-    i: usize,
+    staircases: vec::IntoIter<Staircase<T>>,
+    bounds: Option<StaircaseIter<T>>,
 }
 
-impl<'a, T> Iterator for BoundIter<'a, T>
+impl<T> Iterator for BoundSetIter<T>
 where
-    T: Clone,
+    T: Clone + fmt::Debug,
 {
     type Item = (Bound, T);
     fn next(&mut self) -> Option<(Bound, T)> {
-        if self.i >= self.set.len() {
-            None
-        } else {
-            self.i += 1;
-            Some(self.set[self.i - 1].clone())
+        while self.bounds.is_none() {
+            match self.staircases.next() {
+                None => return None,
+                Some(staircase) => self.bounds = Some(staircase.into_iter()),
+            }
+        }
+        loop {
+            match self.bounds.as_mut().unwrap().next() {
+                Some((bound, value)) => return Some((bound, value)),
+                None => match self.staircases.next() {
+                    None => return None,
+                    Some(staircase) => self.bounds = Some(staircase.into_iter()),
+                },
+            }
         }
     }
 }
 
-impl<'a, T> iter::IntoIterator for &'a BoundSet<T>
+impl<T> iter::IntoIterator for BoundSet<T>
 where
-    T: Clone,
+    T: Clone + fmt::Debug,
 {
     type Item = (Bound, T);
-    type IntoIter = BoundIter<'a, T>;
+    type IntoIter = BoundSetIter<T>;
     fn into_iter(self) -> Self::IntoIter {
-        BoundIter {
-            set: &self.set,
-            i: 0,
+        BoundSetIter {
+            staircases: self.staircases.into_iter(),
+            bounds: None,
         }
     }
 }
 
 impl<T> iter::FromIterator<(Bound, T)> for BoundSet<T>
 where
-    T: Clone,
+    T: Clone + fmt::Debug,
 {
     fn from_iter<I>(iter: I) -> BoundSet<T>
     where
@@ -155,7 +184,6 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fmt::Write;
 
     #[test]
     fn test_show_bound() {
@@ -165,12 +193,12 @@ mod tests {
             height: 3,
         };
         let mut s = String::new();
-        write!(&mut s, "{:?}", r).unwrap();
+        r.debug_print(&mut s, '*', 2).unwrap();
         assert_eq!(
             s,
             "**********
-**********
-******"
+  **********
+  ******"
         );
     }
 
@@ -182,7 +210,7 @@ mod tests {
             height: 1,
         };
         let mut s = String::new();
-        write!(&mut s, "{:?}", r).unwrap();
+        r.debug_print(&mut s, '*', 2).unwrap();
         assert_eq!(s, "");
     }
 
@@ -227,5 +255,39 @@ mod tests {
         assert!(!r_2.dominates(r_3));
         assert!(!r_3.dominates(r_1));
         assert!(!r_3.dominates(r_2));
+    }
+
+    #[test]
+    fn test_boundset() {
+        let r_1 = Bound {
+            width: 11,
+            indent: 6,
+            height: 3,
+        };
+        let r_2 = Bound {
+            width: 10,
+            indent: 7,
+            height: 3,
+        };
+        let r_3 = Bound {
+            width: 10,
+            indent: 6,
+            height: 4,
+        };
+        let r_worst = Bound {
+            width: 11,
+            indent: 7,
+            height: 4,
+        };
+        let mut set = BoundSet::new();
+        set.insert(r_worst, 0);
+        set.insert(r_1, 1);
+        set.insert(r_worst, 0);
+        set.insert(r_2, 2);
+        set.insert(r_worst, 0);
+        set.insert(r_3, 3);
+        set.insert(r_worst, 0);
+        let bounds: Vec<_> = set.into_iter().collect();
+        assert_eq!(bounds, vec![(r_1, 1), (r_3, 3), (r_2, 2)]);
     }
 }

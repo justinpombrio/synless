@@ -89,7 +89,6 @@ mod layout_tests {
             height: 2,
         };
         assert_eq!(actual, expected);
-        assert_eq!(format!("{:?}", actual), "***\n**");
     }
 
     #[test]
