@@ -1,67 +1,78 @@
-use frontends::Key;
 use std::io;
+use thiserror;
 
 use editor::DocError;
-use frontends::terminal;
+use frontends::{terminal, Key};
 use language::{ConstructName, LanguageName};
 use pretty::{DocLabel, PaneError};
 
 use crate::keymaps::{MenuName, ModeName};
 
-#[derive(Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum ShellError {
+    #[error("not in keymap: {0:?}")]
     UnknownKey(Key),
+
+    #[error("unknown keymap mode: {0:?}")]
     UnknownModeName(ModeName),
+
+    #[error("unknown keymap menu: {0:?}")]
     UnknownMenuName(MenuName),
+
+    #[error("no keymap mode selected")]
     NoMode,
+
+    #[error("unknown user input event")]
     UnknownEvent,
+
+    #[error("received keyboard interrupt")]
     KeyboardInterrupt,
+
+    // TODO include actual type too
+    #[error("expected value of type {0} on data stack")]
     ExpectedValue(String),
-    EmptyStack,
-    Io(io::Error),
-    Term(terminal::Error),
-    Core(CoreError<'static>),
+
+    #[error("data stack was unexpectedly empty")]
+    EmptyDataStack,
+
+    #[error("input/output error: {0}")]
+    Io(#[from] io::Error),
+
+    #[error("terminal error: {0}")]
+    Term(#[from] terminal::Error),
+
+    #[error("core error: {0}")]
+    Core(#[from] CoreError<'static>),
 }
 
-#[derive(Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum CoreError<'l> {
+    #[error("unknown language: {0}")]
     UnknownLang(LanguageName),
+
+    #[error("language {lang} does not contain construct {construct}")]
     UnknownConstruct {
         construct: ConstructName,
         lang: LanguageName,
     },
-    UnknownBookmark,
-    UnknownDocLabel(DocLabel),
-    Pane(PaneError<terminal::Error>),
-    DocExec(DocError<'l>),
-}
 
-impl<'l> From<PaneError<terminal::Error>> for CoreError<'l> {
-    fn from(e: PaneError<terminal::Error>) -> CoreError<'l> {
-        CoreError::Pane(e)
-    }
+    #[error("no bookmark stored with this key")]
+    UnknownBookmark,
+
+    #[error("no document with label {0:?}")]
+    UnknownDocLabel(DocLabel),
+
+    #[error("pane error: {0}")]
+    Pane(#[from] PaneError),
+
+    // Note: we can't use the inner DocError as the error source because it
+    // contains a non-static lifetime.
+    #[error("doc error: {0}")]
+    DocExec(DocError<'l>),
 }
 
 impl<'l> From<DocError<'l>> for CoreError<'l> {
     fn from(e: DocError<'l>) -> CoreError<'l> {
         CoreError::DocExec(e)
-    }
-}
-
-impl From<CoreError<'static>> for ShellError {
-    fn from(e: CoreError<'static>) -> ShellError {
-        ShellError::Core(e)
-    }
-}
-
-impl<'l> From<io::Error> for ShellError {
-    fn from(e: io::Error) -> ShellError {
-        ShellError::Io(e)
-    }
-}
-
-impl<'l> From<terminal::Error> for ShellError {
-    fn from(e: terminal::Error) -> ShellError {
-        ShellError::Term(e)
     }
 }

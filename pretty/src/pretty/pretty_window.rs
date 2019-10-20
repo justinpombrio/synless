@@ -1,12 +1,12 @@
-use std::fmt;
-
 use crate::geometry::{Pos, Rect, Region};
 use crate::pane::Pane;
 use crate::style::{Shade, Style};
 
 /// A "window" that supports the methods necessary to render a set of [PrettyDocument]s.
 pub trait PrettyWindow: Sized {
-    type Error: fmt::Debug;
+    // Forbid the Error type from containing non-static references so we can use
+    // it as a trait object.
+    type Error: std::error::Error + 'static;
 
     /// The size of the window, in rows and columns of characters.
     fn size(&self) -> Result<Pos, Self::Error>;

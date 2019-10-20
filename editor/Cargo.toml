@@ -9,3 +9,4 @@ forest = { path = "../forest" }
 pretty = { path = "../pretty" }
 language = { path  = "../language" }
 lazy_static = "*"
+thiserror = "1.0"

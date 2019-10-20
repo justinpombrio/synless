@@ -64,7 +64,7 @@ impl ShellEditor {
             } else {
                 if let Some(word) = self.call_stack.next() {
                     if let Err(err) = self.call(word) {
-                        self.core.show_message(&format!("Error: {:?}", err))?;
+                        self.core.show_message(&format!("Error: {}", err))?;
                     }
                 } else {
                     self.core.exec(MetaCommand::EndGroup)?;
@@ -96,7 +96,7 @@ impl ShellEditor {
                 Ok(())
             }
             Err(ShellError::KeyboardInterrupt) => Err(ShellError::KeyboardInterrupt),
-            Err(err) => Ok(self.core.show_message(&format!("Error: {:?}", err))?),
+            Err(err) => Ok(self.core.show_message(&format!("Error: {}", err))?),
         }
     }
 

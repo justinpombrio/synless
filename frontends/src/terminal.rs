@@ -127,7 +127,7 @@ impl Frontend for Terminal {
     type Error = Error;
     type Window = Self;
 
-    fn new(theme: ColorTheme) -> Result<Terminal, Error> {
+    fn new(theme: ColorTheme) -> Result<Terminal, Self::Error> {
         let mut term = Terminal {
             stdout: AlternateScreen::from(MouseTerminal::from(stdout().into_raw_mode()?)),
             events: stdin().events(),
@@ -140,7 +140,7 @@ impl Frontend for Terminal {
         Ok(term)
     }
 
-    fn next_event(&mut self) -> Option<Result<Event, Error>> {
+    fn next_event(&mut self) -> Option<Result<Event, Self::Error>> {
         match self.events.next() {
             Some(Ok(event::Event::Key(termion_key))) => Some(match Key::try_from(termion_key) {
                 Ok(key) => Ok(KeyEvent(key)),
@@ -158,14 +158,14 @@ impl Frontend for Terminal {
         }
     }
 
-    fn draw_frame<F>(&mut self, draw: F) -> Result<(), PaneError<Error>>
+    fn draw_frame<F>(&mut self, draw: F) -> Result<(), PaneError>
     where
-        F: Fn(Pane<Self>) -> Result<(), PaneError<Error>>,
+        F: Fn(Pane<Self>) -> Result<(), PaneError>,
     {
-        self.start_frame()?;
-        let pane = self.pane()?;
+        self.start_frame().map_err(PaneError::from_pretty_window)?;
+        let pane = self.pane().map_err(PaneError::from_pretty_window)?;
         let result = draw(pane);
-        self.show_frame()?;
+        self.show_frame().map_err(PaneError::from_pretty_window)?;
         result
     }
 }

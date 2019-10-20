@@ -1,6 +1,7 @@
 use crate::{Col, DocPosSpec, Pos, PrettyDocument, PrettyWindow, Rect, Region, Row, Shade, Style};
 
-use std::{fmt, iter};
+use std::{error, iter};
+use thiserror;
 
 /// A rectangular area of a window. You can pretty-print to it, or get sub-panes
 /// of it and pretty-print to those.
@@ -92,18 +93,33 @@ pub enum CursorVis {
 }
 
 /// Errors that can occur while attempting to render to a `Pane`.
-#[derive(Debug)]
-pub enum PaneError<T>
-where
-    T: fmt::Debug,
-{
+#[derive(thiserror::Error, Debug)]
+pub enum PaneError {
+    #[error("requested pane is not a subpane of the current pane")]
     NotSubPane,
+
+    #[error("pane notation layout demands cannot be satisfied")]
     ImpossibleDemands,
+
+    #[error("invalid pane notation")]
     InvalidNotation,
+
+    #[error("missing document in pane notation: {0:?}")]
     Missing(DocLabel),
-    /// T should be the associated `Error` type of something that implements the
+
+    /// The error should be the associated `Error` type of something that implements the
     /// PrettyWindow trait.
-    PrettyWindow(T),
+    #[error("window error: {0}")]
+    PrettyWindow(#[source] Box<dyn error::Error + 'static>),
+}
+
+impl PaneError {
+    pub fn from_pretty_window<T>(err: T) -> PaneError
+    where
+        T: error::Error + 'static,
+    {
+        PaneError::PrettyWindow(Box::new(err))
+    }
 }
 
 impl<'a, T> Pane<'a, T>
@@ -159,11 +175,7 @@ where
     /// the `get_content` closure to map the document labels used in any
     /// `PaneNotation::Doc` variants to actual documents, and whether to
     /// shade that document's cursor region.
-    pub fn render<F, U>(
-        &mut self,
-        note: &PaneNotation,
-        get_content: F,
-    ) -> Result<(), PaneError<T::Error>>
+    pub fn render<F, U>(&mut self, note: &PaneNotation, get_content: F) -> Result<(), PaneError>
     where
         F: Fn(&DocLabel) -> Option<U>,
         F: Clone,
@@ -235,7 +247,8 @@ where
             } => {
                 let width = self.rect().width();
                 let doc = get_content(label).ok_or(PaneError::Missing(label.to_owned()))?;
-                doc.pretty_print(width, self, *scroll_strategy, *cursor_visibility)?;
+                doc.pretty_print(width, self, *scroll_strategy, *cursor_visibility)
+                    .map_err(PaneError::from_pretty_window)?;
             }
             PaneNotation::Fill { ch, style } => {
                 let line: String = iter::repeat(ch)
@@ -243,7 +256,8 @@ where
                     .collect();
                 let rows = self.rect().height();
                 for row in 0..rows {
-                    self.print(Pos { row, col: 0 }, &line, *style)?;
+                    self.print(Pos { row, col: 0 }, &line, *style)
+                        .map_err(PaneError::from_pretty_window)?;
                 }
             }
         }
@@ -264,15 +278,6 @@ impl PaneSize {
             PaneSize::Proportional(n) => Some(*n),
             _ => None,
         }
-    }
-}
-
-impl<T> From<T> for PaneError<T>
-where
-    T: fmt::Debug,
-{
-    fn from(e: T) -> PaneError<T> {
-        PaneError::PrettyWindow(e)
     }
 }
 

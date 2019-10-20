@@ -12,3 +12,4 @@ language = { path  = "../language" }
 frontends = { path = "../frontends"}
 utility = { path = "../utility"}
 lazy_static = "*"
+thiserror = "1.0"

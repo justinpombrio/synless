@@ -184,7 +184,7 @@ impl<'l> DataStack<'l> {
     /// Pop a value from the data stack, returning it. If the stack is empty,
     /// return an error.
     pub fn pop(&mut self) -> Result<Value<'l>, ShellError> {
-        self.0.pop().ok_or(ShellError::EmptyStack)
+        self.0.pop().ok_or(ShellError::EmptyDataStack)
     }
 
     /// Swap the order of the two top-most values on the data stack. Return an

@@ -5,18 +5,29 @@ use crate::command::{Command, EditorCmd, MetaCommand, TextCmd, TextNavCmd, TreeC
 use forest::Bookmark;
 use language::{ArityType, Sort};
 
-#[derive(Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum DocError<'l> {
+    #[error("cannot execute text command while not in text mode")]
     NotInTextMode,
+    #[error("cannot execute tree command while not in tree mode")]
     NotInTreeMode,
+    #[error("nothing to undo")]
     NothingToUndo,
+    #[error("nothing to redo")]
     NothingToRedo,
+    #[error("cannot use node because it's of the wrong sort")]
     WrongSort(Ast<'l>),
+    #[error("cannot paste that here")]
     CannotPaste,
+    #[error("clipboard is empty")]
     EmptyClipboard,
+    #[error("cannot move there")]
     CannotMove,
+    #[error("cannot remove this node")]
     CannotRemoveNode,
+    #[error("cannot delete character here")]
     CannotDeleteChar,
+    #[error("cannot insert node here")]
     CannotInsert,
 }
 
