@@ -6,7 +6,7 @@ use language::{LanguageSet, Sort};
 use pretty::{ColorTheme, DocLabel};
 
 use crate::engine::Engine;
-use crate::error::ShellError;
+use crate::error::ServerError;
 use crate::keymaps::{FilterContext, FilteredKeymap, KeymapManager};
 use crate::prog::{CallStack, DataStack, Prog, Value, Word};
 
@@ -16,7 +16,7 @@ use crate::data::keyhint_lang::make_keyhint_lang;
 use crate::data::message_lang::make_message_lang;
 
 /// Demonstrate a basic interactive tree editor
-pub struct ShellEditor<'l> {
+pub struct Server<'l> {
     engine: Engine<'l>,
     frontend: Terminal,
     data_stack: DataStack<'l>,
@@ -24,11 +24,11 @@ pub struct ShellEditor<'l> {
     keymap_manager: KeymapManager<'l>,
 }
 
-impl<'l> ShellEditor<'l> {
+impl<'l> Server<'l> {
     pub fn new(
         language_set: &'l LanguageSet,
         notation_sets: &'l NotationSets,
-    ) -> Result<Self, ShellError<'l>> {
+    ) -> Result<Self, ServerError<'l>> {
         let engine = Engine::new(
             language_set,
             notation_sets,
@@ -48,7 +48,7 @@ impl<'l> ShellEditor<'l> {
         );
         keymap_manager.replace_text_keymap(example_keymaps::make_text_map());
 
-        let mut ed = ShellEditor {
+        let mut ed = Server {
             engine,
             frontend: Terminal::new(ColorTheme::default_dark())?,
             data_stack: DataStack::new(),
@@ -64,7 +64,7 @@ impl<'l> ShellEditor<'l> {
         Ok(ed)
     }
 
-    pub fn run(&mut self) -> Result<(), ShellError<'l>> {
+    pub fn run(&mut self) -> Result<(), ServerError<'l>> {
         loop {
             if self.keymap_manager.has_active_menu() {
                 self.handle_input()?;
@@ -81,7 +81,7 @@ impl<'l> ShellEditor<'l> {
         }
     }
 
-    fn handle_input(&mut self) -> Result<(), ShellError<'l>> {
+    fn handle_input(&mut self) -> Result<(), ServerError<'l>> {
         let doc = self.engine.active_doc()?;
         let tree_context = if doc.in_tree_mode() {
             Some(FilterContext {
@@ -102,12 +102,12 @@ impl<'l> ShellEditor<'l> {
                 self.keymap_manager.deactivate_menu();
                 Ok(())
             }
-            Err(ShellError::KeyboardInterrupt) => Err(ShellError::KeyboardInterrupt),
+            Err(ServerError::KeyboardInterrupt) => Err(ServerError::KeyboardInterrupt),
             Err(err) => Ok(self.engine.show_message(&format!("Error: {}", err))?),
         }
     }
 
-    fn update_key_hints(&mut self, keymap: &FilteredKeymap) -> Result<(), ShellError<'l>> {
+    fn update_key_hints(&mut self, keymap: &FilteredKeymap) -> Result<(), ServerError<'l>> {
         let lang_name = self.engine.lang_name_of(&DocLabel::KeyHints)?;
 
         let mut dict_node = self.engine.new_node("dict", lang_name)?;
@@ -159,19 +159,19 @@ impl<'l> ShellEditor<'l> {
         Ok(())
     }
 
-    fn next_event(&mut self, keymap: &FilteredKeymap) -> Result<Prog<'l>, ShellError<'l>> {
+    fn next_event(&mut self, keymap: &FilteredKeymap) -> Result<Prog<'l>, ServerError<'l>> {
         match self.frontend.next_event() {
-            Some(Ok(Event::KeyEvent(Key::Ctrl('c')))) => Err(ShellError::KeyboardInterrupt),
+            Some(Ok(Event::KeyEvent(Key::Ctrl('c')))) => Err(ServerError::KeyboardInterrupt),
             Some(Ok(Event::KeyEvent(key))) => self
                 .keymap_manager
                 .lookup(key, keymap)
-                .ok_or_else(|| ShellError::UnknownKey(key)),
+                .ok_or_else(|| ServerError::UnknownKey(key)),
             Some(Err(err)) => Err(err.into()),
-            _ => Err(ShellError::UnknownEvent),
+            _ => Err(ServerError::UnknownEvent),
         }
     }
 
-    fn call(&mut self, word: Word<'l>) -> Result<(), ShellError<'l>> {
+    fn call(&mut self, word: Word<'l>) -> Result<(), ServerError<'l>> {
         Ok(match word {
             Word::Literal(value) => self.data_stack.push(value),
             Word::Apply => {

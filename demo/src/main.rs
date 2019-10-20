@@ -5,16 +5,16 @@ mod engine;
 mod error;
 mod keymaps;
 mod prog;
-mod shell_editor;
+mod server;
 
 use editor::NotationSets;
 use language::LanguageSet;
-use shell_editor::ShellEditor;
+use server::Server;
 
 fn main() {
     let language_set = LanguageSet::new();
     let notation_sets = NotationSets::new();
-    match ShellEditor::new(&language_set, &notation_sets) {
+    match Server::new(&language_set, &notation_sets) {
         Ok(mut ed) => {
             let result = ed.run();
             drop(ed);

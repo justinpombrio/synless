@@ -9,7 +9,7 @@ use pretty::{DocLabel, PaneError};
 use crate::keymaps::{MenuName, ModeName};
 
 #[derive(thiserror::Error, Debug)]
-pub enum ShellError<'l> {
+pub enum ServerError<'l> {
     #[error("not in keymap: {0:?}")]
     UnknownKey(Key),
 
@@ -47,9 +47,9 @@ pub enum ShellError<'l> {
     Engine(EngineError<'l>),
 }
 
-impl<'l> From<EngineError<'l>> for ShellError<'l> {
-    fn from(e: EngineError<'l>) -> ShellError<'l> {
-        ShellError::Engine(e)
+impl<'l> From<EngineError<'l>> for ServerError<'l> {
+    fn from(e: EngineError<'l>) -> ServerError<'l> {
+        ServerError::Engine(e)
     }
 }
 

@@ -1,7 +1,7 @@
 use frontends::Key;
 use std::collections::HashMap;
 
-use crate::error::ShellError;
+use crate::error::ServerError;
 use crate::prog::{Prog, Value, Word};
 
 use super::factory::{FilterContext, TextKeymapFactory, TreeKeymapFactory};
@@ -54,12 +54,12 @@ impl<'l> KeymapManager<'l> {
 
     /// Push this mode onto the stack, making it the current mode. Return an
     /// error if the mode has not been registered.
-    pub fn push_mode(&mut self, name: ModeName) -> Result<(), ShellError<'l>> {
+    pub fn push_mode(&mut self, name: ModeName) -> Result<(), ServerError<'l>> {
         if self.modes.contains_key(&name) {
             self.mode_stack.push(name);
             Ok(())
         } else {
-            Err(ShellError::UnknownModeName(name))
+            Err(ServerError::UnknownModeName(name))
         }
     }
 
@@ -154,20 +154,20 @@ impl<'l> KeymapManager<'l> {
     pub fn get_active_keymap(
         &self,
         tree_context: Option<FilterContext>,
-    ) -> Result<FilteredKeymap, ShellError<'l>> {
+    ) -> Result<FilteredKeymap, ServerError<'l>> {
         if let Some(context) = tree_context {
             if let Some(menu_name) = &self.active_menu {
                 let menu = self
                     .menus
                     .get(menu_name)
-                    .ok_or_else(|| ShellError::UnknownMenuName(menu_name.to_owned()))?;
+                    .ok_or_else(|| ServerError::UnknownMenuName(menu_name.to_owned()))?;
                 Ok(menu.filter(&context))
             } else {
-                let mode_name = self.mode_stack.last().ok_or(ShellError::NoMode)?;
+                let mode_name = self.mode_stack.last().ok_or(ServerError::NoMode)?;
                 let mode = self
                     .modes
                     .get(mode_name)
-                    .ok_or_else(|| ShellError::UnknownModeName(mode_name.to_owned()))?;
+                    .ok_or_else(|| ServerError::UnknownModeName(mode_name.to_owned()))?;
                 Ok(mode.filter(&context))
             }
         } else {
