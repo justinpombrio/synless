@@ -41,12 +41,12 @@ pub enum ShellError {
     #[error("terminal error: {0}")]
     Term(#[from] TermError),
 
-    #[error("core error: {0}")]
-    Core(#[from] CoreError<'static>),
+    #[error("engine error: {0}")]
+    Engine(#[from] EngineError<'static>),
 }
 
 #[derive(thiserror::Error, Debug)]
-pub enum CoreError<'l> {
+pub enum EngineError<'l> {
     #[error("unknown language: {0}")]
     UnknownLang(LanguageName),
 
@@ -71,8 +71,8 @@ pub enum CoreError<'l> {
     DocExec(DocError<'l>),
 }
 
-impl<'l> From<DocError<'l>> for CoreError<'l> {
-    fn from(e: DocError<'l>) -> CoreError<'l> {
-        CoreError::DocExec(e)
+impl<'l> From<DocError<'l>> for EngineError<'l> {
+    fn from(e: DocError<'l>) -> EngineError<'l> {
+        EngineError::DocExec(e)
     }
 }

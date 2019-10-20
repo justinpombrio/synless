@@ -3,7 +3,7 @@ use frontends::{Event, Frontend, Key, Terminal};
 use language::Sort;
 use pretty::{ColorTheme, DocLabel};
 
-use crate::core_editor::Core;
+use crate::engine::Engine;
 use crate::error::ShellError;
 use crate::keymaps::{FilterContext, FilteredKeymap, KeymapManager};
 use crate::prog::{CallStack, DataStack, Prog, Value, Word};
@@ -15,7 +15,7 @@ use crate::data::message_lang::make_message_lang;
 
 /// Demonstrate a basic interactive tree editor
 pub struct ShellEditor {
-    core: Core<'static>,
+    engine: Engine<'static>,
     frontend: Terminal,
     data_stack: DataStack<'static>,
     call_stack: CallStack<'static>,
@@ -24,7 +24,7 @@ pub struct ShellEditor {
 
 impl ShellEditor {
     pub fn new() -> Result<Self, ShellError> {
-        let core = Core::new(
+        let engine = Engine::new(
             make_example_pane_notation(),
             make_keyhint_lang(),
             make_message_lang(),
@@ -36,13 +36,13 @@ impl ShellEditor {
         keymap_manager.register_menu(
             "node".into(),
             example_keymaps::make_node_map(
-                core.language(core.lang_name_of(&DocLabel::ActiveDoc)?)?,
+                engine.language(engine.lang_name_of(&DocLabel::ActiveDoc)?)?,
             ),
         );
         keymap_manager.replace_text_keymap(example_keymaps::make_text_map());
 
         let mut ed = ShellEditor {
-            core,
+            engine,
             frontend: Terminal::new(ColorTheme::default_dark())?,
             data_stack: DataStack::new(),
             call_stack: CallStack::new(),
@@ -53,7 +53,7 @@ impl ShellEditor {
         ed.call(Word::Literal(Value::ModeName("tree".into())))?;
         ed.call(Word::PushMode)?;
 
-        // ed.core.clear_messages()?;
+        // ed.engine.clear_messages()?;
         Ok(ed)
     }
 
@@ -64,10 +64,10 @@ impl ShellEditor {
             } else {
                 if let Some(word) = self.call_stack.next() {
                     if let Err(err) = self.call(word) {
-                        self.core.show_message(&format!("Error: {}", err))?;
+                        self.engine.show_message(&format!("Error: {}", err))?;
                     }
                 } else {
-                    self.core.exec(MetaCommand::EndGroup)?;
+                    self.engine.exec(MetaCommand::EndGroup)?;
                     self.handle_input()?;
                 }
             }
@@ -75,7 +75,7 @@ impl ShellEditor {
     }
 
     fn handle_input(&mut self) -> Result<(), ShellError> {
-        let doc = self.core.active_doc()?;
+        let doc = self.engine.active_doc()?;
         let tree_context = if doc.in_tree_mode() {
             Some(FilterContext {
                 required_sort: doc.self_sort(),
@@ -88,7 +88,7 @@ impl ShellEditor {
         let keymap = self.keymap_manager.get_active_keymap(tree_context)?;
 
         self.update_key_hints(&keymap)?;
-        self.core.redisplay(&mut self.frontend)?;
+        self.engine.redisplay(&mut self.frontend)?;
         match self.next_event(&keymap) {
             Ok(prog) => {
                 self.call_stack.push(prog);
@@ -96,31 +96,31 @@ impl ShellEditor {
                 Ok(())
             }
             Err(ShellError::KeyboardInterrupt) => Err(ShellError::KeyboardInterrupt),
-            Err(err) => Ok(self.core.show_message(&format!("Error: {}", err))?),
+            Err(err) => Ok(self.engine.show_message(&format!("Error: {}", err))?),
         }
     }
 
     fn update_key_hints(&mut self, keymap: &FilteredKeymap) -> Result<(), ShellError> {
-        let lang_name = self.core.lang_name_of(&DocLabel::KeyHints)?;
+        let lang_name = self.engine.lang_name_of(&DocLabel::KeyHints)?;
 
-        let mut dict_node = self.core.new_node("dict", lang_name)?;
+        let mut dict_node = self.engine.new_node("dict", lang_name)?;
 
         for (key, prog) in self.keymap_manager.hints(keymap) {
-            let mut key_node = self.core.new_node("key", lang_name)?;
+            let mut key_node = self.engine.new_node("key", lang_name)?;
             key_node.inner().unwrap_text().text_mut(|t| {
                 t.activate();
                 t.set(key);
                 t.inactivate();
             });
 
-            let mut prog_node = self.core.new_node("prog", lang_name)?;
+            let mut prog_node = self.engine.new_node("prog", lang_name)?;
             prog_node.inner().unwrap_text().text_mut(|t| {
                 t.activate();
                 t.set(prog);
                 t.inactivate();
             });
 
-            let mut entry_node = self.core.new_node("entry", &lang_name)?;
+            let mut entry_node = self.engine.new_node("entry", &lang_name)?;
             entry_node
                 .inner()
                 .unwrap_fixed()
@@ -136,18 +136,18 @@ impl ShellEditor {
                 .insert_child(inner_dict.num_children(), entry_node)
                 .unwrap();
         }
-        self.core
+        self.engine
             .exec_on(TreeCmd::Replace(dict_node), &DocLabel::KeyHints)?;
 
         let mut description_node = self
-            .core
+            .engine
             .new_node_in_doc_lang("message", &DocLabel::KeymapName)?;
         description_node.inner().unwrap_text().text_mut(|t| {
             t.activate();
             t.set(keymap.name());
             t.inactivate();
         });
-        self.core
+        self.engine
             .exec_on(TreeCmd::Replace(description_node), &DocLabel::KeymapName)?;
         Ok(())
     }
@@ -179,11 +179,11 @@ impl ShellEditor {
             }
             Word::Echo => {
                 let message = self.data_stack.pop_message()?;
-                self.core.show_message(&message)?;
+                self.engine.show_message(&message)?;
             }
             Word::NodeByName => {
                 let (lang_name, construct_name) = self.data_stack.pop_lang_construct()?;
-                let node = self.core.new_node(&construct_name, &lang_name)?;
+                let node = self.engine.new_node(&construct_name, &lang_name)?;
                 self.data_stack.push(Value::Tree(node));
             }
             Word::PushMode => {
@@ -203,68 +203,68 @@ impl ShellEditor {
             }
             Word::ChildSort => {
                 self.data_stack
-                    .push(Value::Sort(self.core.active_doc()?.child_sort()));
+                    .push(Value::Sort(self.engine.active_doc()?.child_sort()));
             }
             Word::SelfSort => {
                 self.data_stack
-                    .push(Value::Sort(self.core.active_doc()?.self_sort()));
+                    .push(Value::Sort(self.engine.active_doc()?.self_sort()));
             }
             Word::SiblingSort => {
                 self.data_stack
-                    .push(Value::Sort(self.core.active_doc()?.sibling_sort()));
+                    .push(Value::Sort(self.engine.active_doc()?.sibling_sort()));
             }
             Word::AnySort => {
                 self.data_stack.push(Value::Sort(Sort::any()));
             }
-            Word::Remove => self.core.exec(TreeCmd::Remove)?,
-            Word::Clear => self.core.exec(TreeCmd::Clear)?,
+            Word::Remove => self.engine.exec(TreeCmd::Remove)?,
+            Word::Clear => self.engine.exec(TreeCmd::Clear)?,
             Word::InsertHoleAfter => {
-                self.core.exec(TreeCmd::InsertHoleAfter)?;
+                self.engine.exec(TreeCmd::InsertHoleAfter)?;
             }
             Word::InsertHoleBefore => {
-                self.core.exec(TreeCmd::InsertHoleBefore)?;
+                self.engine.exec(TreeCmd::InsertHoleBefore)?;
             }
             Word::InsertHolePrepend => {
-                self.core.exec(TreeCmd::InsertHolePrepend)?;
+                self.engine.exec(TreeCmd::InsertHolePrepend)?;
             }
             Word::InsertHolePostpend => {
-                self.core.exec(TreeCmd::InsertHolePostpend)?;
+                self.engine.exec(TreeCmd::InsertHolePostpend)?;
             }
             Word::Replace => {
                 let tree = self.data_stack.pop_tree()?;
-                self.core.exec(TreeCmd::Replace(tree))?;
+                self.engine.exec(TreeCmd::Replace(tree))?;
             }
-            Word::Left => self.core.exec(TreeNavCmd::Left)?,
-            Word::Right => self.core.exec(TreeNavCmd::Right)?,
-            Word::Parent => self.core.exec(TreeNavCmd::Parent)?,
+            Word::Left => self.engine.exec(TreeNavCmd::Left)?,
+            Word::Right => self.engine.exec(TreeNavCmd::Right)?,
+            Word::Parent => self.engine.exec(TreeNavCmd::Parent)?,
             Word::Child => {
                 let index = self.data_stack.pop_usize()?;
-                self.core.exec(TreeNavCmd::Child(index))?;
+                self.engine.exec(TreeNavCmd::Child(index))?;
             }
-            Word::Undo => self.core.exec(MetaCommand::Undo)?,
-            Word::Redo => self.core.exec(MetaCommand::Redo)?,
-            Word::Cut => self.core.exec(EditorCmd::Cut)?,
-            Word::Copy => self.core.exec(EditorCmd::Copy)?,
-            Word::PasteSwap => self.core.exec(EditorCmd::PasteSwap)?,
-            Word::PopClipboard => self.core.exec(EditorCmd::PopClipboard)?,
+            Word::Undo => self.engine.exec(MetaCommand::Undo)?,
+            Word::Redo => self.engine.exec(MetaCommand::Redo)?,
+            Word::Cut => self.engine.exec(EditorCmd::Cut)?,
+            Word::Copy => self.engine.exec(EditorCmd::Copy)?,
+            Word::PasteSwap => self.engine.exec(EditorCmd::PasteSwap)?,
+            Word::PopClipboard => self.engine.exec(EditorCmd::PopClipboard)?,
             Word::GotoBookmark => {
                 let name = self.data_stack.pop_char()?;
-                let mark = self.core.get_bookmark(name)?;
-                self.core.exec(TreeNavCmd::GotoBookmark(mark))?;
+                let mark = self.engine.get_bookmark(name)?;
+                self.engine.exec(TreeNavCmd::GotoBookmark(mark))?;
             }
             Word::SetBookmark => {
                 let name = self.data_stack.pop_char()?;
-                self.core.add_bookmark(name, &DocLabel::ActiveDoc)?;
+                self.engine.add_bookmark(name, &DocLabel::ActiveDoc)?;
             }
             Word::InsertChar => {
                 let ch = self.data_stack.pop_char()?;
-                self.core.exec(TextCmd::InsertChar(ch))?;
+                self.engine.exec(TextCmd::InsertChar(ch))?;
             }
-            Word::DeleteCharBackward => self.core.exec(TextCmd::DeleteCharBackward)?,
-            Word::DeleteCharForward => self.core.exec(TextCmd::DeleteCharForward)?,
-            Word::TreeMode => self.core.exec(TextNavCmd::TreeMode)?,
-            Word::TextLeft => self.core.exec(TextNavCmd::Left)?,
-            Word::TextRight => self.core.exec(TextNavCmd::Right)?,
+            Word::DeleteCharBackward => self.engine.exec(TextCmd::DeleteCharBackward)?,
+            Word::DeleteCharForward => self.engine.exec(TextCmd::DeleteCharForward)?,
+            Word::TreeMode => self.engine.exec(TextNavCmd::TreeMode)?,
+            Word::TextLeft => self.engine.exec(TextNavCmd::Left)?,
+            Word::TextRight => self.engine.exec(TextNavCmd::Right)?,
         })
     }
 }

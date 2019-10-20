@@ -1,7 +1,7 @@
 use editor::NotationSet;
 
-mod core_editor;
 mod data;
+mod engine;
 mod error;
 mod keymaps;
 mod prog;
