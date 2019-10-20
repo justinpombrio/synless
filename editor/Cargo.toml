@@ -8,5 +8,7 @@ edition = "2018"
 forest = { path = "../forest" }
 pretty = { path = "../pretty" }
 language = { path  = "../language" }
+utility = { path  = "../utility" }
+
 lazy_static = "*"
 thiserror = "1.0"
