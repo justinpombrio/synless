@@ -141,7 +141,7 @@ impl<'l> KeymapManager<'l> {
 
         let mut hints: Vec<_> = keys_and_names
             .into_iter()
-            .map(|(key, name)| (format_key(key), name.unwrap_or("...").to_owned()))
+            .map(|(key, name)| (format!("{}", key), name.unwrap_or("...").to_owned()))
             .collect();
         hints.sort_unstable();
         hints
@@ -173,30 +173,5 @@ impl<'l> KeymapManager<'l> {
         } else {
             Ok(FilteredKeymap::Text)
         }
-    }
-}
-
-fn format_key(key: &Key) -> String {
-    match key {
-        Key::Backspace => "Bksp".to_string(),
-        Key::Left => "←".to_string(),
-        Key::Right => "→".to_string(),
-        Key::Up => "↑".to_string(),
-        Key::Down => "↓".to_string(),
-        Key::Home => "Home".to_string(),
-        Key::End => "End".to_string(),
-        Key::PageUp => "PgUp".to_string(),
-        Key::PageDown => "PgDn".to_string(),
-        Key::Delete => "Del".to_string(),
-        Key::Insert => "Ins".to_string(),
-        Key::F(num) => format!("F{}", num),
-        Key::Char(' ') => "Spc".to_string(),
-        Key::Char(c) => c.to_string(),
-        Key::Alt(' ') => "A-Spc".to_string(),
-        Key::Alt(c) => format!("A-{}", c),
-        Key::Ctrl(' ') => "C-Spc".to_string(),
-        Key::Ctrl(c) => format!("C-{}", c),
-        Key::Null => "Null".to_string(),
-        Key::Esc => "Esc".to_string(),
     }
 }

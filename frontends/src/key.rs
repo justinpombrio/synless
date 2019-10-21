@@ -1,5 +1,4 @@
-use std::convert::TryFrom;
-use termion;
+use std::fmt;
 
 /// A keypress. Based on the `termion` crate's `event::Key` enum.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -23,28 +22,29 @@ pub enum Key {
     Esc,
 }
 
-impl TryFrom<termion::event::Key> for Key {
-    type Error = ();
-    fn try_from(termion_key: termion::event::Key) -> Result<Self, Self::Error> {
-        Ok(match termion_key {
-            termion::event::Key::Backspace => Key::Backspace,
-            termion::event::Key::Left => Key::Left,
-            termion::event::Key::Right => Key::Right,
-            termion::event::Key::Up => Key::Up,
-            termion::event::Key::Down => Key::Down,
-            termion::event::Key::Home => Key::Home,
-            termion::event::Key::End => Key::End,
-            termion::event::Key::PageUp => Key::PageUp,
-            termion::event::Key::PageDown => Key::PageDown,
-            termion::event::Key::Delete => Key::Delete,
-            termion::event::Key::Insert => Key::Insert,
-            termion::event::Key::F(i) => Key::F(i),
-            termion::event::Key::Char(c) => Key::Char(c),
-            termion::event::Key::Alt(c) => Key::Alt(c),
-            termion::event::Key::Ctrl(c) => Key::Ctrl(c),
-            termion::event::Key::Null => Key::Null,
-            termion::event::Key::Esc => Key::Esc,
-            _ => return Err(()),
-        })
+impl fmt::Display for Key {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Key::Backspace => write!(f, "Bksp"),
+            Key::Left => write!(f, "←"),
+            Key::Right => write!(f, "→"),
+            Key::Up => write!(f, "↑"),
+            Key::Down => write!(f, "↓"),
+            Key::Home => write!(f, "Home"),
+            Key::End => write!(f, "End"),
+            Key::PageUp => write!(f, "PgUp"),
+            Key::PageDown => write!(f, "PgDn"),
+            Key::Delete => write!(f, "Del"),
+            Key::Insert => write!(f, "Ins"),
+            Key::F(num) => write!(f, "F{}", num),
+            Key::Char(' ') => write!(f, "Spc"),
+            Key::Char(c) => write!(f, "{}", c),
+            Key::Alt(' ') => write!(f, "A-Spc"),
+            Key::Alt(c) => write!(f, "A-{}", c),
+            Key::Ctrl(' ') => write!(f, "C-Spc"),
+            Key::Ctrl(c) => write!(f, "C-{}", c),
+            Key::Null => write!(f, "Null"),
+            Key::Esc => write!(f, "Esc"),
+        }
     }
 }

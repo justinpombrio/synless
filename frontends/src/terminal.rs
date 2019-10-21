@@ -195,3 +195,29 @@ fn coords_to_pos(x: u16, y: u16) -> Pos {
         row: y as Row - 1,
     }
 }
+
+impl TryFrom<termion::event::Key> for Key {
+    type Error = ();
+    fn try_from(termion_key: termion::event::Key) -> Result<Self, Self::Error> {
+        Ok(match termion_key {
+            termion::event::Key::Backspace => Key::Backspace,
+            termion::event::Key::Left => Key::Left,
+            termion::event::Key::Right => Key::Right,
+            termion::event::Key::Up => Key::Up,
+            termion::event::Key::Down => Key::Down,
+            termion::event::Key::Home => Key::Home,
+            termion::event::Key::End => Key::End,
+            termion::event::Key::PageUp => Key::PageUp,
+            termion::event::Key::PageDown => Key::PageDown,
+            termion::event::Key::Delete => Key::Delete,
+            termion::event::Key::Insert => Key::Insert,
+            termion::event::Key::F(i) => Key::F(i),
+            termion::event::Key::Char(c) => Key::Char(c),
+            termion::event::Key::Alt(c) => Key::Alt(c),
+            termion::event::Key::Ctrl(c) => Key::Ctrl(c),
+            termion::event::Key::Null => Key::Null,
+            termion::event::Key::Esc => Key::Esc,
+            _ => return Err(()),
+        })
+    }
+}
