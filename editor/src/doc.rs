@@ -493,7 +493,7 @@ impl<'l> Doc<'l> {
             }
             TextNavCmd::TreeMode => {
                 // Exit text mode
-                ast.text_mut(|t| t.inactivate());
+                ast.text_mut(|t| t.deactivate());
                 self.mode = Mode::Tree;
                 vec![TreeNavCmd::Child(char_index).into()]
             }

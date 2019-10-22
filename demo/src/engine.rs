@@ -132,7 +132,7 @@ impl<'l> Engine<'l> {
         msg_node.inner().unwrap_text().text_mut(|t| {
             t.activate();
             t.set(msg.to_owned());
-            t.inactivate();
+            t.deactivate();
         });
         self.exec_on(TreeCmd::InsertHolePrepend, &DocLabel::Messages)?;
         self.exec_on(TreeCmd::Replace(msg_node), &DocLabel::Messages)?;

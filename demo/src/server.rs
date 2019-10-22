@@ -117,14 +117,14 @@ impl<'l> Server<'l> {
             key_node.inner().unwrap_text().text_mut(|t| {
                 t.activate();
                 t.set(key);
-                t.inactivate();
+                t.deactivate();
             });
 
             let mut prog_node = self.engine.new_node("prog", lang_name)?;
             prog_node.inner().unwrap_text().text_mut(|t| {
                 t.activate();
                 t.set(prog);
-                t.inactivate();
+                t.deactivate();
             });
 
             let mut binding_node = self.engine.new_node("binding", &lang_name)?;
@@ -152,7 +152,7 @@ impl<'l> Server<'l> {
         description_node.inner().unwrap_text().text_mut(|t| {
             t.activate();
             t.set(available_keys.name());
-            t.inactivate();
+            t.deactivate();
         });
         self.engine
             .exec_on(TreeCmd::Replace(description_node), &DocLabel::KeymapName)?;
