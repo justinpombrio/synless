@@ -206,7 +206,7 @@ impl<'l> Server<'l> {
                     // TODO decide how to handle this
                     panic!("Another menu is already active");
                 }
-                self.keymap_manager.activate_menu(name);
+                self.keymap_manager.activate_menu(name)?;
             }
             Word::ChildSort => {
                 self.data_stack

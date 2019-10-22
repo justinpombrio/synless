@@ -70,8 +70,13 @@ impl<'l> KeymapManager<'l> {
 
     /// Activate this menu, temporarily overriding the current mode until it's
     /// deactivated.
-    pub fn activate_menu(&mut self, name: MenuName) {
-        self.active_menu = Some(name);
+    pub fn activate_menu(&mut self, name: MenuName) -> Result<(), ServerError<'l>> {
+        if self.menus.contains_key(&name) {
+            self.active_menu = Some(name);
+            Ok(())
+        } else {
+            Err(ServerError::UnknownMenuName(name))
+        }
     }
 
     /// Deactivate the active menu, if there is one.
@@ -158,17 +163,11 @@ impl<'l> KeymapManager<'l> {
     ) -> Result<AvailableKeys, ServerError<'l>> {
         if let Some(context) = tree_context {
             if let Some(menu_name) = &self.active_menu {
-                let menu = self
-                    .menus
-                    .get(menu_name)
-                    .ok_or_else(|| ServerError::UnknownMenuName(menu_name.to_owned()))?;
+                let menu = self.menus.get(menu_name).unwrap();
                 Ok(menu.filter(&context))
             } else {
                 let mode_name = self.mode_stack.last().ok_or(ServerError::NoMode)?;
-                let mode = self
-                    .modes
-                    .get(mode_name)
-                    .ok_or_else(|| ServerError::UnknownModeName(mode_name.to_owned()))?;
+                let mode = self.modes.get(mode_name).unwrap();
                 Ok(mode.filter(&context))
             }
         } else {
