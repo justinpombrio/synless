@@ -1,142 +1,97 @@
 use frontends::Key;
+use std::collections::HashMap;
 
 use crate::prog::Prog;
+use language::{ArityType, Sort};
 
-use super::factory::{FilterContext, TreeKeymapFactory};
+/// Stores all the keybindings of a text-keymap, except for keys that just
+/// insert themselves as literal characters.
+pub struct TextKeymap<'l>(HashMap<Key, Prog<'l>>);
 
-/// A description of which keybindings are available to use, based on the `KeymapManager` state and document context.
-#[derive(Clone)]
-pub enum FilteredKeymap {
-    /// Use this mode for looking up keys.
-    Mode {
-        name: ModeName,
-        /// Which subset of the mode's keys are available.
-        filtered_keys: Vec<Key>,
-    },
-    /// Use this menu for looking up keys.
-    Menu {
-        name: MenuName,
-        /// Which subset of the menu's keys are available.
-        filtered_keys: Vec<Key>,
-    },
-    /// Use the one-and-only text keymap for looking up keys.
-    Text,
+/// Stores all the keybindings of a tree-keymap, along with rules for which
+/// keybindings should be available in which contexts.
+pub struct TreeKeymap<'l>(HashMap<Key, (FilterRule, Prog<'l>)>);
+
+/// Rules for when a particular item should be included in a keymap.
+#[derive(Clone, Debug)]
+pub enum FilterRule {
+    /// Unconditionally include the item.
+    Always,
+    /// Only include the item if the given `Sort` is acceptable in the current position.
+    Sort(Sort),
+    /// Only include the item if the arity-type of the current node's parent is contained in the given list.
+    ParentArity(Vec<ArityType>),
+    /// Only include the item if the arity-type of the current node is contained in the given list.
+    SelfArity(Vec<ArityType>),
 }
 
-/// A persistent Mode that specifies which keybindings will be available in which contexts.
-/// Only applies when the `Doc` is in tree-mode, not text-mode. (Sorry that
-/// there are two different things here called 'modes'.)
-///
-/// Intended for things like a mode for a specific programming language that
-/// includes some convenient language-specific refactoring commands.
-pub(super) struct Mode<'l> {
-    pub(super) factory: TreeKeymapFactory<'l>,
-    pub(super) name: ModeName,
+/// Information needed to apply a FilterRule, based on the context within a
+/// document.
+pub struct FilterContext {
+    /// The Sort that any node in the current node's position is required to have.
+    pub sort: Sort,
+    /// The arity of the current node's parent.
+    pub parent_arity: ArityType,
+    /// The arity of the current node.
+    pub self_arity: ArityType,
 }
 
-/// A temporary Menu that specifies which keybindings will be available in which contexts.
-/// Only applies when the `Doc` is in tree-mode, not text-mode.
-///
-/// Intended for things like selecting a node-type from a menu.
-pub(super) struct Menu<'l> {
-    pub(super) factory: TreeKeymapFactory<'l>,
-    pub(super) name: MenuName,
-}
+impl<'l> TextKeymap<'l> {
+    pub fn new(non_literal_keys: HashMap<Key, Prog<'l>>) -> Self {
+        Self(non_literal_keys)
+    }
 
-/// The name of a `Mode`.
-#[derive(Clone, Eq, PartialEq, Hash, Debug)]
-pub struct ModeName(String);
+    pub(super) fn empty() -> Self {
+        Self(HashMap::new())
+    }
 
-/// The name of a `Menu`.
-#[derive(Clone, Eq, PartialEq, Hash, Debug)]
-pub struct MenuName(String);
-
-impl<'l> Mode<'l> {
-    /// Get the program bound to the given key, if there is one.
     pub(super) fn get<'a>(&'a self, key: &Key) -> Option<&'a Prog<'l>> {
-        self.factory.get(key)
+        self.0.get(key)
     }
 
-    /// Produce a filtered keymap containing only the keys that would be
-    /// appropriate to use in this context.
-    pub(super) fn filter(&self, context: &FilterContext) -> FilteredKeymap {
-        FilteredKeymap::Mode {
-            filtered_keys: self.factory.filter(context),
-            name: self.name.clone(),
-        }
+    pub(super) fn keys_and_names<'a>(&'a self) -> Vec<(&'a Key, Option<&'a str>)> {
+        self.0
+            .iter()
+            .map(|(key, prog)| (key, prog.name()))
+            .collect()
     }
 }
 
-impl<'l> Menu<'l> {
-    /// Get the program bound to the given key, if there is one.
+impl<'l> TreeKeymap<'l> {
+    pub fn new(v: Vec<(Key, FilterRule, Prog<'l>)>) -> Self {
+        Self(
+            v.into_iter()
+                .map(|(key, filter, prog)| (key, (filter, prog)))
+                .collect(),
+        )
+    }
+
     pub(super) fn get<'a>(&'a self, key: &Key) -> Option<&'a Prog<'l>> {
-        self.factory.get(key)
+        self.0.get(key).map(|(_filter, prog)| prog)
     }
 
-    /// Produce a filtered keymap containing only the keys that would be
-    /// appropriate to use in this context.
-    pub(super) fn filter(&self, context: &FilterContext) -> FilteredKeymap {
-        FilteredKeymap::Menu {
-            filtered_keys: self.factory.filter(context),
-            name: self.name.clone(),
-        }
+    pub(super) fn filter<'a>(&'a self, context: &FilterContext) -> Vec<Key> {
+        self.0
+            .iter()
+            .filter_map(|(&key, (filter, _))| {
+                if filter.matches(context) {
+                    Some(key)
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 }
 
-impl FilteredKeymap {
-    pub fn name(&self) -> String {
+impl FilterRule {
+    /// True if an item with this filter rule should be included in this context.
+    fn matches(&self, context: &FilterContext) -> bool {
         match self {
-            FilteredKeymap::Menu { name, .. } => name.into(),
-            FilteredKeymap::Mode { name, .. } => name.into(),
-            FilteredKeymap::Text => "text".into(),
+            FilterRule::Always => true,
+            FilterRule::Sort(sort) => context.sort.accepts(sort),
+            FilterRule::ParentArity(arity_types) => arity_types.contains(&context.parent_arity),
+            FilterRule::SelfArity(arity_types) => arity_types.contains(&context.self_arity),
         }
-    }
-}
-
-impl From<String> for ModeName {
-    fn from(s: String) -> ModeName {
-        ModeName(s)
-    }
-}
-
-impl<'a> From<&'a str> for ModeName {
-    fn from(s: &'a str) -> ModeName {
-        ModeName(s.to_string())
-    }
-}
-
-impl From<ModeName> for String {
-    fn from(m: ModeName) -> String {
-        m.0
-    }
-}
-
-impl<'a> From<&'a ModeName> for String {
-    fn from(m: &'a ModeName) -> String {
-        m.0.to_owned()
-    }
-}
-
-impl From<String> for MenuName {
-    fn from(s: String) -> MenuName {
-        MenuName(s)
-    }
-}
-
-impl<'a> From<&'a str> for MenuName {
-    fn from(s: &'a str) -> MenuName {
-        MenuName(s.to_string())
-    }
-}
-
-impl From<MenuName> for String {
-    fn from(m: MenuName) -> String {
-        m.0
-    }
-}
-
-impl<'a> From<&'a MenuName> for String {
-    fn from(m: &'a MenuName) -> String {
-        m.0.to_owned()
     }
 }

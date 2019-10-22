@@ -492,6 +492,7 @@ fn test_pane_dyn_height() {
 
 // TODO this test currently panics, but should eventually be enabled
 // #[test]
+#[allow(dead_code)]
 fn test_print_outside() {
     let notations = make_json_notation();
 

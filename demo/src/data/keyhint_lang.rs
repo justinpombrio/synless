@@ -6,16 +6,21 @@ pub fn make_keyhint_lang() -> (Language, NotationSet) {
     let notations = vec![
         ("key".into(), text(Style::color(Color::Base0D))),
         ("prog".into(), text(Style::color(Color::Base04))),
-        ("entry".into(), entry()),
-        ("dict".into(), dict()),
+        ("binding".into(), binding()),
+        ("keymap".into(), keymap()),
     ];
     let constructs = vec![
         Construct::new("key", "Key", Arity::Text, Some('k')),
         Construct::new("prog", "Value", Arity::Text, Some('p')),
-        Construct::new("dict", "Dict", Arity::Flexible("Entry".into()), Some('d')),
         Construct::new(
-            "entry",
-            "Entry",
+            "keymap",
+            "Keymap",
+            Arity::Flexible("Binding".into()),
+            Some('d'),
+        ),
+        Construct::new(
+            "binding",
+            "Binding",
             Arity::Fixed(vec!["Key".into(), "Value".into()]),
             Some('e'),
         ),
@@ -31,12 +36,12 @@ pub fn make_keyhint_lang() -> (Language, NotationSet) {
 
 /// Try putting the key and value on the same line.
 /// If they don't fit, wrap after the colon, and indent the value.
-fn entry() -> Notation {
+fn binding() -> Notation {
     no_wrap(child(0) + punct(":") + child(1)) | (child(0) + punct(":") ^ indent() + child(1))
 }
 
 /// Wrap entries tightly.
-fn dict() -> Notation {
+fn keymap() -> Notation {
     repeat(Repeat {
         empty: punct("(empty keyhints)"),
         lone: child(0),

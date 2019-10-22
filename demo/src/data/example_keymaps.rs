@@ -3,13 +3,13 @@ use std::iter;
 
 use language::{ArityType, Language, LanguageName};
 
-use crate::keymaps::{FilterRule, TextKeymapFactory, TreeKeymapFactory};
+use crate::keymaps::{FilterRule, TextKeymap, TreeKeymap};
 use crate::prog::{Prog, Value, Word};
 
 /// Construct a keymap used for selecting a type of node, eg. for the Replace
 /// command.
-pub fn make_node_map<'l>(lang: &Language) -> TreeKeymapFactory<'l> {
-    TreeKeymapFactory::new(
+pub fn make_node_map<'l>(lang: &Language) -> TreeKeymap<'l> {
+    TreeKeymap::new(
         lang.keymap()
             .iter()
             .map(|(&ch, construct_name)| {
@@ -42,8 +42,8 @@ pub fn make_node_map<'l>(lang: &Language) -> TreeKeymapFactory<'l> {
 
 /// Construct a keymap used for navigating and editing a document that's in tree
 /// mode.
-pub fn make_tree_map<'l>() -> TreeKeymapFactory<'l> {
-    TreeKeymapFactory::new(vec![
+pub fn make_tree_map<'l>() -> TreeKeymap<'l> {
+    TreeKeymap::new(vec![
         (
             Key::Char('d'),
             FilterRule::Always,
@@ -151,9 +151,9 @@ pub fn make_tree_map<'l>() -> TreeKeymapFactory<'l> {
 /// Construct a keymap for a silly `speed-bool` mode that demonstrates
 /// persistent mode-style keymaps. It lets you insert new `true` or `false`
 /// nodes into a list by repeatedly pressing a single key.
-pub fn make_speed_bool_map<'l>() -> TreeKeymapFactory<'l> {
+pub fn make_speed_bool_map<'l>() -> TreeKeymap<'l> {
     let lang: LanguageName = "json".into();
-    TreeKeymapFactory::new(vec![
+    TreeKeymap::new(vec![
         (
             Key::Char('t'),
             FilterRule::ParentArity(vec![ArityType::Flexible, ArityType::Mixed]),
@@ -185,7 +185,7 @@ pub fn make_speed_bool_map<'l>() -> TreeKeymapFactory<'l> {
 }
 
 /// Make a keymap used for editing texty nodes.
-pub fn make_text_map<'l>() -> TextKeymapFactory<'l> {
+pub fn make_text_map<'l>() -> TextKeymap<'l> {
     let bindings = vec![
         (Key::Esc, Prog::new_single(Word::TreeMode)),
         (Key::Up, Prog::new_single(Word::TreeMode)),
@@ -195,5 +195,5 @@ pub fn make_text_map<'l>() -> TextKeymapFactory<'l> {
         (Key::Delete, Prog::new_single(Word::DeleteCharForward)),
     ];
 
-    TextKeymapFactory::new(bindings.into_iter().collect())
+    TextKeymap::new(bindings.into_iter().collect())
 }

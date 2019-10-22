@@ -4,12 +4,12 @@ use std::collections::HashMap;
 use crate::error::ServerError;
 use crate::prog::{Prog, Value, Word};
 
-use super::factory::{FilterContext, TextKeymapFactory, TreeKeymapFactory};
-use super::keymap::{FilteredKeymap, Menu, MenuName, Mode, ModeName};
+use super::keymap::{FilterContext, TextKeymap, TreeKeymap};
+use super::mode_and_menu::{AvailableKeys, Menu, MenuName, Mode, ModeName};
 
 /// Manage various forms of keymaps
 pub struct KeymapManager<'l> {
-    /// The top of the stack is the current, persistent mode. It's keymap will
+    /// The top of the stack is the current, persistent mode. Its keymap will
     /// be used whenever the document is in tree-mode and there is no menu
     /// active.
     mode_stack: Vec<ModeName>,
@@ -22,7 +22,7 @@ pub struct KeymapManager<'l> {
     menus: HashMap<MenuName, Menu<'l>>,
     /// The one-and-only keymap used for entering text. Maybe we should allow
     /// multiple text keymaps, someday.
-    text_keymap: TextKeymapFactory<'l>,
+    text_keymap: TextKeymap<'l>,
 }
 
 impl<'l> KeymapManager<'l> {
@@ -32,24 +32,24 @@ impl<'l> KeymapManager<'l> {
             mode_stack: Vec::new(),
             menus: HashMap::new(),
             active_menu: None,
-            text_keymap: TextKeymapFactory::empty(),
+            text_keymap: TextKeymap::empty(),
         }
     }
 
     /// Register a new mode for later use.
-    pub fn register_mode(&mut self, name: ModeName, factory: TreeKeymapFactory<'l>) {
-        self.modes.insert(name.clone(), Mode { factory, name });
+    pub fn register_mode(&mut self, name: ModeName, keymap: TreeKeymap<'l>) {
+        self.modes.insert(name.clone(), Mode { keymap, name });
     }
 
     /// Register a new menu for later use.
-    pub fn register_menu(&mut self, name: MenuName, factory: TreeKeymapFactory<'l>) {
-        self.menus.insert(name.clone(), Menu { factory, name });
+    pub fn register_menu(&mut self, name: MenuName, keymap: TreeKeymap<'l>) {
+        self.menus.insert(name.clone(), Menu { keymap, name });
     }
 
     /// Register a new text keymap for later use. Since we currently only
     /// support one text keymap at a time, this replaces the existing one.
-    pub fn replace_text_keymap(&mut self, text_keymap: TextKeymapFactory<'l>) {
-        self.text_keymap = text_keymap;
+    pub fn replace_text_keymap(&mut self, keymap: TextKeymap<'l>) {
+        self.text_keymap = keymap;
     }
 
     /// Push this mode onto the stack, making it the current mode. Return an
@@ -85,9 +85,9 @@ impl<'l> KeymapManager<'l> {
     }
 
     /// Return the program that's mapped to this key in the given keymap, or None if the key isn't found.
-    pub fn lookup(&self, key: Key, keymap: &FilteredKeymap) -> Option<Prog<'l>> {
-        match keymap {
-            FilteredKeymap::Mode {
+    pub fn lookup(&self, key: Key, available_keys: &AvailableKeys) -> Option<Prog<'l>> {
+        match available_keys {
+            AvailableKeys::Mode {
                 filtered_keys,
                 name,
             } => {
@@ -97,7 +97,7 @@ impl<'l> KeymapManager<'l> {
                     None
                 }
             }
-            FilteredKeymap::Menu {
+            AvailableKeys::Menu {
                 filtered_keys,
                 name,
             } => {
@@ -107,7 +107,7 @@ impl<'l> KeymapManager<'l> {
                     None
                 }
             }
-            FilteredKeymap::Text => {
+            AvailableKeys::Text => {
                 if let Some(prog) = self.text_keymap.get(&key) {
                     Some(prog.to_owned())
                 } else if let Key::Char(c) = key {
@@ -120,23 +120,23 @@ impl<'l> KeymapManager<'l> {
     }
 
     /// Return a list of 'key name' and 'program name' pairs for the given keymap.
-    pub fn hints(&self, keymap: &FilteredKeymap) -> Vec<(String, String)> {
-        let keys_and_names: Vec<(_, _)> = match keymap {
-            FilteredKeymap::Mode {
+    pub fn hints(&self, available_keys: &AvailableKeys) -> Vec<(String, String)> {
+        let keys_and_names: Vec<(_, _)> = match available_keys {
+            AvailableKeys::Mode {
                 filtered_keys,
                 name,
             } => filtered_keys
                 .iter()
                 .map(|key| (key, self.modes.get(name).unwrap().get(key).unwrap().name()))
                 .collect(),
-            FilteredKeymap::Menu {
+            AvailableKeys::Menu {
                 filtered_keys,
                 name,
             } => filtered_keys
                 .iter()
                 .map(|key| (key, self.menus.get(name).unwrap().get(key).unwrap().name()))
                 .collect(),
-            FilteredKeymap::Text => self.text_keymap.keys_and_names(),
+            AvailableKeys::Text => self.text_keymap.keys_and_names(),
         };
 
         let mut hints: Vec<_> = keys_and_names
@@ -147,14 +147,15 @@ impl<'l> KeymapManager<'l> {
         hints
     }
 
-    /// Return the keymap that should be used to lookup keypresses, based on the current state of the
-    /// KeymapManager and the context within a particular document.
+    /// Return the set of keybindings that should be used to lookup keypresses,
+    /// based on the current state of the KeymapManager and the context within a
+    /// particular document.
     ///
     /// If the document is in text-mode, `tree_context` should be None.
-    pub fn get_active_keymap(
+    pub fn get_available_keys(
         &self,
         tree_context: Option<FilterContext>,
-    ) -> Result<FilteredKeymap, ServerError<'l>> {
+    ) -> Result<AvailableKeys, ServerError<'l>> {
         if let Some(context) = tree_context {
             if let Some(menu_name) = &self.active_menu {
                 let menu = self
@@ -171,7 +172,7 @@ impl<'l> KeymapManager<'l> {
                 Ok(mode.filter(&context))
             }
         } else {
-            Ok(FilteredKeymap::Text)
+            Ok(AvailableKeys::Text)
         }
     }
 }

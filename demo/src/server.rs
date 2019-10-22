@@ -7,7 +7,7 @@ use pretty::{ColorTheme, DocLabel};
 
 use crate::engine::Engine;
 use crate::error::ServerError;
-use crate::keymaps::{FilterContext, FilteredKeymap, KeymapManager};
+use crate::keymaps::{AvailableKeys, FilterContext, KeymapManager};
 use crate::prog::{CallStack, DataStack, Prog, Value, Word};
 
 use crate::data::example_keymaps;
@@ -85,18 +85,18 @@ impl<'l> Server<'l> {
         let doc = self.engine.active_doc()?;
         let tree_context = if doc.in_tree_mode() {
             Some(FilterContext {
-                required_sort: doc.self_sort(),
+                sort: doc.self_sort(),
                 self_arity: doc.self_arity_type(),
                 parent_arity: doc.parent_arity_type(),
             })
         } else {
             None
         };
-        let keymap = self.keymap_manager.get_active_keymap(tree_context)?;
+        let available_keys = self.keymap_manager.get_available_keys(tree_context)?;
 
-        self.update_key_hints(&keymap)?;
+        self.update_key_hints(&available_keys)?;
         self.engine.redisplay(&mut self.frontend)?;
-        match self.next_event(&keymap) {
+        match self.next_event(&available_keys) {
             Ok(prog) => {
                 self.call_stack.push(prog);
                 self.keymap_manager.deactivate_menu();
@@ -107,12 +107,12 @@ impl<'l> Server<'l> {
         }
     }
 
-    fn update_key_hints(&mut self, keymap: &FilteredKeymap) -> Result<(), ServerError<'l>> {
+    fn update_key_hints(&mut self, available_keys: &AvailableKeys) -> Result<(), ServerError<'l>> {
         let lang_name = self.engine.lang_name_of(&DocLabel::KeyHints)?;
 
-        let mut dict_node = self.engine.new_node("dict", lang_name)?;
+        let mut keymap_node = self.engine.new_node("keymap", lang_name)?;
 
-        for (key, prog) in self.keymap_manager.hints(keymap) {
+        for (key, prog) in self.keymap_manager.hints(available_keys) {
             let mut key_node = self.engine.new_node("key", lang_name)?;
             key_node.inner().unwrap_text().text_mut(|t| {
                 t.activate();
@@ -127,31 +127,31 @@ impl<'l> Server<'l> {
                 t.inactivate();
             });
 
-            let mut entry_node = self.engine.new_node("entry", &lang_name)?;
-            entry_node
+            let mut binding_node = self.engine.new_node("binding", &lang_name)?;
+            binding_node
                 .inner()
                 .unwrap_fixed()
                 .replace_child(0, key_node)
                 .unwrap();
-            entry_node
+            binding_node
                 .inner()
                 .unwrap_fixed()
                 .replace_child(1, prog_node)
                 .unwrap();
-            let mut inner_dict = dict_node.inner().unwrap_flexible();
-            inner_dict
-                .insert_child(inner_dict.num_children(), entry_node)
+            let mut inner_keymap = keymap_node.inner().unwrap_flexible();
+            inner_keymap
+                .insert_child(inner_keymap.num_children(), binding_node)
                 .unwrap();
         }
         self.engine
-            .exec_on(TreeCmd::Replace(dict_node), &DocLabel::KeyHints)?;
+            .exec_on(TreeCmd::Replace(keymap_node), &DocLabel::KeyHints)?;
 
         let mut description_node = self
             .engine
             .new_node_in_doc_lang("message", &DocLabel::KeymapName)?;
         description_node.inner().unwrap_text().text_mut(|t| {
             t.activate();
-            t.set(keymap.name());
+            t.set(available_keys.name());
             t.inactivate();
         });
         self.engine
@@ -159,12 +159,12 @@ impl<'l> Server<'l> {
         Ok(())
     }
 
-    fn next_event(&mut self, keymap: &FilteredKeymap) -> Result<Prog<'l>, ServerError<'l>> {
+    fn next_event(&mut self, available_keys: &AvailableKeys) -> Result<Prog<'l>, ServerError<'l>> {
         match self.frontend.next_event() {
             Some(Ok(Event::KeyEvent(Key::Ctrl('c')))) => Err(ServerError::KeyboardInterrupt),
             Some(Ok(Event::KeyEvent(key))) => self
                 .keymap_manager
-                .lookup(key, keymap)
+                .lookup(key, available_keys)
                 .ok_or_else(|| ServerError::UnknownKey(key)),
             Some(Err(err)) => Err(err.into()),
             _ => Err(ServerError::UnknownEvent),
