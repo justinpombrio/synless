@@ -30,7 +30,7 @@ pub struct ModeName(String);
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub struct MenuName(String);
 
-/// A description of which keybindings are available to use, based on the `KeymapManager` state and document context.
+/// A description of which keybindings are available to use, based on the [KeymapManager](crate::keymaps::KeymapManager) state and document context.
 #[derive(Clone)]
 pub enum AvailableKeys {
     /// Use this mode for looking up keys.

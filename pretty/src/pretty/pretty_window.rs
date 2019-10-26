@@ -2,7 +2,7 @@ use crate::geometry::{Pos, Rect, Region};
 use crate::pane::Pane;
 use crate::style::{Shade, Style};
 
-/// A "window" that supports the methods necessary to render a set of [PrettyDocument]s.
+/// A "window" that supports the methods necessary to render a set of [PrettyDocument](crate::PrettyDocument)s.
 pub trait PrettyWindow: Sized {
     // Forbid the Error type from containing non-static references so we can use
     // it as a trait object.
