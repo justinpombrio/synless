@@ -3,7 +3,7 @@ use editor::{
     TreeNavCmd,
 };
 use frontends::{Event, Frontend, Key, Terminal};
-use language::{LanguageSet, Sort};
+use language::LanguageSet;
 use pretty::{ColorTheme, DocLabel};
 
 use crate::engine::Engine;
@@ -173,8 +173,8 @@ impl<'l> Server<'l> {
             Word::Pop => {
                 self.data_stack.pop()?;
             }
-            Word::Echo => {
-                let message = self.data_stack.pop_message()?;
+            Word::Print => {
+                let message = self.data_stack.pop_string()?;
                 self.engine.show_message(&message)?;
             }
             Word::NodeByName => {
@@ -208,9 +208,6 @@ impl<'l> Server<'l> {
             Word::SiblingSort => {
                 self.data_stack
                     .push(Value::Sort(self.engine.active_doc()?.sibling_sort()));
-            }
-            Word::AnySort => {
-                self.data_stack.push(Value::Sort(Sort::any()));
             }
             Word::Remove => self.engine.exec(TreeCmd::Remove)?,
             Word::Clear => self.engine.exec(TreeCmd::Clear)?,

@@ -25,7 +25,7 @@ pub enum Value<'l> {
     MenuName(MenuName),
     Sort(Sort),
     LangConstruct(LanguageName, ConstructName),
-    Message(String),
+    String(String),
     Quote(Prog<'l>),
 }
 
@@ -45,9 +45,8 @@ pub enum Word<'l> {
     SelfSort,
     ChildSort,
     SiblingSort,
-    AnySort,
     NodeByName,
-    Echo,
+    Print,
 
     // tree commands:
     InsertHoleAfter,
@@ -131,6 +130,7 @@ impl<'l> Prog<'l> {
 }
 
 impl<'l> From<Word<'l>> for Prog<'l> {
+    /// Unlike `Prog::single()`, this does not give the program a name.
     fn from(word: Word<'l>) -> Prog<'l> {
         Prog {
             name: None,
@@ -151,7 +151,7 @@ impl<'l> CallStack<'l> {
     }
 
     /// Return the next word to execute, removing it from the call stack. Or
-    /// None if the call stack is empty.
+    /// return None if the call stack is empty.
     pub fn next(&mut self) -> Option<Word<'l>> {
         loop {
             let prog = self.0.last_mut()?;
@@ -247,13 +247,13 @@ impl<'l> DataStack<'l> {
         }
     }
 
-    /// Pop a value from the stack. If it has type `Value::Message`, return it.
+    /// Pop a value from the stack. If it has type `Value::String`, return it.
     /// Otherwise return an error.
-    pub fn pop_message(&mut self) -> Result<String, ServerError<'l>> {
-        if let Value::Message(s) = self.pop()? {
+    pub fn pop_string(&mut self) -> Result<String, ServerError<'l>> {
+        if let Value::String(s) = self.pop()? {
             Ok(s)
         } else {
-            Err(ServerError::ExpectedValue("Message".into()))
+            Err(ServerError::ExpectedValue("String".into()))
         }
     }
 

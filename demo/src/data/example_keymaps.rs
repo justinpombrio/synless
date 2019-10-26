@@ -31,8 +31,8 @@ pub fn make_node_map<'l>(lang: &Language) -> TreeKeymap<'l> {
                 Key::Esc,
                 FilterRule::Always,
                 Prog::new(&[
-                    Word::Literal(Value::Message("Cancelled node replacement!".into())),
-                    Word::Echo,
+                    Word::Literal(Value::String("Cancelled node replacement!".into())),
+                    Word::Print,
                 ])
                 .with_name("Cancel"),
             )))
