@@ -54,7 +54,7 @@ impl<'l> KeymapManager<'l> {
 
     /// Push this mode onto the stack, making it the current mode. Return an
     /// error if the mode has not been registered.
-    pub fn push_mode(&mut self, name: ModeName) -> Result<(), ServerError<'l>> {
+    pub fn push_mode(&mut self, name: ModeName) -> Result<(), ServerError> {
         if self.modes.contains_key(&name) {
             self.mode_stack.push(name);
             Ok(())
@@ -70,7 +70,7 @@ impl<'l> KeymapManager<'l> {
 
     /// Activate this menu, temporarily overriding the current mode until it's
     /// deactivated.
-    pub fn activate_menu(&mut self, name: MenuName) -> Result<(), ServerError<'l>> {
+    pub fn activate_menu(&mut self, name: MenuName) -> Result<(), ServerError> {
         if self.menus.contains_key(&name) {
             self.active_menu = Some(name);
             Ok(())
@@ -163,7 +163,7 @@ impl<'l> KeymapManager<'l> {
     pub fn get_available_keys(
         &self,
         tree_context: Option<FilterContext>,
-    ) -> Result<AvailableKeys, ServerError<'l>> {
+    ) -> Result<AvailableKeys, ServerError> {
         if let Some(context) = tree_context {
             if let Some(menu_name) = &self.active_menu {
                 let menu = self.menus.get(menu_name).unwrap();

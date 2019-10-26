@@ -29,7 +29,7 @@ impl<'l> Server<'l> {
     pub fn new(
         language_set: &'l LanguageSet,
         notation_sets: &'l NotationSets,
-    ) -> Result<Self, ServerError<'l>> {
+    ) -> Result<Self, ServerError> {
         let engine = Engine::new(
             language_set,
             notation_sets,
@@ -65,7 +65,7 @@ impl<'l> Server<'l> {
         Ok(ed)
     }
 
-    pub fn run(&mut self) -> Result<(), ServerError<'l>> {
+    pub fn run(&mut self) -> Result<(), ServerError> {
         loop {
             if self.keymap_manager.has_active_menu() {
                 self.handle_input()?;
@@ -82,7 +82,7 @@ impl<'l> Server<'l> {
         }
     }
 
-    fn handle_input(&mut self) -> Result<(), ServerError<'l>> {
+    fn handle_input(&mut self) -> Result<(), ServerError> {
         let available_keys = self
             .keymap_manager
             .get_available_keys(get_tree_context(self.engine.active_doc()?))?;
@@ -108,7 +108,7 @@ impl<'l> Server<'l> {
         .or_else(|err| Ok(self.engine.show_message(&format!("Error: {}", err))?))
     }
 
-    fn update_key_hints(&mut self, available_keys: &AvailableKeys) -> Result<(), ServerError<'l>> {
+    fn update_key_hints(&mut self, available_keys: &AvailableKeys) -> Result<(), ServerError> {
         let lang_name = self.engine.lang_name_of(&DocLabel::KeyHints)?;
 
         let mut keymap_node = self.engine.new_node("keymap", lang_name)?;
@@ -160,7 +160,7 @@ impl<'l> Server<'l> {
         Ok(())
     }
 
-    fn call(&mut self, word: Word<'l>) -> Result<(), ServerError<'l>> {
+    fn call(&mut self, word: Word<'l>) -> Result<(), ServerError> {
         Ok(match word {
             Word::Literal(value) => self.data_stack.push(value),
             Word::Apply => {

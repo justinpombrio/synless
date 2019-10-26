@@ -66,7 +66,7 @@ impl<'l> Engine<'l> {
         keyhint_lang: (Language, NotationSet),
         message_lang: (Language, NotationSet),
         active_lang: (Language, NotationSet),
-    ) -> Result<Self, EngineError<'l>> {
+    ) -> Result<Self, EngineError> {
         let mut engine = Engine {
             docs: Docs::new(),
             forest: AstForest::new(language_set),
@@ -100,34 +100,31 @@ impl<'l> Engine<'l> {
         name
     }
 
-    pub fn active_doc(&self) -> Result<&Doc<'l>, EngineError<'l>> {
+    pub fn active_doc(&self) -> Result<&Doc<'l>, EngineError> {
         self.docs
             .get_doc(&DocLabel::ActiveDoc)
             .ok_or_else(|| EngineError::UnknownDocLabel(DocLabel::ActiveDoc))
     }
 
-    pub fn lang_name_of<'a>(
-        &'a self,
-        label: &DocLabel,
-    ) -> Result<&'a LanguageName, EngineError<'l>> {
+    pub fn lang_name_of<'a>(&'a self, label: &DocLabel) -> Result<&'a LanguageName, EngineError> {
         self.docs
             .get_lang_name(label)
             .ok_or_else(|| EngineError::UnknownDocLabel(label.to_owned()))
     }
 
-    pub fn language(&self, lang_name: &LanguageName) -> Result<&'l Language, EngineError<'l>> {
+    pub fn language(&self, lang_name: &LanguageName) -> Result<&'l Language, EngineError> {
         self.language_set
             .get(lang_name)
             .ok_or_else(|| EngineError::UnknownLang(lang_name.to_owned()))
     }
 
-    fn notation_set(&self, lang_name: &LanguageName) -> Result<&'l NotationSet, EngineError<'l>> {
+    fn notation_set(&self, lang_name: &LanguageName) -> Result<&'l NotationSet, EngineError> {
         self.notation_sets
             .get(lang_name)
             .ok_or_else(|| EngineError::UnknownLang(lang_name.to_owned()))
     }
 
-    pub fn show_message(&mut self, msg: &str) -> Result<(), EngineError<'l>> {
+    pub fn show_message(&mut self, msg: &str) -> Result<(), EngineError> {
         let mut msg_node = self.new_node_in_doc_lang("message", &DocLabel::Messages)?;
         msg_node.inner().unwrap_text().text_mut(|t| {
             t.activate();
@@ -140,14 +137,14 @@ impl<'l> Engine<'l> {
         Ok(())
     }
 
-    pub fn clear_messages(&mut self) -> Result<(), EngineError<'l>> {
+    pub fn clear_messages(&mut self) -> Result<(), EngineError> {
         self.exec_on(
             TreeCmd::Replace(self.new_node_in_doc_lang("list", &DocLabel::Messages)?),
             &DocLabel::Messages,
         )
     }
 
-    pub fn redisplay<F>(&self, frontend: &mut F) -> Result<(), EngineError<'l>>
+    pub fn redisplay<F>(&self, frontend: &mut F) -> Result<(), EngineError>
     where
         F: Frontend,
     {
@@ -164,7 +161,7 @@ impl<'l> Engine<'l> {
         &self,
         construct_name: &str,
         doc_label: &DocLabel,
-    ) -> Result<Ast<'l>, EngineError<'l>> {
+    ) -> Result<Ast<'l>, EngineError> {
         self.new_node(construct_name, self.lang_name_of(doc_label)?)
     }
 
@@ -172,7 +169,7 @@ impl<'l> Engine<'l> {
         &self,
         construct_name: &str,
         lang_name: &LanguageName,
-    ) -> Result<Ast<'l>, EngineError<'l>> {
+    ) -> Result<Ast<'l>, EngineError> {
         let construct_name = construct_name.to_string();
         let lang = self.language(lang_name)?;
         let notes = self.notation_set(lang_name)?;
@@ -185,14 +182,14 @@ impl<'l> Engine<'l> {
             })
     }
 
-    pub fn exec<T>(&mut self, cmd: T) -> Result<(), EngineError<'l>>
+    pub fn exec<T>(&mut self, cmd: T) -> Result<(), EngineError>
     where
         T: Debug + Into<MetaCommand<'l>>,
     {
         self.exec_on(cmd.into(), &DocLabel::ActiveDoc)
     }
 
-    pub fn exec_on<T>(&mut self, cmd: T, doc_label: &DocLabel) -> Result<(), EngineError<'l>>
+    pub fn exec_on<T>(&mut self, cmd: T, doc_label: &DocLabel) -> Result<(), EngineError>
     where
         T: Debug + Into<MetaCommand<'l>>,
     {
@@ -203,11 +200,7 @@ impl<'l> Engine<'l> {
         Ok(())
     }
 
-    pub fn add_bookmark(
-        &mut self,
-        name: char,
-        doc_label: &DocLabel,
-    ) -> Result<(), EngineError<'l>> {
+    pub fn add_bookmark(&mut self, name: char, doc_label: &DocLabel) -> Result<(), EngineError> {
         let mark = self
             .docs
             .get_doc_mut(doc_label)
@@ -217,7 +210,7 @@ impl<'l> Engine<'l> {
         Ok(())
     }
 
-    pub fn get_bookmark(&mut self, name: char) -> Result<Bookmark, EngineError<'l>> {
+    pub fn get_bookmark(&mut self, name: char) -> Result<Bookmark, EngineError> {
         // TODO handle bookmarks into multiple documents
         self.bookmarks
             .get(&name)
@@ -232,7 +225,7 @@ impl<'l> Engine<'l> {
         label: DocLabel,
         doc_name: &str,
         lang_name: LanguageName,
-    ) -> Result<(), EngineError<'l>> {
+    ) -> Result<(), EngineError> {
         let mut root_node = self.new_node("root", &lang_name)?;
         let hole = root_node.new_hole();
         root_node

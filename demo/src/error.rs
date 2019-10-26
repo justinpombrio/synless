@@ -9,7 +9,7 @@ use pretty::{DocLabel, PaneError};
 use crate::keymaps::{MenuName, ModeName};
 
 #[derive(thiserror::Error, Debug)]
-pub enum ServerError<'l> {
+pub enum ServerError {
     #[error("not in keymap: {0:?}")]
     UnknownKey(Key),
 
@@ -44,17 +44,17 @@ pub enum ServerError<'l> {
     // Note: we can't use the inner EngineError as the error source because it
     // contains a non-static lifetime.
     #[error("engine error: {0}")]
-    Engine(EngineError<'l>),
+    Engine(EngineError),
 }
 
-impl<'l> From<EngineError<'l>> for ServerError<'l> {
-    fn from(e: EngineError<'l>) -> ServerError<'l> {
+impl From<EngineError> for ServerError {
+    fn from(e: EngineError) -> ServerError {
         ServerError::Engine(e)
     }
 }
 
 #[derive(thiserror::Error, Debug)]
-pub enum EngineError<'l> {
+pub enum EngineError {
     #[error("unknown language: {0}")]
     UnknownLang(LanguageName),
 
@@ -76,11 +76,11 @@ pub enum EngineError<'l> {
     // Note: we can't use the inner DocError as the error source because it
     // contains a non-static lifetime.
     #[error("doc error: {0}")]
-    DocExec(DocError<'l>),
+    DocExec(DocError),
 }
 
-impl<'l> From<DocError<'l>> for EngineError<'l> {
-    fn from(e: DocError<'l>) -> EngineError<'l> {
+impl From<DocError> for EngineError {
+    fn from(e: DocError) -> EngineError {
         EngineError::DocExec(e)
     }
 }

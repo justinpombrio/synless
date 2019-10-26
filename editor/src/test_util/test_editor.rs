@@ -43,7 +43,7 @@ impl<'l> TestEditor<'l> {
     }
 
     /// Execute the given command or meta-command, and return its result.
-    pub fn exec<T>(&mut self, cmd: T) -> Result<(), DocError<'l>>
+    pub fn exec<T>(&mut self, cmd: T) -> Result<(), DocError>
     where
         T: Into<MetaCommand<'l>>,
     {

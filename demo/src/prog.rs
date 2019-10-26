@@ -183,13 +183,13 @@ impl<'l> DataStack<'l> {
 
     /// Pop a value from the data stack, returning it. If the stack is empty,
     /// return an error.
-    pub fn pop(&mut self) -> Result<Value<'l>, ServerError<'l>> {
+    pub fn pop(&mut self) -> Result<Value<'l>, ServerError> {
         self.0.pop().ok_or(ServerError::EmptyDataStack)
     }
 
     /// Swap the order of the two top-most values on the data stack. Return an
     /// error if there are less than 2 values on the data stack.
-    pub fn swap(&mut self) -> Result<(), ServerError<'l>> {
+    pub fn swap(&mut self) -> Result<(), ServerError> {
         let first = self.pop()?;
         let maybe_second = self.pop();
         self.push(first);
@@ -199,7 +199,7 @@ impl<'l> DataStack<'l> {
 
     /// If there is a `Value::Tree` on top of the stack, pop it and return it.
     /// Otherwise return an error.
-    pub fn pop_tree(&mut self) -> Result<Ast<'l>, ServerError<'l>> {
+    pub fn pop_tree(&mut self) -> Result<Ast<'l>, ServerError> {
         match self.pop()? {
             Value::Tree(tree) => Ok(tree),
             other => {
@@ -211,7 +211,7 @@ impl<'l> DataStack<'l> {
 
     /// If there is a `Value::Usize` on top of the stack, pop it and return it.
     /// Otherwise return an error.
-    pub fn pop_usize(&mut self) -> Result<usize, ServerError<'l>> {
+    pub fn pop_usize(&mut self) -> Result<usize, ServerError> {
         match self.pop()? {
             Value::Usize(num) => Ok(num),
             other => {
@@ -223,7 +223,7 @@ impl<'l> DataStack<'l> {
 
     /// If there is a `Value::ModeName` on top of the stack, pop it and return it.
     /// Otherwise return an error.
-    pub fn pop_mode_name(&mut self) -> Result<ModeName, ServerError<'l>> {
+    pub fn pop_mode_name(&mut self) -> Result<ModeName, ServerError> {
         match self.pop()? {
             Value::ModeName(s) => Ok(s),
             other => {
@@ -235,7 +235,7 @@ impl<'l> DataStack<'l> {
 
     /// If there is a `Value::MenuName` on top of the stack, pop it and return
     /// it. Otherwise return an error.
-    pub fn pop_menu_name(&mut self) -> Result<MenuName, ServerError<'l>> {
+    pub fn pop_menu_name(&mut self) -> Result<MenuName, ServerError> {
         match self.pop()? {
             Value::MenuName(s) => Ok(s),
             other => {
@@ -247,7 +247,7 @@ impl<'l> DataStack<'l> {
 
     /// If there is a `Value::LangConstruct` on top of the stack, pop it and
     /// return it. Otherwise return an error.
-    pub fn pop_lang_construct(&mut self) -> Result<(LanguageName, ConstructName), ServerError<'l>> {
+    pub fn pop_lang_construct(&mut self) -> Result<(LanguageName, ConstructName), ServerError> {
         match self.pop()? {
             Value::LangConstruct(lang_name, construct_name) => Ok((lang_name, construct_name)),
             other => {
@@ -259,7 +259,7 @@ impl<'l> DataStack<'l> {
 
     /// If there is a `Value::String` on top of the stack, pop it and return it.
     /// Otherwise return an error.
-    pub fn pop_string(&mut self) -> Result<String, ServerError<'l>> {
+    pub fn pop_string(&mut self) -> Result<String, ServerError> {
         match self.pop()? {
             Value::String(s) => Ok(s),
             other => {
@@ -271,7 +271,7 @@ impl<'l> DataStack<'l> {
 
     /// If there is a `Value::Char` on top of the stack, pop it and return it.
     /// Otherwise return an error.
-    pub fn pop_char(&mut self) -> Result<char, ServerError<'l>> {
+    pub fn pop_char(&mut self) -> Result<char, ServerError> {
         match self.pop()? {
             Value::Char(ch) => Ok(ch),
             other => {
@@ -283,7 +283,7 @@ impl<'l> DataStack<'l> {
 
     /// If there is a `Value::Quote` on top of the stack, pop it and return it.
     /// Otherwise return an error.
-    pub fn pop_quote(&mut self) -> Result<Prog<'l>, ServerError<'l>> {
+    pub fn pop_quote(&mut self) -> Result<Prog<'l>, ServerError> {
         match self.pop()? {
             Value::Quote(prog) => Ok(prog),
             other => {
