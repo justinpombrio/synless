@@ -1,21 +1,33 @@
 use std::{iter, mem, vec};
 
 use crate::ast::{Ast, AstKind, AstRef};
-use crate::command::{Command, CommandGroup, EditorCmd, TextCmd, TextNavCmd, TreeCmd, TreeNavCmd};
+use crate::command::{Command, EditorCmd, MetaCommand, TextCmd, TextNavCmd, TreeCmd, TreeNavCmd};
 use forest::Bookmark;
+use language::{ArityType, Sort};
 
-#[derive(Debug)]
-pub enum DocError<'l> {
+#[derive(thiserror::Error, Debug)]
+pub enum DocError {
+    #[error("cannot execute text command while not in text mode")]
     NotInTextMode,
+    #[error("cannot execute tree command while not in tree mode")]
     NotInTreeMode,
+    #[error("nothing to undo")]
     NothingToUndo,
+    #[error("nothing to redo")]
     NothingToRedo,
-    WrongSort(Ast<'l>),
-    CannotPaste,
+    #[error("cannot use node because it's of the wrong sort")]
+    WrongSort,
+    #[error("cannot paste that here")]
+    CannotPaste, // TODO this is just a special case of WrongSort, combine them?
+    #[error("clipboard is empty")]
     EmptyClipboard,
+    #[error("cannot move there")]
     CannotMove,
+    #[error("cannot remove this node")]
     CannotRemoveNode,
+    #[error("cannot delete character here")]
     CannotDeleteChar,
+    #[error("cannot insert node here")]
     CannotInsert,
 }
 
@@ -151,13 +163,41 @@ impl<'l> Doc<'l> {
         self.ast.bookmark()
     }
 
+    /// Get the Sort of the current node.
+    pub fn self_sort(&self) -> Sort {
+        let (parent, index) = self
+            .ast_ref()
+            .parent()
+            .expect("you shouldn't be at the root!");
+        parent.arity().child_sort(index).to_owned()
+    }
+
+    /// Get the arity type of the current node.
+    pub fn self_arity_type(&self) -> ArityType {
+        self.ast_ref().arity().into()
+    }
+
+    pub fn parent_arity_type(&self) -> ArityType {
+        let (parent, _) = self
+            .ast_ref()
+            .parent()
+            .expect("you shouldn't be at the root!");
+        parent.arity().into()
+    }
+
     fn take_recent(&mut self) -> UndoGroup<'l> {
         mem::replace(&mut self.recent, UndoGroup::new())
     }
 
-    fn undo(&mut self, clipboard: &mut Clipboard<'l>) -> Result<(), DocError<'l>> {
-        assert!(self.recent.commands.is_empty());
-        assert!(!self.recent.contains_edit);
+    fn end_undo_group(&mut self) {
+        if !self.recent.is_empty() {
+            let undos = self.take_recent();
+            self.undo_stack.push(undos)
+        }
+    }
+
+    fn undo(&mut self, clipboard: &mut Clipboard<'l>) -> Result<(), DocError> {
+        self.end_undo_group();
 
         // Find the most recent group that contains an edit
         let index = self
@@ -172,8 +212,10 @@ impl<'l> Doc<'l> {
                     .undo_stack
                     .pop()
                     .expect("undo stack shouldn't be empty!");
-                self.execute_group(group, clipboard)
-                    .expect("Failed to undo");
+                for cmd in group {
+                    self.execute_command(cmd, clipboard)
+                        .expect("Failed to undo");
+                }
                 let recent = self.take_recent();
                 self.redo_stack.push(recent);
             }
@@ -183,9 +225,8 @@ impl<'l> Doc<'l> {
         }
     }
 
-    fn redo(&mut self, clipboard: &mut Clipboard<'l>) -> Result<(), DocError<'l>> {
-        assert!(self.recent.commands.is_empty());
-        assert!(!self.recent.contains_edit);
+    fn redo(&mut self, clipboard: &mut Clipboard<'l>) -> Result<(), DocError> {
+        self.end_undo_group();
 
         // Find the most recent group that contains an edit
         let index = self
@@ -200,8 +241,10 @@ impl<'l> Doc<'l> {
                     .redo_stack
                     .pop()
                     .expect("redo stack shouldn't be empty!");
-                self.execute_group(group, clipboard)
-                    .expect("Failed to redo");
+                for cmd in group {
+                    self.execute_command(cmd, clipboard)
+                        .expect("Failed to redo");
+                }
                 let recent = self.take_recent();
                 self.undo_stack.push(recent);
             }
@@ -213,42 +256,33 @@ impl<'l> Doc<'l> {
 
     pub fn execute(
         &mut self,
-        cmds: CommandGroup<'l>,
+        meta_cmd: MetaCommand<'l>,
         clipboard: &mut Clipboard<'l>,
-    ) -> Result<(), DocError<'l>> {
-        match cmds {
-            CommandGroup::Undo => self.undo(clipboard),
-            CommandGroup::Redo => self.redo(clipboard),
-            CommandGroup::Group(group) => {
-                let result = self.execute_group(group, clipboard);
-                let undos = self.take_recent();
-                if !undos.is_empty() {
-                    self.undo_stack.push(undos);
-                }
+    ) -> Result<(), DocError> {
+        match meta_cmd {
+            MetaCommand::Undo => self.undo(clipboard),
+            MetaCommand::Redo => self.redo(clipboard),
+            MetaCommand::EndGroup => Ok(self.end_undo_group()),
+            MetaCommand::Do(cmd) => {
                 self.redo_stack.clear();
-                result
+                self.execute_command(cmd, clipboard)
             }
         }
     }
 
-    fn execute_group<I>(
+    fn execute_command(
         &mut self,
-        cmds: I,
+        cmd: Command<'l>,
         clipboard: &mut Clipboard<'l>,
-    ) -> Result<(), DocError<'l>>
-    where
-        I: IntoIterator<Item = Command<'l>>,
-    {
-        for cmd in cmds {
-            let undos = match cmd {
-                Command::Ed(cmd) => self.execute_ed(cmd, clipboard)?,
-                Command::Tree(cmd) => self.execute_tree(cmd)?,
-                Command::TreeNav(cmd) => self.execute_tree_nav(cmd)?,
-                Command::Text(cmd) => self.execute_text(cmd)?,
-                Command::TextNav(cmd) => self.execute_text_nav(cmd)?,
-            };
-            self.recent.append(undos);
-        }
+    ) -> Result<(), DocError> {
+        let undos = match cmd {
+            Command::Ed(cmd) => self.execute_ed(cmd, clipboard)?,
+            Command::Tree(cmd) => self.execute_tree(cmd)?,
+            Command::TreeNav(cmd) => self.execute_tree_nav(cmd)?,
+            Command::Text(cmd) => self.execute_text(cmd)?,
+            Command::TextNav(cmd) => self.execute_text_nav(cmd)?,
+        };
+        self.recent.append(undos);
         Ok(())
     }
 
@@ -256,14 +290,14 @@ impl<'l> Doc<'l> {
         &mut self,
         cmd: EditorCmd,
         clipboard: &mut Clipboard<'l>,
-    ) -> Result<UndoGroup<'l>, DocError<'l>> {
+    ) -> Result<UndoGroup<'l>, DocError> {
         if !self.mode.is_tree_mode() {
             return Err(DocError::NotInTreeMode);
         }
         match cmd {
             EditorCmd::Cut => {
                 let hole = self.ast.new_hole();
-                let old_ast = self.replace(hole)?;
+                let old_ast = self.replace(hole).map_err(|_| DocError::WrongSort)?;
                 // Put a copy on the clipboard (breaking bookmarks)
                 clipboard.push(old_ast.clone());
                 // Put the original on the undo stack (preserving bookmarks)
@@ -276,17 +310,10 @@ impl<'l> Doc<'l> {
             }
             EditorCmd::PasteSwap => {
                 let tree = clipboard.pop().ok_or(DocError::EmptyClipboard)?;
-                let old_ast = self.replace(tree).map_err(|err| {
-                    if let DocError::WrongSort(rejected_tree) = err {
-                        // Can't paste that here, put it back!
-                        clipboard.push(rejected_tree);
-                        DocError::CannotPaste
-                    } else {
-                        panic!(
-                            "Failed to paste, may have lost node from clipboard: {:?}",
-                            err
-                        );
-                    }
+                let old_ast = self.replace(tree).map_err(|rejected_tree| {
+                    // Can't paste that here, put it back!
+                    clipboard.push(rejected_tree);
+                    DocError::CannotPaste
                 })?;
                 // Put a copy on the clipboard (breaking bookmarks)
                 clipboard.push(old_ast.clone());
@@ -304,13 +331,13 @@ impl<'l> Doc<'l> {
         }
     }
 
-    fn execute_tree(&mut self, cmd: TreeCmd<'l>) -> Result<UndoGroup<'l>, DocError<'l>> {
+    fn execute_tree(&mut self, cmd: TreeCmd<'l>) -> Result<UndoGroup<'l>, DocError> {
         if !self.mode.is_tree_mode() {
             return Err(DocError::NotInTreeMode);
         }
         let undos = match cmd {
             TreeCmd::Replace(new_ast) => {
-                let old_ast = self.replace(new_ast)?;
+                let old_ast = self.replace(new_ast).map_err(|_| DocError::WrongSort)?;
                 vec![TreeCmd::Replace(old_ast).into()]
             }
             TreeCmd::Remove => self.remove()?,
@@ -320,7 +347,7 @@ impl<'l> Doc<'l> {
             TreeCmd::InsertHolePostpend => self.insert_child_at_edge(false)?,
             TreeCmd::Clear => {
                 let hole = self.ast.new_hole();
-                let old_ast = self.replace(hole)?;
+                let old_ast = self.replace(hole).map_err(|_| DocError::WrongSort)?;
                 vec![TreeCmd::Replace(old_ast).into()]
             }
         };
@@ -330,7 +357,7 @@ impl<'l> Doc<'l> {
         })
     }
 
-    fn execute_tree_nav(&mut self, cmd: TreeNavCmd) -> Result<UndoGroup<'l>, DocError<'l>> {
+    fn execute_tree_nav(&mut self, cmd: TreeNavCmd) -> Result<UndoGroup<'l>, DocError> {
         if !self.mode.is_tree_mode() {
             return Err(DocError::NotInTreeMode);
         }
@@ -397,7 +424,7 @@ impl<'l> Doc<'l> {
         })
     }
 
-    fn execute_text(&mut self, cmd: TextCmd) -> Result<UndoGroup<'l>, DocError<'l>> {
+    fn execute_text(&mut self, cmd: TextCmd) -> Result<UndoGroup<'l>, DocError> {
         let char_index = self.mode.text_pos().ok_or(DocError::NotInTextMode)?;
         let mut ast = self.ast.inner().unwrap_text();
         let undos = match cmd {
@@ -429,7 +456,7 @@ impl<'l> Doc<'l> {
         })
     }
 
-    fn execute_text_nav(&mut self, cmd: TextNavCmd) -> Result<UndoGroup<'l>, DocError<'l>> {
+    fn execute_text_nav(&mut self, cmd: TextNavCmd) -> Result<UndoGroup<'l>, DocError> {
         let char_index = self.mode.text_pos().ok_or(DocError::NotInTextMode)?;
         let mut ast = self.ast.inner().unwrap_text();
         let undos = match cmd {
@@ -449,7 +476,7 @@ impl<'l> Doc<'l> {
             }
             TextNavCmd::TreeMode => {
                 // Exit text mode
-                ast.text_mut(|t| t.inactivate());
+                ast.text_mut(|t| t.deactivate());
                 self.mode = Mode::Tree;
                 vec![TreeNavCmd::Child(char_index).into()]
             }
@@ -464,7 +491,7 @@ impl<'l> Doc<'l> {
     /// node. Otherwise, insert it as the last child. If the insertion is
     /// successful, return the list of commands needed to undo it. Otherwise,
     /// return `Err`.
-    fn insert_child_at_edge(&mut self, at_start: bool) -> Result<Vec<Command<'l>>, DocError<'l>> {
+    fn insert_child_at_edge(&mut self, at_start: bool) -> Result<Vec<Command<'l>>, DocError> {
         let hole = self.ast.new_hole();
         match self.ast.inner() {
             AstKind::Flexible(mut flexible) => {
@@ -472,7 +499,7 @@ impl<'l> Doc<'l> {
                 let index = if at_start { 0 } else { original_num_children };
                 flexible
                     .insert_child(index, hole)
-                    .map_err(|rejected_ast| DocError::WrongSort(rejected_ast))?;
+                    .map_err(|_| DocError::WrongSort)?;
                 flexible.goto_child(index);
                 let mut undo = Vec::new();
                 if original_num_children != 0 {
@@ -492,7 +519,7 @@ impl<'l> Doc<'l> {
     /// this node. Otherwise, insert it immediately to the right. If the
     /// insertion is successful, return the list of commands needed to undo it.
     /// Otherwise, return `Err`.
-    fn insert_sibling(&mut self, before: bool) -> Result<Vec<Command<'l>>, DocError<'l>> {
+    fn insert_sibling(&mut self, before: bool) -> Result<Vec<Command<'l>>, DocError> {
         let hole = self.ast.new_hole();
         let i = self.ast.goto_parent();
         let insertion_index = if before { i } else { i + 1 };
@@ -505,7 +532,7 @@ impl<'l> Doc<'l> {
             AstKind::Flexible(mut flexible) => {
                 let result = flexible
                     .insert_child(insertion_index, hole)
-                    .map_err(|rejected_ast| DocError::WrongSort(rejected_ast));
+                    .map_err(|_| DocError::WrongSort);
 
                 if let Err(err) = result {
                     // Go back to the node we started on!
@@ -526,10 +553,12 @@ impl<'l> Doc<'l> {
         }
     }
 
-    /// Replace the current node with the given node and return it.
-    fn replace(&mut self, new_ast: Ast<'l>) -> Result<Ast<'l>, DocError<'l>> {
+    /// Replace the current node with the given node. If successful, return the
+    /// replaced node. If the given node cannot be placed here because it has
+    /// the wrong Sort, return it as an `Err`.
+    fn replace(&mut self, new_ast: Ast<'l>) -> Result<Ast<'l>, Ast<'l>> {
         let i = self.ast.goto_parent(); // child index
-        let old_ast = match self.ast.inner() {
+        match self.ast.inner() {
             AstKind::Fixed(mut fixed) => {
                 let old_ast = fixed.replace_child(i, new_ast);
                 fixed.goto_child(i);
@@ -541,13 +570,12 @@ impl<'l> Doc<'l> {
                 old_ast
             }
             _ => panic!("how can a parent not be fixed or flexible?"),
-        };
-        old_ast.map_err(|rejected_ast| DocError::WrongSort(rejected_ast))
+        }
     }
 
     /// Entirely remove the current node, if possible (eg. if it has a flexible
     /// parent). Return the list of commands required to undo the removal.
-    fn remove(&mut self) -> Result<Vec<Command<'l>>, DocError<'l>> {
+    fn remove(&mut self) -> Result<Vec<Command<'l>>, DocError> {
         let i = self.ast.goto_parent();
         match self.ast.inner() {
             AstKind::Fixed(mut fixed) => {

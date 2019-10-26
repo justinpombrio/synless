@@ -38,7 +38,7 @@ impl Text {
     /// # Panics
     ///
     /// Panics if the `Text` is already inactive.
-    pub fn inactivate(&mut self) {
+    pub fn deactivate(&mut self) {
         *self = match self {
             Text::Active(ActiveText(s)) => Text::Inactive(s.to_owned()),
             _ => panic!("text is already inactive"),
@@ -219,7 +219,7 @@ mod tests {
         t.insert(4, 'e');
         assert_eq!(t.as_str(), "abcde");
 
-        t.inactivate();
+        t.deactivate();
         assert_eq!(t.num_chars(), 5);
         assert_eq!(t.as_str(), "abcde");
         t.activate();

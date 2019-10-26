@@ -1,16 +1,8 @@
 use editor::{
-    make_json_lang, make_singleton_lang_set, CommandGroup, DocError, EditorCmd, TestEditor,
-    TextCmd, TextNavCmd, TreeCmd, TreeNavCmd,
+    make_json_lang, make_singleton_lang_set, DocError, EditorCmd, MetaCommand, TestEditor, TextCmd,
+    TextNavCmd, TreeCmd, TreeNavCmd,
 };
 use pretty::{DocPosSpec, Pos};
-
-/// Create a CommandGroup containing any number of commands, each of which are
-/// any of the nested command enum types.
-macro_rules! group {
-    ($($command:expr),+) => {
-        CommandGroup::Group(vec![$($command.into()),+])
-    }
-}
 
 /// Check if the expression matches the pattern, and panic with a informative
 /// message if it doesn't.
@@ -48,71 +40,65 @@ fn test_json_undo_redo() {
     let mut ed = TestEditor::new(&lang_set, &note_set, lang_name);
 
     ed.exec(TreeNavCmd::Child(0)).unwrap();
+    ed.exec(MetaCommand::EndGroup).unwrap();
 
-    ed.exec(group![
-        TreeCmd::Replace(ed.node("list").unwrap()),
-        TreeCmd::InsertHolePrepend,
-        TreeCmd::Replace(ed.node("true").unwrap())
-    ])
-    .unwrap();
+    ed.exec(TreeCmd::Replace(ed.node("list").unwrap())).unwrap();
+    ed.exec(TreeCmd::InsertHolePrepend).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node("true").unwrap())).unwrap();
+    ed.exec(MetaCommand::EndGroup).unwrap();
 
-    ed.exec(group![
-        TreeCmd::InsertHoleAfter,
-        TreeCmd::Replace(ed.node("null").unwrap())
-    ])
-    .unwrap();
+    ed.exec(TreeCmd::InsertHoleAfter).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node("null").unwrap())).unwrap();
+    ed.exec(MetaCommand::EndGroup).unwrap();
     ed.assert_render("[true, null]");
 
-    ed.exec(group![
-        TreeCmd::InsertHoleBefore,
-        TreeCmd::Replace(ed.node("false").unwrap())
-    ])
-    .unwrap();
+    ed.exec(TreeCmd::InsertHoleBefore).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node("false").unwrap()))
+        .unwrap();
+    ed.exec(MetaCommand::EndGroup).unwrap();
 
     ed.assert_render("[true, false, null]");
 
-    ed.exec(group![TreeNavCmd::Left]).unwrap();
-    ed.exec(CommandGroup::Undo).unwrap();
+    ed.exec(TreeNavCmd::Left).unwrap();
+    ed.exec(MetaCommand::EndGroup).unwrap();
+    ed.exec(MetaCommand::Undo).unwrap();
     ed.assert_render("[true, null]");
 
-    ed.exec(CommandGroup::Undo).unwrap();
+    ed.exec(MetaCommand::Undo).unwrap();
     ed.assert_render("[true]");
 
-    ed.exec(CommandGroup::Redo).unwrap();
+    ed.exec(MetaCommand::Redo).unwrap();
     ed.assert_render("[true, null]");
 
-    ed.exec(CommandGroup::Redo).unwrap();
+    ed.exec(MetaCommand::Redo).unwrap();
     ed.assert_render("[true, false, null]");
 
-    ed.exec(CommandGroup::Undo).unwrap();
+    ed.exec(MetaCommand::Undo).unwrap();
     ed.assert_render("[true, null]");
 
-    ed.exec(group![
-        TreeCmd::InsertHoleAfter,
-        TreeCmd::Replace(ed.node("list").unwrap())
-    ])
-    .unwrap();
+    ed.exec(TreeCmd::InsertHoleAfter).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node("list").unwrap())).unwrap();
     ed.assert_render("[true, null, []]");
 
-    ed.exec(CommandGroup::Undo).unwrap();
+    ed.exec(MetaCommand::Undo).unwrap();
     ed.assert_render("[true, null]");
 
-    ed.exec(CommandGroup::Undo).unwrap();
+    ed.exec(MetaCommand::Undo).unwrap();
     ed.assert_render("[true]");
 
-    ed.exec(CommandGroup::Undo).unwrap();
+    ed.exec(MetaCommand::Undo).unwrap();
     ed.assert_render("?");
 
-    ed.exec(CommandGroup::Redo).unwrap();
+    ed.exec(MetaCommand::Redo).unwrap();
     ed.assert_render("[true]");
 
-    ed.exec(CommandGroup::Redo).unwrap();
+    ed.exec(MetaCommand::Redo).unwrap();
     ed.assert_render("[true, null]");
 
-    ed.exec(CommandGroup::Redo).unwrap();
+    ed.exec(MetaCommand::Redo).unwrap();
     ed.assert_render("[true, null, []]");
 
-    assert_matches!(ed.exec(CommandGroup::Redo), Err(DocError::NothingToRedo));
+    assert_matches!(ed.exec(MetaCommand::Redo), Err(DocError::NothingToRedo));
     ed.assert_render("[true, null, []]");
 }
 
@@ -125,16 +111,14 @@ fn test_json_cursor_at_top() {
 
     ed.exec(TreeNavCmd::Child(0)).unwrap();
 
-    ed.exec(group![
-        TreeCmd::Replace(ed.node("list").unwrap()),
-        TreeCmd::InsertHolePrepend,
-        TreeCmd::Replace(ed.node("true").unwrap()),
-        TreeCmd::InsertHoleAfter,
-        TreeCmd::Replace(ed.node("false").unwrap()),
-        TreeCmd::InsertHoleAfter,
-        TreeCmd::Replace(ed.node("null").unwrap())
-    ])
-    .unwrap();
+    ed.exec(TreeCmd::Replace(ed.node("list").unwrap())).unwrap();
+    ed.exec(TreeCmd::InsertHolePrepend).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node("true").unwrap())).unwrap();
+    ed.exec(TreeCmd::InsertHoleAfter).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node("false").unwrap()))
+        .unwrap();
+    ed.exec(TreeCmd::InsertHoleAfter).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node("null").unwrap())).unwrap();
 
     ed.assert_render_with(
         "[true,\n false,\n null]",
@@ -174,11 +158,9 @@ fn test_json_string() {
 
     ed.exec(TreeNavCmd::Child(0)).unwrap();
     ed.exec(TreeCmd::Replace(ed.node("list").unwrap())).unwrap();
-    ed.exec(group![
-        TreeCmd::InsertHolePrepend,
-        TreeCmd::Replace(ed.node("string").unwrap())
-    ])
-    .unwrap();
+    ed.exec(TreeCmd::InsertHolePrepend).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node("string").unwrap()))
+        .unwrap();
     assert!(ed.doc.in_tree_mode());
 
     ed.exec(TreeNavCmd::Child(0)).unwrap();
@@ -548,68 +530,79 @@ fn test_undo_clipboard() {
     let mut ed = TestEditor::new(&lang_set, &note_set, lang_name);
     assert_eq!(ed.clipboard.len(), 0);
 
-    ed.exec(group![
-        TreeNavCmd::Child(0),
-        TreeCmd::Replace(ed.node("list").unwrap()),
-        TreeCmd::InsertHolePostpend,
-        TreeCmd::Replace(ed.node("true").unwrap()),
-        TreeCmd::InsertHoleAfter,
-        TreeCmd::Replace(ed.node("false").unwrap())
-    ])
-    .unwrap();
+    ed.exec(TreeNavCmd::Child(0)).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node("list").unwrap())).unwrap();
+    ed.exec(TreeCmd::InsertHolePostpend).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node("true").unwrap())).unwrap();
+    ed.exec(TreeCmd::InsertHoleAfter).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node("false").unwrap()))
+        .unwrap();
+    ed.exec(MetaCommand::EndGroup).unwrap();
     ed.assert_render("[true, false]");
 
     ed.exec(EditorCmd::Cut).unwrap();
+    ed.exec(MetaCommand::EndGroup).unwrap();
     ed.assert_render("[true, ?]");
     assert_eq!(ed.clipboard.len(), 1);
 
-    ed.exec(CommandGroup::Undo).unwrap();
+    ed.exec(MetaCommand::Undo).unwrap();
     ed.assert_render("[true, false]");
     assert_eq!(ed.clipboard.len(), 1);
 
     ed.exec(TreeNavCmd::Left).unwrap();
+    ed.exec(MetaCommand::EndGroup).unwrap();
     ed.exec(EditorCmd::PasteSwap).unwrap();
+    ed.exec(MetaCommand::EndGroup).unwrap();
     ed.assert_render("[false, false]");
     assert_eq!(ed.clipboard.len(), 1); // contains `true`
 
     ed.exec(TreeCmd::InsertHoleAfter).unwrap();
+    ed.exec(MetaCommand::EndGroup).unwrap();
     ed.assert_render("[false, ?, false]");
 
-    ed.exec(CommandGroup::Undo).unwrap();
+    ed.exec(MetaCommand::Undo).unwrap();
     ed.assert_render("[false, false]");
     assert_eq!(ed.clipboard.len(), 1); // contains `true`
 
-    ed.exec(CommandGroup::Undo).unwrap();
+    ed.exec(MetaCommand::Undo).unwrap();
     ed.assert_render("[true, false]");
     assert_eq!(ed.clipboard.len(), 1); // contains `true`
 
     ed.exec(TreeNavCmd::Right).unwrap();
+    ed.exec(MetaCommand::EndGroup).unwrap();
     ed.exec(TreeCmd::InsertHoleAfter).unwrap();
+    ed.exec(MetaCommand::EndGroup).unwrap();
     ed.assert_render("[true, false, ?]");
 
     ed.exec(EditorCmd::PasteSwap).unwrap();
+    ed.exec(MetaCommand::EndGroup).unwrap();
     ed.assert_render("[true, false, true]");
     assert_eq!(ed.clipboard.len(), 1); // contains hole
 
     ed.exec(EditorCmd::PasteSwap).unwrap();
+    ed.exec(MetaCommand::EndGroup).unwrap();
     ed.assert_render("[true, false, ?]");
     assert_eq!(ed.clipboard.len(), 1); // contains `true`
 
-    ed.exec(CommandGroup::Undo).unwrap();
+    ed.exec(MetaCommand::Undo).unwrap();
     ed.assert_render("[true, false, true]");
     assert_eq!(ed.clipboard.len(), 1); // contains `true`
 
-    ed.exec(CommandGroup::Redo).unwrap();
+    ed.exec(MetaCommand::Redo).unwrap();
     ed.assert_render("[true, false, ?]");
     assert_eq!(ed.clipboard.len(), 1); // contains `true`
 
     ed.exec(TreeNavCmd::Left).unwrap();
+    ed.exec(MetaCommand::EndGroup).unwrap();
     ed.exec(EditorCmd::PasteSwap).unwrap();
+    ed.exec(MetaCommand::EndGroup).unwrap();
     ed.assert_render("[true, true, ?]");
     assert_eq!(ed.clipboard.len(), 1); // contains `false`
 
     ed.exec(TreeNavCmd::Right).unwrap();
+    ed.exec(MetaCommand::EndGroup).unwrap();
     ed.exec(EditorCmd::PasteSwap).unwrap();
+    ed.exec(MetaCommand::EndGroup).unwrap();
     ed.assert_render("[true, true, false]");
     assert_eq!(ed.clipboard.len(), 1); // contains hole
 }
@@ -620,50 +613,43 @@ fn test_bookmark() {
     let (lang_set, lang_name) = make_singleton_lang_set(lang);
     let mut ed = TestEditor::new(&lang_set, &note_set, lang_name);
 
-    ed.exec(group![
-        TreeNavCmd::Child(0),
-        TreeCmd::Replace(ed.node("list").unwrap()),
-        TreeCmd::InsertHolePostpend,
-        TreeCmd::Replace(ed.node("true").unwrap())
-    ])
-    .unwrap();
+    ed.exec(TreeNavCmd::Child(0)).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node("list").unwrap())).unwrap();
+    ed.exec(TreeCmd::InsertHolePostpend).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node("true").unwrap())).unwrap();
 
     let mark_true = ed.doc.bookmark();
-    ed.exec(group![
-        TreeCmd::InsertHoleAfter,
-        TreeCmd::Replace(ed.node("false").unwrap())
-    ])
-    .unwrap();
+    ed.exec(TreeCmd::InsertHoleAfter).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node("false").unwrap()))
+        .unwrap();
     let mark_false = ed.doc.bookmark();
 
-    ed.exec(group![
-        TreeCmd::InsertHoleAfter,
-        TreeCmd::Replace(ed.node("list").unwrap())
-    ])
-    .unwrap();
+    ed.exec(TreeCmd::InsertHoleAfter).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node("list").unwrap())).unwrap();
     let mark_list = ed.doc.bookmark();
 
-    ed.exec(group![
-        TreeCmd::InsertHolePrepend,
-        TreeCmd::Replace(ed.node("null").unwrap())
-    ])
-    .unwrap();
+    ed.exec(TreeCmd::InsertHolePrepend).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node("null").unwrap())).unwrap();
+    ed.exec(MetaCommand::EndGroup).unwrap();
     let mark_null = ed.doc.bookmark();
 
     ed.assert_render("[true, false, [null]]");
 
     ed.exec(TreeNavCmd::GotoBookmark(mark_true)).unwrap();
     ed.exec(TreeCmd::InsertHoleBefore).unwrap();
+    ed.exec(MetaCommand::EndGroup).unwrap();
     ed.assert_render("[?, true, false, [null]]");
 
     ed.exec(TreeNavCmd::GotoBookmark(mark_null)).unwrap();
     ed.exec(TreeCmd::Clear).unwrap();
+    ed.exec(MetaCommand::EndGroup).unwrap();
     ed.assert_render("[?, true, false, [?]]");
 
     ed.exec(TreeNavCmd::GotoBookmark(mark_false)).unwrap();
     ed.exec(TreeNavCmd::GotoBookmark(mark_false)).unwrap();
     ed.exec(TreeCmd::Replace(ed.node("false").unwrap()))
         .unwrap();
+    ed.exec(MetaCommand::EndGroup).unwrap();
     ed.assert_render("[?, true, false, [?]]");
 
     assert_matches!(
@@ -675,15 +661,21 @@ fn test_bookmark() {
         Err(DocError::CannotMove)
     );
     ed.exec(TreeNavCmd::GotoBookmark(mark_list)).unwrap();
+    ed.exec(MetaCommand::EndGroup).unwrap();
     ed.exec(TreeCmd::Replace(ed.node("list").unwrap())).unwrap();
+    ed.exec(MetaCommand::EndGroup).unwrap();
     ed.assert_render("[?, true, false, []]");
 
     ed.exec(TreeNavCmd::GotoBookmark(mark_true)).unwrap();
+    ed.exec(MetaCommand::EndGroup).unwrap();
     ed.exec(EditorCmd::Cut).unwrap();
+    ed.exec(MetaCommand::EndGroup).unwrap();
     ed.assert_render("[?, ?, false, []]");
 
     ed.exec(TreeNavCmd::Left).unwrap();
+    ed.exec(MetaCommand::EndGroup).unwrap();
     ed.exec(EditorCmd::PasteSwap).unwrap();
+    ed.exec(MetaCommand::EndGroup).unwrap();
     ed.assert_render("[true, ?, false, []]");
 
     // Cut does not preserve bookmarks
@@ -691,10 +683,10 @@ fn test_bookmark() {
         ed.exec(TreeNavCmd::GotoBookmark(mark_true)),
         Err(DocError::CannotMove)
     );
-    ed.exec(CommandGroup::Undo).unwrap();
+    ed.exec(MetaCommand::Undo).unwrap();
     ed.assert_render("[?, ?, false, []]");
 
-    ed.exec(CommandGroup::Undo).unwrap();
+    ed.exec(MetaCommand::Undo).unwrap();
     ed.assert_render("[?, true, false, []]");
 
     // Undo preserves bookmarks

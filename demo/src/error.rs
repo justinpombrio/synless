@@ -1,52 +1,86 @@
 use std::io;
-use termion::event::Key;
+use thiserror;
 
 use editor::DocError;
-use frontends::terminal;
+use frontends::{terminal::TermError, Key};
 use language::{ConstructName, LanguageName};
-use pretty::PaneError;
+use pretty::{DocLabel, PaneError};
 
-#[derive(Debug)]
-pub enum Error {
+use crate::keymaps::{MenuName, ModeName};
+
+#[derive(thiserror::Error, Debug)]
+pub enum ServerError {
+    #[error("not in keymap: {0:?}")]
     UnknownKey(Key),
-    UnknownKeymap(String),
-    NoKeymap,
+
+    #[error("unknown keymap mode: {0:?}")]
+    UnknownModeName(ModeName),
+
+    #[error("unknown keymap menu: {0:?}")]
+    UnknownMenuName(MenuName),
+
+    #[error("no keymap mode selected")]
+    NoMode,
+
+    #[error("unknown user input event")]
     UnknownEvent,
+
+    #[error("received keyboard interrupt")]
     KeyboardInterrupt,
+
+    // TODO include actual type too
+    #[error("expected value of type {0} on data stack")]
+    ExpectedValue(String),
+
+    #[error("data stack was unexpectedly empty")]
+    EmptyDataStack,
+
+    #[error("input/output error: {0}")]
+    Io(#[from] io::Error),
+
+    #[error("terminal error: {0}")]
+    Term(#[from] TermError),
+
+    // Note: we can't use the inner EngineError as the error source because it
+    // contains a non-static lifetime.
+    #[error("engine error: {0}")]
+    Engine(EngineError),
+}
+
+impl From<EngineError> for ServerError {
+    fn from(e: EngineError) -> ServerError {
+        ServerError::Engine(e)
+    }
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum EngineError {
+    #[error("unknown language: {0}")]
     UnknownLang(LanguageName),
+
+    #[error("language {lang} does not contain construct {construct}")]
     UnknownConstruct {
         construct: ConstructName,
         lang: LanguageName,
     },
+
+    #[error("no bookmark stored with this key")]
     UnknownBookmark,
-    ExpectedWord(String),
-    EmptyStack,
-    Pane(PaneError<terminal::Error>),
-    DocExec(DocError<'static>),
-    Io(io::Error),
-    Term(terminal::Error),
+
+    #[error("no document with label {0:?}")]
+    UnknownDocLabel(DocLabel),
+
+    #[error("pane error: {0}")]
+    Pane(#[from] PaneError),
+
+    // Note: we can't use the inner DocError as the error source because it
+    // contains a non-static lifetime.
+    #[error("doc error: {0}")]
+    DocExec(DocError),
 }
 
-impl From<PaneError<terminal::Error>> for Error {
-    fn from(e: PaneError<terminal::Error>) -> Error {
-        Error::Pane(e)
-    }
-}
-
-impl From<io::Error> for Error {
-    fn from(e: io::Error) -> Error {
-        Error::Io(e)
-    }
-}
-
-impl From<terminal::Error> for Error {
-    fn from(e: terminal::Error) -> Error {
-        Error::Term(e)
-    }
-}
-
-impl From<DocError<'static>> for Error {
-    fn from(e: DocError<'static>) -> Error {
-        Error::DocExec(e)
+impl From<DocError> for EngineError {
+    fn from(e: DocError) -> EngineError {
+        EngineError::DocExec(e)
     }
 }

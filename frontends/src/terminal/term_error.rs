@@ -1,13 +1,14 @@
 use std::io;
+use thiserror;
 
-#[derive(Debug)]
-pub enum Error {
-    Io(io::Error),
+#[derive(thiserror::Error, Debug)]
+pub enum TermError {
+    #[error("terminal input/output error: {0}")]
+    Io(#[from] io::Error),
+
+    #[error("position outside window boundary")]
     OutOfBounds,
-}
 
-impl From<io::Error> for Error {
-    fn from(e: io::Error) -> Error {
-        Error::Io(e)
-    }
+    #[error("unknown key pressed")]
+    UnknownKey,
 }

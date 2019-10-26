@@ -7,3 +7,4 @@ edition = "2018"
 
 [dependencies]
 lazy_static = "*"
+thiserror = "1.0"

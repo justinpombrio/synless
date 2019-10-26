@@ -2,26 +2,31 @@ use crate::NotationSet;
 use language::{Arity, Construct, Language};
 use pretty::{child, literal, no_wrap, repeat, text, Color, Notation, Repeat, Style};
 
-pub fn make_keymap_lang() -> (Language, NotationSet) {
+pub fn make_keyhint_lang() -> (Language, NotationSet) {
     let notations = vec![
         ("key".into(), text(Style::color(Color::Base0D))),
         ("prog".into(), text(Style::color(Color::Base04))),
-        ("entry".into(), entry()),
-        ("dict".into(), dict()),
+        ("binding".into(), binding()),
+        ("keymap".into(), keymap()),
     ];
     let constructs = vec![
         Construct::new("key", "Key", Arity::Text, Some('k')),
         Construct::new("prog", "Value", Arity::Text, Some('p')),
-        Construct::new("dict", "Dict", Arity::Flexible("Entry".into()), Some('d')),
         Construct::new(
-            "entry",
-            "Entry",
+            "keymap",
+            "Keymap",
+            Arity::Flexible("Binding".into()),
+            Some('d'),
+        ),
+        Construct::new(
+            "binding",
+            "Binding",
             Arity::Fixed(vec!["Key".into(), "Value".into()]),
             Some('e'),
         ),
     ];
     // TODO: some of this boilerplate should get abstracted out
-    let mut lang = Language::new("keymap");
+    let mut lang = Language::new("keyhint");
     for construct in constructs {
         lang.add(construct);
     }
@@ -31,14 +36,14 @@ pub fn make_keymap_lang() -> (Language, NotationSet) {
 
 /// Try putting the key and value on the same line.
 /// If they don't fit, wrap after the colon, and indent the value.
-fn entry() -> Notation {
+fn binding() -> Notation {
     no_wrap(child(0) + punct(":") + child(1)) | (child(0) + punct(":") ^ indent() + child(1))
 }
 
 /// Wrap entries tightly.
-fn dict() -> Notation {
+fn keymap() -> Notation {
     repeat(Repeat {
-        empty: punct("(empty keymap)"),
+        empty: punct("(empty keyhints)"),
         lone: child(0),
         join: child(0) + punct(", ") + no_wrap(child(1))
             | child(0) + punct(",") ^ no_wrap(child(1)),

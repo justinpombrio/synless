@@ -1,13 +1,13 @@
 use pretty::{ColorTheme, Pane, PaneError, Pos, PrettyWindow};
 
-pub use termion::event::Key;
+pub use super::key::Key;
 
 // TODO: mouse events
 
 /// An input event.
 pub enum Event {
     /// A key was pressed down.
-    KeyEvent(Key), // termion key. TODO: don't have trait depend on termion
+    KeyEvent(Key),
     /// The left mouse button was pressed at the given character
     /// position (relative to the terminal window).
     MouseEvent(Pos),
@@ -16,7 +16,7 @@ pub enum Event {
 /// A front end for the editor. It knows how to render a frame and how to
 /// receive keyboard events.
 pub trait Frontend: Sized {
-    type Error;
+    type Error: std::error::Error;
     type Window: PrettyWindow;
 
     /// Construct a new frontend.
@@ -26,10 +26,7 @@ pub trait Frontend: Sized {
     fn next_event(&mut self) -> Option<Result<Event, Self::Error>>;
 
     /// Use the given `draw` closure to draw a complete frame to this Frontend's window.
-    fn draw_frame<F>(
-        &mut self,
-        draw: F,
-    ) -> Result<(), PaneError<<Self::Window as PrettyWindow>::Error>>
+    fn draw_frame<F>(&mut self, draw: F) -> Result<(), PaneError>
     where
-        F: Fn(Pane<Self::Window>) -> Result<(), PaneError<<Self::Window as PrettyWindow>::Error>>;
+        F: Fn(Pane<Self::Window>) -> Result<(), PaneError>;
 }

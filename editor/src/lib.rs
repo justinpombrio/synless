@@ -9,8 +9,8 @@ mod text;
 
 pub use self::ast::{Ast, AstForest, AstRef};
 pub use self::command::{
-    Command, CommandGroup, EditorCmd, TextCmd, TextNavCmd, TreeCmd, TreeNavCmd,
+    Command, EditorCmd, MetaCommand, TextCmd, TextNavCmd, TreeCmd, TreeNavCmd,
 };
 pub use self::doc::{Clipboard, Doc, DocError};
-pub use self::notationset::NotationSet;
+pub use self::notationset::{NotationSet, NotationSets};
 pub use test_util::{make_json_lang, make_singleton_lang_set, TestEditor};

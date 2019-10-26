@@ -11,6 +11,7 @@ use crate::pane::{CursorVis, Pane};
 use crate::style::{Shade, Style};
 
 /// What part of the document to show.
+#[derive(Debug, Clone, Copy)]
 pub enum DocPosSpec {
     /// Put this row and column of the document at the top left corner of the Pane.
     Fixed(Pos),
@@ -175,7 +176,7 @@ where
 {
     match path {
         [] => lay.region,
-        [i, path..] => {
+        [i, path @ ..] => {
             let child_region = lay
                 .find_child(*i)
                 .expect("PrettyDocument::locate_cursor - got lost looking for cursor")

@@ -3,11 +3,14 @@ use std::collections::HashMap;
 
 use language::{ConstructName, Language, LanguageName};
 use pretty::{child, literal, Notation, Style};
+use utility::GrowOnlyMap;
 
 pub struct NotationSet {
     name: LanguageName,
     notations: HashMap<ConstructName, Notation>,
 }
+
+pub type NotationSets = GrowOnlyMap<LanguageName, NotationSet>;
 
 lazy_static! {
     /// Notations for built-in constructs that can appear in any document.

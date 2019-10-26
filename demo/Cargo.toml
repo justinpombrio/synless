@@ -11,5 +11,4 @@ pretty = { path = "../pretty" }
 language = { path  = "../language" }
 frontends = { path = "../frontends"}
 utility = { path = "../utility"}
-lazy_static = "*"
-termion = "1.5"
+thiserror = "1.0"

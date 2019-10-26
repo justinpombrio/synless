@@ -100,18 +100,18 @@ where
 
     /// Panics if the next length is greater than the length of the remaining Range.
     fn next(&mut self) -> Option<Self::Item> {
-        match self.lengths {
-            &[] => None, // Done! Returned all requested sub-ranges.
-            &[len] if len == self.remaining.len() => {
+        match &self.lengths {
+            [] => None, // Done! Returned all requested sub-ranges.
+            [len] if *len == self.remaining.len() => {
                 // This is the last requested length AND it's exactly the length
                 // of the remaining Range, so we don't need to split.
                 self.lengths = &[];
                 Some(self.remaining)
             }
-            &[len, ref rest..] => {
+            [len, rest @ ..] => {
                 // In all other cases, try to split.
                 self.lengths = rest;
-                let (left, right) = self.remaining.split(len).expect("Range: failed to split");
+                let (left, right) = self.remaining.split(*len).expect("Range: failed to split");
                 self.remaining = right;
                 Some(left)
             }
@@ -179,5 +179,4 @@ mod tests {
         assert_eq!(Range(3, 5).intersect(Range(5, 9)), None);
         assert_eq!(Range(3, 5).intersect(Range(6, 9)), None);
     }
-
 }

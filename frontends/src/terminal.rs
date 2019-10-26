@@ -3,8 +3,9 @@
 mod screen_buf;
 mod term_error;
 use screen_buf::{ScreenBuf, ScreenOp};
-pub use term_error::Error;
+pub use term_error::TermError;
 
+use std::convert::TryFrom;
 use std::fmt::Display;
 use std::io::{self, stdin, stdout, Stdin, Stdout, Write};
 
@@ -21,7 +22,7 @@ use pretty::{
     Style,
 };
 
-use crate::frontend::{Event, Frontend};
+use crate::frontend::{Event, Frontend, Key};
 
 use self::Event::{KeyEvent, MouseEvent};
 
@@ -37,7 +38,7 @@ pub struct Terminal {
 
 impl Terminal {
     /// Update the screen buffer size to match the actual terminal window size.
-    fn update_size(&mut self) -> Result<(), Error> {
+    fn update_size(&mut self) -> Result<(), TermError> {
         let (col, row) = termion::terminal_size()?;
         let size = Pos {
             col: col as u16,
@@ -77,12 +78,12 @@ impl Terminal {
     }
 
     /// Prepare to start modifying a fresh new frame.
-    fn start_frame(&mut self) -> Result<(), Error> {
+    fn start_frame(&mut self) -> Result<(), TermError> {
         self.update_size()
     }
 
     /// Show the modified frame to the user.
-    fn show_frame(&mut self) -> Result<(), Error> {
+    fn show_frame(&mut self) -> Result<(), TermError> {
         // Reset terminal's style
         self.write(Reset)?;
         // Update the screen from the old frame to the new frame.
@@ -100,7 +101,7 @@ impl Terminal {
 }
 
 impl PrettyWindow for Terminal {
-    type Error = Error;
+    type Error = TermError;
 
     /// Return the current size of the screen buffer, without checking the
     /// actual size of the terminal window (which might have changed recently).
@@ -123,10 +124,10 @@ impl PrettyWindow for Terminal {
 }
 
 impl Frontend for Terminal {
-    type Error = Error;
+    type Error = TermError;
     type Window = Self;
 
-    fn new(theme: ColorTheme) -> Result<Terminal, Error> {
+    fn new(theme: ColorTheme) -> Result<Terminal, Self::Error> {
         let mut term = Terminal {
             stdout: AlternateScreen::from(MouseTerminal::from(stdout().into_raw_mode()?)),
             events: stdin().events(),
@@ -139,9 +140,13 @@ impl Frontend for Terminal {
         Ok(term)
     }
 
-    fn next_event(&mut self) -> Option<Result<Event, Error>> {
+    fn next_event(&mut self) -> Option<Result<Event, Self::Error>> {
         match self.events.next() {
-            Some(Ok(event::Event::Key(key))) => Some(Ok(KeyEvent(key))),
+            Some(Ok(event::Event::Key(termion_key))) => Some(match Key::try_from(termion_key) {
+                Ok(key) => Ok(KeyEvent(key)),
+                Err(()) => Err(TermError::UnknownKey),
+            }),
+
             Some(Ok(event::Event::Mouse(event::MouseEvent::Press(
                 event::MouseButton::Left,
                 x,
@@ -153,14 +158,14 @@ impl Frontend for Terminal {
         }
     }
 
-    fn draw_frame<F>(&mut self, draw: F) -> Result<(), PaneError<Error>>
+    fn draw_frame<F>(&mut self, draw: F) -> Result<(), PaneError>
     where
-        F: Fn(Pane<Self>) -> Result<(), PaneError<Error>>,
+        F: Fn(Pane<Self>) -> Result<(), PaneError>,
     {
-        self.start_frame()?;
-        let pane = self.pane()?;
+        self.start_frame().map_err(PaneError::from_pretty_window)?;
+        let pane = self.pane().map_err(PaneError::from_pretty_window)?;
         let result = draw(pane);
-        self.show_frame()?;
+        self.show_frame().map_err(PaneError::from_pretty_window)?;
         result
     }
 }
@@ -188,5 +193,31 @@ fn coords_to_pos(x: u16, y: u16) -> Pos {
     Pos {
         col: x as Col - 1,
         row: y as Row - 1,
+    }
+}
+
+impl TryFrom<termion::event::Key> for Key {
+    type Error = ();
+    fn try_from(termion_key: termion::event::Key) -> Result<Self, Self::Error> {
+        Ok(match termion_key {
+            termion::event::Key::Backspace => Key::Backspace,
+            termion::event::Key::Left => Key::Left,
+            termion::event::Key::Right => Key::Right,
+            termion::event::Key::Up => Key::Up,
+            termion::event::Key::Down => Key::Down,
+            termion::event::Key::Home => Key::Home,
+            termion::event::Key::End => Key::End,
+            termion::event::Key::PageUp => Key::PageUp,
+            termion::event::Key::PageDown => Key::PageDown,
+            termion::event::Key::Delete => Key::Delete,
+            termion::event::Key::Insert => Key::Insert,
+            termion::event::Key::F(i) => Key::F(i),
+            termion::event::Key::Char(c) => Key::Char(c),
+            termion::event::Key::Alt(c) => Key::Alt(c),
+            termion::event::Key::Ctrl(c) => Key::Ctrl(c),
+            termion::event::Key::Null => Key::Null,
+            termion::event::Key::Esc => Key::Esc,
+            _ => return Err(()),
+        })
     }
 }
