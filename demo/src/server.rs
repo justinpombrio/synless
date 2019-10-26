@@ -65,7 +65,17 @@ impl<'l> Server<'l> {
         Ok(ed)
     }
 
+    /// Run the main loop of the application.
     pub fn run(&mut self) -> Result<(), ServerError> {
+        // In every iteration, we either:
+        //  a) execute a word on the call stack, or
+        //  b) wait for user input that will tell us what new program to push
+        //     onto the call stack.
+        //
+        // There a two situations in which we (b) wait for user input. The first
+        // is if the call stack is empty, leaving us with nothing to do but
+        // wait. The second is if a program has explicitly requested user input
+        // by activating a menu.
         loop {
             if self.keymap_manager.has_active_menu() {
                 self.handle_input()?;
