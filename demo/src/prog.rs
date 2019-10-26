@@ -197,83 +197,99 @@ impl<'l> DataStack<'l> {
         Ok(())
     }
 
-    /// Pop a value from the stack. If it has type `Value::Tree`, return it.
+    /// If there is a `Value::Tree` on top of the stack, pop it and return it.
     /// Otherwise return an error.
     pub fn pop_tree(&mut self) -> Result<Ast<'l>, ServerError<'l>> {
-        if let Value::Tree(tree) = self.pop()? {
-            Ok(tree)
-        } else {
-            Err(ServerError::ExpectedValue("Tree".into()))
+        match self.pop()? {
+            Value::Tree(tree) => Ok(tree),
+            other => {
+                self.push(other);
+                Err(ServerError::ExpectedValue("Tree".into()))
+            }
         }
     }
 
-    /// Pop a value from the stack. If it has type `Value::Usize`, return it.
+    /// If there is a `Value::Usize` on top of the stack, pop it and return it.
     /// Otherwise return an error.
     pub fn pop_usize(&mut self) -> Result<usize, ServerError<'l>> {
-        if let Value::Usize(num) = self.pop()? {
-            Ok(num)
-        } else {
-            Err(ServerError::ExpectedValue("Usize".into()))
+        match self.pop()? {
+            Value::Usize(num) => Ok(num),
+            other => {
+                self.push(other);
+                Err(ServerError::ExpectedValue("Usize".into()))
+            }
         }
     }
 
-    /// Pop a value from the stack. If it has type `Value::ModeName`, return it.
+    /// If there is a `Value::ModeName` on top of the stack, pop it and return it.
     /// Otherwise return an error.
     pub fn pop_mode_name(&mut self) -> Result<ModeName, ServerError<'l>> {
-        if let Value::ModeName(s) = self.pop()? {
-            Ok(s)
-        } else {
-            Err(ServerError::ExpectedValue("ModeName".into()))
+        match self.pop()? {
+            Value::ModeName(s) => Ok(s),
+            other => {
+                self.push(other);
+                Err(ServerError::ExpectedValue("ModeName".into()))
+            }
         }
     }
 
-    /// Pop a value from the stack. If it has type `Value::MenuName`, return it.
-    /// Otherwise return an error.
+    /// If there is a `Value::MenuName` on top of the stack, pop it and return
+    /// it. Otherwise return an error.
     pub fn pop_menu_name(&mut self) -> Result<MenuName, ServerError<'l>> {
-        if let Value::MenuName(s) = self.pop()? {
-            Ok(s)
-        } else {
-            Err(ServerError::ExpectedValue("MenuName".into()))
+        match self.pop()? {
+            Value::MenuName(s) => Ok(s),
+            other => {
+                self.push(other);
+                Err(ServerError::ExpectedValue("MenuName".into()))
+            }
         }
     }
 
-    /// Pop a value from the stack. If it has type `Value::LangConstruct`, return it.
-    /// Otherwise return an error.
+    /// If there is a `Value::LangConstruct` on top of the stack, pop it and
+    /// return it. Otherwise return an error.
     pub fn pop_lang_construct(&mut self) -> Result<(LanguageName, ConstructName), ServerError<'l>> {
-        if let Value::LangConstruct(lang_name, construct_name) = self.pop()? {
-            Ok((lang_name, construct_name))
-        } else {
-            Err(ServerError::ExpectedValue("LangConstruct".into()))
+        match self.pop()? {
+            Value::LangConstruct(lang_name, construct_name) => Ok((lang_name, construct_name)),
+            other => {
+                self.push(other);
+                Err(ServerError::ExpectedValue("LangConstruct".into()))
+            }
         }
     }
 
-    /// Pop a value from the stack. If it has type `Value::String`, return it.
+    /// If there is a `Value::String` on top of the stack, pop it and return it.
     /// Otherwise return an error.
     pub fn pop_string(&mut self) -> Result<String, ServerError<'l>> {
-        if let Value::String(s) = self.pop()? {
-            Ok(s)
-        } else {
-            Err(ServerError::ExpectedValue("String".into()))
+        match self.pop()? {
+            Value::String(s) => Ok(s),
+            other => {
+                self.push(other);
+                Err(ServerError::ExpectedValue("String".into()))
+            }
         }
     }
 
-    /// Pop a value from the stack. If it has type `Value::Char`, return it.
+    /// If there is a `Value::Char` on top of the stack, pop it and return it.
     /// Otherwise return an error.
     pub fn pop_char(&mut self) -> Result<char, ServerError<'l>> {
-        if let Value::Char(ch) = self.pop()? {
-            Ok(ch)
-        } else {
-            Err(ServerError::ExpectedValue("Char".into()))
+        match self.pop()? {
+            Value::Char(ch) => Ok(ch),
+            other => {
+                self.push(other);
+                Err(ServerError::ExpectedValue("Char".into()))
+            }
         }
     }
 
-    /// Pop a value from the stack. If it has type `Value::Quote`, return it.
+    /// If there is a `Value::Quote` on top of the stack, pop it and return it.
     /// Otherwise return an error.
     pub fn pop_quote(&mut self) -> Result<Prog<'l>, ServerError<'l>> {
-        if let Value::Quote(prog) = self.pop()? {
-            Ok(prog)
-        } else {
-            Err(ServerError::ExpectedValue("Quote".into()))
+        match self.pop()? {
+            Value::Quote(prog) => Ok(prog),
+            other => {
+                self.push(other);
+                Err(ServerError::ExpectedValue("Quote".into()))
+            }
         }
     }
 }
