@@ -1,6 +1,6 @@
 use editor::Ast;
 
-use language::{ConstructName, LanguageName, Sort};
+use language::{ConstructName, LanguageName};
 
 use crate::error::ServerError;
 use crate::keymaps::{MenuName, ModeName};
@@ -23,7 +23,6 @@ pub enum Value<'l> {
     Char(char),
     ModeName(ModeName),
     MenuName(MenuName),
-    Sort(Sort),
     LangConstruct(LanguageName, ConstructName),
     String(String),
     Quote(Prog<'l>),
@@ -42,9 +41,6 @@ pub enum Word<'l> {
     PushMode,
     PopMode,
     ActivateMenu,
-    SelfSort,
-    ChildSort,
-    SiblingSort,
     NodeByName,
     Print,
 

@@ -197,18 +197,6 @@ impl<'l> Server<'l> {
                 }
                 self.keymap_manager.activate_menu(name)?;
             }
-            Word::ChildSort => {
-                self.data_stack
-                    .push(Value::Sort(self.engine.active_doc()?.child_sort()));
-            }
-            Word::SelfSort => {
-                self.data_stack
-                    .push(Value::Sort(self.engine.active_doc()?.self_sort()));
-            }
-            Word::SiblingSort => {
-                self.data_stack
-                    .push(Value::Sort(self.engine.active_doc()?.sibling_sort()));
-            }
             Word::Remove => self.engine.exec(TreeCmd::Remove)?,
             Word::Clear => self.engine.exec(TreeCmd::Clear)?,
             Word::InsertHoleAfter => {

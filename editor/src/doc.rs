@@ -163,6 +163,7 @@ impl<'l> Doc<'l> {
         self.ast.bookmark()
     }
 
+    /// Get the Sort of the current node.
     pub fn self_sort(&self) -> Sort {
         let (parent, index) = self
             .ast_ref()
@@ -171,18 +172,7 @@ impl<'l> Doc<'l> {
         parent.arity().child_sort(index).to_owned()
     }
 
-    pub fn sibling_sort(&self) -> Sort {
-        let (parent, _) = self
-            .ast_ref()
-            .parent()
-            .expect("you shouldn't be at the root!");
-        parent.arity().uniform_child_sort().to_owned()
-    }
-
-    pub fn child_sort(&self) -> Sort {
-        self.ast_ref().arity().uniform_child_sort().to_owned()
-    }
-
+    /// Get the arity type of the current node.
     pub fn self_arity_type(&self) -> ArityType {
         self.ast_ref().arity().into()
     }
