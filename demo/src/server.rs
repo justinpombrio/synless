@@ -1,5 +1,6 @@
 use editor::{
-    make_json_lang, EditorCmd, MetaCommand, NotationSets, TextCmd, TextNavCmd, TreeCmd, TreeNavCmd,
+    make_json_lang, Doc, EditorCmd, MetaCommand, NotationSets, TextCmd, TextNavCmd, TreeCmd,
+    TreeNavCmd,
 };
 use frontends::{Event, Frontend, Key, Terminal};
 use language::{LanguageSet, Sort};
@@ -8,7 +9,7 @@ use pretty::{ColorTheme, DocLabel};
 use crate::engine::Engine;
 use crate::error::ServerError;
 use crate::keymaps::{AvailableKeys, FilterContext, KeymapManager};
-use crate::prog::{CallStack, DataStack, Prog, Value, Word};
+use crate::prog::{CallStack, DataStack, Value, Word};
 
 use crate::data::example_keymaps;
 use crate::data::example_pane_notation::make_example_pane_notation;
@@ -82,29 +83,29 @@ impl<'l> Server<'l> {
     }
 
     fn handle_input(&mut self) -> Result<(), ServerError<'l>> {
-        let doc = self.engine.active_doc()?;
-        let tree_context = if doc.in_tree_mode() {
-            Some(FilterContext {
-                sort: doc.self_sort(),
-                self_arity: doc.self_arity_type(),
-                parent_arity: doc.parent_arity_type(),
-            })
-        } else {
-            None
-        };
-        let available_keys = self.keymap_manager.get_available_keys(tree_context)?;
+        let available_keys = self
+            .keymap_manager
+            .get_available_keys(get_tree_context(self.engine.active_doc()?))?;
 
         self.update_key_hints(&available_keys)?;
         self.engine.redisplay(&mut self.frontend)?;
-        match self.next_event(&available_keys) {
-            Ok(prog) => {
-                self.call_stack.push(prog);
-                self.keymap_manager.deactivate_menu();
-                Ok(())
-            }
-            Err(ServerError::KeyboardInterrupt) => Err(ServerError::KeyboardInterrupt),
-            Err(err) => Ok(self.engine.show_message(&format!("Error: {}", err))?),
+
+        match self.frontend.next_event() {
+            Some(Ok(Event::KeyEvent(Key::Ctrl('c')))) => return Err(ServerError::KeyboardInterrupt),
+            Some(Ok(Event::KeyEvent(key))) => Ok(key),
+            Some(Err(err)) => Err(err.into()),
+            _ => Err(ServerError::UnknownEvent),
         }
+        .and_then(|key| {
+            self.keymap_manager
+                .lookup(key, &available_keys)
+                .ok_or_else(|| ServerError::UnknownKey(key))
+        })
+        .map(|prog| {
+            self.call_stack.push(prog);
+            self.keymap_manager.deactivate_menu();
+        })
+        .or_else(|err| Ok(self.engine.show_message(&format!("Error: {}", err))?))
     }
 
     fn update_key_hints(&mut self, available_keys: &AvailableKeys) -> Result<(), ServerError<'l>> {
@@ -157,18 +158,6 @@ impl<'l> Server<'l> {
         self.engine
             .exec_on(TreeCmd::Replace(description_node), &DocLabel::KeymapName)?;
         Ok(())
-    }
-
-    fn next_event(&mut self, available_keys: &AvailableKeys) -> Result<Prog<'l>, ServerError<'l>> {
-        match self.frontend.next_event() {
-            Some(Ok(Event::KeyEvent(Key::Ctrl('c')))) => Err(ServerError::KeyboardInterrupt),
-            Some(Ok(Event::KeyEvent(key))) => self
-                .keymap_manager
-                .lookup(key, available_keys)
-                .ok_or_else(|| ServerError::UnknownKey(key)),
-            Some(Err(err)) => Err(err.into()),
-            _ => Err(ServerError::UnknownEvent),
-        }
     }
 
     fn call(&mut self, word: Word<'l>) -> Result<(), ServerError<'l>> {
@@ -273,5 +262,17 @@ impl<'l> Server<'l> {
             Word::TextLeft => self.engine.exec(TextNavCmd::Left)?,
             Word::TextRight => self.engine.exec(TextNavCmd::Right)?,
         })
+    }
+}
+
+fn get_tree_context<'l>(doc: &Doc<'l>) -> Option<FilterContext> {
+    if doc.in_tree_mode() {
+        Some(FilterContext {
+            sort: doc.self_sort(),
+            self_arity: doc.self_arity_type(),
+            parent_arity: doc.parent_arity_type(),
+        })
+    } else {
+        None
     }
 }
