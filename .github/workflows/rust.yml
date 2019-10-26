@@ -24,4 +24,7 @@ jobs:
     - name: Run tests
       run: cargo test --verbose
     - name: Clippy
-      run: cargo clippy --all-targets
+      uses: actions-rs/cargo@v1
+      with:
+        command: clippy
+        args: -- -D warnings
