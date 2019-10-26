@@ -16,7 +16,7 @@ pub fn make_node_map<'l>(lang: &Language) -> TreeKeymap<'l> {
                 (
                     Key::Char(ch),
                     FilterRule::Sort(lang.lookup_construct(construct_name).sort.clone()),
-                    Prog::new(&[
+                    Prog::new(vec![
                         Word::Literal(Value::LangConstruct(
                             lang.name().into(),
                             construct_name.to_owned(),
@@ -30,7 +30,7 @@ pub fn make_node_map<'l>(lang: &Language) -> TreeKeymap<'l> {
             .chain(iter::once((
                 Key::Esc,
                 FilterRule::Always,
-                Prog::new(&[
+                Prog::new(vec![
                     Word::Literal(Value::String("Cancelled node replacement!".into())),
                     Word::Print,
                 ])
@@ -62,7 +62,7 @@ pub fn make_tree_map<'l>() -> TreeKeymap<'l> {
         (
             Key::Char('p'),
             FilterRule::Always,
-            Prog::new(&[Word::PasteSwap, Word::PopClipboard]).with_name("PasteReplace"),
+            Prog::new(vec![Word::PasteSwap, Word::PopClipboard]).with_name("PasteReplace"),
         ),
         (
             Key::Char('u'),
@@ -94,7 +94,7 @@ pub fn make_tree_map<'l>() -> TreeKeymap<'l> {
         (
             Key::Down,
             FilterRule::Always,
-            Prog::new(&[Word::Literal(Value::Usize(0)), Word::Child]).with_name("Child"),
+            Prog::new(vec![Word::Literal(Value::Usize(0)), Word::Child]).with_name("Child"),
         ),
         (
             Key::Char('i'),
@@ -119,7 +119,7 @@ pub fn make_tree_map<'l>() -> TreeKeymap<'l> {
         (
             Key::Char('r'),
             FilterRule::Always,
-            Prog::new(&[
+            Prog::new(vec![
                 Word::Literal(Prog::from(Word::Replace).quote()),
                 Word::Literal(Value::MenuName("node".into())),
                 Word::ActivateMenu,
@@ -129,7 +129,7 @@ pub fn make_tree_map<'l>() -> TreeKeymap<'l> {
         (
             Key::Char(' '),
             FilterRule::ParentArity(vec![ArityType::Flexible, ArityType::Mixed]),
-            Prog::new(&[
+            Prog::new(vec![
                 Word::Literal(Value::ModeName("speed_bool".into())),
                 Word::PushMode,
             ])
@@ -138,12 +138,13 @@ pub fn make_tree_map<'l>() -> TreeKeymap<'l> {
         (
             Key::Char('m'),
             FilterRule::Always,
-            Prog::new(&[Word::Literal(Value::Char('m')), Word::SetBookmark]).with_name("Mark"),
+            Prog::new(vec![Word::Literal(Value::Char('m')), Word::SetBookmark]).with_name("Mark"),
         ),
         (
             Key::Char('\''),
             FilterRule::Always,
-            Prog::new(&[Word::Literal(Value::Char('m')), Word::GotoBookmark]).with_name("GotoMark"),
+            Prog::new(vec![Word::Literal(Value::Char('m')), Word::GotoBookmark])
+                .with_name("GotoMark"),
         ),
     ])
 }
@@ -157,7 +158,7 @@ pub fn make_speed_bool_map<'l>() -> TreeKeymap<'l> {
         (
             Key::Char('t'),
             FilterRule::ParentArity(vec![ArityType::Flexible, ArityType::Mixed]),
-            Prog::new(&[
+            Prog::new(vec![
                 Word::Literal(Value::LangConstruct(lang.clone(), "true".into())),
                 Word::InsertHoleAfter,
                 Word::NodeByName,
@@ -168,7 +169,7 @@ pub fn make_speed_bool_map<'l>() -> TreeKeymap<'l> {
         (
             Key::Char('f'),
             FilterRule::ParentArity(vec![ArityType::Flexible, ArityType::Mixed]),
-            Prog::new(&[
+            Prog::new(vec![
                 Word::Literal(Value::LangConstruct(lang, "false".into())),
                 Word::InsertHoleAfter,
                 Word::NodeByName,
@@ -179,7 +180,7 @@ pub fn make_speed_bool_map<'l>() -> TreeKeymap<'l> {
         (
             Key::Esc,
             FilterRule::Always,
-            Prog::new(&[Word::PopMode]).with_name("Exit"),
+            Prog::new(vec![Word::PopMode]).with_name("Exit"),
         ),
     ])
 }

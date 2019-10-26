@@ -81,9 +81,9 @@ pub enum Word<'l> {
 impl<'l> Prog<'l> {
     /// Construct a program in which the given words will be executed in order,
     /// starting from index 0 of the slice.
-    pub fn new(forward_words: &[Word<'l>]) -> Self {
+    pub fn new(forward_words: Vec<Word<'l>>) -> Self {
         Prog {
-            words: forward_words.iter().cloned().rev().collect(),
+            words: forward_words.into_iter().rev().collect(),
             name: None,
         }
     }

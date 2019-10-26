@@ -116,7 +116,10 @@ impl<'l> KeymapManager<'l> {
                 if let Some(prog) = self.text_keymap.get(&key) {
                     Some(prog.to_owned())
                 } else if let Key::Char(c) = key {
-                    Some(Prog::new(&[Word::Literal(Value::Char(c)), Word::InsertChar]).with_name(c))
+                    Some(
+                        Prog::new(vec![Word::Literal(Value::Char(c)), Word::InsertChar])
+                            .with_name(c),
+                    )
                 } else {
                     None
                 }
