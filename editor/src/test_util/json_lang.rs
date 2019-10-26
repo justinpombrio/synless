@@ -1,6 +1,8 @@
 use crate::NotationSet;
 use language::{Arity, Construct, Language};
-use pretty::{child, if_empty_text, literal, no_wrap, repeat, text, Notation, Repeat, Style};
+use pretty::{
+    child, if_empty_text, literal, no_wrap, repeat, text, Color, Emph, Notation, Repeat, Style,
+};
 
 pub fn make_json_lang() -> (Language, NotationSet) {
     let notations = vec![
@@ -40,28 +42,59 @@ pub fn make_json_lang() -> (Language, NotationSet) {
 }
 
 fn json_string() -> Notation {
-    let style = Style::plain();
+    let style = Style::color(Color::Base0B);
     literal("\"", style) + text(style) + literal("\"", style)
 }
 
 fn json_key() -> Notation {
-    let style = Style::plain();
+    let style = Style {
+        color: Color::Base0D,
+        emph: Emph::underlined(),
+        reversed: false,
+    };
     literal("'", style) + text(style) + literal("'", style)
 }
 
 fn json_number() -> Notation {
-    let style = Style::plain();
+    let style = Style::color(Color::Base09);
     if_empty_text(literal("·", style), text(style))
 }
 
 fn json_boolean(value: bool) -> Notation {
-    let style = Style::plain();
-    let name = if value { "true" } else { "false" };
-    literal(name, style)
+    let color = Color::Base0E;
+    let (name, emph) = if value {
+        (
+            "true",
+            Emph {
+                underlined: true,
+                bold: true,
+            },
+        )
+    } else {
+        (
+            "false",
+            Emph {
+                underlined: false,
+                bold: true,
+            },
+        )
+    };
+    literal(
+        name,
+        Style {
+            emph,
+            color,
+            reversed: false,
+        },
+    )
 }
 
 fn json_null() -> Notation {
-    let style = Style::plain();
+    let style = Style {
+        color: Color::Base0E,
+        emph: Emph::plain(),
+        reversed: true,
+    };
     literal("null", style)
 }
 
