@@ -143,7 +143,7 @@ impl ScreenBuf {
         self.cells
             .get(pos.row as usize)
             .and_then(|row| row.get(pos.col as usize))
-            .map(|cell| *cell)
+            .copied()
             .ok_or(TermError::OutOfBounds)
     }
 
@@ -354,10 +354,7 @@ mod screen_buf_tests {
         assert_eq!(buf.size(), size);
         for &pos in good_pos {
             buf.set_char_with_style(pos, 'x', Style::default())
-                .expect(&format!(
-                    "pos {} out-of-bounds of buf with size {}",
-                    pos, size
-                ));
+                .unwrap_or_else(|_| panic!("pos {} out-of-bounds of buf with size {}", pos, size));
         }
         for &pos in bad_pos {
             assert_out_of_bounds(buf.set_char_with_style(pos, 'x', Style::default()));

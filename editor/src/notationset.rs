@@ -84,7 +84,8 @@ mod example {
         let arity = Arity::Fixed(vec!["Expr".into(), "Expr".into()]);
         let construct = Construct::new("plus", "Expr", arity, Some('p'));
         language.add(construct);
-        let plus_notation = child(0) + punct(" + ") + child(1) | child(0) ^ punct("+ ") + child(1);
+        let plus_notation =
+            (child(0) + punct(" + ") + child(1)) | child(0) ^ (punct("+ ") + child(1));
 
         let notation = NotationSet::new(&language, vec![("plus".into(), plus_notation)]);
         (language, notation)

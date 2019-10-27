@@ -74,13 +74,13 @@ fn json_list() -> Notation {
     repeat(Repeat {
         empty: empty.clone(),
         lone: lone.clone(),
-        join: child(0) + punct(", ") + no_wrap(child(1))
-            | child(0) + punct(",") ^ no_wrap(child(1)),
+        join: (child(0) + punct(", ") + no_wrap(child(1)))
+            | ((child(0) + punct(",")) ^ no_wrap(child(1))),
         surround: punct("[") + child(0) + punct("]"),
     }) | repeat(Repeat {
         empty,
         lone,
-        join: child(0) + punct(",") ^ child(1),
+        join: (child(0) + punct(",")) ^ child(1),
         surround: punct("[") + child(0) + punct("]"),
     })
 }
@@ -88,7 +88,7 @@ fn json_list() -> Notation {
 /// Try putting the key and value on the same line.
 /// If they don't fit, wrap after the colon, and indent the value.
 fn json_dict_entry() -> Notation {
-    no_wrap(child(0) + punct(": ") + child(1)) | (child(0) + punct(":") ^ indent() + child(1))
+    no_wrap(child(0) + punct(": ") + child(1)) | ((child(0) + punct(":")) ^ (indent() + child(1)))
 }
 
 /// Put all entries on separate lines.
@@ -97,8 +97,8 @@ fn json_dict() -> Notation {
     repeat(Repeat {
         empty: punct("{}"),
         lone: punct("{") + child(0) + punct("}"),
-        join: child(0) + punct(",") ^ child(1),
-        surround: punct("{") ^ indent() + child(0) ^ punct("}"),
+        join: (child(0) + punct(",")) ^ child(1),
+        surround: punct("{") ^ (indent() + child(0)) ^ punct("}"),
     })
 }
 

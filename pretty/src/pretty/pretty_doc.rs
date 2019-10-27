@@ -257,7 +257,7 @@ where
     let end_byte = chars
         .nth((end_char - start_char - 1) as usize)
         .map(|x| x.0)
-        .unwrap_or(text.len());
+        .unwrap_or_else(|| text.len());
 
     let screen_offset = Pos {
         row: text_region.pos.row - doc_rect.pos().row,

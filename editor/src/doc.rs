@@ -77,6 +77,7 @@ impl<'l> IntoIterator for UndoGroup<'l> {
 }
 
 /// A stack containing Asts that have been cut or copied.
+#[derive(Default)]
 pub struct Clipboard<'l>(Vec<Ast<'l>>);
 
 impl<'l> Clipboard<'l> {
@@ -99,6 +100,11 @@ impl<'l> Clipboard<'l> {
     /// Return the number of trees on the clipboard stack.
     pub fn len(&mut self) -> usize {
         self.0.len()
+    }
+
+    /// Return true if there are no trees on the clipboard stack.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
     }
 }
 
@@ -141,7 +147,7 @@ impl<'l> Doc<'l> {
             recent: UndoGroup::new(),
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
-            ast: ast,
+            ast,
             mode: Mode::Tree,
         }
     }
@@ -262,7 +268,10 @@ impl<'l> Doc<'l> {
         match meta_cmd {
             MetaCommand::Undo => self.undo(clipboard),
             MetaCommand::Redo => self.redo(clipboard),
-            MetaCommand::EndGroup => Ok(self.end_undo_group()),
+            MetaCommand::EndGroup => {
+                self.end_undo_group();
+                Ok(())
+            }
             MetaCommand::Do(cmd) => {
                 self.redo_stack.clear();
                 self.execute_command(cmd, clipboard)

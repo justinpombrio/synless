@@ -45,14 +45,14 @@ impl<'l> TextKeymap<'l> {
         Self(HashMap::new())
     }
 
-    pub(super) fn get<'a>(&'a self, key: &Key) -> Option<&'a Prog<'l>> {
-        self.0.get(key)
+    pub(super) fn get(&self, key: Key) -> Option<&'_ Prog<'l>> {
+        self.0.get(&key)
     }
 
-    pub(super) fn keys_and_names<'a>(&'a self) -> Vec<(&'a Key, Option<&'a str>)> {
+    pub(super) fn keys_and_names<'a>(&'a self) -> Vec<(Key, Option<&'a str>)> {
         self.0
             .iter()
-            .map(|(key, prog)| (key, prog.name()))
+            .map(|(&key, prog)| (key, prog.name()))
             .collect()
     }
 }
@@ -66,8 +66,8 @@ impl<'l> TreeKeymap<'l> {
         )
     }
 
-    pub(super) fn get<'a>(&'a self, key: &Key) -> Option<&'a Prog<'l>> {
-        self.0.get(key).map(|(_filter, prog)| prog)
+    pub(super) fn get<'a>(&'a self, key: Key) -> Option<&'a Prog<'l>> {
+        self.0.get(&key).map(|(_filter, prog)| prog)
     }
 
     pub(super) fn filter<'a>(&'a self, context: &FilterContext) -> Vec<Key> {

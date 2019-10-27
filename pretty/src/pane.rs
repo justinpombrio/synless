@@ -135,7 +135,7 @@ where
     /// Returns `None` if `rect` is not fully contained within this `Pane`.
     /// `rect` is specified in the same absolute coordinate system as the full
     /// `PrettyWindow` (not specified relative to this `Pane`!).
-    pub fn sub_pane<'b>(&'b mut self, rect: Rect) -> Option<Pane<'b, T>> {
+    pub fn sub_pane(&mut self, rect: Rect) -> Option<Pane<'_, T>> {
         if !self.rect().covers(rect) {
             return None;
         }
@@ -214,7 +214,8 @@ where
                             // Convert dynamic height into a fixed height, based on the currrent document.
                             if let PaneNotation::Doc { label, .. } = &p.1 {
                                 let f = get_content.clone();
-                                let doc = f(label).ok_or(PaneError::Missing(label.to_owned()))?;
+                                let doc =
+                                    f(label).ok_or_else(|| PaneError::Missing(label.to_owned()))?;
                                 let height =
                                     available_height.min(doc.required_height(self.rect().width()));
                                 available_height -= height;
@@ -246,7 +247,7 @@ where
                 scroll_strategy,
             } => {
                 let width = self.rect().width();
-                let doc = get_content(label).ok_or(PaneError::Missing(label.to_owned()))?;
+                let doc = get_content(label).ok_or_else(|| PaneError::Missing(label.to_owned()))?;
                 doc.pretty_print(width, self, *scroll_strategy, *cursor_visibility)
                     .map_err(PaneError::from_pretty_window)?;
             }
@@ -347,18 +348,18 @@ mod tests {
 
     #[test]
     fn test_proportional_division() {
-        assert_eq!(proportionally_divide(0, &vec!(1, 1)), vec!(0, 0));
-        assert_eq!(proportionally_divide(1, &vec!(1, 1)), vec!(1, 0));
-        assert_eq!(proportionally_divide(2, &vec!(1, 1)), vec!(1, 1));
-        assert_eq!(proportionally_divide(3, &vec!(1, 1)), vec!(2, 1));
-        assert_eq!(proportionally_divide(4, &vec!(10, 11, 12)), vec!(1, 1, 2));
-        assert_eq!(proportionally_divide(5, &vec!(17)), vec!(5));
-        assert_eq!(proportionally_divide(5, &vec!(12, 10, 11)), vec!(2, 1, 2));
-        assert_eq!(proportionally_divide(5, &vec!(10, 10, 11)), vec!(2, 1, 2));
-        assert_eq!(proportionally_divide(5, &vec!(2, 0, 1)), vec!(3, 0, 2));
-        assert_eq!(proportionally_divide(61, &vec!(1, 2, 3)), vec!(10, 20, 31));
+        assert_eq!(proportionally_divide(0, &[1, 1]), vec!(0, 0));
+        assert_eq!(proportionally_divide(1, &[1, 1]), vec!(1, 0));
+        assert_eq!(proportionally_divide(2, &[1, 1]), vec!(1, 1));
+        assert_eq!(proportionally_divide(3, &[1, 1]), vec!(2, 1));
+        assert_eq!(proportionally_divide(4, &[10, 11, 12]), vec!(1, 1, 2));
+        assert_eq!(proportionally_divide(5, &[17]), vec!(5));
+        assert_eq!(proportionally_divide(5, &[12, 10, 11]), vec!(2, 1, 2));
+        assert_eq!(proportionally_divide(5, &[10, 10, 11]), vec!(2, 1, 2));
+        assert_eq!(proportionally_divide(5, &[2, 0, 1]), vec!(3, 0, 2));
+        assert_eq!(proportionally_divide(61, &[1, 2, 3]), vec!(10, 20, 31));
         assert_eq!(
-            proportionally_divide(34583, &vec!(55, 98, 55, 7, 12, 200)),
+            proportionally_divide(34583, &[55, 98, 55, 7, 12, 200]),
             vec!(4455, 7937, 4454, 567, 972, 16198)
         );
     }

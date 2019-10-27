@@ -20,7 +20,7 @@ impl<'l> AstForest<'l> {
     /// Construct a new, empty, forest.
     pub fn new(language_set: &'l LanguageSet) -> AstForest<'l> {
         AstForest {
-            language_set: language_set,
+            language_set,
             forest: Forest::new(),
         }
     }
@@ -60,7 +60,7 @@ impl<'l> AstForest<'l> {
             .expect("no builtin 'hole' construct found");
         let node = Node {
             bounds: Bounds::empty(),
-            language: language,
+            language,
             construct: hole,
             notation: notation_set.lookup(&hole.name),
         };
@@ -76,8 +76,8 @@ impl<'l> AstForest<'l> {
     ) -> Ast<'l> {
         let node = Node {
             bounds: Bounds::empty(),
-            language: language,
-            construct: construct,
+            language,
+            construct,
             notation: notation_set.lookup(&construct.name),
         };
         if !construct.arity.is_text() {
@@ -100,8 +100,8 @@ impl<'l> AstForest<'l> {
     ) -> Ast<'l> {
         let node = Node {
             bounds: Bounds::empty(),
-            language: language,
-            construct: construct,
+            language,
+            construct,
             notation: notation_set.lookup(&construct.name),
         };
         let arity = match &construct.arity {
@@ -124,8 +124,8 @@ impl<'l> AstForest<'l> {
     ) -> Ast<'l> {
         let node = Node {
             bounds: Bounds::empty(),
-            language: language,
-            construct: construct,
+            language,
+            construct,
             notation: notation_set.lookup(&construct.name),
         };
         if !construct.arity.is_flexible() {
@@ -144,8 +144,8 @@ impl<'l> AstForest<'l> {
         // TODO: probably shouldn't be copy-pasting this
         let node = Node {
             bounds: Bounds::empty(),
-            language: language,
-            construct: construct,
+            language,
+            construct,
             notation: notation_set.lookup(&construct.name),
         };
         if !construct.arity.is_mixed() {

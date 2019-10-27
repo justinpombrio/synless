@@ -194,7 +194,7 @@ impl Notation {
     // Eliminate any Repeats.
     // If the node is texty, `len` is the length of the text.
     pub(crate) fn expand(&self, len: usize) -> Notation {
-        NotationExpander { len: len }.expand(self)
+        NotationExpander { len }.expand(self)
     }
 
     fn replace_child(&self, sought: usize, replacement: &Notation) -> Notation {

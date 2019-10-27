@@ -79,15 +79,13 @@ impl<'l> Server<'l> {
         loop {
             if self.keymap_manager.has_active_menu() {
                 self.handle_input()?;
-            } else {
-                if let Some(word) = self.call_stack.next() {
-                    if let Err(err) = self.call(word) {
-                        self.engine.show_message(&format!("Error: {}", err))?;
-                    }
-                } else {
-                    self.engine.exec(MetaCommand::EndGroup)?;
-                    self.handle_input()?;
+            } else if let Some(word) = self.call_stack.next() {
+                if let Err(err) = self.call(word) {
+                    self.engine.show_message(&format!("Error: {}", err))?;
                 }
+            } else {
+                self.engine.exec(MetaCommand::EndGroup)?;
+                self.handle_input()?;
             }
         }
     }
@@ -171,7 +169,7 @@ impl<'l> Server<'l> {
     }
 
     fn call(&mut self, word: Word<'l>) -> Result<(), ServerError> {
-        Ok(match word {
+        match word {
             Word::Literal(value) => self.data_stack.push(value),
             Word::Apply => {
                 let prog = self.data_stack.pop_quote()?;
@@ -256,7 +254,8 @@ impl<'l> Server<'l> {
             Word::TreeMode => self.engine.exec(TextNavCmd::TreeMode)?,
             Word::TextLeft => self.engine.exec(TextNavCmd::Left)?,
             Word::TextRight => self.engine.exec(TextNavCmd::Right)?,
-        })
+        };
+        Ok(())
     }
 }
 

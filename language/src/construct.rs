@@ -51,8 +51,8 @@ impl Construct {
         Construct {
             name: name.to_string(),
             sort: sort.into(),
-            arity: arity,
-            key: key,
+            arity,
+            key,
         }
     }
 
@@ -117,10 +117,9 @@ impl Arity {
     pub fn child_sort(&self, i: usize) -> &Sort {
         match self {
             Arity::Flexible(sort) | Arity::Mixed(sort) => sort, // all tree children have the same Sort
-            Arity::Fixed(sorts) => sorts.get(i).expect(&format!(
-                "child_sort - fixed node has only {} children",
-                sorts.len()
-            )),
+            Arity::Fixed(sorts) => sorts.get(i).unwrap_or_else(|| {
+                panic!("child_sort - fixed node has only {} children", sorts.len())
+            }),
             _ => panic!("child_sort - node has no children"),
         }
     }

@@ -202,6 +202,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::cognitive_complexity)]
     fn test_active_edit() {
         let mut t = Text::new_inactive();
         t.activate();

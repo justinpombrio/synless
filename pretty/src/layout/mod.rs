@@ -51,8 +51,8 @@ mod layout_tests {
     }
 
     fn example_notation() -> Notation {
-        lit("if ") + lit("true")
-            ^ lit("  ") + lit("* ") + (lit("bulleted") ^ lit("list"))
+        (lit("if ") + lit("true"))
+            ^ ((lit("  ") + lit("* ") + lit("bulleted")) ^ lit("list"))
             ^ lit("end")
     }
 
@@ -61,7 +61,7 @@ mod layout_tests {
             empty: lit("[]"),
             lone: lit("[") + child(0) + lit("]"),
             surround: lit("[") + child(0) + lit("]"),
-            join: child(0) + lit(",") ^ child(1),
+            join: (child(0) + lit(",")) ^ child(1),
         })
     }
 
@@ -132,7 +132,7 @@ mod layout_tests {
             .layouts(vec![r.clone(), r.clone(), r.clone()], 3)
             .fit_width(80);
         let four = &syn
-            .layouts(vec![r.clone(), r.clone(), r.clone(), r.clone()], 4)
+            .layouts(vec![r.clone(), r.clone(), r.clone(), r], 4)
             .fit_width(80);
         assert_eq!(format!("{:?}", zero), "[]");
         assert_eq!(format!("{:?}", one), "[000\n 00]");

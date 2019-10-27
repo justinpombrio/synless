@@ -37,7 +37,7 @@ pub fn make_keyhint_lang() -> (Language, NotationSet) {
 /// Try putting the key and value on the same line.
 /// If they don't fit, wrap after the colon, and indent the value.
 fn binding() -> Notation {
-    no_wrap(child(0) + punct(":") + child(1)) | (child(0) + punct(":") ^ indent() + child(1))
+    no_wrap(child(0) + punct(":") + child(1)) | ((child(0) + punct(":")) ^ (indent() + child(1)))
 }
 
 /// Wrap entries tightly.
@@ -45,8 +45,8 @@ fn keymap() -> Notation {
     repeat(Repeat {
         empty: punct("(empty keyhints)"),
         lone: child(0),
-        join: child(0) + punct(", ") + no_wrap(child(1))
-            | child(0) + punct(",") ^ no_wrap(child(1)),
+        join: (child(0) + punct(", ") + no_wrap(child(1)))
+            | (child(0) + punct(",")) ^ no_wrap(child(1)),
         surround: child(0),
     })
 }

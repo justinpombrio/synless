@@ -49,7 +49,7 @@ impl Bound {
 
     /// One Bound dominates another if it is at least as small in all
     /// dimensions.
-    pub fn dominates(&self, other: Bound) -> bool {
+    pub fn dominates(self, other: Bound) -> bool {
         // self wins ties
         (self.width <= other.width)
             && (self.height <= other.height)
@@ -59,14 +59,14 @@ impl Bound {
     /// Is this Bound wider than MAX_WIDTH?
     /// Anything wider than MAX_WIDTH will simply be ignored: no one
     /// needs more than MAX_WIDTH characters on a line.
-    pub fn too_wide(&self) -> bool {
+    pub fn too_wide(self) -> bool {
         self.width > MAX_WIDTH
     }
 
     /// A Bound that has the given width and is "infinitely" tall.
     pub fn infinite_scroll(width: Col) -> Bound {
         Bound {
-            width: width,
+            width,
             indent: width,
             // leave wiggle-room to avoid overflowing
             height: Row::max_value() - 1,
@@ -74,17 +74,17 @@ impl Bound {
     }
 
     /// Return true iff this bound is shaped like a rectangle.
-    pub fn is_rectangular(&self) -> bool {
+    pub fn is_rectangular(self) -> bool {
         self.indent == self.width
     }
 
-    pub(crate) fn debug_print(&self, f: &mut fmt::Formatter, ch: char, indent: Col) -> fmt::Result {
+    pub(crate) fn debug_print(self, f: &mut fmt::Formatter, ch: char, indent: Col) -> fmt::Result {
         if self.height > 30 {
             return write!(f, "[very large bound]");
         }
         for _ in 0..(self.height - 1) {
             write!(f, "{}", ch.to_string().repeat(self.width as usize))?;
-            write!(f, "\n")?;
+            writeln!(f)?;
             write!(f, "{}", " ".repeat(indent as usize))?;
         }
         write!(f, "{}", ch.to_string().repeat(self.indent as usize))

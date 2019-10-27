@@ -54,7 +54,7 @@ impl Rect {
     /// Transform a point to the coordinate system given by this rectangle.
     pub fn transform(&self, pos: Pos) -> Option<Pos> {
         match (self.cols.transform(pos.col), self.rows.transform(pos.row)) {
-            (Some(col), Some(row)) => Some(Pos { col: col, row: row }),
+            (Some(col), Some(row)) => Some(Pos { col, row }),
             (_, _) => None,
         }
     }

@@ -40,7 +40,7 @@ pub struct Ast<'l> {
 
 impl<'l> Ast<'l> {
     pub(super) fn new(tree: Tree<Node<'l>, Text>) -> Ast<'l> {
-        let mut ast = Ast { tree: tree };
+        let mut ast = Ast { tree };
         ast.update();
         ast
     }

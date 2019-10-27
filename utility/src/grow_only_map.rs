@@ -5,6 +5,8 @@ use std::sync::Mutex;
 // TODO: Use an existing solution, like https://docs.rs/typed-arena/1.5.0/typed_arena/struct.Arena.html
 /// Like a HashMap, but it can only get bigger.
 /// It is (hopefully) safe to extend
+
+#[derive(Default)]
 pub struct GrowOnlyMap<K, V> {
     // The Mutex is to make sure that two different threads aren't
     // mucking around with the UnsafeCell at once. (I want to ensure
@@ -23,6 +25,7 @@ pub struct GrowOnlyMap<K, V> {
     // re-allocate. The extra level of indirection will ensure that
     // even though the Box moves, the value V inside it doesn't, thus
     // keeping references to it valid.
+    #[allow(clippy::type_complexity)] // whatever, this struct is getting deleted soon
     mutex: Mutex<UnsafeCell<Vec<(K, Box<V>)>>>,
 }
 
@@ -95,7 +98,7 @@ fn test_grow_only_map() {
     assert_eq!(&pair.0, "there");
     assert_eq!(&pair.1, "world");
 
-    for _ in 0..100000 {
+    for _ in 0..100_000 {
         map.insert("stuff".to_string(), ("s".to_string(), "s".to_string()));
         junk.push("junk".to_string());
     }

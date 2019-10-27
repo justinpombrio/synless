@@ -51,7 +51,7 @@ pub enum AvailableKeys {
 
 impl<'l> Mode<'l> {
     /// Get the program bound to the given key, if there is one.
-    pub(super) fn get<'a>(&'a self, key: &Key) -> Option<&'a Prog<'l>> {
+    pub(super) fn get<'a>(&'a self, key: Key) -> Option<&'a Prog<'l>> {
         self.keymap.get(key)
     }
 
@@ -67,7 +67,7 @@ impl<'l> Mode<'l> {
 
 impl<'l> Menu<'l> {
     /// Get the program bound to the given key, if there is one.
-    pub(super) fn get<'a>(&'a self, key: &Key) -> Option<&'a Prog<'l>> {
+    pub(super) fn get<'a>(&'a self, key: Key) -> Option<&'a Prog<'l>> {
         self.keymap.get(key)
     }
 

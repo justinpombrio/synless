@@ -17,7 +17,7 @@ impl fmt::Display for PlainText {
                 write!(f, "{}", ch)?;
             }
             if i + 1 != self.lines.len() {
-                write!(f, "\n")?;
+                writeln!(f)?;
             }
         }
         Ok(())

@@ -455,7 +455,7 @@ fn test_pane_dyn_height() {
     let doc2 = Doc::new_branch(notations["list"].clone(), vec![elem.clone(), elem.clone()]);
     let doc3 = Doc::new_branch(
         notations["list"].clone(),
-        vec![elem.clone(), elem.clone(), elem.clone()],
+        vec![elem.clone(), elem.clone(), elem],
     );
 
     let content1 = PaneNotation::Doc {

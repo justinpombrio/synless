@@ -27,7 +27,7 @@ pub trait PrettyWindow: Sized {
     ) -> Result<(), Self::Error>;
 
     /// Get a `Pane` that covers the full window area (and can be pretty-printed to).
-    fn pane<'a>(&'a mut self) -> Result<Pane<'a, Self>, Self::Error> {
+    fn pane(&mut self) -> Result<Pane<'_, Self>, Self::Error> {
         let rect = Rect::new(Pos::zero(), self.size()?);
         Ok(Pane { window: self, rect })
     }
