@@ -11,7 +11,7 @@ use std::vec;
 /// widths. This in turn allows for efficient (log-time) insertion and lookup.
 ///
 /// Staircases are used by Boundsets, which stores one Staircase for each
-/// indent.
+/// indent. Each stair in the staircase also contains some related data T.
 #[derive(Clone, Debug)]
 pub struct Staircase<T>
 where

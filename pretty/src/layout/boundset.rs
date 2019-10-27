@@ -133,14 +133,8 @@ where
 {
     type Item = (Bound, T);
     fn next(&mut self) -> Option<(Bound, T)> {
-        while self.bounds.is_none() {
-            match self.staircases.next() {
-                None => return None,
-                Some(staircase) => self.bounds = Some(staircase.into_iter()),
-            }
-        }
         loop {
-            match self.bounds.as_mut().unwrap().next() {
+            match self.bounds.as_mut().and_then(|iter| iter.next()) {
                 Some((bound, value)) => return Some((bound, value)),
                 None => match self.staircases.next() {
                     None => return None,
