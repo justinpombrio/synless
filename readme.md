@@ -1,3 +1,5 @@
+![](https://github.com/justinpombrio/synless/workflows/Tests/badge.svg)
+
 # Synless
 
 **This whole project is in a pre-alpha stage. Even the design
