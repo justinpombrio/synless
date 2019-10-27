@@ -72,7 +72,7 @@ impl<'l> Server<'l> {
         //  b) wait for user input that will tell us what new program to push
         //     onto the call stack.
         //
-        // There a two situations in which we (b) wait for user input. The first
+        // There are two situations in which we (b) wait for user input. The first
         // is if the call stack is empty, leaving us with nothing to do but
         // wait. The second is if a program has explicitly requested user input
         // by activating a menu.
@@ -84,7 +84,14 @@ impl<'l> Server<'l> {
                     self.engine.show_message(&format!("Error: {}", err))?;
                 }
             } else {
-                self.engine.exec(MetaCommand::EndGroup)?;
+                // We generally want consecutive text-mode actions to be
+                // undone together, so hitting `undo` in tree-mode won't
+                // drop you back into text-mode. Therefore, we should avoid
+                // ending an undo-group while the the document is in
+                // text-mode.
+                if self.engine.active_doc()?.in_tree_mode() {
+                    self.engine.exec(MetaCommand::EndGroup)?;
+                }
                 self.handle_input()?;
             }
         }
