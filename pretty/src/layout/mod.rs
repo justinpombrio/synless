@@ -1,4 +1,7 @@
 mod boundset;
+
+// TODO rename modules to fix this for real
+#[allow(clippy::module_inception)]
 mod layout;
 
 pub use self::layout::{
