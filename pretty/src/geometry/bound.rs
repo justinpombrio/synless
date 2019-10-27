@@ -78,9 +78,18 @@ impl Bound {
         self.indent == self.width
     }
 
-    pub(crate) fn debug_print(self, f: &mut fmt::Formatter, ch: char, indent: Col) -> fmt::Result {
+    pub(crate) fn debug_print<W: fmt::Write>(
+        self,
+        f: &mut W,
+        ch: char,
+        indent: Col,
+    ) -> fmt::Result {
         if self.height > 30 {
-            return write!(f, "[very large bound]");
+            return write!(
+                f,
+                "[very large bound: w={} h={} i={}]",
+                self.width, self.height, self.indent
+            );
         }
         for _ in 0..(self.height - 1) {
             write!(f, "{}", ch.to_string().repeat(self.width as usize))?;
@@ -93,6 +102,10 @@ impl Bound {
 
 impl fmt::Debug for Bound {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.debug_print(f, '*', 0)
+        write!(
+            f,
+            "Bound{{w={},h={},i={}}}",
+            self.width, self.height, self.indent
+        )
     }
 }

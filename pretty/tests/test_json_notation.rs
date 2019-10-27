@@ -75,11 +75,11 @@ fn test_pretty_print_long_list() {
         .unwrap();
     assert_strings_eq(
         &window.to_string(),
-        r#"[true, false, true, true, false, true, false, true, true, false, true,
- false, true, true, false, true, false, true, false, true, true,
- false, true, false, true, true, false, true, false, true, true,
- false, true, false, true, false, true, true, false, true, false,
- true, true, false, true, false, true, true, false, true, false]"#,
+        r#"[true, false, true, true, false, true, false, true, true, false, true, false,
+ true, true, false, true, false, true, false, true, true, false, true, false,
+ true, true, false, true, false, true, true, false, true, false, true, false,
+ true, true, false, true, false, true, true, false, true, false, true, true,
+ false, true, false]"#,
     );
 }
 
