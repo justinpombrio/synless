@@ -31,7 +31,7 @@ pub fn make_json_lang() -> (Language, NotationSet) {
         ),
     ];
     // TODO: some of this boilerplate should get abstracted out
-    let mut lang = Language::new("json");
+    let mut lang = Language::new("json".into());
     for construct in constructs {
         lang.add(construct);
     }

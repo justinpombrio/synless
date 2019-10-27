@@ -56,7 +56,7 @@ impl<'l> AstForest<'l> {
     /// Construct a hole in this forest, that represents a gap in the document.
     pub fn new_hole_tree(&self, language: &'l Language, notation_set: &'l NotationSet) -> Ast<'l> {
         let hole = BUILTIN_CONSTRUCTS
-            .get("hole")
+            .get(&"hole".into())
             .expect("no builtin 'hole' construct found");
         let node = Node {
             bounds: Bounds::empty(),

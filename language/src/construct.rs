@@ -5,7 +5,8 @@ use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::fmt;
 
-pub type ConstructName = String;
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ConstructName(String);
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Sort(String); // "Any" is special
@@ -49,7 +50,7 @@ impl Construct {
         T: Into<Sort>,
     {
         Construct {
-            name: name.to_string(),
+            name: name.into(),
             sort: sort.into(),
             arity,
             key,
@@ -58,7 +59,7 @@ impl Construct {
 
     pub fn hole() -> &'static Construct {
         BUILTIN_CONSTRUCTS
-            .get("hole")
+            .get(&"hole".into())
             .expect("no builtin 'hole' construct found")
     }
 }
@@ -163,15 +164,45 @@ impl From<Arity> for ArityType {
     }
 }
 
+impl fmt::Display for ConstructName {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl From<String> for ConstructName {
+    fn from(s: String) -> ConstructName {
+        ConstructName(s)
+    }
+}
+
+impl<'a> From<&'a str> for ConstructName {
+    fn from(s: &'a str) -> ConstructName {
+        ConstructName(s.to_string())
+    }
+}
+
+impl From<ConstructName> for String {
+    fn from(m: ConstructName) -> String {
+        m.0
+    }
+}
+
+impl<'a> From<&'a ConstructName> for String {
+    fn from(m: &'a ConstructName) -> String {
+        m.0.to_owned()
+    }
+}
+
 lazy_static! {
     /// Built-in constructs that can appear in any document.
     pub static ref BUILTIN_CONSTRUCTS: HashMap<ConstructName, Construct> = vec![
         (
-            "hole".to_owned(),
+            "hole".into(),
             Construct::new("hole", Sort::any(), Arity::Fixed(vec!()), Some('?'))
         ),
         (
-            "root".to_owned(),
+            "root".into(),
             Construct::new("root", "root", Arity::Fixed(vec![Sort::any()]), None)
         )
     ].into_iter().collect();

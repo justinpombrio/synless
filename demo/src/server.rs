@@ -119,24 +119,24 @@ impl<'l> Server<'l> {
     fn update_key_hints(&mut self, available_keys: &AvailableKeys) -> Result<(), ServerError> {
         let lang_name = self.engine.lang_name_of(&DocLabel::KeyHints)?;
 
-        let mut keymap_node = self.engine.new_node("keymap", lang_name)?;
+        let mut keymap_node = self.engine.new_node(&"keymap".into(), lang_name)?;
 
         for (key, prog) in self.keymap_manager.hints(available_keys) {
-            let mut key_node = self.engine.new_node("key", lang_name)?;
+            let mut key_node = self.engine.new_node(&"key".into(), lang_name)?;
             key_node.inner().unwrap_text().text_mut(|t| {
                 t.activate();
                 t.set(key);
                 t.deactivate();
             });
 
-            let mut prog_node = self.engine.new_node("prog", lang_name)?;
+            let mut prog_node = self.engine.new_node(&"prog".into(), lang_name)?;
             prog_node.inner().unwrap_text().text_mut(|t| {
                 t.activate();
                 t.set(prog);
                 t.deactivate();
             });
 
-            let mut binding_node = self.engine.new_node("binding", &lang_name)?;
+            let mut binding_node = self.engine.new_node(&"binding".into(), &lang_name)?;
             binding_node
                 .inner()
                 .unwrap_fixed()
@@ -157,7 +157,7 @@ impl<'l> Server<'l> {
 
         let mut description_node = self
             .engine
-            .new_node_in_doc_lang("message", &DocLabel::KeymapName)?;
+            .new_node_in_doc_lang(&"message".into(), &DocLabel::KeymapName)?;
         description_node.inner().unwrap_text().text_mut(|t| {
             t.activate();
             t.set(available_keys.name());

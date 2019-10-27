@@ -1,12 +1,14 @@
 //! An editable language.
 
 use std::collections::HashMap;
+use std::fmt;
 use std::iter::Iterator;
 
 use crate::construct::{Construct, ConstructName, Sort, BUILTIN_CONSTRUCTS};
 use utility::GrowOnlyMap;
 
-pub type LanguageName = String;
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct LanguageName(String);
 
 pub struct Language {
     name: LanguageName,
@@ -15,19 +17,19 @@ pub struct Language {
     keymap: HashMap<char, ConstructName>,
 }
 
-pub type LanguageSet = GrowOnlyMap<String, Language>;
+pub type LanguageSet = GrowOnlyMap<LanguageName, Language>;
 
 impl Language {
-    pub fn new(name: &str) -> Language {
+    pub fn new(name: LanguageName) -> Language {
         Language {
-            name: name.to_string(),
+            name,
             sorts: HashMap::new(),
             constructs: HashMap::new(),
             keymap: HashMap::new(),
         }
     }
 
-    pub fn name(&self) -> &str {
+    pub fn name(&self) -> &LanguageName {
         &self.name
     }
 
@@ -52,12 +54,12 @@ impl Language {
         self.keymap.get(&key)
     }
 
-    pub fn lookup_construct(&self, construct_name: &str) -> &Construct {
+    pub fn lookup_construct(&self, construct_name: &ConstructName) -> &Construct {
         match self.constructs.get(construct_name) {
             Some(con) => con,
             None => match BUILTIN_CONSTRUCTS.get(construct_name) {
                 None => panic!(
-                    "Could not find construct named {} in language.",
+                    "Could not find construct named {:?} in language.",
                     construct_name
                 ),
                 Some(con) => con,
@@ -71,5 +73,35 @@ impl Language {
 
     pub fn keymap(&self) -> &HashMap<char, ConstructName> {
         &self.keymap
+    }
+}
+
+impl fmt::Display for LanguageName {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl From<String> for LanguageName {
+    fn from(s: String) -> LanguageName {
+        LanguageName(s)
+    }
+}
+
+impl<'a> From<&'a str> for LanguageName {
+    fn from(s: &'a str) -> LanguageName {
+        LanguageName(s.to_string())
+    }
+}
+
+impl From<LanguageName> for String {
+    fn from(m: LanguageName) -> String {
+        m.0
+    }
+}
+
+impl<'a> From<&'a LanguageName> for String {
+    fn from(m: &'a LanguageName) -> String {
+        m.0.to_owned()
     }
 }

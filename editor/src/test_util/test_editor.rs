@@ -1,5 +1,5 @@
 use crate::{Ast, AstForest, Clipboard, Doc, DocError, MetaCommand, NotationSet};
-use language::{Language, LanguageName, LanguageSet};
+use language::{ConstructName, Language, LanguageName, LanguageSet};
 use pretty::{Col, CursorVis, DocPosSpec, PlainText, Pos, PrettyDocument, PrettyWindow, Row};
 
 /// A simple wrapper around a Doc that makes it more convenient to write tests
@@ -29,7 +29,7 @@ impl<'l> TestEditor<'l> {
 
         let doc = Doc::new(
             "MyTestDoc",
-            forest.new_fixed_tree(&lang, lang.lookup_construct("root"), note_set),
+            forest.new_fixed_tree(&lang, lang.lookup_construct(&"root".into()), note_set),
         );
 
         TestEditor {
@@ -51,10 +51,9 @@ impl<'l> TestEditor<'l> {
     }
 
     /// Try to create a new node in the forest with the given construct name.
-    pub fn node(&self, construct_name: &str) -> Option<Ast<'l>> {
-        let construct_name = construct_name.to_string();
+    pub fn node(&self, construct_name: &ConstructName) -> Option<Ast<'l>> {
         let lang = self.lang_set.get(&self.lang_name).unwrap();
-        self.forest.new_tree(lang, &construct_name, self.note_set)
+        self.forest.new_tree(lang, construct_name, self.note_set)
     }
 
     /// Render the Doc as a string, and assert that it's equal to the `expected`

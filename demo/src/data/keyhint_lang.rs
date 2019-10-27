@@ -26,7 +26,7 @@ pub fn make_keyhint_lang() -> (Language, NotationSet) {
         ),
     ];
     // TODO: some of this boilerplate should get abstracted out
-    let mut lang = Language::new("keyhint");
+    let mut lang = Language::new("keyhint".into());
     for construct in constructs {
         lang.add(construct);
     }
