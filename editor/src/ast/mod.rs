@@ -1,4 +1,7 @@
+// TODO rename modules to fix this for real
+#[allow(clippy::module_inception)]
 mod ast;
+
 mod ast_forest;
 mod ast_ref;
 

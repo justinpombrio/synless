@@ -29,14 +29,14 @@ impl NotationSet {
             map.insert(construct, notation);
         }
         NotationSet {
-            name: language.name().to_string(),
+            name: language.name().to_owned(),
             notations: map,
         }
     }
 
     pub fn hole() -> &'static Notation {
         BUILTIN_NOTATIONS
-            .get("hole")
+            .get(&"hole".into())
             .expect("no builtin 'hole' notation found")
     }
 
@@ -44,7 +44,7 @@ impl NotationSet {
         match self.notations.get(construct) {
             None => match BUILTIN_NOTATIONS.get(construct) {
                 None => panic!(
-                    "Construct {} not found in notation set for {}",
+                    "Construct {:?} not found in notation set for {:?}",
                     construct, self.name
                 ),
                 Some(notation) => notation,
@@ -79,12 +79,13 @@ mod example {
 
     /// An example language for testing.
     pub fn example_language() -> (Language, NotationSet) {
-        let mut language = Language::new("TestLang");
+        let mut language = Language::new("TestLang".into());
 
         let arity = Arity::Fixed(vec!["Expr".into(), "Expr".into()]);
         let construct = Construct::new("plus", "Expr", arity, Some('p'));
         language.add(construct);
-        let plus_notation = child(0) + punct(" + ") + child(1) | child(0) ^ punct("+ ") + child(1);
+        let plus_notation =
+            (child(0) + punct(" + ") + child(1)) | child(0) ^ (punct("+ ") + child(1));
 
         let notation = NotationSet::new(&language, vec![("plus".into(), plus_notation)]);
         (language, notation)

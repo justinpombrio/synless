@@ -43,7 +43,7 @@ impl Lay for Bound {
     fn literal(s: &str, _style: Style) -> Bound {
         let width = s.chars().count() as Col;
         Bound {
-            width: width,
+            width,
             indent: width,
             height: 1,
         }

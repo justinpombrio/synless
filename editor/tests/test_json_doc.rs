@@ -29,7 +29,7 @@ fn test_tree_clone_panic() {
     let (lang_set, lang_name) = make_singleton_lang_set(lang);
     let mut ed = TestEditor::new(&lang_set, &note_set, lang_name);
     ed.exec(TreeNavCmd::Child(0)).unwrap();
-    ed.exec(TreeCmd::Replace(ed.node("entry").unwrap()))
+    ed.exec(TreeCmd::Replace(ed.node(&"entry".into()).unwrap()))
         .unwrap();
 }
 
@@ -42,18 +42,21 @@ fn test_json_undo_redo() {
     ed.exec(TreeNavCmd::Child(0)).unwrap();
     ed.exec(MetaCommand::EndGroup).unwrap();
 
-    ed.exec(TreeCmd::Replace(ed.node("list").unwrap())).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node(&"list".into()).unwrap()))
+        .unwrap();
     ed.exec(TreeCmd::InsertHolePrepend).unwrap();
-    ed.exec(TreeCmd::Replace(ed.node("true").unwrap())).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node(&"true".into()).unwrap()))
+        .unwrap();
     ed.exec(MetaCommand::EndGroup).unwrap();
 
     ed.exec(TreeCmd::InsertHoleAfter).unwrap();
-    ed.exec(TreeCmd::Replace(ed.node("null").unwrap())).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node(&"null".into()).unwrap()))
+        .unwrap();
     ed.exec(MetaCommand::EndGroup).unwrap();
     ed.assert_render("[true, null]");
 
     ed.exec(TreeCmd::InsertHoleBefore).unwrap();
-    ed.exec(TreeCmd::Replace(ed.node("false").unwrap()))
+    ed.exec(TreeCmd::Replace(ed.node(&"false".into()).unwrap()))
         .unwrap();
     ed.exec(MetaCommand::EndGroup).unwrap();
 
@@ -77,7 +80,8 @@ fn test_json_undo_redo() {
     ed.assert_render("[true, null]");
 
     ed.exec(TreeCmd::InsertHoleAfter).unwrap();
-    ed.exec(TreeCmd::Replace(ed.node("list").unwrap())).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node(&"list".into()).unwrap()))
+        .unwrap();
     ed.assert_render("[true, null, []]");
 
     ed.exec(MetaCommand::Undo).unwrap();
@@ -111,14 +115,17 @@ fn test_json_cursor_at_top() {
 
     ed.exec(TreeNavCmd::Child(0)).unwrap();
 
-    ed.exec(TreeCmd::Replace(ed.node("list").unwrap())).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node(&"list".into()).unwrap()))
+        .unwrap();
     ed.exec(TreeCmd::InsertHolePrepend).unwrap();
-    ed.exec(TreeCmd::Replace(ed.node("true").unwrap())).unwrap();
-    ed.exec(TreeCmd::InsertHoleAfter).unwrap();
-    ed.exec(TreeCmd::Replace(ed.node("false").unwrap()))
+    ed.exec(TreeCmd::Replace(ed.node(&"true".into()).unwrap()))
         .unwrap();
     ed.exec(TreeCmd::InsertHoleAfter).unwrap();
-    ed.exec(TreeCmd::Replace(ed.node("null").unwrap())).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node(&"false".into()).unwrap()))
+        .unwrap();
+    ed.exec(TreeCmd::InsertHoleAfter).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node(&"null".into()).unwrap()))
+        .unwrap();
 
     ed.assert_render_with(
         "[true,\n false,\n null]",
@@ -157,9 +164,10 @@ fn test_json_string() {
     let mut ed = TestEditor::new(&lang_set, &note_set, lang_name);
 
     ed.exec(TreeNavCmd::Child(0)).unwrap();
-    ed.exec(TreeCmd::Replace(ed.node("list").unwrap())).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node(&"list".into()).unwrap()))
+        .unwrap();
     ed.exec(TreeCmd::InsertHolePrepend).unwrap();
-    ed.exec(TreeCmd::Replace(ed.node("string").unwrap()))
+    ed.exec(TreeCmd::Replace(ed.node(&"string".into()).unwrap()))
         .unwrap();
     assert!(ed.doc.in_tree_mode());
 
@@ -243,7 +251,8 @@ fn test_insert() {
     let mut ed = TestEditor::new(&lang_set, &note_set, lang_name);
 
     ed.exec(TreeNavCmd::Child(0)).unwrap();
-    ed.exec(TreeCmd::Replace(ed.node("list").unwrap())).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node(&"list".into()).unwrap()))
+        .unwrap();
     ed.assert_render("[]");
 
     // Cursor is now on the `[]`, and its parent (the root) isn't flexible:
@@ -258,7 +267,8 @@ fn test_insert() {
 
     ed.exec(TreeCmd::InsertHolePrepend).unwrap();
     ed.assert_render("[?]");
-    ed.exec(TreeCmd::Replace(ed.node("true").unwrap())).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node(&"true".into()).unwrap()))
+        .unwrap();
     ed.assert_render("[true]");
 
     // Cursor is now on the `true`, which isn't flexible:
@@ -273,7 +283,7 @@ fn test_insert() {
 
     ed.exec(TreeCmd::InsertHoleBefore).unwrap();
     ed.assert_render("[?, true]");
-    ed.exec(TreeCmd::Replace(ed.node("false").unwrap()))
+    ed.exec(TreeCmd::Replace(ed.node(&"false".into()).unwrap()))
         .unwrap();
     ed.assert_render("[false, true]");
     ed.exec(TreeCmd::InsertHoleAfter).unwrap();
@@ -281,11 +291,13 @@ fn test_insert() {
     ed.exec(TreeNavCmd::Right).unwrap();
     ed.exec(TreeCmd::InsertHoleAfter).unwrap();
     ed.assert_render("[false, ?, true, ?]");
-    ed.exec(TreeCmd::Replace(ed.node("list").unwrap())).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node(&"list".into()).unwrap()))
+        .unwrap();
     ed.assert_render("[false, ?, true, []]");
     ed.exec(TreeCmd::InsertHolePostpend).unwrap();
     ed.assert_render("[false, ?, true, [?]]");
-    ed.exec(TreeCmd::Replace(ed.node("dict").unwrap())).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node(&"dict".into()).unwrap()))
+        .unwrap();
     ed.assert_render("[false, ?, true, [{}]]");
     ed.exec(TreeNavCmd::Parent).unwrap();
     ed.exec(TreeCmd::InsertHolePostpend).unwrap();
@@ -301,11 +313,12 @@ fn test_insert() {
     ed.exec(TreeNavCmd::Child(1)).unwrap();
     ed.exec(TreeCmd::InsertHolePrepend).unwrap();
     ed.assert_render("[false, ?, true, [?, {?}, ?], ?]");
-    ed.exec(TreeCmd::Replace(ed.node("entry").unwrap()))
+    ed.exec(TreeCmd::Replace(ed.node(&"entry".into()).unwrap()))
         .unwrap();
     ed.assert_render("[false, ?, true, [?, {?: ?}, ?], ?]");
     ed.exec(TreeNavCmd::Child(1)).unwrap();
-    ed.exec(TreeCmd::Replace(ed.node("null").unwrap())).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node(&"null".into()).unwrap()))
+        .unwrap();
     ed.assert_render("[false, ?, true, [?, {?: null}, ?], ?]");
 
     // Can't do any type of insertion when cursor is on dict entry key.
@@ -349,7 +362,8 @@ fn test_remove() {
     let mut ed = TestEditor::new(&lang_set, &note_set, lang_name);
 
     ed.exec(TreeNavCmd::Child(0)).unwrap();
-    ed.exec(TreeCmd::Replace(ed.node("list").unwrap())).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node(&"list".into()).unwrap()))
+        .unwrap();
     ed.assert_render("[]");
     ed.exec(TreeCmd::InsertHolePostpend).unwrap();
     ed.assert_render("[?]");
@@ -357,7 +371,8 @@ fn test_remove() {
     ed.assert_render("[]");
     ed.exec(TreeCmd::InsertHolePrepend).unwrap();
     ed.assert_render("[?]");
-    ed.exec(TreeCmd::Replace(ed.node("true").unwrap())).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node(&"true".into()).unwrap()))
+        .unwrap();
     ed.assert_render("[true]");
     ed.exec(TreeCmd::InsertHoleAfter).unwrap();
     ed.assert_render("[true, ?]");
@@ -369,7 +384,8 @@ fn test_remove() {
     ed.exec(TreeCmd::Remove).unwrap();
     ed.assert_render("[?]");
 
-    ed.exec(TreeCmd::Replace(ed.node("dict").unwrap())).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node(&"dict".into()).unwrap()))
+        .unwrap();
     ed.assert_render("[{}]");
     ed.exec(TreeCmd::InsertHolePostpend).unwrap();
     ed.assert_render("[{?}]");
@@ -377,7 +393,7 @@ fn test_remove() {
     ed.assert_render("[{}]");
     ed.exec(TreeCmd::InsertHolePostpend).unwrap();
     ed.assert_render("[{?}]");
-    ed.exec(TreeCmd::Replace(ed.node("entry").unwrap()))
+    ed.exec(TreeCmd::Replace(ed.node(&"entry".into()).unwrap()))
         .unwrap();
     ed.assert_render("[{?: ?}]");
     ed.exec(TreeNavCmd::Child(0)).unwrap();
@@ -407,14 +423,16 @@ fn test_cut_copy_paste() {
     ed.assert_render("?");
     assert_eq!(ed.clipboard.len(), 0);
 
-    ed.exec(TreeCmd::Replace(ed.node("true").unwrap())).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node(&"true".into()).unwrap()))
+        .unwrap();
     ed.assert_render("true");
 
     ed.exec(EditorCmd::Cut).unwrap();
     ed.assert_render("?");
     assert_eq!(ed.clipboard.len(), 1);
 
-    ed.exec(TreeCmd::Replace(ed.node("list").unwrap())).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node(&"list".into()).unwrap()))
+        .unwrap();
     ed.exec(TreeCmd::InsertHolePrepend).unwrap();
     ed.assert_render("[?]");
 
@@ -438,10 +456,11 @@ fn test_cut_copy_paste() {
     );
     assert_eq!(ed.clipboard.len(), 0);
 
-    ed.exec(TreeCmd::Replace(ed.node("false").unwrap()))
+    ed.exec(TreeCmd::Replace(ed.node(&"false".into()).unwrap()))
         .unwrap();
     ed.exec(TreeCmd::InsertHoleAfter).unwrap();
-    ed.exec(TreeCmd::Replace(ed.node("null").unwrap())).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node(&"null".into()).unwrap()))
+        .unwrap();
     ed.assert_render("[true, false, null]");
 
     ed.exec(EditorCmd::Cut).unwrap();
@@ -495,11 +514,13 @@ fn test_clear() {
     ed.exec(TreeCmd::Clear).unwrap();
     ed.assert_render("?");
 
-    ed.exec(TreeCmd::Replace(ed.node("list").unwrap())).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node(&"list".into()).unwrap()))
+        .unwrap();
     ed.exec(TreeCmd::InsertHolePostpend).unwrap();
-    ed.exec(TreeCmd::Replace(ed.node("true").unwrap())).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node(&"true".into()).unwrap()))
+        .unwrap();
     ed.exec(TreeCmd::InsertHoleAfter).unwrap();
-    ed.exec(TreeCmd::Replace(ed.node("false").unwrap()))
+    ed.exec(TreeCmd::Replace(ed.node(&"false".into()).unwrap()))
         .unwrap();
     ed.assert_render("[true, false]");
 
@@ -508,12 +529,13 @@ fn test_clear() {
     ed.assert_render("[?, false]");
     assert_eq!(ed.clipboard.len(), 0);
 
-    ed.exec(TreeCmd::Replace(ed.node("dict").unwrap())).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node(&"dict".into()).unwrap()))
+        .unwrap();
     ed.assert_render("[{}, false]");
 
     ed.exec(TreeCmd::InsertHolePostpend).unwrap();
     ed.assert_render("[{?}, false]");
-    ed.exec(TreeCmd::Replace(ed.node("entry").unwrap()))
+    ed.exec(TreeCmd::Replace(ed.node(&"entry".into()).unwrap()))
         .unwrap();
     ed.assert_render("[{?: ?}, false]");
 
@@ -531,11 +553,13 @@ fn test_undo_clipboard() {
     assert_eq!(ed.clipboard.len(), 0);
 
     ed.exec(TreeNavCmd::Child(0)).unwrap();
-    ed.exec(TreeCmd::Replace(ed.node("list").unwrap())).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node(&"list".into()).unwrap()))
+        .unwrap();
     ed.exec(TreeCmd::InsertHolePostpend).unwrap();
-    ed.exec(TreeCmd::Replace(ed.node("true").unwrap())).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node(&"true".into()).unwrap()))
+        .unwrap();
     ed.exec(TreeCmd::InsertHoleAfter).unwrap();
-    ed.exec(TreeCmd::Replace(ed.node("false").unwrap()))
+    ed.exec(TreeCmd::Replace(ed.node(&"false".into()).unwrap()))
         .unwrap();
     ed.exec(MetaCommand::EndGroup).unwrap();
     ed.assert_render("[true, false]");
@@ -614,22 +638,26 @@ fn test_bookmark() {
     let mut ed = TestEditor::new(&lang_set, &note_set, lang_name);
 
     ed.exec(TreeNavCmd::Child(0)).unwrap();
-    ed.exec(TreeCmd::Replace(ed.node("list").unwrap())).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node(&"list".into()).unwrap()))
+        .unwrap();
     ed.exec(TreeCmd::InsertHolePostpend).unwrap();
-    ed.exec(TreeCmd::Replace(ed.node("true").unwrap())).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node(&"true".into()).unwrap()))
+        .unwrap();
 
     let mark_true = ed.doc.bookmark();
     ed.exec(TreeCmd::InsertHoleAfter).unwrap();
-    ed.exec(TreeCmd::Replace(ed.node("false").unwrap()))
+    ed.exec(TreeCmd::Replace(ed.node(&"false".into()).unwrap()))
         .unwrap();
     let mark_false = ed.doc.bookmark();
 
     ed.exec(TreeCmd::InsertHoleAfter).unwrap();
-    ed.exec(TreeCmd::Replace(ed.node("list").unwrap())).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node(&"list".into()).unwrap()))
+        .unwrap();
     let mark_list = ed.doc.bookmark();
 
     ed.exec(TreeCmd::InsertHolePrepend).unwrap();
-    ed.exec(TreeCmd::Replace(ed.node("null").unwrap())).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node(&"null".into()).unwrap()))
+        .unwrap();
     ed.exec(MetaCommand::EndGroup).unwrap();
     let mark_null = ed.doc.bookmark();
 
@@ -647,7 +675,7 @@ fn test_bookmark() {
 
     ed.exec(TreeNavCmd::GotoBookmark(mark_false)).unwrap();
     ed.exec(TreeNavCmd::GotoBookmark(mark_false)).unwrap();
-    ed.exec(TreeCmd::Replace(ed.node("false").unwrap()))
+    ed.exec(TreeCmd::Replace(ed.node(&"false".into()).unwrap()))
         .unwrap();
     ed.exec(MetaCommand::EndGroup).unwrap();
     ed.assert_render("[?, true, false, [?]]");
@@ -662,7 +690,8 @@ fn test_bookmark() {
     );
     ed.exec(TreeNavCmd::GotoBookmark(mark_list)).unwrap();
     ed.exec(MetaCommand::EndGroup).unwrap();
-    ed.exec(TreeCmd::Replace(ed.node("list").unwrap())).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node(&"list".into()).unwrap()))
+        .unwrap();
     ed.exec(MetaCommand::EndGroup).unwrap();
     ed.assert_render("[?, true, false, []]");
 
@@ -693,6 +722,7 @@ fn test_bookmark() {
     ed.exec(TreeNavCmd::Right).unwrap();
     ed.exec(TreeNavCmd::Right).unwrap();
     ed.exec(TreeNavCmd::GotoBookmark(mark_true)).unwrap();
-    ed.exec(TreeCmd::Replace(ed.node("null").unwrap())).unwrap();
+    ed.exec(TreeCmd::Replace(ed.node(&"null".into()).unwrap()))
+        .unwrap();
     ed.assert_render("[?, null, false, []]");
 }

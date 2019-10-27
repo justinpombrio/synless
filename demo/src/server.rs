@@ -79,15 +79,13 @@ impl<'l> Server<'l> {
         loop {
             if self.keymap_manager.has_active_menu() {
                 self.handle_input()?;
-            } else {
-                if let Some(word) = self.call_stack.next() {
-                    if let Err(err) = self.call(word) {
-                        self.engine.show_message(&format!("Error: {}", err))?;
-                    }
-                } else {
-                    self.engine.exec(MetaCommand::EndGroup)?;
-                    self.handle_input()?;
+            } else if let Some(word) = self.call_stack.next() {
+                if let Err(err) = self.call(word) {
+                    self.engine.show_message(&format!("Error: {}", err))?;
                 }
+            } else {
+                self.engine.exec(MetaCommand::EndGroup)?;
+                self.handle_input()?;
             }
         }
     }
@@ -121,24 +119,24 @@ impl<'l> Server<'l> {
     fn update_key_hints(&mut self, available_keys: &AvailableKeys) -> Result<(), ServerError> {
         let lang_name = self.engine.lang_name_of(&DocLabel::KeyHints)?;
 
-        let mut keymap_node = self.engine.new_node("keymap", lang_name)?;
+        let mut keymap_node = self.engine.new_node(&"keymap".into(), lang_name)?;
 
         for (key, prog) in self.keymap_manager.hints(available_keys) {
-            let mut key_node = self.engine.new_node("key", lang_name)?;
+            let mut key_node = self.engine.new_node(&"key".into(), lang_name)?;
             key_node.inner().unwrap_text().text_mut(|t| {
                 t.activate();
                 t.set(key);
                 t.deactivate();
             });
 
-            let mut prog_node = self.engine.new_node("prog", lang_name)?;
+            let mut prog_node = self.engine.new_node(&"prog".into(), lang_name)?;
             prog_node.inner().unwrap_text().text_mut(|t| {
                 t.activate();
                 t.set(prog);
                 t.deactivate();
             });
 
-            let mut binding_node = self.engine.new_node("binding", &lang_name)?;
+            let mut binding_node = self.engine.new_node(&"binding".into(), &lang_name)?;
             binding_node
                 .inner()
                 .unwrap_fixed()
@@ -159,7 +157,7 @@ impl<'l> Server<'l> {
 
         let mut description_node = self
             .engine
-            .new_node_in_doc_lang("message", &DocLabel::KeymapName)?;
+            .new_node_in_doc_lang(&"message".into(), &DocLabel::KeymapName)?;
         description_node.inner().unwrap_text().text_mut(|t| {
             t.activate();
             t.set(available_keys.name());
@@ -171,7 +169,7 @@ impl<'l> Server<'l> {
     }
 
     fn call(&mut self, word: Word<'l>) -> Result<(), ServerError> {
-        Ok(match word {
+        match word {
             Word::Literal(value) => self.data_stack.push(value),
             Word::Apply => {
                 let prog = self.data_stack.pop_quote()?;
@@ -256,7 +254,8 @@ impl<'l> Server<'l> {
             Word::TreeMode => self.engine.exec(TextNavCmd::TreeMode)?,
             Word::TextLeft => self.engine.exec(TextNavCmd::Left)?,
             Word::TextRight => self.engine.exec(TextNavCmd::Right)?,
-        })
+        };
+        Ok(())
     }
 }
 

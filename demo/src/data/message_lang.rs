@@ -12,7 +12,7 @@ pub fn make_message_lang() -> (Language, NotationSet) {
         Construct::new("list", "List", Arity::Flexible("Message".into()), None),
     ];
     // TODO: some of this boilerplate should get abstracted out
-    let mut lang = Language::new("message");
+    let mut lang = Language::new("message".into());
     for construct in constructs {
         lang.add(construct);
     }

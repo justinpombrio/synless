@@ -30,7 +30,7 @@ impl Doc {
         let mut tree = Doc {
             node: Branch(children),
             bounds: Bounds::empty(),
-            notation: notation,
+            notation,
         };
         tree.bounds = Bounds::compute(&tree.as_ref());
         tree
@@ -40,7 +40,7 @@ impl Doc {
         let mut tree = Doc {
             node: Leaf(contents.to_string()),
             bounds: Bounds::empty(),
-            notation: notation,
+            notation,
         };
         tree.bounds = Bounds::compute(&tree.as_ref());
         tree
@@ -93,7 +93,7 @@ impl<'t> PrettyDocument for DocRef<'t> {
             let (path, i) = pop_path(self.path.clone());
             let doc = DocRef {
                 root: self.root,
-                path: path,
+                path,
             };
             Some((doc, i))
         }

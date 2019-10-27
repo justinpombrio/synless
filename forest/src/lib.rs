@@ -232,6 +232,7 @@ mod forest_tests {
     }
 
     #[test]
+    #[allow(clippy::cognitive_complexity)]
     fn comprehensive_exam() {
         let forest: Forest<u32, u32> = Forest::new();
         {
@@ -443,6 +444,9 @@ mod forest_tests {
 
     #[test]
     #[should_panic(expected = "leaf node has no data")]
+    // The useless-looking dereference on the last line is important, that's
+    // what should panic.
+    #[allow(clippy::unnecessary_operation)]
     fn test_data_panic() {
         let forest: Forest<(), ()> = Forest::new();
         let tree = forest.new_leaf(());

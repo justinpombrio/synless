@@ -53,7 +53,7 @@ impl Region {
     /// The empty region at a particular location.
     pub fn empty_region(pos: Pos) -> Region {
         Region {
-            pos: pos,
+            pos,
             bound: Bound {
                 width: 0,
                 height: 1,
@@ -65,7 +65,7 @@ impl Region {
     /// The region around a single character position.
     pub fn char_region(pos: Pos) -> Region {
         Region {
-            pos: pos,
+            pos,
             bound: Bound {
                 width: 1,
                 height: 1,

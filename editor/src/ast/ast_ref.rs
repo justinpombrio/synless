@@ -27,7 +27,7 @@ impl<'f, 'l> AstRef<'f, 'l> {
             None => None,
             Some(tree_ref) => {
                 let index = self.tree_ref.index();
-                Some((AstRef { tree_ref: tree_ref }, index))
+                Some((AstRef { tree_ref }, index))
             }
         }
     }

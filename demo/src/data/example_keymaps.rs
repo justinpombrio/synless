@@ -18,13 +18,13 @@ pub fn make_node_map<'l>(lang: &Language) -> TreeKeymap<'l> {
                     FilterRule::Sort(lang.lookup_construct(construct_name).sort.clone()),
                     Prog::new(vec![
                         Word::Literal(Value::LangConstruct(
-                            lang.name().into(),
+                            lang.name().to_owned(),
                             construct_name.to_owned(),
                         )),
                         Word::NodeByName,
                         Word::Replace,
                     ])
-                    .with_name(construct_name),
+                    .with_name(String::from(construct_name)),
                 )
             })
             .chain(iter::once((

@@ -97,7 +97,7 @@ impl<'l> KeymapManager<'l> {
                 name,
             } => {
                 if filtered_keys.contains(&key) {
-                    self.modes.get(name).unwrap().get(&key).cloned()
+                    self.modes.get(name).unwrap().get(key).cloned()
                 } else {
                     None
                 }
@@ -107,13 +107,13 @@ impl<'l> KeymapManager<'l> {
                 name,
             } => {
                 if filtered_keys.contains(&key) {
-                    self.menus.get(name).unwrap().get(&key).cloned()
+                    self.menus.get(name).unwrap().get(key).cloned()
                 } else {
                     None
                 }
             }
             AvailableKeys::Text => {
-                if let Some(prog) = self.text_keymap.get(&key) {
+                if let Some(prog) = self.text_keymap.get(key) {
                     Some(prog.to_owned())
                 } else if let Key::Char(c) = key {
                     Some(
@@ -135,14 +135,14 @@ impl<'l> KeymapManager<'l> {
                 name,
             } => filtered_keys
                 .iter()
-                .map(|key| (key, self.modes.get(name).unwrap().get(key).unwrap().name()))
+                .map(|&key| (key, self.modes.get(name).unwrap().get(key).unwrap().name()))
                 .collect(),
             AvailableKeys::Menu {
                 filtered_keys,
                 name,
             } => filtered_keys
                 .iter()
-                .map(|key| (key, self.menus.get(name).unwrap().get(key).unwrap().name()))
+                .map(|&key| (key, self.menus.get(name).unwrap().get(key).unwrap().name()))
                 .collect(),
             AvailableKeys::Text => self.text_keymap.keys_and_names(),
         };

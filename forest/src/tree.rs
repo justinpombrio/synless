@@ -104,6 +104,12 @@ impl<D, L> Forest<D, L> {
     }
 }
 
+impl<D, L> Default for Forest<D, L> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<D, L> Tree<D, L> {
     /// Returns `true` if this is a leaf node, and `false` if this is
     /// a branch node.
@@ -322,7 +328,7 @@ impl<D, L> Tree<D, L> {
         Tree {
             forest: forest.clone(),
             root: id,
-            id: id,
+            id,
         }
     }
 

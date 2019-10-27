@@ -7,7 +7,7 @@ use editor::{
 };
 use forest::Bookmark;
 use frontends::Frontend;
-use language::{Language, LanguageName, LanguageSet};
+use language::{ConstructName, Language, LanguageName, LanguageSet};
 use pretty::{DocLabel, Pane, PaneNotation};
 
 use crate::error::EngineError;
@@ -125,7 +125,7 @@ impl<'l> Engine<'l> {
     }
 
     pub fn show_message(&mut self, msg: &str) -> Result<(), EngineError> {
-        let mut msg_node = self.new_node_in_doc_lang("message", &DocLabel::Messages)?;
+        let mut msg_node = self.new_node_in_doc_lang(&"message".into(), &DocLabel::Messages)?;
         msg_node.inner().unwrap_text().text_mut(|t| {
             t.activate();
             t.set(msg.to_owned());
@@ -139,7 +139,7 @@ impl<'l> Engine<'l> {
 
     pub fn clear_messages(&mut self) -> Result<(), EngineError> {
         self.exec_on(
-            TreeCmd::Replace(self.new_node_in_doc_lang("list", &DocLabel::Messages)?),
+            TreeCmd::Replace(self.new_node_in_doc_lang(&"list".into(), &DocLabel::Messages)?),
             &DocLabel::Messages,
         )
     }
@@ -159,7 +159,7 @@ impl<'l> Engine<'l> {
     /// Create a new node in the same language as the given doc.
     pub fn new_node_in_doc_lang(
         &self,
-        construct_name: &str,
+        construct_name: &ConstructName,
         doc_label: &DocLabel,
     ) -> Result<Ast<'l>, EngineError> {
         self.new_node(construct_name, self.lang_name_of(doc_label)?)
@@ -167,15 +167,14 @@ impl<'l> Engine<'l> {
 
     pub fn new_node(
         &self,
-        construct_name: &str,
+        construct_name: &ConstructName,
         lang_name: &LanguageName,
     ) -> Result<Ast<'l>, EngineError> {
-        let construct_name = construct_name.to_string();
         let lang = self.language(lang_name)?;
         let notes = self.notation_set(lang_name)?;
 
         self.forest
-            .new_tree(lang, &construct_name, notes)
+            .new_tree(lang, construct_name, notes)
             .ok_or_else(|| EngineError::UnknownConstruct {
                 construct: construct_name.to_owned(),
                 lang: lang_name.to_owned(),
@@ -226,7 +225,7 @@ impl<'l> Engine<'l> {
         doc_name: &str,
         lang_name: LanguageName,
     ) -> Result<(), EngineError> {
-        let mut root_node = self.new_node("root", &lang_name)?;
+        let mut root_node = self.new_node(&"root".into(), &lang_name)?;
         let hole = root_node.new_hole();
         root_node
             .inner()
