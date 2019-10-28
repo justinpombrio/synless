@@ -1,6 +1,6 @@
 use std::fmt;
 
-use super::pos::{Col, Row, MAX_WIDTH};
+use super::pos::{Col, Pos, Row, MAX_WIDTH};
 use super::rect::Rect;
 
 /// A "paragraph" shape: it is like a rectangle, except that the last
@@ -76,6 +76,17 @@ impl Bound {
     /// Return true iff this bound is shaped like a rectangle.
     pub fn is_rectangular(self) -> bool {
         self.indent == self.width
+    }
+
+    /// The character position just past the end of the bound.
+    ///
+    /// (That is: the character position just to the right of the last
+    /// character of the last line of this bound.)
+    pub fn end(&self) -> Pos {
+        Pos {
+            row: self.height - 1,
+            col: self.indent,
+        }
     }
 
     pub(crate) fn debug_print<W: fmt::Write>(

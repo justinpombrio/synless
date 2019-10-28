@@ -1,8 +1,7 @@
 use crate::geometry::Bound;
 use crate::geometry::{Col, Row};
 use std::fmt::Debug;
-use std::iter;
-use std::vec;
+use std::{iter, slice, vec};
 
 /// Store a set of (width, height) pairs with the property that if one pair
 /// _dominates another_ by having smaller width and height, then the dominated
@@ -13,12 +12,9 @@ use std::vec;
 /// Staircases are used by Boundsets, which stores one Staircase for each
 /// indent. Each stair in the staircase also contains some related data T.
 #[derive(Clone, Debug)]
-pub struct Staircase<T>
-where
-    T: Clone + Debug,
-{
+pub struct Staircase<T> {
     indent: Col,                // indent
-    stairs: Vec<(Col, Row, T)>, // (width, height)
+    stairs: Vec<(Col, Row, T)>, // (width, height, value)
 }
 
 impl<T: Clone + Debug> Staircase<T> {
@@ -36,7 +32,6 @@ impl<T: Clone + Debug> Staircase<T> {
     }
 
     /// Insert a new bound into a staircase.
-    #[cfg(test)]
     pub fn insert(&mut self, width: Col, height: Row, value: T) {
         let (skip_left, skip_right, delete_left, delete_right) = self.indices(width, height);
         // If the new stair is already covered, skip it.
@@ -62,15 +57,38 @@ impl<T: Clone + Debug> Staircase<T> {
         };
         let (skip_left, skip_right, _, _) = self.indices(width, height);
         if skip_left < skip_right {
-            let (w, h, v) = &self.stairs[skip_left];
+            let (w, h, value) = &self.stairs[skip_left];
             let bound = Bound {
                 width: *w,
                 height: *h,
                 indent: self.indent,
             };
-            Some((bound, v))
+            Some((bound, value))
         } else {
             None
+        }
+    }
+
+    /// Pick the best (i.e., shortest) Bound in the staircase that fits within
+    /// the given width.
+    pub fn fit_width(&self, width: Col) -> Option<(Bound, &T)> {
+        let width_index = self
+            .stairs
+            .binary_search_by_key(&-(width as isize), |(w, _, _)| -(*w as isize));
+        let index = match width_index {
+            Ok(i) => i,
+            Err(i) => i + 1,
+        };
+        match self.stairs.get(index) {
+            None => None,
+            Some((w, h, value)) => {
+                let bound = Bound {
+                    width: *w,
+                    height: *h,
+                    indent: self.indent,
+                };
+                Some((bound, value))
+            }
         }
     }
 
@@ -91,7 +109,7 @@ impl<T: Clone + Debug> Staircase<T> {
     }
 
     /// Insert a bound without checking domination. Only use this if you you
-    /// have already called `dominates` and `clear_dominated`.
+    /// know it won't dominate or be dominated by any bound in the staircase.
     pub fn unchecked_insert(&mut self, width: Col, height: Row, value: T) {
         let (skip_left, _, _, _) = self.indices(width, height);
         self.stairs.insert(skip_left, (width, height, value));
@@ -114,35 +132,59 @@ impl<T: Clone + Debug> Staircase<T> {
     }
 }
 
-impl<T: Clone + Debug> iter::IntoIterator for Staircase<T> {
-    type Item = (Bound, T);
-    type IntoIter = StaircaseIter<T>;
+impl<'a, T: Clone + Debug> iter::IntoIterator for &'a Staircase<T> {
+    type Item = (Bound, &'a T);
+    type IntoIter = StaircaseIter<'a, T>;
     fn into_iter(self) -> Self::IntoIter {
         StaircaseIter {
+            indent: self.indent,
+            stairs: self.stairs.iter(),
+        }
+    }
+}
+
+pub struct StaircaseIter<'a, T: Clone + Debug> {
+    indent: Col,
+    stairs: slice::Iter<'a, (Col, Row, T)>,
+}
+
+impl<'a, T: Debug + Clone> Iterator for StaircaseIter<'a, T> {
+    type Item = (Bound, &'a T);
+    fn next(&mut self) -> Option<(Bound, &'a T)> {
+        self.stairs.next().map(|(w, h, value)| {
+            let bound = Bound {
+                width: *w,
+                height: *h,
+                indent: self.indent,
+            };
+            (bound, value)
+        })
+    }
+}
+
+impl<T: Clone + Debug> iter::IntoIterator for Staircase<T> {
+    type Item = (Bound, T);
+    type IntoIter = StaircaseIntoIter<T>;
+    fn into_iter(self) -> Self::IntoIter {
+        StaircaseIntoIter {
             indent: self.indent,
             stairs: self.stairs.into_iter(),
         }
     }
 }
 
-pub struct StaircaseIter<T>
-where
-    T: Clone + Debug,
-{
+pub struct StaircaseIntoIter<T: Clone + Debug> {
     indent: Col,
     stairs: vec::IntoIter<(Col, Row, T)>,
 }
 
-impl<T> Iterator for StaircaseIter<T>
-where
-    T: Clone + Debug,
-{
+impl<T: Debug + Clone> Iterator for StaircaseIntoIter<T> {
     type Item = (Bound, T);
     fn next(&mut self) -> Option<(Bound, T)> {
-        self.stairs.next().map(|(width, height, value)| {
+        self.stairs.next().map(|(w, h, value)| {
             let bound = Bound {
-                width,
-                height,
+                width: w,
+                height: h,
                 indent: self.indent,
             };
             (bound, value)
@@ -231,6 +273,32 @@ mod tests {
                 (3, 5, 'b'),
                 (2, 6, 'a')
             ]
+        );
+    }
+
+    #[test]
+    fn test_staircase_fit_bound() {
+        let mut stairs = basic_stairs();
+        let bound = stairs.fit_bound(Bound {
+            width: 4,
+            height: 7,
+            indent: 0,
+        });
+        assert_eq!(
+            bound,
+            Some(Bound {
+                width: 4,
+                height: 4,
+                indent: 0,
+            })
+        );
+        assert_eq!(
+            stairs.fit_bound(Bound {
+                width: 1,
+                height: 100,
+                indent: 0,
+            }),
+            None
         );
     }
 }

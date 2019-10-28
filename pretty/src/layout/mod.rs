@@ -1,12 +1,52 @@
 mod boundset;
 
 // TODO rename modules to fix this for real
+mod compute_bounds;
 #[allow(clippy::module_inception)]
-mod layout;
+mod compute_layout;
+mod layout_debug_print;
+mod notation_ops;
 mod staircase;
 
+use crate::notation::Notation;
+use crate::style::Style;
+use boundset::BoundSet;
+use notation_ops::NotationOps;
+
+/// Every node must keep an up-to-date `Bounds`, computed using
+/// [`compute_bounds`](compute_bounds). It contains pre-computed information
+/// that helps pretty-print a document.
+#[derive(Debug, Clone)]
+pub struct Bounds(BoundSet<()>);
+
+/// Compute the [`Bounds`](Bounds) of a node, given (i) the Notation with which
+/// it is being displayed, (ii) the Bounds of its children, and (iii) if it is a
+/// text node, whether its text is empty.
+///
+/// If the node is texty, then `child_bounds` should contain exactly one
+/// `Bounds`, computed by [`text_bounds()`](text_bounds). If the node is not
+/// texty, then `is_empty_text` will not be used (but should be false).
+pub fn compute_bounds(
+    notation: &mut Notation,
+    child_bounds: &[Bounds],
+    is_empty_text: bool,
+) -> Bounds {
+    let child_bounds: Vec<_> = child_bounds.iter().map(|bs| &bs.0).collect();
+    Bounds(compute_bounds::compute_bounds(
+        notation,
+        &child_bounds,
+        is_empty_text,
+    ))
+}
+
+/// Compute the [`Bounds`](Bounds) of a piece of text.
+pub fn compute_text_bounds(text: &str) -> Bounds {
+    Bounds(BoundSet::literal(text, Style::plain()))
+}
+
+/*
 pub use self::layout::{
-    compute_bounds, compute_layouts, text_bounds, Bounds, Lay, Layout, LayoutRegion, Layouts,
+    compute_bounds, compute_layouts, text_bounds, Layout, LayoutRegion, Layouts,
 };
 
 #[cfg(test)]
@@ -123,27 +163,5 @@ mod layout_tests {
         let lay = &syn.layouts(vec![], 0).fit_width(80);
         assert_eq!(format!("{:?}", lay), "abcdef\n   g");
     }
-
-    #[test]
-    fn test_expand_notation() {
-        let r = (lit("abc") ^ lit("de")).bound(vec![], 0);
-        let syn = example_repeat_notation();
-        let zero = &syn.layouts(vec![], 0).fit_width(80);
-        let one = &syn.layouts(vec![r.clone()], 1).fit_width(80);
-        let two = &syn.layouts(vec![r.clone(), r.clone()], 2).fit_width(80);
-        let three = &syn
-            .layouts(vec![r.clone(), r.clone(), r.clone()], 3)
-            .fit_width(80);
-        let four = &syn
-            .layouts(vec![r.clone(), r.clone(), r.clone(), r], 4)
-            .fit_width(80);
-        assert_eq!(format!("{:?}", zero), "[]");
-        assert_eq!(format!("{:?}", one), "[000\n 00]");
-        assert_eq!(format!("{:?}", two), "[000\n 00,\n 111\n 11]");
-        assert_eq!(format!("{:?}", three), "[000\n 00,\n 111\n 11,\n 222\n 22]");
-        assert_eq!(
-            format!("{:?}", four),
-            "[000\n 00,\n 111\n 11,\n 222\n 22,\n 333\n 33]"
-        );
-    }
 }
+*/

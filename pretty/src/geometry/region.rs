@@ -157,11 +157,7 @@ impl Region {
     /// (That is: the character position just to the right of the last
     /// character of the last line of this region.)
     pub fn end(&self) -> Pos {
-        self.pos
-            + Pos {
-                row: self.bound.height - 1,
-                col: self.bound.indent,
-            }
+        self.pos + self.bound.end()
     }
 
     /// The difference between `end` and `beginning`.
@@ -486,5 +482,4 @@ mod tests {
             })
         );
     }
-
 }
