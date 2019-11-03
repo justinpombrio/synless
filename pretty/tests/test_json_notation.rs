@@ -1,5 +1,3 @@
-#![feature(slice_patterns)]
-
 mod common;
 
 use common::{
@@ -7,8 +5,8 @@ use common::{
     make_short_json_list, Doc,
 };
 use pretty::{
-    Bound, Col, CursorVis, DocLabel, DocPosSpec, PaneNotation, PaneSize, PlainText, Pos,
-    PrettyDocument, PrettyWindow, Region, Style,
+    Bound, Col, CursorVis, DocLabel, PaneNotation, PaneSize, PlainText, Pos, PrettyDocument,
+    PrettyWindow, Region, ScrollStrategy, Style,
 };
 
 // TODO: test ScrollStrategies other than Beginning.
@@ -17,13 +15,13 @@ use pretty::{
 #[test]
 fn test_pretty_print_very_small_screen_left() {
     let doc = make_json_doc();
-    let doc_pos_spec = DocPosSpec::Fixed(Pos { row: 2, col: 4 });
+    let scroll_strategy = ScrollStrategy::Fixed(Pos { row: 2, col: 4 });
     let mut window = PlainText::new(Pos { row: 6, col: 6 });
     doc.as_ref()
         .pretty_print(
             80,
             &mut window.pane().unwrap(),
-            doc_pos_spec,
+            scroll_strategy,
             CursorVis::Hide,
         )
         .unwrap();
@@ -41,14 +39,14 @@ ddress
 #[test]
 fn test_pretty_print_small_screen_left() {
     let doc = make_json_doc();
-    let doc_pos_spec = DocPosSpec::Fixed(Pos { row: 2, col: 4 });
+    let scroll_strategy = ScrollStrategy::Fixed(Pos { row: 2, col: 4 });
     let mut window = PlainText::new(Pos { row: 6, col: 8 });
 
     doc.as_ref()
         .pretty_print(
             80,
             &mut window.pane().unwrap(),
-            doc_pos_spec,
+            scroll_strategy,
             CursorVis::Hide,
         )
         .unwrap();
@@ -67,7 +65,7 @@ ddress":
 fn test_pretty_print_short_list() {
     let doc = make_short_json_list();
     let mut window = PlainText::new_infinite_scroll(80);
-    let doc_pos_spec = DocPosSpec::Fixed(Pos::zero());
+    let doc_pos_spec = ScrollStrategy::Fixed(Pos::zero());
     doc.as_ref()
         .pretty_print(
             80,
@@ -83,12 +81,12 @@ fn test_pretty_print_short_list() {
 fn test_pretty_print_long_list() {
     let doc = make_long_json_list();
     let mut window = PlainText::new_infinite_scroll(80);
-    let doc_pos_spec = DocPosSpec::Fixed(Pos::zero());
+    let scroll_strategy = ScrollStrategy::Fixed(Pos::zero());
     doc.as_ref()
         .pretty_print(
             80,
             &mut window.pane().unwrap(),
-            doc_pos_spec,
+            scroll_strategy,
             CursorVis::Hide,
         )
         .unwrap();
@@ -105,14 +103,14 @@ fn test_pretty_print_long_list() {
 #[test]
 fn test_pretty_print_small_screen_right() {
     let doc = make_json_doc();
-    let doc_pos_spec = DocPosSpec::Fixed(Pos { row: 7, col: 13 });
+    let scroll_strategy = ScrollStrategy::Fixed(Pos { row: 7, col: 13 });
     let mut window = PlainText::new(Pos { row: 4, col: 16 });
 
     doc.as_ref()
         .pretty_print(
             80,
             &mut window.pane().unwrap(),
-            doc_pos_spec,
+            scroll_strategy,
             CursorVis::Hide,
         )
         .unwrap();
@@ -128,14 +126,14 @@ Code": "10021-31"#,
 #[test]
 fn test_pretty_print_small_screen_middle() {
     let doc = make_json_doc();
-    let doc_pos_spec = DocPosSpec::Fixed(Pos { row: 1, col: 4 });
+    let scroll_strategy = ScrollStrategy::Fixed(Pos { row: 1, col: 4 });
     let mut window = PlainText::new(Pos { row: 1, col: 1 });
 
     doc.as_ref()
         .pretty_print(
             80,
             &mut window.pane().unwrap(),
-            doc_pos_spec,
+            scroll_strategy,
             CursorVis::Hide,
         )
         .unwrap();
@@ -146,14 +144,14 @@ fn test_pretty_print_small_screen_middle() {
 fn test_pretty_print_small_screen_bottom() {
     let doc = make_json_doc();
     // Go past the bottom right corner of the document
-    let doc_pos_spec = DocPosSpec::Fixed(Pos { row: 27, col: 63 });
+    let scroll_strategy = ScrollStrategy::Fixed(Pos { row: 27, col: 63 });
     let mut window = PlainText::new(Pos { row: 4, col: 13 });
 
     doc.as_ref()
         .pretty_print(
             74,
             &mut window.pane().unwrap(),
-            doc_pos_spec,
+            scroll_strategy,
             CursorVis::Hide,
         )
         .unwrap();
@@ -163,13 +161,13 @@ fn test_pretty_print_small_screen_bottom() {
 #[test]
 fn test_lay_out_json_80() {
     let doc = make_json_doc();
-    let doc_pos_spec = DocPosSpec::Fixed(Pos::zero());
+    let scroll_strategy = ScrollStrategy::Fixed(Pos::zero());
     let mut window = PlainText::new_infinite_scroll(80);
     doc.as_ref()
         .pretty_print(
             80,
             &mut window.pane().unwrap(),
-            doc_pos_spec,
+            scroll_strategy,
             CursorVis::Hide,
         )
         .unwrap();
@@ -213,7 +211,7 @@ fn test_string() {
     let notations = make_json_notation();
     let doc = Doc::new_leaf(notations["string"].clone(), "foobar");
 
-    let doc_pos_spec = DocPosSpec::Fixed(Pos::zero());
+    let doc_pos_spec = ScrollStrategy::Fixed(Pos::zero());
     let mut window = PlainText::new_infinite_scroll(30);
     doc.as_ref()
         .pretty_print(
@@ -252,7 +250,7 @@ fn test_string_in_list() {
     let s = Doc::new_leaf(notations["string"].clone(), "foobar");
     let doc = Doc::new_branch(notations["list"].clone(), vec![s]);
 
-    let doc_pos_spec = DocPosSpec::Fixed(Pos::zero());
+    let doc_pos_spec = ScrollStrategy::Fixed(Pos::zero());
     let mut window = PlainText::new_infinite_scroll(30);
     doc.as_ref()
         .pretty_print(
@@ -306,7 +304,7 @@ fn test_dict_in_list() {
     let dict = Doc::new_branch(notations["dict"].clone(), vec![boolean]);
     let doc = Doc::new_branch(notations["list"].clone(), vec![dict]);
 
-    let doc_pos_spec = DocPosSpec::Fixed(Pos::zero());
+    let doc_pos_spec = ScrollStrategy::Fixed(Pos::zero());
     let mut window = PlainText::new_infinite_scroll(30);
     doc.as_ref()
         .pretty_print(
@@ -430,13 +428,13 @@ fn test_dict_in_list_cursor() {
 #[test]
 fn test_lay_out_json_30() {
     let doc = make_json_doc();
-    let doc_pos_spec = DocPosSpec::Fixed(Pos::zero());
+    let scroll_strategy = ScrollStrategy::Fixed(Pos::zero());
     let mut window = PlainText::new_infinite_scroll(30);
     doc.as_ref()
         .pretty_print(
             30,
             &mut window.pane().unwrap(),
-            doc_pos_spec,
+            scroll_strategy,
             CursorVis::Hide,
         )
         .unwrap();
@@ -494,13 +492,13 @@ fn test_lay_out_json_28() {
     // The doc won't fit in 28 characters
     // Eventually the strings should wrap, and it should stop panicking.
     let doc = make_json_doc();
-    let doc_pos_spec = DocPosSpec::Fixed(Pos::zero());
+    let scroll_strategy = ScrollStrategy::Fixed(Pos::zero());
     let mut window = PlainText::new_infinite_scroll(28);
     doc.as_ref()
         .pretty_print(
             28,
             &mut window.pane().unwrap(),
-            doc_pos_spec,
+            scroll_strategy,
             CursorVis::Hide,
         )
         .unwrap();
@@ -516,7 +514,7 @@ fn test_pane_content() {
     let pane_note = PaneNotation::Doc {
         label: DocLabel::ActiveDoc,
         cursor_visibility: CursorVis::Hide,
-        scroll_strategy: DocPosSpec::Beginning,
+        scroll_strategy: ScrollStrategy::Beginning,
     };
     let mut pane = window.pane().unwrap();
     pane.render(&pane_note, |_: &DocLabel| Some(doc.as_ref()))
@@ -535,12 +533,12 @@ fn test_pane_horz() {
     let content1 = PaneNotation::Doc {
         label: DocLabel::ActiveDoc,
         cursor_visibility: CursorVis::Hide,
-        scroll_strategy: DocPosSpec::Beginning,
+        scroll_strategy: ScrollStrategy::Beginning,
     };
     let content2 = PaneNotation::Doc {
         label: DocLabel::KeyHints,
         cursor_visibility: CursorVis::Hide,
-        scroll_strategy: DocPosSpec::Beginning,
+        scroll_strategy: ScrollStrategy::Beginning,
     };
 
     let pane_note = PaneNotation::Horz {
@@ -571,12 +569,12 @@ fn test_pane_vert() {
     let content1 = PaneNotation::Doc {
         label: DocLabel::ActiveDoc,
         cursor_visibility: CursorVis::Hide,
-        scroll_strategy: DocPosSpec::Beginning,
+        scroll_strategy: ScrollStrategy::Beginning,
     };
     let content2 = PaneNotation::Doc {
         label: DocLabel::KeyHints,
         cursor_visibility: CursorVis::Hide,
-        scroll_strategy: DocPosSpec::Beginning,
+        scroll_strategy: ScrollStrategy::Beginning,
     };
 
     let top_row_note = PaneNotation::Horz {
@@ -620,7 +618,7 @@ fn test_pane_fill() {
     let content1 = PaneNotation::Doc {
         label: DocLabel::ActiveDoc,
         cursor_visibility: CursorVis::Hide,
-        scroll_strategy: DocPosSpec::Beginning,
+        scroll_strategy: ScrollStrategy::Beginning,
     };
 
     let fill = PaneNotation::Fill {
@@ -646,7 +644,7 @@ fn assert_proportional(expected: &str, width: Col, hungers: (usize, usize, usize
     let content1 = PaneNotation::Doc {
         label: DocLabel::ActiveDoc,
         cursor_visibility: CursorVis::Hide,
-        scroll_strategy: DocPosSpec::Beginning,
+        scroll_strategy: ScrollStrategy::Beginning,
     };
 
     let fill1 = PaneNotation::Fill {
@@ -699,7 +697,7 @@ fn test_pane_dyn_height() {
     let content1 = PaneNotation::Doc {
         label: DocLabel::ActiveDoc,
         cursor_visibility: CursorVis::Hide,
-        scroll_strategy: DocPosSpec::Beginning,
+        scroll_strategy: ScrollStrategy::Beginning,
     };
 
     let fill = PaneNotation::Fill {
@@ -740,7 +738,7 @@ fn test_print_outside() {
     let content1 = PaneNotation::Doc {
         label: DocLabel::ActiveDoc,
         cursor_visibility: CursorVis::Hide,
-        scroll_strategy: DocPosSpec::Beginning,
+        scroll_strategy: ScrollStrategy::Beginning,
     };
     let content2 = PaneNotation::Fill {
         ch: '-',

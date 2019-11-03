@@ -1,4 +1,6 @@
-use crate::{Col, DocPosSpec, Pos, PrettyDocument, PrettyWindow, Rect, Region, Row, Shade, Style};
+use crate::{
+    Col, Pos, PrettyDocument, PrettyWindow, Rect, Region, Row, ScrollStrategy, Shade, Style,
+};
 
 use std::{error, iter};
 use thiserror;
@@ -79,7 +81,7 @@ pub enum PaneNotation {
     Doc {
         label: DocLabel,
         cursor_visibility: CursorVis,
-        scroll_strategy: DocPosSpec,
+        scroll_strategy: ScrollStrategy,
     },
     /// Fill the entire `Pane` by repeating the given character and style.
     Fill { ch: char, style: Style },

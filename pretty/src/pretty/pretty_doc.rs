@@ -10,7 +10,7 @@ use crate::style::{Shade, Style};
 
 /// What part of the document to show.
 #[derive(Debug, Clone, Copy)]
-pub enum DocPosSpec {
+pub enum ScrollStrategy {
     /// Put this row and column of the document at the top left corner of the Pane.
     Fixed(Pos),
     /// Put the beginning of the document at the top left corner of the
@@ -60,7 +60,7 @@ pub trait PrettyDocument: Sized + Clone {
         &self,
         width: Col,
         pane: &mut Pane<'a, T>,
-        doc_pos_spec: DocPosSpec,
+        scroll_strategy: ScrollStrategy,
         cursor_visibility: CursorVis,
     ) -> Result<(), T::Error>
     where
@@ -72,8 +72,8 @@ pub trait PrettyDocument: Sized + Clone {
             let root = self.root();
             let layout = layout(&root, Pos::zero(), width, arena);
             let cursor_region = self.locate_cursor(width);
-            let doc_pos = match doc_pos_spec {
-                DocPosSpec::CursorHeight { fraction } => {
+            let doc_pos = match scroll_strategy {
+                ScrollStrategy::CursorHeight { fraction } => {
                     let fraction = f32::max(0.0, f32::min(1.0, fraction));
                     let offset_from_top =
                         f32::round((pane.rect.height() - 1) as f32 * (1.0 - fraction)) as Row;
@@ -82,8 +82,8 @@ pub trait PrettyDocument: Sized + Clone {
                         row: u32::saturating_sub(cursor_region.pos.row, offset_from_top),
                     }
                 }
-                DocPosSpec::Fixed(pos) => pos,
-                DocPosSpec::Beginning => Pos { row: 0, col: 0 },
+                ScrollStrategy::Fixed(pos) => pos,
+                ScrollStrategy::Beginning => Pos { row: 0, col: 0 },
             };
 
             let doc_rect = Rect::new(doc_pos, pane.rect().size());

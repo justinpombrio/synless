@@ -2,7 +2,7 @@ use editor::{
     make_json_lang, make_singleton_lang_set, DocError, EditorCmd, MetaCommand, TestEditor, TextCmd,
     TextNavCmd, TreeCmd, TreeNavCmd,
 };
-use pretty::{DocPosSpec, Pos};
+use pretty::{Pos, ScrollStrategy};
 
 /// Check if the expression matches the pattern, and panic with a informative
 /// message if it doesn't.
@@ -130,30 +130,34 @@ fn test_json_cursor_at_top() {
     ed.assert_render_with(
         "[true,\n false,\n null]",
         width,
-        DocPosSpec::Fixed(Pos::zero()),
+        ScrollStrategy::Fixed(Pos::zero()),
     );
 
-    ed.assert_render_with(" null]", width, DocPosSpec::CursorHeight { fraction: 1.0 });
+    ed.assert_render_with(
+        " null]",
+        width,
+        ScrollStrategy::CursorHeight { fraction: 1.0 },
+    );
 
     ed.exec(TreeNavCmd::Left).unwrap();
     ed.assert_render_with(
         " false,\n null]",
         width,
-        DocPosSpec::CursorHeight { fraction: 1.0 },
+        ScrollStrategy::CursorHeight { fraction: 1.0 },
     );
 
     ed.exec(TreeNavCmd::Left).unwrap();
     ed.assert_render_with(
         "[true,\n false,\n null]",
         width,
-        DocPosSpec::CursorHeight { fraction: 1.0 },
+        ScrollStrategy::CursorHeight { fraction: 1.0 },
     );
 
     ed.exec(TreeNavCmd::Parent).unwrap();
     ed.assert_render_with(
         "[true,\n false,\n null]",
         width,
-        DocPosSpec::CursorHeight { fraction: 1.0 },
+        ScrollStrategy::CursorHeight { fraction: 1.0 },
     );
 }
 
