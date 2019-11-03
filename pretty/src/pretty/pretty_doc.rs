@@ -5,21 +5,9 @@ use super::pretty_window::PrettyWindow;
 use crate::geometry::{Col, Pos, Rect, Region, Row, Bound};
 use crate::layout::{compute_bounds, compute_layout, BoundSet, Layout, LayoutElement, NotationOps, ResolvedNotation};
 use crate::notation::Notation;
-use crate::pane::{CursorVisibility, Pane};
+use crate::pane::{Pane};
 use crate::style::{Shade, Style};
-
-/// What part of the document to show.
-#[derive(Debug, Clone, Copy)]
-pub enum ScrollStrategy {
-    /// Put this row and column of the document at the top left corner of the Pane.
-    Fixed(Pos),
-    /// Put the beginning of the document at the top left corner of the
-    /// Pane. Equivalent to `Fixed(Pos{row: 0, col: 0})`.
-    Beginning,
-    /// Position the document such that the top of the cursor is at this height,
-    /// where 1 is the top line of the Pane and 0 is the bottom line.
-    CursorHeight { fraction: f32 },
-}
+use super::render_options::{CursorVisibility, RenderOptions};
 
 /// A "document" that supports the necessary methods to be pretty-printed.
 pub trait PrettyDocument: Sized + Clone {
@@ -58,10 +46,8 @@ pub trait PrettyDocument: Sized + Clone {
     /// regardless of the size of the document.
     fn pretty_print<'a, T>(
         &self,
-        width: Col,
         pane: &mut Pane<'a, T>,
-        scroll_strategy: ScrollStrategy,
-        cursor_visibility: CursorVisibility,
+        render_options: RenderOptions,
     ) -> Result<(), T::Error>
     where
         T: PrettyWindow,
@@ -70,27 +56,17 @@ pub trait PrettyDocument: Sized + Clone {
         let arena = &owned_arena;
         {
             let root = self.root();
+            let width = render_options.width_strategy.choose(pane.rect.width());
+
             let layout = layout(&root, Pos::zero(), width, arena);
             let cursor_region = self.locate_cursor(width);
-            let doc_pos = match scroll_strategy {
-                ScrollStrategy::CursorHeight { fraction } => {
-                    let fraction = f32::max(0.0, f32::min(1.0, fraction));
-                    let offset_from_top =
-                        f32::round((pane.rect.height() - 1) as f32 * (1.0 - fraction)) as Row;
-                    Pos {
-                        col: 0,
-                        row: u32::saturating_sub(cursor_region.pos.row, offset_from_top),
-                    }
-                }
-                ScrollStrategy::Fixed(pos) => pos,
-                ScrollStrategy::Beginning => Pos { row: 0, col: 0 },
-            };
+            let doc_pos = render_options.scroll_strategy.choose(pane.rect.height(), cursor_region);
 
             let doc_rect = Rect::new(doc_pos, pane.rect().size());
             render(&root, pane, doc_rect, &layout, arena)?;
 
             // TODO handle multiple levels of cursor shading
-            if let CursorVisibility::Show = cursor_visibility {
+            if let CursorVisibility::Show = render_options.cursor_visibility {
                 let region = Region {
                     pos: cursor_region.pos - doc_pos,
                     ..cursor_region

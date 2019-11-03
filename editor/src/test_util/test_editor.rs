@@ -1,7 +1,8 @@
 use crate::{Ast, AstForest, AstRef, Clipboard, Doc, DocError, MetaCommand, NotationSet};
 use language::{ConstructName, Language, LanguageName, LanguageSet};
 use pretty::{
-    Col, CursorVisibility, PlainText, Pos, PrettyDocument, PrettyWindow, Row, ScrollStrategy,
+    Col, CursorVisibility, PlainText, Pos, PrettyDocument, PrettyWindow, RenderOptions, Row,
+    ScrollStrategy, WidthStrategy,
 };
 
 /// A simple wrapper around a Doc that makes it more convenient to write tests
@@ -72,14 +73,15 @@ impl<'l> TestEditor<'l> {
             row: Row::max_value() / 2,
         });
 
+        let options = RenderOptions {
+            scroll_strategy,
+            width_strategy: WidthStrategy::Fixed(width),
+            cursor_visibility: CursorVisibility::Hide,
+        };
+
         self.doc
             .ast_ref()
-            .pretty_print(
-                width,
-                &mut window.pane().unwrap(),
-                scroll_strategy,
-                CursorVisibility::Hide,
-            )
+            .pretty_print(&mut window.pane().unwrap(), options)
             .unwrap();
         assert_eq!(window.to_string(), expected)
     }
