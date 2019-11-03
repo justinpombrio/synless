@@ -1,28 +1,43 @@
-use pretty::{Color, CursorVisibility, DocLabel, PaneNotation, PaneSize, ScrollStrategy, Style};
+use pretty::{
+    Color, CursorVisibility, DocLabel, PaneNotation, PaneSize, RenderOptions, ScrollStrategy,
+    Style, WidthStrategy,
+};
 
 pub fn make_example_pane_notation() -> PaneNotation {
     let active = PaneNotation::Doc {
         label: DocLabel::ActiveDoc,
-        cursor_visibility: CursorVisibility::Show,
-        scroll_strategy: ScrollStrategy::CursorHeight { fraction: 0.6 },
+        render_options: RenderOptions {
+            cursor_visibility: CursorVisibility::Show,
+            scroll_strategy: ScrollStrategy::CursorHeight { fraction: 0.6 },
+            width_strategy: WidthStrategy::Full,
+        },
     };
 
     let key_hints_name = PaneNotation::Doc {
         label: DocLabel::KeymapName,
-        cursor_visibility: CursorVisibility::Hide,
-        scroll_strategy: ScrollStrategy::Beginning,
+        render_options: RenderOptions {
+            cursor_visibility: CursorVisibility::Hide,
+            scroll_strategy: ScrollStrategy::Beginning,
+            width_strategy: WidthStrategy::Full,
+        },
     };
 
     let key_hints = PaneNotation::Doc {
         label: DocLabel::KeyHints,
-        cursor_visibility: CursorVisibility::Hide,
-        scroll_strategy: ScrollStrategy::Beginning,
+        render_options: RenderOptions {
+            cursor_visibility: CursorVisibility::Hide,
+            scroll_strategy: ScrollStrategy::Beginning,
+            width_strategy: WidthStrategy::Full,
+        },
     };
 
     let messages = PaneNotation::Doc {
         label: DocLabel::Messages,
-        cursor_visibility: CursorVisibility::Hide,
-        scroll_strategy: ScrollStrategy::Beginning,
+        render_options: RenderOptions {
+            cursor_visibility: CursorVisibility::Hide,
+            scroll_strategy: ScrollStrategy::Beginning,
+            width_strategy: WidthStrategy::Full,
+        },
     };
 
     let divider = PaneNotation::Fill {

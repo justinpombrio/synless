@@ -6,7 +6,7 @@ use common::{
 };
 use pretty::{
     Bound, Col, CursorVisibility, DocLabel, PaneNotation, PaneSize, PlainText, Pos, PrettyDocument,
-    PrettyWindow, Region, ScrollStrategy, Style,
+    PrettyWindow, Region, RenderOptions, ScrollStrategy, Style, WidthStrategy,
 };
 
 // TODO: test ScrollStrategies other than Beginning.
@@ -513,8 +513,11 @@ fn test_pane_content() {
 
     let pane_note = PaneNotation::Doc {
         label: DocLabel::ActiveDoc,
-        cursor_visibility: CursorVisibility::Hide,
-        scroll_strategy: ScrollStrategy::Beginning,
+        render_options: RenderOptions {
+            cursor_visibility: CursorVisibility::Hide,
+            scroll_strategy: ScrollStrategy::Beginning,
+            width_strategy: WidthStrategy::Full,
+        },
     };
     let mut pane = window.pane().unwrap();
     pane.render(&pane_note, |_: &DocLabel| Some(doc.as_ref()))
@@ -532,13 +535,19 @@ fn test_pane_horz() {
 
     let content1 = PaneNotation::Doc {
         label: DocLabel::ActiveDoc,
-        cursor_visibility: CursorVisibility::Hide,
-        scroll_strategy: ScrollStrategy::Beginning,
+        render_options: RenderOptions {
+            cursor_visibility: CursorVisibility::Hide,
+            scroll_strategy: ScrollStrategy::Beginning,
+            width_strategy: WidthStrategy::Full,
+        },
     };
     let content2 = PaneNotation::Doc {
         label: DocLabel::KeyHints,
-        cursor_visibility: CursorVisibility::Hide,
-        scroll_strategy: ScrollStrategy::Beginning,
+        render_options: RenderOptions {
+            cursor_visibility: CursorVisibility::Hide,
+            scroll_strategy: ScrollStrategy::Beginning,
+            width_strategy: WidthStrategy::Full,
+        },
     };
 
     let pane_note = PaneNotation::Horz {
@@ -568,13 +577,19 @@ fn test_pane_vert() {
 
     let content1 = PaneNotation::Doc {
         label: DocLabel::ActiveDoc,
-        cursor_visibility: CursorVisibility::Hide,
-        scroll_strategy: ScrollStrategy::Beginning,
+        render_options: RenderOptions {
+            cursor_visibility: CursorVisibility::Hide,
+            scroll_strategy: ScrollStrategy::Beginning,
+            width_strategy: WidthStrategy::Full,
+        },
     };
     let content2 = PaneNotation::Doc {
         label: DocLabel::KeyHints,
-        cursor_visibility: CursorVisibility::Hide,
-        scroll_strategy: ScrollStrategy::Beginning,
+        render_options: RenderOptions {
+            cursor_visibility: CursorVisibility::Hide,
+            scroll_strategy: ScrollStrategy::Beginning,
+            width_strategy: WidthStrategy::Full,
+        },
     };
 
     let top_row_note = PaneNotation::Horz {
@@ -617,8 +632,11 @@ fn test_pane_fill() {
 
     let content1 = PaneNotation::Doc {
         label: DocLabel::ActiveDoc,
-        cursor_visibility: CursorVisibility::Hide,
-        scroll_strategy: ScrollStrategy::Beginning,
+        render_options: RenderOptions {
+            cursor_visibility: CursorVisibility::Hide,
+            scroll_strategy: ScrollStrategy::Beginning,
+            width_strategy: WidthStrategy::Full,
+        },
     };
 
     let fill = PaneNotation::Fill {
@@ -643,8 +661,11 @@ fn assert_proportional(expected: &str, width: Col, hungers: (usize, usize, usize
 
     let content1 = PaneNotation::Doc {
         label: DocLabel::ActiveDoc,
-        cursor_visibility: CursorVisibility::Hide,
-        scroll_strategy: ScrollStrategy::Beginning,
+        render_options: RenderOptions {
+            cursor_visibility: CursorVisibility::Hide,
+            scroll_strategy: ScrollStrategy::Beginning,
+            width_strategy: WidthStrategy::Full,
+        },
     };
 
     let fill1 = PaneNotation::Fill {
@@ -696,8 +717,11 @@ fn test_pane_dyn_height() {
 
     let content1 = PaneNotation::Doc {
         label: DocLabel::ActiveDoc,
-        cursor_visibility: CursorVisibility::Hide,
-        scroll_strategy: ScrollStrategy::Beginning,
+        render_options: RenderOptions {
+            cursor_visibility: CursorVisibility::Hide,
+            scroll_strategy: ScrollStrategy::Beginning,
+            width_strategy: WidthStrategy::Full,
+        },
     };
 
     let fill = PaneNotation::Fill {
@@ -737,8 +761,11 @@ fn test_print_outside() {
 
     let content1 = PaneNotation::Doc {
         label: DocLabel::ActiveDoc,
-        cursor_visibility: CursorVisibility::Hide,
-        scroll_strategy: ScrollStrategy::Beginning,
+        render_options: RenderOptions {
+            cursor_visibility: CursorVisibility::Hide,
+            scroll_strategy: ScrollStrategy::Beginning,
+            width_strategy: WidthStrategy::Full,
+        },
     };
     let content2 = PaneNotation::Fill {
         ch: '-',

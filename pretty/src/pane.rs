@@ -80,11 +80,17 @@ pub enum PaneNotation {
     /// is rendered.
     Doc {
         label: DocLabel,
-        cursor_visibility: CursorVisibility,
-        scroll_strategy: ScrollStrategy,
+        render_options: RenderOptions,
     },
     /// Fill the entire `Pane` by repeating the given character and style.
     Fill { ch: char, style: Style },
+}
+
+#[derive(Debug, Clone)]
+pub struct RenderOptions {
+    pub cursor_visibility: CursorVisibility,
+    pub scroll_strategy: ScrollStrategy,
+    pub width_strategy: WidthStrategy,
 }
 
 /// The visibility of the cursor in some document.
@@ -92,6 +98,27 @@ pub enum PaneNotation {
 pub enum CursorVisibility {
     Show,
     Hide,
+}
+
+/// How to choose the document width, after learning the how much width is available.
+#[derive(Debug, Clone, Copy)]
+pub enum WidthStrategy {
+    /// Use all available width.
+    Full,
+    /// Use the given width.
+    Fixed(Col),
+    /// Try to use the given width. If that's not available, use as much width is available.
+    NoMoreThan(Col),
+}
+
+impl WidthStrategy {
+    fn choose(&self, available_width: Col) -> Col {
+        match self {
+            WidthStrategy::Full => available_width,
+            WidthStrategy::Fixed(col) => *col,
+            WidthStrategy::NoMoreThan(col) => (*col).min(available_width),
+        }
+    }
 }
 
 /// Errors that can occur while attempting to render to a `Pane`.
@@ -245,13 +272,17 @@ where
             }
             PaneNotation::Doc {
                 label,
-                cursor_visibility,
-                scroll_strategy,
+                render_options,
             } => {
-                let width = self.rect().width();
+                let width = render_options.width_strategy.choose(self.rect().width());
                 let doc = get_content(label).ok_or_else(|| PaneError::Missing(label.to_owned()))?;
-                doc.pretty_print(width, self, *scroll_strategy, *cursor_visibility)
-                    .map_err(PaneError::from_pretty_window)?;
+                doc.pretty_print(
+                    width,
+                    self,
+                    render_options.scroll_strategy,
+                    render_options.cursor_visibility,
+                )
+                .map_err(PaneError::from_pretty_window)?;
             }
             PaneNotation::Fill { ch, style } => {
                 let line: String = iter::repeat(ch)
