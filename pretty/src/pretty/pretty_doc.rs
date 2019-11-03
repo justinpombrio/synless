@@ -5,7 +5,7 @@ use super::pretty_window::PrettyWindow;
 use crate::geometry::{Col, Pos, Rect, Region, Row, Bound};
 use crate::layout::{compute_bounds, compute_layout, BoundSet, Layout, LayoutElement, NotationOps, ResolvedNotation};
 use crate::notation::Notation;
-use crate::pane::{CursorVis, Pane};
+use crate::pane::{CursorVisibility, Pane};
 use crate::style::{Shade, Style};
 
 /// What part of the document to show.
@@ -61,7 +61,7 @@ pub trait PrettyDocument: Sized + Clone {
         width: Col,
         pane: &mut Pane<'a, T>,
         scroll_strategy: ScrollStrategy,
-        cursor_visibility: CursorVis,
+        cursor_visibility: CursorVisibility,
     ) -> Result<(), T::Error>
     where
         T: PrettyWindow,
@@ -90,7 +90,7 @@ pub trait PrettyDocument: Sized + Clone {
             render(&root, pane, doc_rect, &layout, arena)?;
 
             // TODO handle multiple levels of cursor shading
-            if let CursorVis::Show = cursor_visibility {
+            if let CursorVisibility::Show = cursor_visibility {
                 let region = Region {
                     pos: cursor_region.pos - doc_pos,
                     ..cursor_region

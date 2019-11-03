@@ -5,7 +5,7 @@ use common::{
     make_short_json_list, Doc,
 };
 use pretty::{
-    Bound, Col, CursorVis, DocLabel, PaneNotation, PaneSize, PlainText, Pos, PrettyDocument,
+    Bound, Col, CursorVisibility, DocLabel, PaneNotation, PaneSize, PlainText, Pos, PrettyDocument,
     PrettyWindow, Region, ScrollStrategy, Style,
 };
 
@@ -22,7 +22,7 @@ fn test_pretty_print_very_small_screen_left() {
             80,
             &mut window.pane().unwrap(),
             scroll_strategy,
-            CursorVis::Hide,
+            CursorVisibility::Hide,
         )
         .unwrap();
     assert_strings_eq(
@@ -47,7 +47,7 @@ fn test_pretty_print_small_screen_left() {
             80,
             &mut window.pane().unwrap(),
             scroll_strategy,
-            CursorVis::Hide,
+            CursorVisibility::Hide,
         )
         .unwrap();
     assert_strings_eq(
@@ -71,7 +71,7 @@ fn test_pretty_print_short_list() {
             80,
             &mut window.pane().unwrap(),
             doc_pos_spec,
-            CursorVis::Hide,
+            CursorVisibility::Hide,
         )
         .unwrap();
     assert_strings_eq(&window.to_string(), r#"[true, false]"#);
@@ -87,7 +87,7 @@ fn test_pretty_print_long_list() {
             80,
             &mut window.pane().unwrap(),
             scroll_strategy,
-            CursorVis::Hide,
+            CursorVisibility::Hide,
         )
         .unwrap();
     assert_strings_eq(
@@ -111,7 +111,7 @@ fn test_pretty_print_small_screen_right() {
             80,
             &mut window.pane().unwrap(),
             scroll_strategy,
-            CursorVis::Hide,
+            CursorVisibility::Hide,
         )
         .unwrap();
     assert_strings_eq(
@@ -134,7 +134,7 @@ fn test_pretty_print_small_screen_middle() {
             80,
             &mut window.pane().unwrap(),
             scroll_strategy,
-            CursorVis::Hide,
+            CursorVisibility::Hide,
         )
         .unwrap();
     assert_strings_eq(&window.to_string(), "i");
@@ -152,7 +152,7 @@ fn test_pretty_print_small_screen_bottom() {
             74,
             &mut window.pane().unwrap(),
             scroll_strategy,
-            CursorVis::Hide,
+            CursorVisibility::Hide,
         )
         .unwrap();
     assert_strings_eq(&window.to_string(), "longer\"]]]]");
@@ -168,7 +168,7 @@ fn test_lay_out_json_80() {
             80,
             &mut window.pane().unwrap(),
             scroll_strategy,
-            CursorVis::Hide,
+            CursorVisibility::Hide,
         )
         .unwrap();
 
@@ -218,7 +218,7 @@ fn test_string() {
             30,
             &mut window.pane().unwrap(),
             doc_pos_spec,
-            CursorVis::Hide,
+            CursorVisibility::Hide,
         )
         .unwrap();
 
@@ -257,7 +257,7 @@ fn test_string_in_list() {
             30,
             &mut window.pane().unwrap(),
             doc_pos_spec,
-            CursorVis::Hide,
+            CursorVisibility::Hide,
         )
         .unwrap();
 
@@ -311,7 +311,7 @@ fn test_dict_in_list() {
             30,
             &mut window.pane().unwrap(),
             doc_pos_spec,
-            CursorVis::Hide,
+            CursorVisibility::Hide,
         )
         .unwrap();
 
@@ -435,7 +435,7 @@ fn test_lay_out_json_30() {
             30,
             &mut window.pane().unwrap(),
             scroll_strategy,
-            CursorVis::Hide,
+            CursorVisibility::Hide,
         )
         .unwrap();
 
@@ -499,7 +499,7 @@ fn test_lay_out_json_28() {
             28,
             &mut window.pane().unwrap(),
             scroll_strategy,
-            CursorVis::Hide,
+            CursorVisibility::Hide,
         )
         .unwrap();
 }
@@ -513,7 +513,7 @@ fn test_pane_content() {
 
     let pane_note = PaneNotation::Doc {
         label: DocLabel::ActiveDoc,
-        cursor_visibility: CursorVis::Hide,
+        cursor_visibility: CursorVisibility::Hide,
         scroll_strategy: ScrollStrategy::Beginning,
     };
     let mut pane = window.pane().unwrap();
@@ -532,12 +532,12 @@ fn test_pane_horz() {
 
     let content1 = PaneNotation::Doc {
         label: DocLabel::ActiveDoc,
-        cursor_visibility: CursorVis::Hide,
+        cursor_visibility: CursorVisibility::Hide,
         scroll_strategy: ScrollStrategy::Beginning,
     };
     let content2 = PaneNotation::Doc {
         label: DocLabel::KeyHints,
-        cursor_visibility: CursorVis::Hide,
+        cursor_visibility: CursorVisibility::Hide,
         scroll_strategy: ScrollStrategy::Beginning,
     };
 
@@ -568,12 +568,12 @@ fn test_pane_vert() {
 
     let content1 = PaneNotation::Doc {
         label: DocLabel::ActiveDoc,
-        cursor_visibility: CursorVis::Hide,
+        cursor_visibility: CursorVisibility::Hide,
         scroll_strategy: ScrollStrategy::Beginning,
     };
     let content2 = PaneNotation::Doc {
         label: DocLabel::KeyHints,
-        cursor_visibility: CursorVis::Hide,
+        cursor_visibility: CursorVisibility::Hide,
         scroll_strategy: ScrollStrategy::Beginning,
     };
 
@@ -617,7 +617,7 @@ fn test_pane_fill() {
 
     let content1 = PaneNotation::Doc {
         label: DocLabel::ActiveDoc,
-        cursor_visibility: CursorVis::Hide,
+        cursor_visibility: CursorVisibility::Hide,
         scroll_strategy: ScrollStrategy::Beginning,
     };
 
@@ -643,7 +643,7 @@ fn assert_proportional(expected: &str, width: Col, hungers: (usize, usize, usize
 
     let content1 = PaneNotation::Doc {
         label: DocLabel::ActiveDoc,
-        cursor_visibility: CursorVis::Hide,
+        cursor_visibility: CursorVisibility::Hide,
         scroll_strategy: ScrollStrategy::Beginning,
     };
 
@@ -696,7 +696,7 @@ fn test_pane_dyn_height() {
 
     let content1 = PaneNotation::Doc {
         label: DocLabel::ActiveDoc,
-        cursor_visibility: CursorVis::Hide,
+        cursor_visibility: CursorVisibility::Hide,
         scroll_strategy: ScrollStrategy::Beginning,
     };
 
@@ -737,7 +737,7 @@ fn test_print_outside() {
 
     let content1 = PaneNotation::Doc {
         label: DocLabel::ActiveDoc,
-        cursor_visibility: CursorVis::Hide,
+        cursor_visibility: CursorVisibility::Hide,
         scroll_strategy: ScrollStrategy::Beginning,
     };
     let content2 = PaneNotation::Fill {

@@ -1,27 +1,27 @@
-use pretty::{Color, CursorVis, DocLabel, PaneNotation, PaneSize, ScrollStrategy, Style};
+use pretty::{Color, CursorVisibility, DocLabel, PaneNotation, PaneSize, ScrollStrategy, Style};
 
 pub fn make_example_pane_notation() -> PaneNotation {
     let active = PaneNotation::Doc {
         label: DocLabel::ActiveDoc,
-        cursor_visibility: CursorVis::Show,
+        cursor_visibility: CursorVisibility::Show,
         scroll_strategy: ScrollStrategy::CursorHeight { fraction: 0.6 },
     };
 
     let key_hints_name = PaneNotation::Doc {
         label: DocLabel::KeymapName,
-        cursor_visibility: CursorVis::Hide,
+        cursor_visibility: CursorVisibility::Hide,
         scroll_strategy: ScrollStrategy::Beginning,
     };
 
     let key_hints = PaneNotation::Doc {
         label: DocLabel::KeyHints,
-        cursor_visibility: CursorVis::Hide,
+        cursor_visibility: CursorVisibility::Hide,
         scroll_strategy: ScrollStrategy::Beginning,
     };
 
     let messages = PaneNotation::Doc {
         label: DocLabel::Messages,
-        cursor_visibility: CursorVis::Hide,
+        cursor_visibility: CursorVisibility::Hide,
         scroll_strategy: ScrollStrategy::Beginning,
     };
 

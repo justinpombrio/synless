@@ -1,6 +1,8 @@
 use crate::{Ast, AstForest, AstRef, Clipboard, Doc, DocError, MetaCommand, NotationSet};
 use language::{ConstructName, Language, LanguageName, LanguageSet};
-use pretty::{Col, CursorVis, PlainText, Pos, PrettyDocument, PrettyWindow, Row, ScrollStrategy};
+use pretty::{
+    Col, CursorVisibility, PlainText, Pos, PrettyDocument, PrettyWindow, Row, ScrollStrategy,
+};
 
 /// A simple wrapper around a Doc that makes it more convenient to write tests
 /// that execute commands to edit the document and check if the document
@@ -76,7 +78,7 @@ impl<'l> TestEditor<'l> {
                 width,
                 &mut window.pane().unwrap(),
                 scroll_strategy,
-                CursorVis::Hide,
+                CursorVisibility::Hide,
             )
             .unwrap();
         assert_eq!(window.to_string(), expected)

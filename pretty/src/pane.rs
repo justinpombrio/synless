@@ -80,7 +80,7 @@ pub enum PaneNotation {
     /// is rendered.
     Doc {
         label: DocLabel,
-        cursor_visibility: CursorVis,
+        cursor_visibility: CursorVisibility,
         scroll_strategy: ScrollStrategy,
     },
     /// Fill the entire `Pane` by repeating the given character and style.
@@ -89,7 +89,7 @@ pub enum PaneNotation {
 
 /// The visibility of the cursor in some document.
 #[derive(Debug, Clone, Copy)]
-pub enum CursorVis {
+pub enum CursorVisibility {
     Show,
     Hide,
 }
