@@ -5,12 +5,20 @@ use common::{
     make_short_json_list, Doc,
 };
 use pretty::{
-    Bound, Col, CursorVisibility, DocLabel, PaneNotation, PaneSize, PlainText, Pos, PrettyDocument,
+    Bound, Col, CursorVisibility, PaneNotation, PaneSize, PlainText, Pos, PrettyDocument,
     PrettyWindow, Region, RenderOptions, ScrollStrategy, Style, WidthStrategy,
 };
 
 // TODO: test ScrollStrategies other than Beginning.
 // TODO: test horz concat
+
+#[derive(Debug, Clone)]
+enum DocLabel {
+    /// The document that currently has focus / is being actively edited.
+    ActiveDoc,
+    /// Information about what key bindings are available in the current keymap and context.
+    KeyHints,
+}
 
 #[test]
 fn test_pretty_print_very_small_screen_left() {
@@ -554,7 +562,6 @@ fn test_pane_horz() {
     pane.render(&pane_note, |label: &DocLabel| match label {
         DocLabel::ActiveDoc => Some(doc1.as_ref()),
         DocLabel::KeyHints => Some(doc2.as_ref()),
-        _ => None,
     })
     .unwrap();
     assert_strings_eq(&window.to_string(), "true false");
@@ -610,7 +617,6 @@ fn test_pane_vert() {
     pane.render(&pane_note, |label: &DocLabel| match label {
         DocLabel::ActiveDoc => Some(doc1.as_ref()),
         DocLabel::KeyHints => Some(doc2.as_ref()),
-        _ => None,
     })
     .unwrap();
     assert_strings_eq(&window.to_string(), "truefalse\ntrue false");

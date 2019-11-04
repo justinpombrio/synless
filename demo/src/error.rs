@@ -4,8 +4,9 @@ use thiserror;
 use editor::DocError;
 use frontends::{terminal::TermError, Key};
 use language::{ConstructName, LanguageName};
-use pretty::{DocLabel, PaneError};
+use pretty::PaneError;
 
+use crate::engine::DocLabel;
 use crate::keymaps::{MenuName, ModeName};
 
 #[derive(thiserror::Error, Debug)]

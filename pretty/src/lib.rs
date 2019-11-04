@@ -21,7 +21,7 @@ mod style;
 
 pub use self::geometry::{Bound, Col, Pos, Rect, Region, Row, MAX_WIDTH};
 pub use self::notation::{Notation, RepeatInner};
-pub use self::pane::{DocLabel, Pane, PaneError, PaneNotation, PaneSize};
+pub use self::pane::{Pane, PaneError, PaneNotation, PaneSize};
 pub use self::pretty::{
     Bounds, CursorVisibility, PlainText, PrettyDocument, PrettyWindow, RenderOptions,
     ScrollStrategy, WidthStrategy,

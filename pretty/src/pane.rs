@@ -2,7 +2,7 @@ use crate::{
     Col, Pos, PrettyDocument, PrettyWindow, Rect, Region, RenderOptions, Row, Shade, Style,
 };
 
-use std::{error, iter};
+use std::{error, fmt, iter};
 use thiserror;
 
 /// A rectangular area of a window. You can pretty-print to it, or get sub-panes
@@ -42,44 +42,29 @@ pub enum PaneSize {
     Proportional(usize),
 }
 
-/// A set of standard document labels that `PaneNotation`s can refer to.
-/// Every time `Pane.render()` is called, it will dynamically look up the document that is currently
-/// associated with each referenced label.
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
-#[non_exhaustive]
-pub enum DocLabel {
-    /// The document that currently has focus / is being actively edited.
-    ActiveDoc,
-    /// The name/title of the `ActiveDoc`, eg. for showing in a status bar.
-    ActiveDocName,
-    /// Information about what key bindings are available in the current keymap and context.
-    KeyHints,
-    /// The name of the current keymap.
-    KeymapName,
-    /// Messages to the user.
-    Messages,
-}
-
 /// Specify the content of a `Pane`.
 #[derive(Clone, Debug)]
-pub enum PaneNotation {
+pub enum PaneNotation<L>
+where
+    L: fmt::Debug,
+{
     /// Split the pane horizontally into multiple subpanes, each with its own
     /// `PaneNotation`. Each subpane has the same height as this `Pane`, and a
     /// width determined by its `PaneSize`.
     Horz {
-        panes: Vec<(PaneSize, PaneNotation)>,
+        panes: Vec<(PaneSize, PaneNotation<L>)>,
     },
     /// Split the pane vertically into multiple subpanes, each with its own
     /// `PaneNotation`. Each subpane has the same width as this `Pane`, and a
     /// height determined by its `PaneSize`.
     Vert {
-        panes: Vec<(PaneSize, PaneNotation)>,
+        panes: Vec<(PaneSize, PaneNotation<L>)>,
     },
-    /// Render a `PrettyDocument` into this `Pane`. The given `DocLabel` will
+    /// Render a `PrettyDocument` into this `Pane`. The given label will
     /// be used to dynamically look up a `PrettyDocument` every time the `Pane`
     /// is rendered.
     Doc {
-        label: DocLabel,
+        label: L,
         render_options: RenderOptions,
     },
     /// Fill the entire `Pane` by repeating the given character and style.
@@ -98,8 +83,9 @@ pub enum PaneError {
     #[error("invalid pane notation")]
     InvalidNotation,
 
+    // TODO use Display representation, not debug
     #[error("missing document in pane notation: {0:?}")]
-    Missing(DocLabel),
+    MissingLabel(String),
 
     /// The error should be the associated `Error` type of something that implements the
     /// PrettyWindow trait.
@@ -169,9 +155,14 @@ where
     /// the `get_content` closure to map the document labels used in any
     /// `PaneNotation::Doc` variants to actual documents, and whether to
     /// shade that document's cursor region.
-    pub fn render<F, U>(&mut self, note: &PaneNotation, get_content: F) -> Result<(), PaneError>
+    pub fn render<F, U, L>(
+        &mut self,
+        note: &PaneNotation<L>,
+        get_content: F,
+    ) -> Result<(), PaneError>
     where
-        F: Fn(&DocLabel) -> Option<U>,
+        L: fmt::Debug,
+        F: Fn(&L) -> Option<U>,
         F: Clone,
         U: PrettyDocument,
     {
@@ -208,8 +199,9 @@ where
                             // Convert dynamic height into a fixed height, based on the currrent document.
                             if let PaneNotation::Doc { label, .. } = &p.1 {
                                 let f = get_content.clone();
-                                let doc =
-                                    f(label).ok_or_else(|| PaneError::Missing(label.to_owned()))?;
+                                let doc = f(label).ok_or_else(|| {
+                                    PaneError::MissingLabel(format!("{:?}", label))
+                                })?;
                                 let height =
                                     available_height.min(doc.required_height(self.rect().width()));
                                 available_height -= height;
@@ -239,7 +231,8 @@ where
                 label,
                 render_options,
             } => {
-                let doc = get_content(label).ok_or_else(|| PaneError::Missing(label.to_owned()))?;
+                let doc = get_content(label)
+                    .ok_or_else(|| PaneError::MissingLabel(format!("{:?}", label)))?;
                 doc.pretty_print(self, *render_options)
                     .map_err(PaneError::from_pretty_window)?;
             }

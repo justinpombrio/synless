@@ -1,9 +1,10 @@
+use crate::engine::DocLabel;
 use pretty::{
-    Color, CursorVisibility, DocLabel, PaneNotation, PaneSize, RenderOptions, ScrollStrategy,
-    Style, WidthStrategy,
+    Color, CursorVisibility, PaneNotation, PaneSize, RenderOptions, ScrollStrategy, Style,
+    WidthStrategy,
 };
 
-pub fn make_example_pane_notation() -> PaneNotation {
+pub fn make_example_pane_notation() -> PaneNotation<DocLabel> {
     let active = PaneNotation::Doc {
         label: DocLabel::ActiveDoc,
         render_options: RenderOptions {
