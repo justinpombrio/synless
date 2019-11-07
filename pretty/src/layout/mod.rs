@@ -80,6 +80,42 @@ mod layout_tests {
     }
 
     #[test]
+    fn test_nested_list() {
+        let child_notation = lit("hello");
+        let child_boundset = simple_compute_bounds(&child_notation, false);
+        let list_notation = example_repeat_notation();
+        let inner_list_boundset: BoundSet<()> =
+            compute_bounds(&list_notation, &[&child_boundset], false);
+        let outer_list_boundset: BoundSet<()> =
+            compute_bounds(&list_notation, &[&inner_list_boundset], false);
+
+        assert_eq!(
+            child_boundset.fit_width(80).0,
+            Bound {
+                width: 5,
+                indent: 5,
+                height: 1,
+            }
+        );
+        assert_eq!(
+            inner_list_boundset.fit_width(80).0,
+            Bound {
+                width: 7,
+                indent: 7,
+                height: 1,
+            }
+        );
+        assert_eq!(
+            outer_list_boundset.fit_width(80).0,
+            Bound {
+                width: 9,
+                indent: 9,
+                height: 1,
+            }
+        );
+    }
+
+    #[test]
     fn test_vert() {
         let notation = lit("hello") ^ lit("world!");
         let actual = simple_compute_bounds(&notation, false).fit_width(80).0;
@@ -150,4 +186,30 @@ mod layout_tests {
         let layout = compute_layout(&notation, Pos::zero(), 80, &[], false);
         assert_eq!(format!("{:?}", layout), "abcdef\n   g");
     }
+
+    #[test]
+    fn test_show_nested_list_layout() {
+        let child_notation = lit("hello");
+        let child_boundset = simple_compute_bounds(&child_notation, false);
+        let list_notation = example_repeat_notation();
+        let inner_list_boundset: BoundSet<()> =
+            compute_bounds(&list_notation, &[&child_boundset], false);
+
+        let outer_list_layout = compute_layout(
+            &list_notation,
+            Pos::zero(),
+            80,
+            &[&inner_list_boundset],
+            false,
+        );
+        assert_eq!(format!("{:?}", outer_list_layout), "[0000000]");
+
+        let inner_list_layout =
+            compute_layout(&list_notation, Pos::zero(), 80, &[&child_boundset], false);
+        assert_eq!(format!("{:?}", inner_list_layout), "[00000]");
+
+        let child_layout = compute_layout(&child_notation, Pos::zero(), 80, &[], false);
+        assert_eq!(format!("{:?}", child_layout), "hello");
+    }
+
 }

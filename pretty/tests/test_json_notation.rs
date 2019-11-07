@@ -2,7 +2,10 @@
 
 mod common;
 
-use common::{assert_strings_eq, make_json_doc, make_json_notation, make_long_json_list, Doc};
+use common::{
+    assert_strings_eq, make_json_doc, make_json_notation, make_long_json_list,
+    make_short_json_list, Doc,
+};
 use pretty::{
     Col, CursorVis, DocLabel, DocPosSpec, PaneNotation, PaneSize, PlainText, Pos, PrettyDocument,
     PrettyWindow, Style,
@@ -58,6 +61,22 @@ ddress":
 {
   "stree"#,
     );
+}
+
+#[test]
+fn test_pretty_print_short_list() {
+    let doc = make_short_json_list();
+    let mut window = PlainText::new_infinite_scroll(80);
+    let doc_pos_spec = DocPosSpec::Fixed(Pos::zero());
+    doc.as_ref()
+        .pretty_print(
+            80,
+            &mut window.pane().unwrap(),
+            doc_pos_spec,
+            CursorVis::Hide,
+        )
+        .unwrap();
+    assert_strings_eq(&window.to_string(), r#"[true, false]"#);
 }
 
 #[test]
@@ -187,6 +206,66 @@ fn test_lay_out_json_80() {
   "lists": ["first", ["second", ["third", ["fourth", "fifth is longer"]]]]
 }"#,
     )
+}
+
+#[test]
+fn test_string() {
+    let notations = make_json_notation();
+    let doc = Doc::new_leaf(notations["string"].clone(), "foobar");
+
+    let doc_pos_spec = DocPosSpec::Fixed(Pos::zero());
+    let mut window = PlainText::new_infinite_scroll(30);
+    doc.as_ref()
+        .pretty_print(
+            30,
+            &mut window.pane().unwrap(),
+            doc_pos_spec,
+            CursorVis::Hide,
+        )
+        .unwrap();
+
+    assert_strings_eq(&window.to_string(), "\"foobar\"");
+}
+
+#[test]
+fn test_string_in_list() {
+    let notations = make_json_notation();
+    let s = Doc::new_leaf(notations["string"].clone(), "foobar");
+    let doc = Doc::new_branch(notations["list"].clone(), vec![s]);
+
+    let doc_pos_spec = DocPosSpec::Fixed(Pos::zero());
+    let mut window = PlainText::new_infinite_scroll(30);
+    doc.as_ref()
+        .pretty_print(
+            30,
+            &mut window.pane().unwrap(),
+            doc_pos_spec,
+            CursorVis::Hide,
+        )
+        .unwrap();
+
+    assert_strings_eq(&window.to_string(), "[\"foobar\"]");
+}
+
+#[test]
+fn test_dict_in_list() {
+    let notations = make_json_notation();
+    let boolean = Doc::new_branch(notations["true"].clone(), Vec::new());
+    let dict = Doc::new_branch(notations["dict"].clone(), vec![boolean]);
+    let doc = Doc::new_branch(notations["list"].clone(), vec![dict]);
+
+    let doc_pos_spec = DocPosSpec::Fixed(Pos::zero());
+    let mut window = PlainText::new_infinite_scroll(30);
+    doc.as_ref()
+        .pretty_print(
+            30,
+            &mut window.pane().unwrap(),
+            doc_pos_spec,
+            CursorVis::Hide,
+        )
+        .unwrap();
+
+    assert_strings_eq(&window.to_string(), "[\"foobar\"]");
 }
 
 #[test]
