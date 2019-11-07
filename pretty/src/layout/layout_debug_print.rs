@@ -8,10 +8,12 @@ impl fmt::Debug for Layout {
         for element in &self.elements {
             printer.write_element(element);
         }
-        for line in &printer.lines {
-            writeln!(f)?;
+        for (i, line) in printer.lines.iter().enumerate() {
             for ch in line {
                 write!(f, "{}", ch)?;
+            }
+            if i != printer.lines.len() - 1 {
+                writeln!(f)?;
             }
         }
         Ok(())

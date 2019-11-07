@@ -1,11 +1,8 @@
 use std::cmp;
 
-use self::Layout::*;
 use super::pretty_window::PrettyWindow;
 use crate::geometry::{Bound, Col, Pos, Rect, Region, Row};
-use crate::layout::{
-    compute_bounds, compute_layouts, text_bounds, Bounds, Layout, LayoutRegion, Layouts,
-};
+use crate::layout::{compute_bounds, compute_layout, BoundSet, Layout, LayoutElement};
 use crate::notation::Notation;
 use crate::pane::{CursorVis, Pane};
 use crate::style::{Shade, Style};
@@ -69,9 +66,7 @@ pub trait PrettyDocument: Sized + Clone {
         T: PrettyWindow,
     {
         let root = self.root();
-        let bound = Bound::infinite_scroll(width);
-        let lay = Layouts::compute(&root).fit_bound(bound);
-
+        let layout = layout(&root, Pos::zero(), width);
         let cursor_region = self.locate_cursor(width);
         let doc_pos = match doc_pos_spec {
             DocPosSpec::CursorHeight { fraction } => {
@@ -88,7 +83,7 @@ pub trait PrettyDocument: Sized + Clone {
         };
 
         let doc_rect = Rect::new(doc_pos, pane.rect().size());
-        render(&root, pane, doc_rect, &lay)?;
+        render(&root, pane, doc_rect, &layout)?;
 
         // TODO handle multiple levels of cursor shading
         if let CursorVis::Show = cursor_visibility {
@@ -114,16 +109,18 @@ pub trait PrettyDocument: Sized + Clone {
         }
         path.reverse();
         // Recursively compute the cursor region.
-        let lay = Layouts::compute(&root).fit_bound(Bound::infinite_scroll(width));
-        loc_cursor(&root, &lay, &path)
+        let bound = self.bounds().0.fit_width(width).0;
+        let region = Region {
+            pos: Pos::zero(),
+            bound,
+        };
+        loc_cursor(&root, region, &path)
     }
 
     /// Find the minimum height required to pretty-print the document with the given width.
     fn required_height(&self, width: Col) -> Row {
         let root = self.root();
-        let bound = Bound::infinite_scroll(width);
-        let lay = Layouts::compute(&root).fit_bound(bound);
-        lay.region.height()
+        root.bounds().0.fit_width(width).0.height
     }
 
     /// Goto the root of the document.
@@ -136,6 +133,12 @@ pub trait PrettyDocument: Sized + Clone {
     }
 }
 
+/// Every node must keep an up-to-date `Bounds`, computed using
+/// [`compute_bounds`](compute_bounds). It contains pre-computed information
+/// that helps pretty-print a document.
+#[derive(Debug, Clone)]
+pub struct Bounds(BoundSet<()>);
+
 impl Bounds {
     /// _Compute_ the possible bounds of this node. This is required in order to
     /// pretty-print it. Note that:
@@ -145,44 +148,51 @@ impl Bounds {
     /// 2. This _does not_ depend on the width with which the document will be
     /// pretty-printed.
     pub fn compute<Doc: PrettyDocument>(doc: &Doc) -> Bounds {
-        compute_bounds(&child_bounds(doc), &expanded_notation(doc))
-    }
-}
-
-impl Layouts {
-    pub fn compute<Doc: PrettyDocument>(doc: &Doc) -> Layouts {
-        compute_layouts(&child_bounds(doc), &expanded_notation(doc))
+        compute_bounds(doc.notation(), child_bounds(doc), is_empty_text(doc))
     }
 }
 
 fn child_bounds<Doc: PrettyDocument>(doc: &Doc) -> Vec<Bounds> {
     match doc.text() {
         None => doc.children().iter().map(|child| child.bounds()).collect(),
-        Some(text) => vec![text_bounds(text.as_ref())],
+        Some(text) => vec![Bounds(BoundSet::literal(text, Style::plain()))],
     }
 }
 
-fn expanded_notation<Doc: PrettyDocument>(doc: &Doc) -> Notation {
-    let len = match doc.text() {
-        None => doc.children().len(),
-        Some(text) => text.as_ref().chars().count(),
-    };
-    doc.notation().expand(len)
+fn is_empty_text<Doc: PrettyDocument>(doc: &Doc) -> bool {
+    if let Some(text) = doc.text() {
+        text.is_empty()
+    } else {
+        false
+    }
 }
 
-fn loc_cursor<Doc>(doc: &Doc, lay: &LayoutRegion, path: &[usize]) -> Region
+fn layout<Doc: PrettyDocument>(doc: &Doc, pos: Pos, width: Col) -> Layout {
+    compute_layout(
+        doc.notation(),
+        pos,
+        width,
+        child_bounds(doc),
+        is_empty_text(doc),
+    )
+}
+
+fn loc_cursor<Doc>(doc: &Doc, region: Region, path: &[usize]) -> Region
 where
     Doc: PrettyDocument,
 {
     match path {
-        [] => lay.region,
+        [] => Region {
+            pos: region.pos,
+            bound: doc.bounds().fit_width(region.width),
+        },
         [i, path @ ..] => {
-            let child_region = lay
-                .find_child(*i)
-                .expect("PrettyDocument::locate_cursor - got lost looking for cursor")
-                .region;
-            let child_lay = Layouts::compute(&doc.child(*i)).fit_region(child_region);
-            loc_cursor(&doc.child(*i), &child_lay, path)
+            let layout = layout(doc, region.pos, region.width);
+            let child_region = match layout.children.get(*i) {
+                Some(Some(element)) => element.region(),
+                _ => panic!("PrettyDocument::locate_cursor - lost child"),
+            };
+            loc_cursor(&doc.child(*i), child_region, path)
         }
     }
 }
@@ -192,41 +202,38 @@ fn render<'a, Doc, Win>(
     doc: &Doc,
     pane: &mut Pane<'a, Win>,
     doc_rect: Rect,
-    lay: &LayoutRegion,
+    layout: &Layout,
 ) -> Result<(), Win::Error>
 where
     Doc: PrettyDocument,
     Win: PrettyWindow,
 {
-    if !lay.region.overlaps_rect(doc_rect) {
-        // It's entirely offscreen. Nothing to show.
-        return Ok(());
-    }
-    match &lay.layout {
-        Empty => Ok(()),
-        Literal(text, style) => render_text(text.as_ref(), lay.region, pane, doc_rect, *style),
-        Text(style) => {
-            let text = doc
-                .text()
-                .expect("PrettyDocument::render - Expected text, found branch node");
-            render_text(text.as_ref(), lay.region, pane, doc_rect, *style)
+    for element in &layout.elements {
+        if !element.region().overlaps_rect(doc_rect) {
+            // It's entirely offscreen. Nothing to show.
+            continue;
         }
-        Child(i) => {
-            let child = &doc.child(*i);
-            let child_lay = Layouts::compute(child).fit_region(lay.region);
-            render(child, pane, doc_rect, &child_lay)
-        }
-        Concat(box lay1, box lay2) => {
-            render(doc, pane, doc_rect, &lay1)?;
-            render(doc, pane, doc_rect, &lay2)
-        }
-        Horz(box lay1, box lay2) => {
-            render(doc, pane, doc_rect, &lay1)?;
-            render(doc, pane, doc_rect, &lay2)
-        }
-        Vert(box lay1, box lay2) => {
-            render(doc, pane, doc_rect, &lay1)?;
-            render(doc, pane, doc_rect, &lay2)
+        match element {
+            LayoutElement::Literal(region, text, style) => {
+                render_text(text, *region, pane, doc_rect, style)
+            }
+            LayoutElement::Text(region, style) => {
+                let text = doc
+                    .text()
+                    .expect("PrettyDocument::render - Expected text, found branch node");
+                render_text(text, *region, pane, doc_rect, style)
+            }
+            LayoutElement::Child(region, index) => {
+                let child = &doc.child(*index);
+                let layout = compute_layout(
+                    child.notation(),
+                    region.pos,
+                    region.width,
+                    child_bounds(child),
+                    is_empty_text(child),
+                );
+                render(child, pane, doc_rect, &layout)
+            }
         }
     }
 }

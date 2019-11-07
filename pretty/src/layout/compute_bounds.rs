@@ -17,6 +17,13 @@ impl Bounds {
 }
 */
 
+/// Compute the [`Bounds`](Bounds) of a node, given (i) the Notation with which
+/// it is being displayed, (ii) the Bounds of its children, and (iii) if it is a
+/// text node, whether its text is empty.
+///
+/// If the node is texty, then `child_bounds` should contain exactly one
+/// `Bounds`, computed by [`text_bounds()`](text_bounds). If the node is not
+/// texty, then `is_empty_text` will not be used (but should be false).
 pub fn compute_bounds<T: NotationOps>(
     notation: &Notation,
     child_bounds: &[&BoundSet<()>],

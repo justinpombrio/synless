@@ -8,46 +8,17 @@ mod layout_debug_print;
 mod notation_ops;
 mod staircase;
 
+use crate::geometry::{Col, Pos};
 use crate::notation::Notation;
 use crate::style::Style;
-use boundset::BoundSet;
+pub use boundset::BoundSet;
 use notation_ops::NotationOps;
 
-/// Every node must keep an up-to-date `Bounds`, computed using
-/// [`compute_bounds`](compute_bounds). It contains pre-computed information
-/// that helps pretty-print a document.
-#[derive(Debug, Clone)]
-pub struct Bounds(BoundSet<()>);
+#[cfg(test)]
+use crate::geometry::Bound;
 
-/// Compute the [`Bounds`](Bounds) of a node, given (i) the Notation with which
-/// it is being displayed, (ii) the Bounds of its children, and (iii) if it is a
-/// text node, whether its text is empty.
-///
-/// If the node is texty, then `child_bounds` should contain exactly one
-/// `Bounds`, computed by [`text_bounds()`](text_bounds). If the node is not
-/// texty, then `is_empty_text` will not be used (but should be false).
-pub fn compute_bounds(
-    notation: &mut Notation,
-    child_bounds: &[Bounds],
-    is_empty_text: bool,
-) -> Bounds {
-    let child_bounds: Vec<_> = child_bounds.iter().map(|bs| &bs.0).collect();
-    Bounds(compute_bounds::compute_bounds(
-        notation,
-        &child_bounds,
-        is_empty_text,
-    ))
-}
-
-/// Compute the [`Bounds`](Bounds) of a piece of text.
-pub fn compute_text_bounds(text: &str) -> Bounds {
-    Bounds(BoundSet::literal(text, Style::plain()))
-}
-
-/*
-pub use self::layout::{
-    compute_bounds, compute_layouts, text_bounds, Layout, LayoutRegion, Layouts,
-};
+pub use compute_bounds::compute_bounds;
+pub use compute_layout::{compute_layout, Layout, LayoutElement};
 
 #[cfg(test)]
 mod layout_tests {
@@ -56,30 +27,20 @@ mod layout_tests {
     use crate::notation::*;
     use crate::style::Style;
 
-    impl Notation {
-        /// Compute the possible Layouts for this `Notation`, given
-        /// information about its children.
-        fn layouts(&self, child_bounds: Vec<Bounds>, len: usize) -> Layouts {
-            let notation = self.expand(len);
-            compute_layouts(&child_bounds, &notation)
-        }
-
-        /// Precompute the Bounds within which this `Notation` can be
-        /// displayed, given information about its children.
-        fn bound(&self, child_bounds: Vec<Bounds>, len: usize) -> Bounds {
-            let notation = self.expand(len);
-            compute_bounds(&child_bounds, &notation)
-        }
-    }
-
     #[test]
     fn test_bound_construction() {
         let sty = Style::plain();
-        let actual = Bound::literal("abc", sty).vert(
-            Bound::literal("Schrödinger", sty).horz(
-                Bound::literal("I", sty)
-                    .horz(Bound::literal(" am indented", sty))
-                    .vert(Bound::literal("me too", sty)),
+        let actual = Bound::vert(
+            Bound::literal("abc", sty),
+            Bound::follow(
+                Bound::literal("Schrödinger", sty),
+                Bound::vert(
+                    Bound::follow(
+                        Bound::literal("I", sty),
+                        Bound::literal(" am indented", sty),
+                    ),
+                    Bound::literal("me too", sty),
+                ),
             ),
         );
         let expected = Bound {
@@ -91,7 +52,11 @@ mod layout_tests {
     }
 
     fn lit(s: &str) -> Notation {
-        literal(s, Style::plain())
+        Notation::Literal(s.to_string(), Style::plain())
+    }
+
+    fn simple_compute_bounds(notation: &Notation, is_empty_text: bool) -> BoundSet<()> {
+        compute_bounds(notation, &[], is_empty_text)
     }
 
     fn example_notation() -> Notation {
@@ -101,17 +66,63 @@ mod layout_tests {
     }
 
     fn example_repeat_notation() -> Notation {
-        repeat(Repeat {
+        Notation::Repeat(Box::new(RepeatInner {
             empty: lit("[]"),
-            lone: lit("[") + child(0) + lit("]"),
-            surround: lit("[") + child(0) + lit("]"),
-            join: (child(0) + lit(",")) ^ child(1),
-        })
+            lone: lit("[") + Notation::Child(0) + lit("]"),
+            surround: lit("[") + Notation::Surrounded + lit("]"),
+            join: (Notation::Left + lit(",")) ^ Notation::Right,
+        }))
     }
 
     #[test]
-    fn test_bound() {
-        let actual = example_notation().bound(vec![], 0).fit_width(80);
+    fn test_literal() {
+        let notation = lit("hello");
+        let actual = simple_compute_bounds(&notation, false).fit_width(80).0;
+        let expected = Bound {
+            width: 5,
+            indent: 5,
+            height: 1,
+        };
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_vert() {
+        let notation = lit("hello") ^ lit("world!");
+        let actual = simple_compute_bounds(&notation, false).fit_width(80).0;
+        let expected = Bound {
+            width: 6,
+            indent: 6,
+            height: 2,
+        };
+        assert_eq!(actual, expected);
+        let notation = lit("hello, dear") ^ lit("world");
+        let actual = simple_compute_bounds(&notation, false).fit_width(80).0;
+        let expected = Bound {
+            width: 11,
+            indent: 5,
+            height: 2,
+        };
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_follow() {
+        let notation = lit("hello, ") + lit("world");
+        let actual = simple_compute_bounds(&notation, false).fit_width(80).0;
+        let expected = Bound {
+            width: 12,
+            indent: 12,
+            height: 1,
+        };
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_example() {
+        let actual = simple_compute_bounds(&example_notation(), false)
+            .fit_width(80)
+            .0;
         let expected = Bound {
             width: 12,
             indent: 3,
@@ -121,21 +132,17 @@ mod layout_tests {
     }
 
     #[test]
-    fn test_bound_2() {
-        let actual = (lit("abc") ^ lit("de")).bound(vec![], 0).fit_width(80);
+    fn test_is_empty_text() {
+        let notation = Notation::IfEmptyText(Box::new(lit("a")), Box::new(lit("bc")));
+        let actual = simple_compute_bounds(&notation, false).fit_width(80).0;
         let expected = Bound {
-            width: 3,
+            width: 2,
             indent: 2,
-            height: 2,
+            height: 1,
         };
         assert_eq!(actual, expected);
-    }
 
-    #[test]
-    fn test_bound_3() {
-        let actual = if_empty_text(lit("a"), lit("bc"))
-            .bound(vec![], 0)
-            .fit_width(80);
+        let actual = simple_compute_bounds(&notation, true).fit_width(80).0;
         let expected = Bound {
             width: 1,
             indent: 1,
@@ -145,23 +152,9 @@ mod layout_tests {
     }
 
     #[test]
-    fn test_bound_4() {
-        let actual = if_empty_text(lit("a"), lit("bc"))
-            .bound(vec![], 1)
-            .fit_width(80);
-        let expected = Bound {
-            width: 2,
-            indent: 2,
-            height: 1,
-        };
-        assert_eq!(actual, expected);
-    }
-
-    #[test]
     fn test_show_layout() {
-        let syn = lit("abc") + (lit("def") ^ lit("g"));
-        let lay = &syn.layouts(vec![], 0).fit_width(80);
-        assert_eq!(format!("{:?}", lay), "abcdef\n   g");
+        let notation = lit("abc") + (lit("def") ^ lit("g"));
+        let layout = compute_layout(&notation, Pos::zero(), 80, &[], false);
+        assert_eq!(format!("{:?}", layout), "abcdef\n   g");
     }
 }
-*/

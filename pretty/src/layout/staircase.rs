@@ -77,7 +77,7 @@ impl<T: Clone + Debug> Staircase<T> {
             .binary_search_by_key(&-(width as isize), |(w, _, _)| -(*w as isize));
         let index = match width_index {
             Ok(i) => i,
-            Err(i) => i + 1,
+            Err(i) => i,
         };
         match self.stairs.get(index) {
             None => None,
@@ -278,19 +278,21 @@ mod tests {
 
     #[test]
     fn test_staircase_fit_bound() {
-        let mut stairs = basic_stairs();
-        let bound = stairs.fit_bound(Bound {
-            width: 4,
-            height: 7,
-            indent: 0,
-        });
+        let stairs = basic_stairs();
         assert_eq!(
-            bound,
-            Some(Bound {
+            stairs.fit_bound(Bound {
                 width: 4,
-                height: 4,
+                height: 7,
                 indent: 0,
-            })
+            }),
+            Some((
+                Bound {
+                    width: 4,
+                    height: 4,
+                    indent: 0,
+                },
+                &'a'
+            ))
         );
         assert_eq!(
             stairs.fit_bound(Bound {
@@ -299,6 +301,93 @@ mod tests {
                 indent: 0,
             }),
             None
+        );
+        assert_eq!(
+            stairs.fit_bound(Bound {
+                width: 100,
+                height: 100,
+                indent: 100,
+            }),
+            Some((
+                Bound {
+                    width: 6,
+                    height: 2,
+                    indent: 0,
+                },
+                &'a'
+            ))
+        );
+    }
+
+    #[test]
+    fn test_staircase_fit_width() {
+        let stairs = basic_stairs();
+        assert_eq!(stairs.fit_width(1), None,);
+        assert_eq!(
+            stairs.fit_width(2),
+            Some((
+                Bound {
+                    width: 2,
+                    height: 6,
+                    indent: 0,
+                },
+                &'a'
+            ))
+        );
+        assert_eq!(
+            stairs.fit_width(3),
+            Some((
+                Bound {
+                    width: 2,
+                    height: 6,
+                    indent: 0,
+                },
+                &'a'
+            ))
+        );
+        assert_eq!(
+            stairs.fit_width(4),
+            Some((
+                Bound {
+                    width: 4,
+                    height: 4,
+                    indent: 0,
+                },
+                &'a'
+            ))
+        );
+        assert_eq!(
+            stairs.fit_width(6),
+            Some((
+                Bound {
+                    width: 6,
+                    height: 2,
+                    indent: 0,
+                },
+                &'a'
+            ))
+        );
+        assert_eq!(
+            stairs.fit_width(7),
+            Some((
+                Bound {
+                    width: 6,
+                    height: 2,
+                    indent: 0,
+                },
+                &'a'
+            ))
+        );
+        assert_eq!(
+            stairs.fit_width(100),
+            Some((
+                Bound {
+                    width: 6,
+                    height: 2,
+                    indent: 0,
+                },
+                &'a'
+            ))
         );
     }
 }
