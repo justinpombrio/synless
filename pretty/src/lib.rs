@@ -21,6 +21,6 @@ mod style;
 
 pub use self::geometry::{Bound, Col, Pos, Rect, Region, Row, MAX_WIDTH};
 pub use self::notation::{Notation, RepeatInner};
-pub use self::pretty::{DocPosSpec, PlainText, PrettyDocument, PrettyWindow};
+pub use self::pretty::{Bounds, DocPosSpec, PlainText, PrettyDocument, PrettyWindow};
 pub use self::style::{Color, ColorTheme, Emph, Rgb, Shade, ShadedStyle, Style};
 pub use pane::{CursorVis, DocLabel, Pane, PaneError, PaneNotation, PaneSize};

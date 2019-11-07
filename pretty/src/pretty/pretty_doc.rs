@@ -1,8 +1,8 @@
 use std::cmp;
 
 use super::pretty_window::PrettyWindow;
-use crate::geometry::{Bound, Col, Pos, Rect, Region, Row};
-use crate::layout::{compute_bounds, compute_layout, BoundSet, Layout, LayoutElement};
+use crate::geometry::{Col, Pos, Rect, Region, Row, Bound};
+use crate::layout::{compute_bounds, compute_layout, BoundSet, Layout, LayoutElement, NotationOps};
 use crate::notation::Notation;
 use crate::pane::{CursorVis, Pane};
 use crate::style::{Shade, Style};
@@ -109,7 +109,7 @@ pub trait PrettyDocument: Sized + Clone {
         }
         path.reverse();
         // Recursively compute the cursor region.
-        let bound = self.bounds().0.fit_width(width).0;
+        let bound = self.bounds().fit_width(width);
         let region = Region {
             pos: Pos::zero(),
             bound,
@@ -120,7 +120,7 @@ pub trait PrettyDocument: Sized + Clone {
     /// Find the minimum height required to pretty-print the document with the given width.
     fn required_height(&self, width: Col) -> Row {
         let root = self.root();
-        root.bounds().0.fit_width(width).0.height
+        root.bounds().fit_width(width).height
     }
 
     /// Goto the root of the document.
@@ -148,31 +148,49 @@ impl Bounds {
     /// 2. This _does not_ depend on the width with which the document will be
     /// pretty-printed.
     pub fn compute<Doc: PrettyDocument>(doc: &Doc) -> Bounds {
-        compute_bounds(doc.notation(), child_bounds(doc), is_empty_text(doc))
+        let owned_child_bounds = child_bounds(doc);
+        let refs: Vec<_> = owned_child_bounds.iter().map(|b| &b.0).collect();
+        Bounds(compute_bounds(doc.notation(), &refs, is_empty_text(doc)))
+    }
+
+    /// Construct an empty, uninitialized `Bounds`. You shouldn't use an
+    /// uinitialized `Bounds` for anything! You should use a properly
+    /// computed `Bounds` returned by `Bounds::compute()`, instead.
+    pub fn uninitialized() -> Bounds {
+        Bounds(BoundSet::new())
+    }
+
+    /// Pick the best (i.e., smallest) Bound that fits within the
+    /// given width. Panics if none fit.
+    fn fit_width(&self, width: Col) -> Bound {
+        self.0.fit_width(width).0
     }
 }
 
 fn child_bounds<Doc: PrettyDocument>(doc: &Doc) -> Vec<Bounds> {
     match doc.text() {
         None => doc.children().iter().map(|child| child.bounds()).collect(),
-        Some(text) => vec![Bounds(BoundSet::literal(text, Style::plain()))],
+        Some(text) => vec![Bounds(BoundSet::literal(text.as_ref(), Style::plain()))],
     }
 }
 
 fn is_empty_text<Doc: PrettyDocument>(doc: &Doc) -> bool {
     if let Some(text) = doc.text() {
-        text.is_empty()
+        text.as_ref().is_empty()
     } else {
         false
     }
 }
 
 fn layout<Doc: PrettyDocument>(doc: &Doc, pos: Pos, width: Col) -> Layout {
+    let owned_child_bounds = child_bounds(doc);
+    let refs: Vec<_> = owned_child_bounds.iter().map(|b| &b.0).collect();
+
     compute_layout(
         doc.notation(),
         pos,
         width,
-        child_bounds(doc),
+        &refs,
         is_empty_text(doc),
     )
 }
@@ -184,10 +202,10 @@ where
     match path {
         [] => Region {
             pos: region.pos,
-            bound: doc.bounds().fit_width(region.width),
+            bound: doc.bounds().fit_width(region.width()),
         },
         [i, path @ ..] => {
-            let layout = layout(doc, region.pos, region.width);
+            let layout = layout(doc, region.pos, region.width());
             let child_region = match layout.children.get(*i) {
                 Some(Some(element)) => element.region(),
                 _ => panic!("PrettyDocument::locate_cursor - lost child"),
@@ -215,27 +233,30 @@ where
         }
         match element {
             LayoutElement::Literal(region, text, style) => {
-                render_text(text, *region, pane, doc_rect, style)
+                render_text(text, *region, pane, doc_rect, *style)?;
             }
             LayoutElement::Text(region, style) => {
                 let text = doc
                     .text()
                     .expect("PrettyDocument::render - Expected text, found branch node");
-                render_text(text, *region, pane, doc_rect, style)
+                render_text(text.as_ref(), *region, pane, doc_rect, *style)?;
             }
             LayoutElement::Child(region, index) => {
                 let child = &doc.child(*index);
+                let owned_child_bounds = child_bounds(doc);
+                let refs: Vec<_> = owned_child_bounds.iter().map(|b| &b.0).collect();
                 let layout = compute_layout(
                     child.notation(),
                     region.pos,
-                    region.width,
-                    child_bounds(child),
+                    region.width(),
+                    &refs,
                     is_empty_text(child),
                 );
-                render(child, pane, doc_rect, &layout)
+                render(child, pane, doc_rect, &layout)?;
             }
         }
     }
+    Ok(())
 }
 
 fn render_text<'a, Win>(

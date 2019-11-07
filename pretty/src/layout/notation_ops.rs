@@ -101,9 +101,7 @@ impl<T: NotationOps> NotationOps for BoundSet<T> {
         for (b2, v2) in set2 {
             for staircase1 in set1.staircases() {
                 let space_available = staircase1.indent() + b2.width;
-                dbg!(space_available, b2.width);
                 if let Some((b1, v1)) = staircase1.fit_width(space_available) {
-                    dbg!(b1.width);
                     set.insert(Bound::follow(b1, b2), T::follow(v1.clone(), v2.clone()));
                 }
             }
@@ -162,11 +160,11 @@ impl NotationOps for ResolvedNotation {
         Vert(Box::new(left), Box::new(right))
     }
 
-    fn text(child: Bound, style: Style) -> ResolvedNotation {
-        Text(style, child)
+    fn text(bound: Bound, style: Style) -> ResolvedNotation {
+        Text(style, bound)
     }
 
-    fn child(i: usize, child: Bound) -> ResolvedNotation {
-        Child(i, child)
+    fn child(i: usize, bound: Bound) -> ResolvedNotation {
+        Child(i, bound)
     }
 }

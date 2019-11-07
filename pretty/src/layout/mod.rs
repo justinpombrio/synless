@@ -8,22 +8,15 @@ mod layout_debug_print;
 mod notation_ops;
 mod staircase;
 
-use crate::geometry::{Col, Pos};
-use crate::notation::Notation;
-use crate::style::Style;
 pub use boundset::BoundSet;
-use notation_ops::NotationOps;
-
-#[cfg(test)]
-use crate::geometry::Bound;
-
 pub use compute_bounds::compute_bounds;
 pub use compute_layout::{compute_layout, Layout, LayoutElement};
+pub use notation_ops::NotationOps;
 
 #[cfg(test)]
 mod layout_tests {
     use super::*;
-    use crate::geometry::Bound;
+    use crate::geometry::{Bound, Pos};
     use crate::notation::*;
     use crate::style::Style;
 
