@@ -1,3 +1,4 @@
+use pretty::notation_constructors::{child, literal, no_wrap, repeat, text};
 use pretty::{Notation, RepeatInner, Style};
 use std::collections::HashMap;
 
@@ -78,24 +79,4 @@ fn punct(text: &str) -> Notation {
 
 fn indent() -> Notation {
     literal("  ", Style::plain())
-}
-
-fn child(index: usize) -> Notation {
-    Notation::Child(index)
-}
-
-fn no_wrap(inner: Notation) -> Notation {
-    Notation::NoWrap(Box::new(inner))
-}
-
-fn text(style: Style) -> Notation {
-    Notation::Text(style)
-}
-
-fn literal(string: &str, style: Style) -> Notation {
-    Notation::Literal(string.to_owned(), style)
-}
-
-fn repeat(inner: RepeatInner) -> Notation {
-    Notation::Repeat(Box::new(inner))
 }

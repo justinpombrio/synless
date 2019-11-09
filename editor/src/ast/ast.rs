@@ -99,7 +99,7 @@ impl<'l> Ast<'l> {
     /// Create a new `hole` node that belongs to the same forest as this node.
     pub fn new_hole(&mut self) -> Ast<'l> {
         let node = Node {
-            bounds: Bounds::empty(),
+            bounds: Bounds::uninitialized(),
             language: self.get_language(),
             construct: Construct::hole(),
             notation: NotationSet::hole(),
