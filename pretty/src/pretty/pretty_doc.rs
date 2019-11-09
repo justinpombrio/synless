@@ -208,7 +208,8 @@ where
             let layout = layout(doc, region.pos, region.width());
             let child_region = match layout.children.get(*i) {
                 Some(Some(element)) => element.region(),
-                _ => panic!("PrettyDocument::locate_cursor - lost child"),
+                Some(None) => panic!("PrettyDocument::locate_cursor - cursor is on an invisible node"),
+                None => panic!("PrettyDocument::locate_cursor - lost child"),
             };
             loc_cursor(&doc.child(*i), child_region, path)
         }
