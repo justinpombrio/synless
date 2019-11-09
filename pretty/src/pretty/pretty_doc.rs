@@ -109,7 +109,7 @@ pub trait PrettyDocument: Sized + Clone {
         }
         path.reverse();
         // Recursively compute the cursor region.
-        let bound = self.bounds().fit_width(width);
+        let bound = root.bounds().fit_width(width);
         let region = Region {
             pos: Pos::zero(),
             bound,
