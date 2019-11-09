@@ -46,9 +46,9 @@ fn keymap() -> Notation {
     repeat(RepeatInner {
         empty: punct("(empty keyhints)"),
         lone: child(0),
-        join: (child(0) + punct(", ") + no_wrap(child(1)))
-            | (child(0) + punct(",")) ^ no_wrap(child(1)),
-        surround: child(0),
+        join: (Notation::Left + punct(", ") + no_wrap(Notation::Right))
+            | (Notation::Left + punct(",")) ^ no_wrap(Notation::Right),
+        surround: Notation::Surrounded,
     })
 }
 

@@ -106,14 +106,14 @@ fn json_list() -> Notation {
     repeat(RepeatInner {
         empty: empty.clone(),
         lone: lone.clone(),
-        join: (child(0) + punct(", ") + no_wrap(child(1)))
-            | ((child(0) + punct(",")) ^ no_wrap(child(1))),
-        surround: punct("[") + child(0) + punct("]"),
+        join: (Notation::Left + punct(", ") + no_wrap(Notation::Right))
+            | ((Notation::Left + punct(",")) ^ no_wrap(Notation::Right)),
+        surround: punct("[") + Notation::Surrounded + punct("]"),
     }) | repeat(RepeatInner {
         empty,
         lone,
-        join: (child(0) + punct(",")) ^ child(1),
-        surround: punct("[") + child(0) + punct("]"),
+        join: (Notation::Left + punct(",")) ^ Notation::Right,
+        surround: punct("[") + Notation::Surrounded + punct("]"),
     })
 }
 
@@ -129,8 +129,8 @@ fn json_dict() -> Notation {
     repeat(RepeatInner {
         empty: punct("{}"),
         lone: punct("{") + child(0) + punct("}"),
-        join: (child(0) + punct(",")) ^ child(1),
-        surround: punct("{") ^ (indent() + child(0)) ^ punct("}"),
+        join: (Notation::Left + punct(",")) ^ Notation::Right,
+        surround: punct("{") ^ (indent() + Notation::Surrounded) ^ punct("}"),
     })
 }
 

@@ -26,7 +26,7 @@ fn list() -> Notation {
     repeat(RepeatInner {
         empty: literal("", Style::plain()),
         lone: child(0),
-        join: child(0) ^ child(1),
-        surround: child(0),
+        join: Notation::Left ^ Notation::Right,
+        surround: Notation::Surrounded,
     })
 }
