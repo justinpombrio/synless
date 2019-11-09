@@ -7,8 +7,8 @@ use common::{
     make_short_json_list, Doc,
 };
 use pretty::{
-    Col, CursorVis, DocLabel, DocPosSpec, PaneNotation, PaneSize, PlainText, Pos, PrettyDocument,
-    PrettyWindow, Style,
+    Bound, Col, CursorVis, DocLabel, DocPosSpec, PaneNotation, PaneSize, PlainText, Pos,
+    PrettyDocument, PrettyWindow, Region, Style,
 };
 
 // TODO: test ScrollStrategies other than Beginning.
@@ -228,6 +228,25 @@ fn test_string() {
 }
 
 #[test]
+fn test_string_cursor() {
+    let notations = make_json_notation();
+    let doc = Doc::new_leaf(notations["string"].clone(), "foobar");
+    let region = doc.as_ref().locate_cursor(80);
+
+    assert_eq!(
+        region,
+        Region {
+            pos: Pos::zero(),
+            bound: Bound {
+                height: 1,
+                width: 8,
+                indent: 8
+            }
+        }
+    );
+}
+
+#[test]
 fn test_string_in_list() {
     let notations = make_json_notation();
     let s = Doc::new_leaf(notations["string"].clone(), "foobar");
@@ -245,6 +264,39 @@ fn test_string_in_list() {
         .unwrap();
 
     assert_strings_eq(&window.to_string(), "[\"foobar\"]");
+}
+
+#[test]
+fn test_string_in_list_cursor() {
+    let notations = make_json_notation();
+    let s = Doc::new_leaf(notations["string"].clone(), "foobar");
+    let doc = Doc::new_branch(notations["list"].clone(), vec![s]);
+    let list_region = doc.as_ref().locate_cursor(80);
+
+    assert_eq!(
+        list_region,
+        Region {
+            pos: Pos::zero(),
+            bound: Bound {
+                height: 1,
+                width: 10,
+                indent: 10
+            }
+        }
+    );
+
+    let string_region = doc.as_ref().child(0).locate_cursor(80);
+    assert_eq!(
+        string_region,
+        Region {
+            pos: Pos { row: 0, col: 1 },
+            bound: Bound {
+                height: 1,
+                width: 8,
+                indent: 8
+            }
+        }
+    );
 }
 
 #[test]
@@ -266,6 +318,113 @@ fn test_dict_in_list() {
         .unwrap();
 
     assert_strings_eq(&window.to_string(), "[{true}]");
+}
+#[test]
+fn test_nested_list_cursor() {
+    let notations = make_json_notation();
+    let child0 = Doc::new_branch(notations["true"].clone(), Vec::new());
+    let child1 = Doc::new_branch(notations["false"].clone(), Vec::new());
+    let grandchild0 = Doc::new_branch(notations["null"].clone(), Vec::new());
+    let child2 = Doc::new_branch(notations["list"].clone(), vec![grandchild0]);
+    let doc = Doc::new_branch(notations["list"].clone(), vec![child0, child1, child2]);
+
+    // [true, false, [null]]
+    assert_eq!(
+        doc.as_ref().locate_cursor(80),
+        Region {
+            pos: Pos::zero(),
+            bound: Bound {
+                height: 1,
+                width: 21,
+                indent: 21,
+            }
+        }
+    );
+    // [null]
+    assert_eq!(
+        doc.as_ref().child(2).locate_cursor(80),
+        Region {
+            pos: Pos { row: 0, col: 14 },
+            bound: Bound {
+                height: 1,
+                width: 6,
+                indent: 6,
+            }
+        }
+    );
+    // null
+    assert_eq!(
+        doc.as_ref().child(2).child(0).locate_cursor(80),
+        Region {
+            pos: Pos { row: 0, col: 15 },
+            bound: Bound {
+                height: 1,
+                width: 4,
+                indent: 4,
+            }
+        }
+    );
+}
+
+#[test]
+fn test_dict_in_list_cursor() {
+    let notations = make_json_notation();
+    let boolean1 = Doc::new_branch(notations["true"].clone(), Vec::new());
+    let boolean2 = Doc::new_branch(notations["false"].clone(), Vec::new());
+    let dict = Doc::new_branch(notations["dict"].clone(), vec![boolean1, boolean2]);
+    let doc = Doc::new_branch(notations["list"].clone(), vec![dict]);
+
+    let list_region = doc.as_ref().locate_cursor(80);
+    assert_eq!(
+        list_region,
+        Region {
+            pos: Pos::zero(),
+            bound: Bound {
+                height: 4,
+                width: 8,
+                indent: 3,
+            }
+        }
+    );
+
+    let dict_region = doc.as_ref().child(0).locate_cursor(80);
+    assert_eq!(
+        dict_region,
+        Region {
+            pos: Pos { row: 0, col: 1 },
+            bound: Bound {
+                height: 4,
+                width: 7,
+                indent: 1,
+            }
+        }
+    );
+
+    let bool1_region = doc.as_ref().child(0).child(0).locate_cursor(80);
+    assert_eq!(
+        bool1_region,
+        Region {
+            pos: Pos { row: 1, col: 3 },
+            bound: Bound {
+                height: 1,
+                width: 4,
+                indent: 4
+            }
+        }
+    );
+
+    let bool2_region = doc.as_ref().child(0).child(1).locate_cursor(80);
+    assert_eq!(
+        bool2_region,
+        Region {
+            pos: Pos { row: 2, col: 3 },
+            bound: Bound {
+                height: 1,
+                width: 5,
+                indent: 5
+            }
+        }
+    );
 }
 
 #[test]
