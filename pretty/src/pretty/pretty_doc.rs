@@ -243,8 +243,8 @@ where
             }
             LayoutElement::Child(region, index) => {
                 let child = &doc.child(*index);
-                let owned_child_bounds = child_bounds(doc);
-                let refs: Vec<_> = owned_child_bounds.iter().map(|b| &b.0).collect();
+                let owned_grandchild_bounds = child_bounds(child);
+                let refs: Vec<_> = owned_grandchild_bounds.iter().map(|b| &b.0).collect();
                 let layout = compute_layout(
                     child.notation(),
                     region.pos,

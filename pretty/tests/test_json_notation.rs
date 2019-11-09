@@ -265,7 +265,7 @@ fn test_dict_in_list() {
         )
         .unwrap();
 
-    assert_strings_eq(&window.to_string(), "[\"foobar\"]");
+    assert_strings_eq(&window.to_string(), "[{true}]");
 }
 
 #[test]
