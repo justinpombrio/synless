@@ -11,10 +11,12 @@ mod staircase;
 pub use boundset::BoundSet;
 pub use compute_bounds::compute_bounds;
 pub use compute_layout::{compute_layout, Layout, LayoutElement};
-pub use notation_ops::NotationOps;
+pub use notation_ops::{NotationOps, ResolvedNotation};
 
 #[cfg(test)]
 mod layout_tests {
+    use typed_arena::Arena;
+
     use super::*;
     use crate::geometry::{Bound, Pos};
     use crate::notation::*;
@@ -24,17 +26,21 @@ mod layout_tests {
     fn test_bound_construction() {
         let sty = Style::plain();
         let actual = Bound::vert(
-            Bound::literal("abc", sty),
+            Bound::literal("abc", sty, ()),
             Bound::follow(
-                Bound::literal("Schrödinger", sty),
+                Bound::literal("Schrödinger", sty, ()),
                 Bound::vert(
                     Bound::follow(
-                        Bound::literal("I", sty),
-                        Bound::literal(" am indented", sty),
+                        Bound::literal("I", sty, ()),
+                        Bound::literal(" am indented", sty, ()),
+                        (),
                     ),
-                    Bound::literal("me too", sty),
+                    Bound::literal("me too", sty, ()),
+                    (),
                 ),
+                (),
             ),
+            (),
         );
         let expected = Bound {
             width: 24,
@@ -49,7 +55,7 @@ mod layout_tests {
     }
 
     fn simple_compute_bounds(notation: &Notation, is_empty_text: bool) -> BoundSet<()> {
-        compute_bounds(notation, &[], is_empty_text)
+        compute_bounds(notation, &[], is_empty_text, ())
     }
 
     fn example_notation() -> Notation {
@@ -85,9 +91,9 @@ mod layout_tests {
         let child_boundset = simple_compute_bounds(&child_notation, false);
         let list_notation = example_repeat_notation();
         let inner_list_boundset: BoundSet<()> =
-            compute_bounds(&list_notation, &[&child_boundset], false);
+            compute_bounds(&list_notation, &[&child_boundset], false, ());
         let outer_list_boundset: BoundSet<()> =
-            compute_bounds(&list_notation, &[&inner_list_boundset], false);
+            compute_bounds(&list_notation, &[&inner_list_boundset], false, ());
 
         assert_eq!(
             child_boundset.fit_width(80).0,
@@ -182,18 +188,20 @@ mod layout_tests {
 
     #[test]
     fn test_show_layout() {
+        let arena = Arena::new();
         let notation = lit("abc") + (lit("def") ^ lit("g"));
-        let layout = compute_layout(&notation, Pos::zero(), 80, &[], false);
+        let layout = compute_layout(&notation, Pos::zero(), 80, &[], false, &arena);
         assert_eq!(format!("{:?}", layout), "abcdef\n   g");
     }
 
     #[test]
     fn test_show_nested_list_layout() {
+        let arena = Arena::new();
         let child_notation = lit("hello");
         let child_boundset = simple_compute_bounds(&child_notation, false);
         let list_notation = example_repeat_notation();
         let inner_list_boundset: BoundSet<()> =
-            compute_bounds(&list_notation, &[&child_boundset], false);
+            compute_bounds(&list_notation, &[&child_boundset], false, ());
 
         let outer_list_layout = compute_layout(
             &list_notation,
@@ -201,14 +209,21 @@ mod layout_tests {
             80,
             &[&inner_list_boundset],
             false,
+            &arena,
         );
         assert_eq!(format!("{:?}", outer_list_layout), "[0000000]");
 
-        let inner_list_layout =
-            compute_layout(&list_notation, Pos::zero(), 80, &[&child_boundset], false);
+        let inner_list_layout = compute_layout(
+            &list_notation,
+            Pos::zero(),
+            80,
+            &[&child_boundset],
+            false,
+            &arena,
+        );
         assert_eq!(format!("{:?}", inner_list_layout), "[00000]");
 
-        let child_layout = compute_layout(&child_notation, Pos::zero(), 80, &[], false);
+        let child_layout = compute_layout(&child_notation, Pos::zero(), 80, &[], false, &arena);
         assert_eq!(format!("{:?}", child_layout), "hello");
     }
 

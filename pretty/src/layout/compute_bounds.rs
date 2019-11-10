@@ -28,32 +28,39 @@ pub fn compute_bounds<T: NotationOps>(
     notation: &Notation,
     child_bounds: &[&BoundSet<()>],
     is_empty_text: bool,
+    allocator: T::Allocator,
 ) -> BoundSet<T> {
-    ComputeBounds::new(child_bounds, is_empty_text).compute(notation, None, None)
+    ComputeBounds::new(child_bounds, is_empty_text, allocator).compute(notation, None, None)
 }
 
-struct ComputeBounds<'a> {
+struct ComputeBounds<'a, T: NotationOps> {
     child_bounds: &'a [&'a BoundSet<()>],
     is_empty_text: bool,
+    allocator: T::Allocator,
 }
 
-impl ComputeBounds<'_> {
-    fn new<'a>(child_bounds: &'a [&'a BoundSet<()>], is_empty_text: bool) -> ComputeBounds<'a> {
+impl<'a, T: NotationOps> ComputeBounds<'a, T> {
+    fn new(
+        child_bounds: &'a [&'a BoundSet<()>],
+        is_empty_text: bool,
+        allocator: T::Allocator,
+    ) -> ComputeBounds<'a, T> {
         ComputeBounds {
             child_bounds,
             is_empty_text,
+            allocator,
         }
     }
 
-    fn compute<T: NotationOps>(
+    fn compute(
         &self,
         notation: &Notation,
         in_join: Option<(&BoundSet<T>, &BoundSet<T>)>,
         in_surround: Option<&BoundSet<T>>,
     ) -> BoundSet<T> {
         match notation {
-            Empty => BoundSet::empty(),
-            Literal(string, style) => BoundSet::literal(string, *style),
+            Empty => BoundSet::empty(self.allocator),
+            Literal(string, style) => BoundSet::literal(string, *style, self.allocator),
             Text(style) => self.get_text_bounds(*style),
             Child(i) => self.get_child_bounds(*i),
             Follow(notations) => {
@@ -63,7 +70,7 @@ impl ComputeBounds<'_> {
                 let mut total_bounds = self.compute(first_notation, in_join, in_surround);
                 for notation in notations {
                     let bounds = self.compute(notation, in_join, in_surround);
-                    total_bounds = BoundSet::follow(total_bounds, bounds);
+                    total_bounds = BoundSet::follow(total_bounds, bounds, self.allocator);
                 }
                 total_bounds
             }
@@ -74,7 +81,7 @@ impl ComputeBounds<'_> {
                 let mut total_bounds = self.compute(first_notation, in_join, in_surround);
                 for notation in notations {
                     let bounds = self.compute(notation, in_join, in_surround);
-                    total_bounds = BoundSet::vert(total_bounds, bounds);
+                    total_bounds = BoundSet::vert(total_bounds, bounds, self.allocator);
                 }
                 total_bounds
             }
@@ -129,17 +136,17 @@ impl ComputeBounds<'_> {
         }
     }
 
-    fn get_child_bounds<T: NotationOps>(&self, i: usize) -> BoundSet<T> {
+    fn get_child_bounds(&self, i: usize) -> BoundSet<T> {
         self.child_bounds[i]
             .iter()
-            .map(|(b, _)| (b, T::child(i, b)))
+            .map(|(b, _)| (b, T::child(i, b, self.allocator)))
             .collect()
     }
 
-    fn get_text_bounds<T: NotationOps>(&self, style: Style) -> BoundSet<T> {
+    fn get_text_bounds(&self, style: Style) -> BoundSet<T> {
         self.child_bounds[0]
             .iter()
-            .map(|(b, _)| (b, T::text(b, style)))
+            .map(|(b, _)| (b, T::text(b, style, self.allocator)))
             .collect()
     }
 }

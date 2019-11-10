@@ -1,8 +1,9 @@
 use std::cmp;
+use typed_arena::Arena;
 
 use super::pretty_window::PrettyWindow;
 use crate::geometry::{Col, Pos, Rect, Region, Row, Bound};
-use crate::layout::{compute_bounds, compute_layout, BoundSet, Layout, LayoutElement, NotationOps};
+use crate::layout::{compute_bounds, compute_layout, BoundSet, Layout, LayoutElement, NotationOps, ResolvedNotation};
 use crate::notation::Notation;
 use crate::pane::{CursorVis, Pane};
 use crate::style::{Shade, Style};
@@ -65,33 +66,37 @@ pub trait PrettyDocument: Sized + Clone {
     where
         T: PrettyWindow,
     {
-        let root = self.root();
-        let layout = layout(&root, Pos::zero(), width);
-        let cursor_region = self.locate_cursor(width);
-        let doc_pos = match doc_pos_spec {
-            DocPosSpec::CursorHeight { fraction } => {
-                let fraction = f32::max(0.0, f32::min(1.0, fraction));
-                let offset_from_top =
-                    f32::round((pane.rect.height() - 1) as f32 * (1.0 - fraction)) as Row;
-                Pos {
-                    col: 0,
-                    row: u32::saturating_sub(cursor_region.pos.row, offset_from_top),
+        let owned_arena = Arena::new();
+        let arena = &owned_arena;
+        {
+            let root = self.root();
+            let layout = layout(&root, Pos::zero(), width, arena);
+            let cursor_region = self.locate_cursor(width);
+            let doc_pos = match doc_pos_spec {
+                DocPosSpec::CursorHeight { fraction } => {
+                    let fraction = f32::max(0.0, f32::min(1.0, fraction));
+                    let offset_from_top =
+                        f32::round((pane.rect.height() - 1) as f32 * (1.0 - fraction)) as Row;
+                    Pos {
+                        col: 0,
+                        row: u32::saturating_sub(cursor_region.pos.row, offset_from_top),
+                    }
                 }
-            }
-            DocPosSpec::Fixed(pos) => pos,
-            DocPosSpec::Beginning => Pos { row: 0, col: 0 },
-        };
-
-        let doc_rect = Rect::new(doc_pos, pane.rect().size());
-        render(&root, pane, doc_rect, &layout)?;
-
-        // TODO handle multiple levels of cursor shading
-        if let CursorVis::Show = cursor_visibility {
-            let region = Region {
-                pos: cursor_region.pos - doc_pos,
-                ..cursor_region
+                DocPosSpec::Fixed(pos) => pos,
+                DocPosSpec::Beginning => Pos { row: 0, col: 0 },
             };
-            pane.highlight(region, Some(Shade(0)), false)?;
+
+            let doc_rect = Rect::new(doc_pos, pane.rect().size());
+            render(&root, pane, doc_rect, &layout, arena)?;
+
+            // TODO handle multiple levels of cursor shading
+            if let CursorVis::Show = cursor_visibility {
+                let region = Region {
+                    pos: cursor_region.pos - doc_pos,
+                    ..cursor_region
+                };
+                pane.highlight(region, Some(Shade(0)), false)?;
+            }
         }
         Ok(())
     }
@@ -99,6 +104,9 @@ pub trait PrettyDocument: Sized + Clone {
     /// Find the region covered by this sub-document, when the entire document is
     /// pretty-printed with the given `width`.
     fn locate_cursor(&self, width: Col) -> Region {
+        // TODO use the same arena as pretty_print()?
+        let arena = Arena::new();
+
         // Find the root of the Document, and the path from the root to the
         // selected node.
         let mut path = vec![];
@@ -114,7 +122,7 @@ pub trait PrettyDocument: Sized + Clone {
             pos: Pos::zero(),
             bound,
         };
-        loc_cursor(&root, region, &path)
+        loc_cursor(&root, region, &path, &arena)
     }
 
     /// Find the minimum height required to pretty-print the document with the given width.
@@ -150,7 +158,7 @@ impl Bounds {
     pub fn compute<Doc: PrettyDocument>(doc: &Doc) -> Bounds {
         let owned_child_bounds = child_bounds(doc);
         let refs: Vec<_> = owned_child_bounds.iter().map(|b| &b.0).collect();
-        Bounds(compute_bounds(doc.notation(), &refs, is_empty_text(doc)))
+        Bounds(compute_bounds(doc.notation(), &refs, is_empty_text(doc), ()))
     }
 
     /// Construct an empty, uninitialized `Bounds`. You shouldn't use an
@@ -170,7 +178,7 @@ impl Bounds {
 fn child_bounds<Doc: PrettyDocument>(doc: &Doc) -> Vec<Bounds> {
     match doc.text() {
         None => doc.children().iter().map(|child| child.bounds()).collect(),
-        Some(text) => vec![Bounds(BoundSet::literal(text.as_ref(), Style::plain()))],
+        Some(text) => vec![Bounds(BoundSet::literal(text.as_ref(), Style::plain(), ()))],
     }
 }
 
@@ -182,7 +190,9 @@ fn is_empty_text<Doc: PrettyDocument>(doc: &Doc) -> bool {
     }
 }
 
-fn layout<Doc: PrettyDocument>(doc: &Doc, pos: Pos, width: Col) -> Layout {
+fn layout<'a, Doc: PrettyDocument>(
+    doc: &Doc, pos: Pos, width: Col, allocator: &'a Arena<ResolvedNotation<'a>>,
+) -> Layout {
     let owned_child_bounds = child_bounds(doc);
     let refs: Vec<_> = owned_child_bounds.iter().map(|b| &b.0).collect();
 
@@ -192,10 +202,11 @@ fn layout<Doc: PrettyDocument>(doc: &Doc, pos: Pos, width: Col) -> Layout {
         width,
         &refs,
         is_empty_text(doc),
+        allocator,
     )
 }
 
-fn loc_cursor<Doc>(doc: &Doc, region: Region, path: &[usize]) -> Region
+fn loc_cursor<'a, Doc>(doc: &Doc, region: Region, path: &[usize], allocator: &'a Arena<ResolvedNotation<'a>>) -> Region
 where
     Doc: PrettyDocument,
 {
@@ -205,23 +216,24 @@ where
             bound: doc.bounds().fit_width(region.width()),
         },
         [i, path @ ..] => {
-            let layout = layout(doc, region.pos, region.width());
+            let layout = layout(doc, region.pos, region.width(), allocator);
             let child_region = match layout.children.get(*i) {
                 Some(Some(element)) => element.region(),
                 Some(None) => panic!("PrettyDocument::locate_cursor - cursor is on an invisible node"),
                 None => panic!("PrettyDocument::locate_cursor - lost child"),
             };
-            loc_cursor(&doc.child(*i), child_region, path)
+            loc_cursor(&doc.child(*i), child_region, path, allocator)
         }
     }
 }
 
 // TODO: shading and highlighting
-fn render<'a, Doc, Win>(
+fn render<'a, 'arena, Doc, Win>(
     doc: &Doc,
     pane: &mut Pane<'a, Win>,
     doc_rect: Rect,
     layout: &Layout,
+    allocator: &'arena Arena<ResolvedNotation<'arena>>,
 ) -> Result<(), Win::Error>
 where
     Doc: PrettyDocument,
@@ -252,8 +264,9 @@ where
                     region.width(),
                     &refs,
                     is_empty_text(child),
+                    allocator,
                 );
-                render(child, pane, doc_rect, &layout)?;
+                render(child, pane, doc_rect, &layout, allocator)?;
             }
         }
     }

@@ -4,7 +4,9 @@ use super::notation_ops::{NotationOps, ResolvedNotation};
 use crate::geometry::{Bound, Col, Pos, Region};
 use crate::notation::Notation;
 use crate::style::Style;
+
 use std::iter;
+
 use ResolvedNotation::*;
 
 /// A concrete plan for how to lay out the `Notation`, once the program
@@ -46,17 +48,22 @@ impl LayoutElement {
 /// 3. The available screen width.
 /// 4. The Bounds of the Node's children.
 /// 5. Whether the node is empty text
-pub fn compute_layout(
+///
+/// It also requires something that can allocate ResolvedNotations efficiently.
+pub fn compute_layout<'a>(
     notation: &Notation,
     pos: Pos,
     width: Col,
     child_bounds: &[&BoundSet<()>],
     is_empty_text: bool,
+    allocator: <&'a ResolvedNotation<'a> as NotationOps>::Allocator,
 ) -> Layout {
-    let boundset = compute_bounds(notation, child_bounds, is_empty_text);
+    // let boundset: BoundSet<&'a ResolvedNotation<'a>> =
+    let boundset: BoundSet<&'a ResolvedNotation<'a>> =
+        compute_bounds(notation, child_bounds, is_empty_text, allocator);
     let (_, resolved_notation) = boundset.fit_width(width);
     let mut computer = ComputeLayout::new(child_bounds.len());
-    computer.lay_out(resolved_notation, pos);
+    computer.lay_out(resolved_notation, pos, allocator);
     computer.0
 }
 
@@ -70,10 +77,15 @@ impl ComputeLayout {
         })
     }
 
-    fn lay_out(&mut self, notation: &ResolvedNotation, pos: Pos) -> Bound {
+    fn lay_out<'a>(
+        &mut self,
+        notation: &'a ResolvedNotation<'a>,
+        pos: Pos,
+        allocator: <&'a ResolvedNotation<'a> as NotationOps>::Allocator,
+    ) -> Bound {
         let mut pos = pos;
         match notation {
-            Empty => Bound::empty(),
+            Empty => Bound::empty(()),
             Literal(string, style, bound) => {
                 let region = Region { pos, bound: *bound };
                 let element = LayoutElement::Literal(region, string.to_string(), *style);
@@ -81,16 +93,16 @@ impl ComputeLayout {
                 *bound
             }
             Follow(left, right) => {
-                let left_bound = self.lay_out(left, pos);
+                let left_bound = self.lay_out(left, pos, allocator);
                 pos = pos + left_bound.end();
-                let right_bound = self.lay_out(right, pos);
-                Bound::follow(left_bound, right_bound)
+                let right_bound = self.lay_out(right, pos, allocator);
+                Bound::follow(left_bound, right_bound, ())
             }
             Vert(left, right) => {
-                let left_bound = self.lay_out(left, pos);
+                let left_bound = self.lay_out(left, pos, allocator);
                 pos.row += left_bound.height;
-                let right_bound = self.lay_out(right, pos);
-                Bound::vert(left_bound, right_bound)
+                let right_bound = self.lay_out(right, pos, allocator);
+                Bound::vert(left_bound, right_bound, ())
             }
             Text(style, bound) => {
                 let region = Region { pos, bound: *bound };
