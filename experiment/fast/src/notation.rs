@@ -131,22 +131,26 @@ impl Notation {
                 }
                 Ok(right_compat)
             }
-            Notation::Choice((note1, _), (note2, _)) => {
+            Notation::Choice((note1, uninit_req1), (note2, uninit_req2)) => {
                 let compat1 = note1.finalize_helper()?;
                 let compat2 = note2.finalize_helper()?;
-                match (compat1.is_possible(), compat2.is_possible()) {
-                    (true, true) => Ok(compat1.min(&compat2)),
-                    (true, false) => {
+                match (compat1.into_requirement(), compat2.into_requirement()) {
+                    (Some(req1), Some(req2)) => {
+                        *uninit_req1 = req1;
+                        *uninit_req2 = req2;
+                        Ok(compat1.min(&compat2))
+                    }
+                    (Some(_req1), None) => {
                         let dummy = Notation::Newline;
                         *self = mem::replace(note1, dummy);
                         Ok(compat1)
                     }
-                    (false, true) => {
+                    (None, Some(_req2)) => {
                         let dummy = Notation::Newline;
                         *self = mem::replace(note2, dummy);
                         Ok(compat2)
                     }
-                    (false, false) => Err(()),
+                    (None, None) => Err(()),
                 }
             }
         }
@@ -166,12 +170,6 @@ impl Notation {
 }
 
 impl Compatibility {
-    fn new() -> Compatibility {
-        Compatibility {
-            single_line: None,
-            multi_line: None,
-        }
-    }
     fn is_possible(&self) -> bool {
         self.single_line.is_some() || self.multi_line.is_some()
     }
