@@ -46,7 +46,7 @@ pub enum ChoosyChild {
 impl Notation {
     pub fn finalize(&mut self) -> Result<(), ()> {
         let compat = self.finalize_helper()?;
-        if compat.is_possible() {
+        if !compat.is_possible() {
             println!("no choices at root!");
             Err(())
         } else {
