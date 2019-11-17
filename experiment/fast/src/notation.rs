@@ -1,16 +1,15 @@
+use std::mem;
+
+// INVARIANT: Choice vec is non-empty
 #[derive(Clone, Debug)]
 pub enum Notation {
     Literal(String),
     Newline,
     Indent(usize, Box<Notation>),
     NoWrap(Box<Notation>),
-    Concat {
-        left: Box<Notation>,
-        right: Box<Notation>,
-        choosy: ChoosyChild,
-    },
+    Concat(Box<Notation>, Box<Notation>, ChoosyChild),
     Nest(Box<Notation>, Box<Notation>),
-    Choice(Vec<(Notation, Requirement)>),
+    Choice((Box<Notation>, Requirement), (Box<Notation>, Requirement)),
 }
 
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
@@ -33,6 +32,22 @@ struct MultiLine {
 pub struct Requirement {
     single_line: Option<usize>,
     multi_line: Option<(usize, usize)>,
+}
+
+impl Requirement {
+    pub fn has_single_line(&self) -> bool {
+        self.single_line.is_some()
+    }
+
+    pub fn fits_single_line(&self, length: usize) -> bool {
+        self.single_line.map(|l| l <= length).unwrap_or(false)
+    }
+
+    pub fn fits_multi_line(&self, first_length: usize, last_length: usize) -> bool {
+        self.multi_line
+            .map(|(fl, ll)| fl <= first_length && ll <= last_length)
+            .unwrap_or(false)
+    }
 }
 
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
@@ -75,39 +90,37 @@ impl Notation {
                 compat.multi_line = None;
                 Ok(compat)
             }
-            Notation::Concat {
-                left,
-                right,
-                choosy,
-            } => {
+            Notation::Concat(left, right, choosy) => {
                 let left_compat = left.finalize_helper()?;
                 let right_compat = right.finalize_helper()?;
-
-                let multi_options = match (
-                    left_compat.single_line,
-                    right_compat.single_line,
-                    &left_compat.multi_line,
-                    &right_compat.multi_line,
-                ) {
-                    (Some(ls), Some(rs), Some(lm), Some(rm)) => vec![
-                        lm.concat_multi(rm)?,
-                        lm.concat_single_right(rs),
-                        rm.concat_single_left(ls),
-                    ],
-                    (None, Some(rs), Some(lm), Some(rm)) => {
-                        vec![lm.concat_multi(rm)?, lm.concat_single_right(rs)]
-                    }
-                    (Some(ls), None, Some(lm), Some(rm)) => {
-                        vec![lm.concat_multi(rm)?, rm.concat_single_left(ls)]
-                    }
-                    (None, None, Some(lm), Some(rm)) => vec![lm.concat_multi(rm)?],
-                    (Some(ls), _, None, Some(rm)) => vec![rm.concat_single_left(ls)],
-                    (_, Some(rs), Some(lm), None) => vec![lm.concat_single_right(rs)],
-                    _ => Vec::new(),
+                // Initialize defaults
+                let mut compat = Compatibility {
+                    single_line: None,
+                    multi_line: None,
                 };
-
+                let mut multi_line_options = vec![];
                 *choosy = ChoosyChild::Neither;
+                // Consider the four cases that left&right could be concatenated
+                if let (Some(ls), Some(rs)) = (left_compat.single_line, right_compat.single_line) {
+                    compat.single_line = Some(ls + rs);
+                }
+                if let (Some(ls), Some(rm)) = (left_compat.single_line, right_compat.multi_line) {
+                    let mut option = rm;
+                    option.first_length += ls;
+                    multi_line_options.push(option);
+                }
+                if let (Some(lm), Some(rs)) = (left_compat.multi_line, right_compat.single_line) {
+                    let mut option = lm;
+                    option.last_length += rs;
+                    multi_line_options.push(option);
+                }
                 if let (Some(lm), Some(rm)) = (left_compat.multi_line, right_compat.multi_line) {
+                    multi_line_options.push(MultiLine {
+                        first_length: lm.first_length,
+                        last_length: rm.last_length,
+                        choosy_first: lm.choosy_first,
+                        choosy_last: rm.choosy_last,
+                    });
                     *choosy = match (lm.choosy_last, rm.choosy_first) {
                         (true, true) => return Err(()),
                         (true, false) => ChoosyChild::Left,
@@ -115,21 +128,11 @@ impl Notation {
                         (false, false) => ChoosyChild::Neither,
                     };
                 }
-
-                let multi_line = multi_options.into_iter().min_by_key(|ml| ml.first_length);
-
-                let single_line = if let (Some(x), Some(y)) =
-                    (left_compat.single_line, right_compat.single_line)
-                {
-                    Some(x + y)
-                } else {
-                    None
-                };
-
-                Ok(Compatibility {
-                    single_line,
-                    multi_line,
-                })
+                // TODO: check if minimizing by first_length == minimizing by last_length
+                compat.multi_line = multi_line_options
+                    .into_iter()
+                    .min_by_key(|ml| ml.first_length);
+                Ok(compat)
             }
             Notation::Nest(left, right) => {
                 let left_compat = left.finalize_helper()?;
@@ -143,35 +146,37 @@ impl Notation {
                 }
                 Ok(right_compat)
             }
-            Notation::Choice(options) => {
-                let mut valid_options = Vec::new();
-                let mut total_compat = Compatibility::new();
-                for (mut note, _) in options.drain(..) {
-                    let compat = note.finalize_helper()?;
-                    if let Some(req) = compat.into_requirement() {
-                        valid_options.push((note, req));
-                        total_compat = total_compat.min(&compat);
+            Notation::Choice((note1, _), (note2, _)) => {
+                let compat1 = note1.finalize_helper()?;
+                let compat2 = note2.finalize_helper()?;
+                match (compat1.into_requirement(), compat2.into_requirement()) {
+                    (Some(req1), Some(req2)) => Ok(compat1.min(&compat2)),
+                    (Some(req1), None) => {
+                        let dummy = Notation::Newline;
+                        *self = mem::replace(note1, dummy);
+                        Ok(compat1)
                     }
+                    (None, Some(req2)) => {
+                        let dummy = Notation::Newline;
+                        *self = mem::replace(note2, dummy);
+                        Ok(compat2)
+                    }
+                    (None, None) => Err(()),
                 }
-                if valid_options.is_empty() {
-                    return Err(());
-                }
-                *options = valid_options;
-                Ok(total_compat)
             }
         }
     }
 
-    fn literal(lit: &str) -> Self {
+    pub fn indent(indent: usize, notation: Notation) -> Self {
+        Notation::Indent(indent, Box::new(notation))
+    }
+
+    pub fn literal(lit: &str) -> Self {
         Notation::Literal(lit.to_owned())
     }
 
-    fn concat(left: Notation, right: Notation) -> Self {
-        Notation::Concat {
-            left: Box::new(left),
-            right: Box::new(right),
-            choosy: ChoosyChild::Uninitialized,
-        }
+    pub fn concat(left: Notation, right: Notation) -> Self {
+        Notation::Concat(Box::new(left), Box::new(right), ChoosyChild::Uninitialized)
     }
 }
 
@@ -216,39 +221,6 @@ impl Compatibility {
     }
 }
 
-impl MultiLine {
-    fn concat_single_right(&self, right: usize) -> MultiLine {
-        MultiLine {
-            first_length: self.first_length,
-            last_length: self.last_length + right,
-            choosy_first: self.choosy_first,
-            choosy_last: self.choosy_last,
-        }
-    }
-
-    fn concat_single_left(&self, left: usize) -> MultiLine {
-        MultiLine {
-            first_length: left + self.first_length,
-            last_length: self.last_length,
-            choosy_first: self.choosy_first,
-            choosy_last: self.choosy_last,
-        }
-    }
-
-    fn concat_multi(&self, right: &MultiLine) -> Result<MultiLine, ()> {
-        if self.choosy_last && right.choosy_first {
-            Err(())
-        } else {
-            Ok(MultiLine {
-                first_length: self.first_length,
-                last_length: right.last_length,
-                choosy_first: self.choosy_first,
-                choosy_last: right.choosy_last,
-            })
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -289,7 +261,7 @@ mod tests {
             }
         );
         match note {
-            Notation::Concat { choosy, .. } => assert_eq!(choosy, ChoosyChild::Neither),
+            Notation::Concat(_, _, choosy) => assert_eq!(choosy, ChoosyChild::Neither),
             _ => panic!("Expected Notation::Concat variant"),
         }
     }
