@@ -57,7 +57,7 @@ fn pp(
             prefix.last_mut().unwrap().push_str(&text);
             pp(width, indent, prefix, suffix, right)
         }
-        Choice((left, left_req), (right, right_req)) => {
+        Choice((left, left_req), (right, _right_req)) => {
             let prefix_len = prefix.last().unwrap().chars().count();
             let suffix_len = suffix.last().unwrap().chars().count();
 
@@ -105,6 +105,6 @@ fn test_pp() {
             Notation::literal("world!"),
         ),
     );
-    n.finalize();
+    n.finalize().unwrap();
     assert_eq!(pretty_print(&n, 80), vec!["Hello", "    world!"]);
 }

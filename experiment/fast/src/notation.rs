@@ -134,19 +134,19 @@ impl Notation {
             Notation::Choice((note1, _), (note2, _)) => {
                 let compat1 = note1.finalize_helper()?;
                 let compat2 = note2.finalize_helper()?;
-                match (compat1.into_requirement(), compat2.into_requirement()) {
-                    (Some(req1), Some(req2)) => Ok(compat1.min(&compat2)),
-                    (Some(req1), None) => {
+                match (compat1.is_possible(), compat2.is_possible()) {
+                    (true, true) => Ok(compat1.min(&compat2)),
+                    (true, false) => {
                         let dummy = Notation::Newline;
                         *self = mem::replace(note1, dummy);
                         Ok(compat1)
                     }
-                    (None, Some(req2)) => {
+                    (false, true) => {
                         let dummy = Notation::Newline;
                         *self = mem::replace(note2, dummy);
                         Ok(compat2)
                     }
-                    (None, None) => Err(()),
+                    (false, false) => Err(()),
                 }
             }
         }
