@@ -40,6 +40,9 @@ fn pp(
             answer.extend(suffix);
             answer
         }
+        Concat(_, _, ChoosyChild::Uninitialized) => {
+            panic!("Concat's `choosy` field was never initialized");
+        }
         Concat(left, right, ChoosyChild::Left) => {
             let suffix = pp(width, indent, vec!["".to_string()], suffix, right);
             pp(width, indent, prefix, suffix, left)

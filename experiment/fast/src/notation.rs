@@ -1,4 +1,5 @@
 use std::mem;
+use std::ops::{Add, BitOr};
 
 // INVARIANT: Choice vec is non-empty
 #[derive(Clone, Debug)]
@@ -32,22 +33,6 @@ struct MultiLine {
 pub struct Requirement {
     single_line: Option<usize>,
     multi_line: Option<(usize, usize)>,
-}
-
-impl Requirement {
-    pub fn has_single_line(&self) -> bool {
-        self.single_line.is_some()
-    }
-
-    pub fn fits_single_line(&self, length: usize) -> bool {
-        self.single_line.map(|l| l <= length).unwrap_or(false)
-    }
-
-    pub fn fits_multi_line(&self, first_length: usize, last_length: usize) -> bool {
-        self.multi_line
-            .map(|(fl, ll)| fl <= first_length && ll <= last_length)
-            .unwrap_or(false)
-    }
 }
 
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
@@ -218,6 +203,48 @@ impl Compatibility {
             single_line,
             multi_line,
         }
+    }
+}
+
+impl Requirement {
+    fn new() -> Self {
+        Requirement {
+            single_line: None,
+            multi_line: None,
+        }
+    }
+
+    pub fn has_single_line(&self) -> bool {
+        self.single_line.is_some()
+    }
+
+    pub fn fits_single_line(&self, length: usize) -> bool {
+        self.single_line.map(|l| l <= length).unwrap_or(false)
+    }
+
+    pub fn fits_multi_line(&self, first_length: usize, last_length: usize) -> bool {
+        self.multi_line
+            .map(|(fl, ll)| fl <= first_length && ll <= last_length)
+            .unwrap_or(false)
+    }
+}
+
+impl Add<Notation> for Notation {
+    type Output = Notation;
+    /// Shorthand for `Concat`.
+    fn add(self, other: Notation) -> Notation {
+        Notation::Concat(Box::new(self), Box::new(other), ChoosyChild::Uninitialized)
+    }
+}
+
+impl BitOr<Notation> for Notation {
+    type Output = Notation;
+    /// Shorthand for `Choice`.
+    fn bitor(self, other: Notation) -> Notation {
+        Notation::Choice(
+            (Box::new(self), Requirement::new()),
+            (Box::new(other), Requirement::new()),
+        )
     }
 }
 
