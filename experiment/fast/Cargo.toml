@@ -1,0 +1,11 @@
+[package]
+name = "fast"
+version = "0.1.0"
+authors = ["Justin Pombrio <justinpombrio@cs.brown.edu>", "e-matteson <e.r.matteson@gmail.com>"]
+edition = "2018"
+
+[workspace]
+# This empty workspace section prevents this crate from being included in the synless workspace
+
+[dependencies]
+
