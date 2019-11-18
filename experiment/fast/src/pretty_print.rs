@@ -21,14 +21,14 @@ fn pp(
             let middle_line = format!("{}{}{}", prefix.pop().unwrap(), text, suffix.pop().unwrap());
             let mut answer = prefix;
             answer.push(middle_line);
-            answer.extend(suffix);
+            answer.extend(suffix.into_iter().rev());
             answer
         }
         Newline => {
             let middle_line = format!("{:indent$}", suffix.pop().unwrap(), indent = indent);
             let mut answer = prefix;
             answer.push(middle_line);
-            answer.extend(suffix);
+            answer.extend(suffix.into_iter().rev());
             answer
         }
         Indent(i, notation) => pp(width, indent + i, prefix, suffix, notation),
@@ -37,14 +37,17 @@ fn pp(
             let middle_line = format!("{}{}{}", prefix.pop().unwrap(), text, suffix.pop().unwrap());
             let mut answer = prefix;
             answer.push(middle_line);
-            answer.extend(suffix);
+            answer.extend(suffix.into_iter().rev());
             answer
         }
         Concat(_, _, ChoosyChild::Uninitialized) => {
             panic!("Concat's `choosy` field was never initialized");
         }
         Concat(left, right, ChoosyChild::Left) => {
-            let suffix = pp(width, indent, vec!["".to_string()], suffix, right);
+            let suffix = pp(width, indent, vec!["".to_string()], suffix, right)
+                .into_iter()
+                .rev()
+                .collect();
             pp(width, indent, prefix, suffix, left)
         }
         Concat(left, right, _) => {
@@ -96,15 +99,121 @@ fn pp_nowrap(notation: &Notation) -> String {
     }
 }
 
-#[test]
-fn test_pp() {
-    let mut n = Notation::indent(
-        4,
-        Notation::concat(
-            Notation::concat(Notation::literal("Hello"), Notation::Newline),
-            Notation::literal("world!"),
-        ),
-    );
-    n.finalize().unwrap();
-    assert_eq!(pretty_print(&n, 80), vec!["Hello", "    world!"]);
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn no_wrap(notation: Notation) -> Notation {
+        Notation::NoWrap(Box::new(notation))
+    }
+
+    fn lit(s: &str) -> Notation {
+        Notation::literal(s)
+    }
+
+    fn nest(left: Notation, right: Notation) -> Notation {
+        Notation::Nest(Box::new(left), Box::new(right))
+    }
+
+    fn line() -> Notation {
+        Notation::Newline
+    }
+
+    fn hello() -> Notation {
+        lit("Hello")
+    }
+
+    fn goodbye() -> Notation {
+        lit("Good") + Notation::Newline + lit("Bye")
+    }
+
+    fn list_one(element: Notation) -> Notation {
+        let option1 = lit("[") + element.clone() + lit("]");
+        let option2 = nest(lit("["), line() + element) + line() + lit("]");
+        option1 | option2
+    }
+
+    fn list_tight(elements: Vec<Notation>) -> Notation {
+        let empty = lit("[]");
+        let lone = |elem| lit("[") + elem + lit("]");
+        let first = |first: Notation| first;
+        let middle = |note: Notation| {
+            let single = lit(", ") + no_wrap(note.clone());
+            let multi = lit(",") + line() + note;
+            single | multi
+        };
+        let surround = |accum: Notation| {
+            let single = no_wrap(lit("[") + accum.clone() + lit("]"));
+            let multi = nest(lit("["), line() + accum) + line() + lit("]");
+            single | multi
+        };
+        Notation::repeat(elements, empty, lone, first, middle, middle, surround)
+    }
+
+    fn assert_pp(notation: &mut Notation, width: usize, expected_lines: &[&str]) {
+        notation.finalize().unwrap();
+        let lines = pretty_print(&notation, width);
+        assert_eq!(lines, expected_lines);
+    }
+
+    #[test]
+    fn test_pp_hello() {
+        let mut n = Notation::indent(
+            4,
+            Notation::concat(
+                Notation::concat(lit("Hello"), Notation::Newline),
+                lit("world!"),
+            ),
+        );
+        assert_pp(&mut n, 80, &["Hello", "    world!"])
+    }
+
+    #[test]
+    fn test_pp_choice() {
+        let mut n = (hello() | goodbye()) + lit(" world");
+        assert_pp(&mut n, 80, &["Hello world"]);
+
+        let mut n = (goodbye() | hello()) + lit(" world");
+        assert_pp(&mut n, 80, &["Good", "Bye world"]);
+
+        let mut n = (no_wrap(goodbye()) | hello()) + lit(" world");
+        assert_pp(&mut n, 80, &["Hello world"]);
+
+        let mut n = (hello() | goodbye()) + lit(" world");
+        assert_pp(&mut n, 3, &["Good", "Bye world"]);
+    }
+
+    #[test]
+    fn test_pp_list_one() {
+        let mut n = list_one(hello());
+        assert_pp(&mut n, 80, &["[Hello]"]);
+
+        let mut n = list_one(goodbye());
+        assert_pp(&mut n, 80, &["[Good", "Bye]"]);
+        // TODO test nest case
+    }
+
+    #[test]
+    fn test_pp_list() {
+        let mut n = list_tight(vec![]);
+        assert_pp(&mut n, 80, &["[]"]);
+
+        let mut n = list_tight(vec![hello()]);
+        assert_pp(&mut n, 80, &["[Hello]"]);
+
+        let mut n = list_tight(vec![hello(), hello()]);
+        assert_pp(&mut n, 80, &["[Hello, Hello]"]);
+
+        let mut n = list_tight(vec![hello(), hello()]);
+        assert_pp(&mut n, 10, &["[", " Hello,", " Hello", "]"]);
+
+        let mut n = list_tight(vec![goodbye()]);
+        assert_pp(&mut n, 80, &["[Good", "Bye]"]);
+
+        let mut n = list_tight(vec![hello(), hello(), hello(), hello()]);
+        assert_pp(&mut n, 15, &["[", " Hello, Hello,", " Hello, Hello", "]"]);
+
+        let mut n = list_tight(vec![goodbye(), hello(), hello()]);
+        assert_pp(&mut n, 80, &["[", " Good", " Bye, Hello, Hello", "]"]);
+    }
 }

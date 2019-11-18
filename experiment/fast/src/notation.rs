@@ -167,6 +167,43 @@ impl Notation {
     pub fn concat(left: Notation, right: Notation) -> Self {
         Notation::Concat(Box::new(left), Box::new(right), ChoosyChild::Uninitialized)
     }
+
+    pub fn repeat<O, F, M, L, S>(
+        elements: Vec<Notation>,
+        empty: Notation,
+        lone: O,
+        first: F,
+        middle: M,
+        last: L,
+        surround: S,
+    ) -> Notation
+    where
+        O: Fn(Notation) -> Notation,
+        F: Fn(Notation) -> Notation,
+        M: Fn(Notation) -> Notation,
+        L: Fn(Notation) -> Notation,
+        S: Fn(Notation) -> Notation,
+    {
+        let length = elements.len();
+        let mut elem_iter = elements.into_iter();
+        match length {
+            0 => empty,
+            1 => lone(elem_iter.next().unwrap()),
+            _ => {
+                let mut accumulator = Notation::Newline; // dummy value
+                for (i, elem) in elem_iter.enumerate() {
+                    if i == 0 {
+                        accumulator = first(elem);
+                    } else if i == length - 2 {
+                        accumulator = accumulator + last(elem);
+                    } else {
+                        accumulator = accumulator + middle(elem);
+                    }
+                }
+                surround(accumulator)
+            }
+        }
+    }
 }
 
 impl Compatibility {
