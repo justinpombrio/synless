@@ -13,25 +13,18 @@ pub enum Notation {
     Choice((Box<Notation>, Requirement), (Box<Notation>, Requirement)),
 }
 
-#[derive(Clone, Copy, Eq, PartialEq, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Compatibility {
-    single_line: Option<usize>,
-    multi_line: Option<MultiLine>,
-}
-
-#[derive(Clone, Copy, Eq, PartialEq, Debug)]
-struct MultiLine {
-    first_length: usize,
-    last_length: usize,
-    // Note: Choices inside NoWraps don't count as choosy
-    choosy_first: bool,
-    choosy_last: bool,
+    single_line: Option<()>,
+    // choosy first, choosy last
+    multi_line: Option<(bool, bool)>,
 }
 
 // INVARIANT: At least one of the fields must be Some.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Requirement {
     single_line: Option<usize>,
+    // first line length, last line length
     multi_line: Option<(usize, usize)>,
 }
 
@@ -45,8 +38,8 @@ pub enum ChoosyChild {
 
 impl Notation {
     pub fn finalize(&mut self) -> Result<(), ()> {
-        let compat = self.finalize_helper()?;
-        if !compat.is_possible() {
+        let (req, _compat) = self.validate()?;
+        if !req.is_possible() {
             println!("no choices at root!");
             Err(())
         } else {
@@ -54,103 +47,123 @@ impl Notation {
         }
     }
 
-    fn finalize_helper(&mut self) -> Result<Compatibility, ()> {
+    fn validate(&mut self) -> Result<(Requirement, Compatibility), ()> {
         match self {
-            Notation::Literal(lit) => Ok(Compatibility {
-                single_line: Some(lit.len()),
-                multi_line: None,
-            }),
-            Notation::Newline => Ok(Compatibility {
-                single_line: None,
-                multi_line: Some(MultiLine {
-                    first_length: 0,
-                    last_length: 0,
-                    choosy_first: false,
-                    choosy_last: false,
-                }),
-            }),
-            Notation::Indent(_i, note) => note.finalize_helper(),
+            Notation::Literal(lit) => Ok((
+                Requirement {
+                    single_line: Some(lit.len()),
+                    multi_line: None,
+                },
+                Compatibility {
+                    single_line: Some(()),
+                    multi_line: None,
+                },
+            )),
+            Notation::Newline => Ok((
+                Requirement {
+                    single_line: None,
+                    multi_line: Some((0, 0)),
+                },
+                Compatibility {
+                    single_line: None,
+                    multi_line: Some((false, false)),
+                },
+            )),
+            Notation::Indent(indent, note) => {
+                let (mut req, compat) = note.validate()?;
+                if let Some((_, last_len)) = req.multi_line.as_mut() {
+                    *last_len += *indent;
+                }
+                Ok((req, compat))
+            }
             Notation::NoWrap(note) => {
-                let mut compat = note.finalize_helper()?;
+                let (mut req, mut compat) = note.validate()?;
+                req.multi_line = None;
                 compat.multi_line = None;
-                Ok(compat)
+                Ok((req, compat))
             }
             Notation::Concat(left, right, choosy) => {
-                let left_compat = left.finalize_helper()?;
-                let right_compat = right.finalize_helper()?;
-                // Initialize defaults
-                let mut compat = Compatibility {
+                let (left_req, left_compat) = left.validate()?;
+                let (right_req, right_compat) = right.validate()?;
+
+                // Compute compatibility
+                let mut compat = left_compat;
+                if right_compat.single_line.is_none() {
+                    compat.single_line = None;
+                }
+                match compat.multi_line.as_mut() {
+                    None => compat.multi_line = right_compat.multi_line,
+                    Some((first_choosy, last_choosy)) => {
+                        if let Some((first, last)) = right_compat.multi_line {
+                            *first_choosy |= first;
+                            *last_choosy |= last;
+                        }
+                    }
+                }
+
+                // Compute choosiness
+                let choosy_left = left_compat.multi_line.map(|(_, l)| l).unwrap_or(false);
+                let choosy_right = right_compat.multi_line.map(|(f, _)| f).unwrap_or(false);
+                *choosy = match (choosy_left, choosy_right) {
+                    (true, true) => return Err(()),
+                    (true, false) => ChoosyChild::Left,
+                    (false, true) => ChoosyChild::Right,
+                    (false, false) => ChoosyChild::Neither,
+                };
+
+                // Compute requirements
+                let mut req = Requirement {
                     single_line: None,
                     multi_line: None,
                 };
                 let mut multi_line_options = vec![];
-                *choosy = ChoosyChild::Neither;
-                // Consider the four cases that left&right could be concatenated
-                if let (Some(ls), Some(rs)) = (left_compat.single_line, right_compat.single_line) {
-                    compat.single_line = Some(ls + rs);
+
+                if let (Some(ls), Some(rs)) = (left_req.single_line, right_req.single_line) {
+                    req.single_line = Some(ls + rs);
                 }
-                if let (Some(ls), Some(rm)) = (left_compat.single_line, right_compat.multi_line) {
-                    let mut option = rm;
-                    option.first_length += ls;
-                    multi_line_options.push(option);
+                if let (Some(ls), Some(rm)) = (left_req.single_line, right_req.multi_line) {
+                    multi_line_options.push((ls + rm.0, rm.1))
                 }
-                if let (Some(lm), Some(rs)) = (left_compat.multi_line, right_compat.single_line) {
-                    let mut option = lm;
-                    option.last_length += rs;
-                    multi_line_options.push(option);
+                if let (Some(lm), Some(rs)) = (left_req.multi_line, right_req.single_line) {
+                    multi_line_options.push((lm.0, lm.1 + rs))
                 }
-                if let (Some(lm), Some(rm)) = (left_compat.multi_line, right_compat.multi_line) {
-                    multi_line_options.push(MultiLine {
-                        first_length: lm.first_length,
-                        last_length: rm.last_length,
-                        choosy_first: lm.choosy_first,
-                        choosy_last: rm.choosy_last,
-                    });
-                    *choosy = match (lm.choosy_last, rm.choosy_first) {
-                        (true, true) => return Err(()),
-                        (true, false) => ChoosyChild::Left,
-                        (false, true) => ChoosyChild::Right,
-                        (false, false) => ChoosyChild::Neither,
-                    };
+                if let (Some(lm), Some(rm)) = (left_req.multi_line, right_req.multi_line) {
+                    multi_line_options.push((lm.0, rm.1))
                 }
                 // TODO: check if minimizing by first_length == minimizing by last_length
-                compat.multi_line = multi_line_options
-                    .into_iter()
-                    .min_by_key(|ml| ml.first_length);
-                Ok(compat)
+                req.multi_line = multi_line_options.into_iter().min_by_key(|ml| ml.0);
+                Ok((req, compat))
             }
             Notation::Nest(left, right) => {
-                let left_compat = left.finalize_helper()?;
-                let mut right_compat = right.finalize_helper()?;
-                let indent = left_compat.single_line.ok_or(())?;
-                if let Some(flat_width) = right_compat.single_line.as_mut() {
-                    *flat_width += indent
-                }
-                if let Some(ml) = right_compat.multi_line.as_mut() {
-                    ml.first_length += indent;
-                }
-                Ok(right_compat)
+                let (left_req, _) = left.validate()?;
+                let (right_req, right_compat) = right.validate()?;
+                let indent = left_req.single_line.ok_or(())?;
+                let req = Requirement {
+                    single_line: right_req.single_line.map(|w| indent + w),
+                    multi_line: right_req.multi_line.map(|(f, l)| (indent + f, indent + l)),
+                };
+                Ok((req, right_compat))
             }
             Notation::Choice((note1, uninit_req1), (note2, uninit_req2)) => {
-                let compat1 = note1.finalize_helper()?;
-                let compat2 = note2.finalize_helper()?;
-                match (compat1.into_requirement(), compat2.into_requirement()) {
-                    (Some(req1), Some(req2)) => {
+                let (req1, compat1) = note1.validate()?;
+                let (req2, compat2) = note2.validate()?;
+                match (req1.is_possible(), req2.is_possible()) {
+                    (true, true) => {
                         *uninit_req1 = req1;
                         *uninit_req2 = req2;
-                        Ok(compat1.min(&compat2))
+                        Ok((req1.best(&req2), compat1.worst(&compat2)))
                     }
-                    (Some(_req1), None) => {
+                    (true, false) => {
                         let dummy = Notation::Newline;
                         *self = mem::replace(note1, dummy);
-                        Ok(compat1)
+                        Ok((req1, compat1))
                     }
-                    (None, Some(_req2)) => {
+                    (false, true) => {
                         let dummy = Notation::Newline;
                         *self = mem::replace(note2, dummy);
-                        Ok(compat2)
+                        Ok((req2, compat2))
                     }
-                    (None, None) => Err(()),
+                    (false, false) => Err(()),
                 }
             }
         }
@@ -207,30 +220,11 @@ impl Notation {
 }
 
 impl Compatibility {
-    fn is_possible(&self) -> bool {
-        self.single_line.is_some() || self.multi_line.is_some()
-    }
-
-    fn into_requirement(&self) -> Option<Requirement> {
-        if !self.is_possible() {
-            None
-        } else {
-            Some(Requirement {
-                single_line: self.single_line,
-                multi_line: self.multi_line.map(|ml| (ml.first_length, ml.last_length)),
-            })
-        }
-    }
-
-    fn min(&self, other: &Compatibility) -> Compatibility {
-        let single_line = match (self.single_line, other.single_line) {
-            (Some(x), Some(y)) => Some(x.min(y)),
-            (Some(x), None) | (None, Some(x)) => Some(x),
-            (None, None) => None,
-        };
+    /// Combine the worst parts of both Compatibilities.
+    fn worst(&self, other: &Self) -> Self {
+        let single_line = self.single_line.or(other.single_line);
         let multi_line = match (self.multi_line, other.multi_line) {
-            (Some(x), Some(y)) if x.first_length <= y.first_length => Some(x),
-            (Some(_), Some(y)) => Some(y),
+            (Some((f1, l1)), Some((f2, l2))) => Some((f1 | f2, l1 | l2)),
             (Some(x), None) | (None, Some(x)) => Some(x),
             (None, None) => None,
         };
@@ -262,6 +256,30 @@ impl Requirement {
             .map(|(fl, ll)| fl <= first_length && ll <= last_length)
             .unwrap_or(false)
     }
+
+    fn is_possible(&self) -> bool {
+        self.single_line.is_some() || self.multi_line.is_some()
+    }
+
+    /// Combine the best parts of both Requirements.
+    fn best(&self, other: &Self) -> Self {
+        let single_line = match (self.single_line, other.single_line) {
+            (Some(x), Some(y)) => Some(x.min(y)),
+            (Some(x), None) | (None, Some(x)) => Some(x),
+            (None, None) => None,
+        };
+        let multi_line = match (self.multi_line, other.multi_line) {
+            (Some((f1, _)), Some((f2, _))) if f1 <= f2 => self.multi_line,
+            (Some(_), Some(_)) => other.multi_line,
+            (Some(_), None) => self.multi_line,
+            (None, Some(_)) => other.multi_line,
+            (None, None) => None,
+        };
+        Requirement {
+            single_line,
+            multi_line,
+        }
+    }
 }
 
 impl Add<Notation> for Notation {
@@ -290,24 +308,39 @@ mod tests {
     #[test]
     fn test_literal() {
         let mut lit = Notation::Literal("foobar".into());
+        let (req, compat) = lit.validate().unwrap();
         assert_eq!(
-            lit.finalize_helper().unwrap(),
-            Compatibility {
+            req,
+            Requirement {
                 single_line: Some(6),
                 multi_line: None,
             }
         );
-        let mut newline = Notation::Newline;
         assert_eq!(
-            newline.finalize_helper().unwrap(),
+            compat,
+            Compatibility {
+                single_line: Some(()),
+                multi_line: None,
+            }
+        );
+    }
+
+    #[test]
+    fn test_newline() {
+        let mut newline = Notation::Newline;
+        let (req, compat) = newline.validate().unwrap();
+        assert_eq!(
+            req,
+            Requirement {
+                single_line: None,
+                multi_line: Some((0, 0)),
+            }
+        );
+        assert_eq!(
+            compat,
             Compatibility {
                 single_line: None,
-                multi_line: Some(MultiLine {
-                    first_length: 0,
-                    last_length: 0,
-                    choosy_first: false,
-                    choosy_last: false
-                }),
+                multi_line: Some((false, false)),
             }
         );
     }
@@ -315,10 +348,18 @@ mod tests {
     #[test]
     fn test_concat_literals() {
         let mut note = Notation::concat(Notation::literal("foo"), Notation::literal("bar"));
+        let (req, compat) = note.validate().unwrap();
         assert_eq!(
-            note.finalize_helper().unwrap(),
-            Compatibility {
+            req,
+            Requirement {
                 single_line: Some(6),
+                multi_line: None,
+            }
+        );
+        assert_eq!(
+            compat,
+            Compatibility {
+                single_line: Some(()),
                 multi_line: None,
             }
         );
