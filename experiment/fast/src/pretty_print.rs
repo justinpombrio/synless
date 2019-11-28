@@ -1,11 +1,11 @@
-use super::notation::{ChoosyChild, Notation};
+use super::notation::Notation;
 
 use Notation::*;
 
 pub fn pretty_print(notation: &Notation, width: usize) -> Vec<String> {
     let prefix = vec!["".to_string()];
     let suffix = vec!["".to_string()];
-    pp(width, 0, prefix, suffix, notation)
+    pp(width, 0, prefix, suffix, 0, notation)
 }
 
 // INVARIANT: prefix & suffix are never empty.
@@ -14,6 +14,7 @@ fn pp(
     indent: usize,
     mut prefix: Vec<String>,
     mut suffix: Vec<String>,
+    reserved: usize,
     notation: &Notation,
 ) -> Vec<String> {
     match notation {
@@ -31,7 +32,7 @@ fn pp(
             answer.extend(suffix.into_iter().rev());
             answer
         }
-        Indent(i, notation) => pp(width, indent + i, prefix, suffix, notation),
+        Indent(i, notation) => pp(width, indent + i, prefix, suffix, reserved, notation),
         NoWrap(notation) => {
             let text = pp_nowrap(notation);
             let middle_line = format!("{}{}{}", prefix.pop().unwrap(), text, suffix.pop().unwrap());
@@ -40,40 +41,39 @@ fn pp(
             answer.extend(suffix.into_iter().rev());
             answer
         }
-        Concat(_, _, ChoosyChild::Uninitialized) => {
-            panic!("Concat's `choosy` field was never initialized");
-        }
-        Concat(left, right, ChoosyChild::Left) => {
-            let suffix = pp(width, indent, vec!["".to_string()], suffix, right)
-                .into_iter()
-                .rev()
-                .collect();
-            pp(width, indent, prefix, suffix, left)
-        }
-        Concat(left, right, _) => {
-            let prefix = pp(width, indent, prefix, vec!["".to_string()], left);
-            pp(width, indent, prefix, suffix, right)
+        Concat(left, right, right_req) => {
+            let single = right_req.single_line.unwrap_or(0) + reserved;
+            let first = right_req.multi_line.map(|ml| ml.0).unwrap_or(0);
+
+            let prefix = pp(
+                width,
+                indent,
+                prefix,
+                vec!["".to_string()],
+                single.min(first),
+                left,
+            );
+            pp(width, indent, prefix, suffix, reserved, right)
         }
         Nest(left, right) => {
             let text = pp_nowrap(left);
             let indent = indent + text.chars().count();
             prefix.last_mut().unwrap().push_str(&text);
-            pp(width, indent, prefix, suffix, right)
+            pp(width, indent, prefix, suffix, reserved, right)
         }
         Choice((left, left_req), (right, _right_req)) => {
-            let prefix_len = prefix.last().unwrap().chars().count();
-            let suffix_len = suffix.last().unwrap().chars().count();
-
-            let single_line_len = width - prefix_len - suffix_len;
-            let first_line_len = width - prefix_len;
-            let last_line_len = width - suffix_len;
+            let prefix_len = prefix.last().unwrap().chars().count() as isize;
+            let suffix_len = (reserved + suffix.last().unwrap().chars().count()) as isize;
+            let single_line_len = (width as isize) - prefix_len - suffix_len;
+            let first_line_len = (width as isize) - prefix_len;
+            let last_line_len = (width as isize) - suffix_len;
 
             let left_fits = left_req.fits_single_line(single_line_len)
                 || left_req.fits_multi_line(first_line_len, last_line_len);
             if left_fits {
-                pp(width, indent, prefix, suffix, left)
+                pp(width, indent, prefix, suffix, reserved, left)
             } else {
-                pp(width, indent, prefix, suffix, right)
+                pp(width, indent, prefix, suffix, reserved, right)
             }
         }
     }
@@ -176,6 +176,9 @@ mod tests {
         let mut n = (goodbye() | hello()) + lit(" world");
         assert_pp(&mut n, 80, &["Good", "Bye world"]);
 
+        let mut n = (goodbye() | goodbye()) + lit(" world");
+        assert_pp(&mut n, 80, &["Good", "Bye world"]);
+
         let mut n = (no_wrap(goodbye()) | hello()) + lit(" world");
         assert_pp(&mut n, 80, &["Hello world"]);
 
@@ -215,5 +218,25 @@ mod tests {
 
         let mut n = list_tight(vec![goodbye(), hello(), hello()]);
         assert_pp(&mut n, 80, &["[", " Good", " Bye, Hello, Hello", "]"]);
+    }
+
+    #[test]
+    fn test_pp_simple_choice() {
+        let ab = lit("ab") | (lit("a") + line() + lit("b"));
+        let cd = lit("cd") | (lit("c") + line() + lit("d"));
+        let ef = lit("ef") | (lit("e") + line() + lit("f"));
+        let mut abcd = ab.clone() + cd.clone();
+        assert_pp(&mut abcd, 5, &["abcd"]);
+        assert_pp(&mut abcd, 4, &["abcd"]);
+        assert_pp(&mut abcd, 3, &["abc", "d"]);
+        assert_pp(&mut abcd, 2, &["a", "bc", "d"]);
+
+        let mut abcdef = ab + cd + ef;
+        assert_pp(&mut abcdef, 7, &["abcdef"]);
+        assert_pp(&mut abcdef, 6, &["abcdef"]);
+        assert_pp(&mut abcdef, 5, &["abcde", "f"]);
+        assert_pp(&mut abcdef, 4, &["abc", "def"]);
+        assert_pp(&mut abcdef, 3, &["abc", "def"]);
+        assert_pp(&mut abcdef, 2, &["a", "bc", "de", "f"]);
     }
 }
