@@ -4,66 +4,55 @@ use Notation::*;
 
 pub fn pretty_print(notation: &Notation, width: usize) -> Vec<String> {
     let prefix = vec!["".to_string()];
-    let suffix = vec!["".to_string()];
-    pp(width, 0, prefix, suffix, 0, notation)
+    pp(width, 0, prefix, 0, notation)
 }
 
-// INVARIANT: prefix & suffix are never empty.
+// INVARIANT: prefix is never empty. It should at the very least contain 1 empty string.
 fn pp(
     width: usize,
     indent: usize,
     mut prefix: Vec<String>,
-    mut suffix: Vec<String>,
     reserved: usize,
     notation: &Notation,
 ) -> Vec<String> {
     match notation {
         Literal(text) => {
-            let middle_line = format!("{}{}{}", prefix.pop().unwrap(), text, suffix.pop().unwrap());
+            let line = format!("{}{}", prefix.pop().unwrap(), text);
             let mut answer = prefix;
-            answer.push(middle_line);
-            answer.extend(suffix.into_iter().rev());
+            answer.push(line);
             answer
         }
         Newline => {
-            let middle_line = format!("{:indent$}", suffix.pop().unwrap(), indent = indent);
+            // TODO better way to print spaces?
+            let line = format!("{:indent$}", "", indent = indent);
             let mut answer = prefix;
-            answer.push(middle_line);
-            answer.extend(suffix.into_iter().rev());
+            answer.push(line);
             answer
         }
-        Indent(i, notation) => pp(width, indent + i, prefix, suffix, reserved, notation),
+        Indent(i, notation) => pp(width, indent + i, prefix, reserved, notation),
         NoWrap(notation) => {
             let text = pp_nowrap(notation);
-            let middle_line = format!("{}{}{}", prefix.pop().unwrap(), text, suffix.pop().unwrap());
+            let line = format!("{}{}", prefix.pop().unwrap(), text);
             let mut answer = prefix;
-            answer.push(middle_line);
-            answer.extend(suffix.into_iter().rev());
+            answer.push(line);
             answer
         }
         Concat(left, right, right_req) => {
             let single = right_req.single_line.unwrap_or(0) + reserved;
             let first = right_req.multi_line.map(|ml| ml.0).unwrap_or(0);
 
-            let prefix = pp(
-                width,
-                indent,
-                prefix,
-                vec!["".to_string()],
-                single.min(first),
-                left,
-            );
-            pp(width, indent, prefix, suffix, reserved, right)
+            let prefix = pp(width, indent, prefix, single.min(first), left);
+            pp(width, indent, prefix, reserved, right)
         }
         Nest(left, right) => {
             let text = pp_nowrap(left);
             let indent = indent + text.chars().count();
             prefix.last_mut().unwrap().push_str(&text);
-            pp(width, indent, prefix, suffix, reserved, right)
+            pp(width, indent, prefix, reserved, right)
         }
         Choice((left, left_req), (right, _right_req)) => {
             let prefix_len = prefix.last().unwrap().chars().count() as isize;
-            let suffix_len = (reserved + suffix.last().unwrap().chars().count()) as isize;
+            let suffix_len = reserved as isize;
             let single_line_len = (width as isize) - prefix_len - suffix_len;
             let first_line_len = (width as isize) - prefix_len;
             let last_line_len = (width as isize) - suffix_len;
@@ -71,9 +60,9 @@ fn pp(
             let left_fits = left_req.fits_single_line(single_line_len)
                 || left_req.fits_multi_line(first_line_len, last_line_len);
             if left_fits {
-                pp(width, indent, prefix, suffix, reserved, left)
+                pp(width, indent, prefix, reserved, left)
             } else {
-                pp(width, indent, prefix, suffix, reserved, right)
+                pp(width, indent, prefix, reserved, right)
             }
         }
     }
