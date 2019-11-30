@@ -124,7 +124,7 @@ mod tests {
         let lone = |elem| lit("[") + elem + lit("]");
         let first = |first: Notation| first;
         let middle = |note: Notation| {
-            let single = lit(", ") + flat(note.clone());
+            let single = lit(", ") + note.clone();
             let multi = lit(",") + line() + note;
             single | multi
         };
@@ -205,6 +205,13 @@ mod tests {
 
         let n = list_tight(vec![goodbye(), hello(), hello()]);
         assert_pp(n, 80, &["[", " Good", " Bye, Hello, Hello", "]"]);
+
+        let n = list_tight(vec![goodbye(), hello(), hello(), goodbye()]);
+        assert_pp(
+            n,
+            80,
+            &["[", " Good", " Bye, Hello, Hello, Good", " Bye", "]"],
+        );
     }
 
     #[test]
