@@ -51,18 +51,7 @@ impl Notation {
                         || left_poss.multi_line && right_poss.multi_line,
                 }
             }
-            Nest(left, right) => {
-                let left_poss = left.validate_rec();
-                let right_poss = right.validate_rec();
-                if left_poss.single_line {
-                    right_poss
-                } else {
-                    Possibilities {
-                        single_line: false,
-                        multi_line: false,
-                    }
-                }
-            }
+            Align(note) => note.validate_rec(),
             Choice(left, right) => {
                 let left_poss = left.validate_rec();
                 let right_poss = right.validate_rec();

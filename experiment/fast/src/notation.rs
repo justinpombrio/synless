@@ -10,7 +10,7 @@ pub enum Notation {
     Indent(usize, Box<Notation>),
     Flat(Box<Notation>),
     Concat(Box<Notation>, Box<Notation>),
-    Nest(Box<Notation>, Box<Notation>),
+    Align(Box<Notation>),
     Choice(Box<Notation>, Box<Notation>),
 }
 

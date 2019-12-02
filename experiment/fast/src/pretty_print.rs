@@ -1,9 +1,10 @@
-use super::measure::MeasuredNotation;
+use super::measure::{MeasuredNotation, Requirement};
 use MeasuredNotation::*;
 
 pub fn pretty_print(notation: &MeasuredNotation, width: usize) -> Vec<String> {
     let prefix = vec!["".to_string()];
-    pp(width, 0, prefix, 0, notation)
+    let suffix_req = Requirement::new_single_line(0);
+    pp(width, 0, prefix, suffix_req, notation)
 }
 
 // INVARIANT: prefix is never empty. It should at the very least contain 1 empty string.
@@ -11,7 +12,7 @@ fn pp(
     width: usize,
     indent: usize,
     mut prefix: Vec<String>,
-    suffix_len: usize,
+    suffix_req: Requirement,
     notation: &MeasuredNotation,
 ) -> Vec<String> {
     match notation {
@@ -22,43 +23,38 @@ fn pp(
             answer
         }
         Newline => {
-            // TODO better way to print spaces?
+            // TODO better way to print spaces? E.g. return Vec<(indent, line)>.
             let line = format!("{:indent$}", "", indent = indent);
             let mut answer = prefix;
             answer.push(line);
             answer
         }
-        Indent(i, notation) => pp(width, indent + i, prefix, suffix_len, notation),
+        Indent(i, notation) => pp(width, indent + i, prefix, suffix_req, notation),
         Flat(notation) => {
             let text = pp_flat(notation);
-            let line = format!("{}{}", prefix.pop().unwrap(), text);
             let mut answer = prefix;
+            let line = format!("{}{}", answer.pop().unwrap(), text);
             answer.push(line);
             answer
         }
         Concat(left, right, right_req) => {
-            let new_suffix_len = right_req.suffix_len(suffix_len);
-            let prefix = pp(width, indent, prefix, new_suffix_len, left);
-            pp(width, indent, prefix, suffix_len, right)
+            let new_suffix_req = right_req.concat(suffix_req);
+            let prefix = pp(width, indent, prefix, new_suffix_req, left);
+            pp(width, indent, prefix, suffix_req, right)
         }
-        Nest(left, right) => {
-            let text = pp_flat(left);
-            let indent = indent + text.chars().count();
-            prefix.last_mut().unwrap().push_str(&text);
-            pp(width, indent, prefix, suffix_len, right)
+        Align(note) => {
+            let indent = prefix.last().unwrap().chars().count();
+            pp(width, indent, prefix, suffix_req, note)
         }
         Choice((left, left_req), (right, _)) => {
-            let prefix_len = prefix.last().unwrap().chars().count() as isize;
-            let single_line_len = (width as isize) - prefix_len - (suffix_len as isize);
-            let first_line_len = (width as isize) - prefix_len;
-            let last_line_len = (width as isize) - (suffix_len as isize);
-
-            let left_fits = left_req.fits_single_line(single_line_len)
-                || left_req.fits_multi_line(first_line_len, last_line_len);
-            if left_fits {
-                pp(width, indent, prefix, suffix_len, left)
+            let prefix_len = prefix.last().unwrap().chars().count();
+            let req = Requirement::new_single_line(prefix_len)
+                .concat(*left_req)
+                .concat(suffix_req);
+            if req.fits(width) {
+                pp(width, indent, prefix, suffix_req, left)
             } else {
-                pp(width, indent, prefix, suffix_len, right)
+                pp(width, indent, prefix, suffix_req, right)
             }
         }
     }
@@ -71,7 +67,7 @@ fn pp_flat(notation: &MeasuredNotation) -> String {
         Indent(_, notation) => pp_flat(notation),
         Flat(notation) => pp_flat(notation),
         Concat(left, right, _) => format!("{}{}", pp_flat(left), pp_flat(right)),
-        Nest(left, right) => format!("{}{}", pp_flat(left), pp_flat(right)),
+        Align(notation) => pp_flat(notation),
         Choice((left, left_req), (right, _)) => {
             if left_req.has_single_line() {
                 pp_flat(left)
@@ -95,8 +91,12 @@ mod tests {
         Notation::literal(s)
     }
 
-    fn nest(left: Notation, right: Notation) -> Notation {
-        Notation::Nest(Box::new(left), Box::new(right))
+    fn indent(i: usize, notation: Notation) -> Notation {
+        Notation::Indent(i, Box::new(notation))
+    }
+
+    fn align(notation: Notation) -> Notation {
+        Notation::Align(Box::new(notation))
     }
 
     fn line() -> Notation {
@@ -113,7 +113,7 @@ mod tests {
 
     fn list_one(element: Notation) -> Notation {
         let option1 = lit("[") + element.clone() + lit("]");
-        let option2 = nest(lit("["), line() + element) + line() + lit("]");
+        let option2 = lit("[") + align(line() + element) + line() + lit("]");
         option1 | option2
     }
 
@@ -128,7 +128,7 @@ mod tests {
         };
         let surround = |accum: Notation| {
             let single = flat(lit("[") + accum.clone() + lit("]"));
-            let multi = nest(lit("["), line() + accum) + line() + lit("]");
+            let multi = align(lit("[") + indent(1, line() + accum) + line() + lit("]"));
             single | multi
         };
         Notation::repeat(elements, empty, lone, first, middle, middle, surround)
@@ -152,16 +152,17 @@ mod tests {
     }
 
     fn json_dict(entries: Vec<Notation>) -> Notation {
+        let tab = 4;
         let empty = lit("{}");
         let lone = |elem: Notation| {
             (lit("{") + flat(elem.clone()) + lit("}"))
-                | (nest(lit("{"), line() + elem) + line() + lit("}"))
+                | (lit("{") + indent(tab, line() + elem) + line() + lit("}"))
         };
         let first = |first: Notation| first;
         let middle = |note: Notation| lit(",") + line() + note;
         let surround = |accum: Notation| {
             let single = flat(lit("{") + accum.clone() + lit("}"));
-            let multi = nest(lit("{"), line() + accum) + line() + lit("}");
+            let multi = lit("{") + indent(tab, line() + accum) + line() + lit("}");
             single | multi
         };
         Notation::repeat(entries, empty, lone, first, middle, middle, surround)
@@ -171,7 +172,7 @@ mod tests {
         let notation = notation.validate().unwrap();
         let notation = notation.measure();
         let lines = pretty_print(&notation, width);
-        if (lines != expected_lines) {
+        if lines != expected_lines {
             eprintln!(
                 "EXPECTED:\n{}\n\nACTUAL:\n{}\n",
                 expected_lines.join("\n"),
@@ -289,27 +290,37 @@ mod tests {
         assert_pp(n, 80, &["{'Name': 'Alice'}"]);
 
         let n = json_dict(vec![e1.clone(), e2.clone()]);
-        assert_pp(n, 80, &["{", " 'Name': 'Alice',", " 'Age': 42", "}"]);
+        assert_pp(
+            n,
+            80,
+            &[
+                // force rustfmt
+                "{",
+                "    'Name': 'Alice',",
+                "    'Age': 42",
+                "}",
+            ],
+        );
 
-        // let n = json_dict(vec![e1, e2, e3]);
-        // assert_pp(
-        //     n,
-        //     37,
-        //     &[
-        //         "{",
-        //         " 'Name': 'Alice',",
-        //         " 'Age': 42",
-        //         " 'Favorites: ['",
-        //         "              'chocolate', 'lemon',",
-        //         "              'almond'",
-        //         "             ]'",
-        //         "}",
-        //     ],
-        // );
+        let n = json_dict(vec![e1, e2, e3]);
+        assert_pp(
+            n,
+            38,
+            &[
+                "{",
+                "    'Name': 'Alice',",
+                "    'Age': 42,",
+                "    'Favorites': [",
+                "                  'chocolate',",
+                "                  'lemon', 'almond'",
+                "                 ]",
+                "}",
+            ],
+        );
     }
 
     #[test]
-    fn test_pp_nest() {
+    fn test_pp_align() {
         let n = lit("four") + list_tight(vec![hello(), hello()]);
         assert_pp(
             n,
@@ -319,7 +330,7 @@ mod tests {
                 "four[",
                 "     Hello,",
                 "     Hello",
-                "]",
+                "    ]",
             ],
         );
     }
