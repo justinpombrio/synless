@@ -135,6 +135,15 @@ impl Requirement {
             .unwrap_or(false)
     }
 
+    pub fn suffix_len(&self, suffix_len: usize) -> usize {
+        match (self.single_line, self.multi_line) {
+            (Some(sl), Some(ml)) => ml.0.min(sl + suffix_len),
+            (Some(sl), None) => sl + suffix_len,
+            (None, Some(ml)) => ml.0,
+            (None, None) => panic!("Impossible notation"),
+        }
+    }
+
     /// Combine the best (smallest) parts of both Requirements.
     fn best(self, other: Self) -> Self {
         let single_line = match (self.single_line, other.single_line) {

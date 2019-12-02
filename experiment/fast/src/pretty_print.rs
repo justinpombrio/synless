@@ -1,5 +1,4 @@
 use super::measure::MeasuredNotation;
-
 use MeasuredNotation::*;
 
 pub fn pretty_print(notation: &MeasuredNotation, width: usize) -> Vec<String> {
@@ -38,9 +37,8 @@ fn pp(
             answer
         }
         Concat(left, right, right_req) => {
-            let single = right_req.single_line.unwrap_or(0) + suffix_len;
-            let first = right_req.multi_line.map(|ml| ml.0).unwrap_or(0);
-            let prefix = pp(width, indent, prefix, single.min(first), left);
+            let new_suffix_len = right_req.suffix_len(suffix_len);
+            let prefix = pp(width, indent, prefix, new_suffix_len, left);
             pp(width, indent, prefix, suffix_len, right)
         }
         Nest(left, right) => {
@@ -136,11 +134,51 @@ mod tests {
         Notation::repeat(elements, empty, lone, first, middle, middle, surround)
     }
 
+    fn json_string(s: &str) -> Notation {
+        // Using single quote instead of double quote to avoid inconvenient
+        // escaping
+        lit("'") + lit(s) + lit("'")
+    }
+
+    fn json_key(s: &str) -> Notation {
+        // Using single quote instead of double quote to avoid inconvenient
+        // escaping
+        lit("'") + lit(s) + lit("'")
+    }
+
+    fn json_entry(key: &str, value: Notation) -> Notation {
+        // json_key(key) + lit(":") + (lit(" ") | line()) + value
+        json_key(key) + lit(": ") + value
+    }
+
+    fn json_dict(entries: Vec<Notation>) -> Notation {
+        let empty = lit("{}");
+        let lone = |elem: Notation| {
+            (lit("{") + flat(elem.clone()) + lit("}"))
+                | (nest(lit("{"), line() + elem) + line() + lit("}"))
+        };
+        let first = |first: Notation| first;
+        let middle = |note: Notation| lit(",") + line() + note;
+        let surround = |accum: Notation| {
+            let single = flat(lit("{") + accum.clone() + lit("}"));
+            let multi = nest(lit("{"), line() + accum) + line() + lit("}");
+            single | multi
+        };
+        Notation::repeat(entries, empty, lone, first, middle, middle, surround)
+    }
+
     fn assert_pp(notation: Notation, width: usize, expected_lines: &[&str]) {
         let notation = notation.validate().unwrap();
         let notation = notation.measure();
         let lines = pretty_print(&notation, width);
-        assert_eq!(lines, expected_lines);
+        if (lines != expected_lines) {
+            eprintln!(
+                "EXPECTED:\n{}\n\nACTUAL:\n{}\n",
+                expected_lines.join("\n"),
+                lines.join("\n"),
+            );
+            assert_eq!(lines, expected_lines);
+        }
     }
 
     #[test]
@@ -233,4 +271,57 @@ mod tests {
         assert_pp(abcdef.clone(), 3, &["abc", "def"]);
         assert_pp(abcdef, 2, &["a", "bc", "de", "f"]);
     }
+
+    #[test]
+    fn test_pp_dict() {
+        let e1 = json_entry("Name", json_string("Alice"));
+        let e2 = json_entry("Age", lit("42"));
+        let e3 = json_entry(
+            "Favorites",
+            list_tight(vec![
+                json_string("chocolate"),
+                json_string("lemon"),
+                json_string("almond"),
+            ]),
+        );
+
+        let n = json_dict(vec![e1.clone()]);
+        assert_pp(n, 80, &["{'Name': 'Alice'}"]);
+
+        let n = json_dict(vec![e1.clone(), e2.clone()]);
+        assert_pp(n, 80, &["{", " 'Name': 'Alice',", " 'Age': 42", "}"]);
+
+        // let n = json_dict(vec![e1, e2, e3]);
+        // assert_pp(
+        //     n,
+        //     37,
+        //     &[
+        //         "{",
+        //         " 'Name': 'Alice',",
+        //         " 'Age': 42",
+        //         " 'Favorites: ['",
+        //         "              'chocolate', 'lemon',",
+        //         "              'almond'",
+        //         "             ]'",
+        //         "}",
+        //     ],
+        // );
+    }
+
+    #[test]
+    fn test_pp_nest() {
+        let n = lit("four") + list_tight(vec![hello(), hello()]);
+        assert_pp(
+            n,
+            10,
+            &[
+                // make rustfmt split lines
+                "four[",
+                "     Hello,",
+                "     Hello",
+                "]",
+            ],
+        );
+    }
+
 }
