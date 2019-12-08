@@ -8,4 +8,4 @@ edition = "2018"
 # This empty workspace section prevents this crate from being included in the synless workspace
 
 [dependencies]
-
+rand = "*"

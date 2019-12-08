@@ -41,6 +41,7 @@ impl Notation {
                 possibilities.multi_line = false;
                 possibilities
             }
+            Align(note) => note.validate_rec(),
             Concat(left, right) => {
                 let left_poss = left.validate_rec();
                 let right_poss = right.validate_rec();
@@ -51,7 +52,6 @@ impl Notation {
                         || left_poss.multi_line && right_poss.multi_line,
                 }
             }
-            Align(note) => note.validate_rec(),
             Choice(left, right) => {
                 let left_poss = left.validate_rec();
                 let right_poss = right.validate_rec();

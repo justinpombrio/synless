@@ -9,8 +9,8 @@ pub enum Notation {
     Newline,
     Indent(usize, Box<Notation>),
     Flat(Box<Notation>),
-    Concat(Box<Notation>, Box<Notation>),
     Align(Box<Notation>),
+    Concat(Box<Notation>, Box<Notation>),
     Choice(Box<Notation>, Box<Notation>),
 }
 

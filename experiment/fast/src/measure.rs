@@ -7,9 +7,9 @@ pub enum MeasuredNotation {
     Newline,
     Indent(usize, Box<MeasuredNotation>),
     Flat(Box<MeasuredNotation>),
+    Align(Box<MeasuredNotation>),
     /// Requirement is for second MesuredNotation
     Concat(Box<MeasuredNotation>, Box<MeasuredNotation>, Requirement),
-    Align(Box<MeasuredNotation>),
     Choice(
         (Box<MeasuredNotation>, Requirement),
         (Box<MeasuredNotation>, Requirement),
@@ -86,14 +86,6 @@ impl Notation {
                 let note = MeasuredNotation::Flat(Box::new(note));
                 (note, req)
             }
-            Notation::Concat(left, right) => {
-                let (left_note, left_req) = left.measure_rec();
-                let (right_note, right_req) = right.measure_rec();
-                let req = left_req.concat(right_req);
-                let note =
-                    MeasuredNotation::Concat(Box::new(left_note), Box::new(right_note), right_req);
-                (note, req)
-            }
             Notation::Align(note) => {
                 let (note, mut req) = note.measure_rec();
                 let multi_line = req.multi_line.take();
@@ -103,6 +95,14 @@ impl Notation {
                 });
                 let req = req.or_aligned(aligned);
                 let note = MeasuredNotation::Align(Box::new(note));
+                (note, req)
+            }
+            Notation::Concat(left, right) => {
+                let (left_note, left_req) = left.measure_rec();
+                let (right_note, right_req) = right.measure_rec();
+                let req = left_req.concat(right_req);
+                let note =
+                    MeasuredNotation::Concat(Box::new(left_note), Box::new(right_note), right_req);
                 (note, req)
             }
             Notation::Choice(left, right) => {
