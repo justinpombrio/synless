@@ -98,7 +98,7 @@ impl Notation {
             Text(style) => Text(style),
             Child(i) => Child(i),
             Follow(notations) => {
-                if notations.len() == 0 {
+                if notations.is_empty() {
                     return Empty;
                 }
                 if notations.len() == 1 {
@@ -109,7 +109,7 @@ impl Notation {
                 Follow(flattened)
             }
             Vert(notations) => {
-                if notations.len() == 0 {
+                if notations.is_empty() {
                     panic!("Notation: cannot have `Vert` of no notations")
                 }
                 if notations.len() == 1 {

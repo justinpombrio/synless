@@ -82,7 +82,7 @@ impl Bound {
     ///
     /// (That is: the character position just to the right of the last
     /// character of the last line of this bound.)
-    pub fn end(&self) -> Pos {
+    pub fn end(self) -> Pos {
         Pos {
             row: self.height - 1,
             col: self.indent,

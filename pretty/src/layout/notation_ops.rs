@@ -49,7 +49,7 @@ impl NotationOps for Bound {
     fn literal(string: &str, _style: Style, _allocator: Self::Allocator) -> Bound {
         let width = string.chars().count() as Col;
         Bound {
-            width: width,
+            width,
             indent: width,
             height: 1,
         }

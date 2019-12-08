@@ -7,7 +7,7 @@ use std::{iter, slice, vec};
 /// A set of Bounds. If one Bound is strictly smaller than another, only the
 /// smaller one will be kept. Each stair in the staircase also contains some
 /// related data T.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct BoundSet<T: Clone + Debug> {
     /// Staircases, stored by increasing indent.
     staircases: Vec<Staircase<T>>,

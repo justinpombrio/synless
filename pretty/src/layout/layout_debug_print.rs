@@ -56,7 +56,7 @@ impl LayoutDebugPrinter {
             }
             LayoutElement::Child(region, i) => {
                 for pos in region.positions() {
-                    let ch: char = (('0' as u8) + (*i as u8)).into();
+                    let ch: char = (b'0' + (*i as u8)).into();
                     self.write_char(ch, pos);
                 }
             }

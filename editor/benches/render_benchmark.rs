@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use std::time::Duration;
 
 use editor::{make_json_lang, make_singleton_lang_set, AstRef, TestEditor, TreeCmd, TreeNavCmd};
@@ -22,16 +22,14 @@ pub fn make_long_list(length: usize, ed: &mut TestEditor) {
 
 pub fn render(ast_ref: AstRef) {
     let mut window = PlainText::new_infinite_scroll(80);
-    black_box(
-        ast_ref
-            .pretty_print(
-                window.pane().unwrap().rect().width(),
-                &mut window.pane().unwrap(),
-                DocPosSpec::Beginning,
-                CursorVis::Hide,
-            )
-            .unwrap(),
-    )
+    ast_ref
+        .pretty_print(
+            window.pane().unwrap().rect().width(),
+            &mut window.pane().unwrap(),
+            DocPosSpec::Beginning,
+            CursorVis::Hide,
+        )
+        .unwrap()
 }
 
 pub fn pretty_print(c: &mut Criterion) {
