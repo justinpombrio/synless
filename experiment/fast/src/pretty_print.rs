@@ -117,20 +117,25 @@ mod tests {
         option1 | option2
     }
 
-    fn list_tight(elements: Vec<Notation>) -> Notation {
+    fn list_align(elements: Vec<Notation>) -> Notation {
         let empty = lit("[]");
         let lone = |elem| lit("[") + elem + lit("]");
         let first = |first: Notation| first;
-        let middle = |note: Notation| {
-            let single = lit(", ") + note.clone();
-            let multi = lit(",") + line() + note;
-            single | multi
-        };
+        let middle = |note: Notation| (lit(", ") | (lit(",") + line())) + note;
         let surround = |accum: Notation| {
             let single = flat(lit("[") + accum.clone() + lit("]"));
             let multi = align(lit("[") + indent(1, line() + accum) + line() + lit("]"));
             single | multi
         };
+        Notation::repeat(elements, empty, lone, first, middle, middle, surround)
+    }
+
+    fn list_indent(elements: Vec<Notation>) -> Notation {
+        let empty = lit("[]");
+        let lone = |elem| lit("[") + elem + lit("]");
+        let first = |first: Notation| first;
+        let middle = |note: Notation| (lit(", ") | (lit(",") + line())) + note;
+        let surround = |accum: Notation| indent(8, lit("[") + accum.clone() + lit("]"));
         Notation::repeat(elements, empty, lone, first, middle, middle, surround)
     }
 
@@ -224,28 +229,28 @@ mod tests {
 
     #[test]
     fn test_pp_list() {
-        let n = list_tight(vec![]);
+        let n = list_align(vec![]);
         assert_pp(n, 80, &["[]"]);
 
-        let n = list_tight(vec![hello()]);
+        let n = list_align(vec![hello()]);
         assert_pp(n, 80, &["[Hello]"]);
 
-        let n = list_tight(vec![hello(), hello()]);
+        let n = list_align(vec![hello(), hello()]);
         assert_pp(n, 80, &["[Hello, Hello]"]);
 
-        let n = list_tight(vec![hello(), hello()]);
+        let n = list_align(vec![hello(), hello()]);
         assert_pp(n, 10, &["[", " Hello,", " Hello", "]"]);
 
-        let n = list_tight(vec![goodbye()]);
+        let n = list_align(vec![goodbye()]);
         assert_pp(n, 80, &["[Good", "Bye]"]);
 
-        let n = list_tight(vec![hello(), hello(), hello(), hello()]);
+        let n = list_align(vec![hello(), hello(), hello(), hello()]);
         assert_pp(n, 15, &["[", " Hello, Hello,", " Hello, Hello", "]"]);
 
-        let n = list_tight(vec![goodbye(), hello(), hello()]);
+        let n = list_align(vec![goodbye(), hello(), hello()]);
         assert_pp(n, 80, &["[", " Good", " Bye, Hello, Hello", "]"]);
 
-        let n = list_tight(vec![goodbye(), hello(), hello(), goodbye()]);
+        let n = list_align(vec![goodbye(), hello(), hello(), goodbye()]);
         assert_pp(
             n,
             80,
@@ -279,7 +284,7 @@ mod tests {
         let e2 = json_entry("Age", lit("42"));
         let e3 = json_entry(
             "Favorites",
-            list_tight(vec![
+            list_align(vec![
                 json_string("chocolate"),
                 json_string("lemon"),
                 json_string("almond"),
@@ -320,8 +325,48 @@ mod tests {
     }
 
     #[test]
+    fn test_pp_tradeoff() {
+        let n1 = list_indent(vec![lit("a"), lit("bbbb"), lit("c"), lit("d")]);
+        let n2 = lit("let xxxxxxxxxx = ") + (align(n1.clone()) | indent(8, line() + n1.clone()));
+        let n3 = (lit("xx") | lit("xx")) + align(n1.clone());
+
+        assert_pp(
+            n3,
+            12,
+            &[
+                // make rustfmt split lines
+                "xx[a, bbbb,",
+                "          c,",
+                "          d]",
+            ],
+        );
+
+        assert_pp(
+            n1,
+            11,
+            &[
+                // make rustfmt split lines
+                "[a, bbbb,",
+                "        c,",
+                "        d]",
+            ],
+        );
+
+        assert_pp(
+            n2,
+            27,
+            &[
+                // make rustfmt split lines
+                "let xxxxxxxxxx = [a, bbbb,",
+                "                         c,",
+                "                         d]",
+            ],
+        );
+    }
+
+    #[test]
     fn test_pp_align() {
-        let n = lit("four") + list_tight(vec![hello(), hello()]);
+        let n = lit("four") + list_align(vec![hello(), hello()]);
         assert_pp(
             n,
             10,
