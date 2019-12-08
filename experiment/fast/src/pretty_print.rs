@@ -1,8 +1,8 @@
 use super::measure::{MeasuredNotation, Requirement};
 use MeasuredNotation::*;
 
-pub fn pretty_print(notation: &MeasuredNotation, width: usize) -> Vec<String> {
-    let prefix = vec!["".to_string()];
+pub fn pretty_print(notation: &MeasuredNotation, width: usize) -> Vec<(usize, String)> {
+    let prefix = vec![(0, "".to_string())];
     let suffix_req = Requirement::new_single_line(0);
     pp(width, 0, prefix, suffix_req, notation)
 }
@@ -11,31 +11,23 @@ pub fn pretty_print(notation: &MeasuredNotation, width: usize) -> Vec<String> {
 fn pp(
     width: usize,
     indent: usize,
-    mut prefix: Vec<String>,
+    mut prefix: Vec<(usize, String)>,
     suffix_req: Requirement,
     notation: &MeasuredNotation,
-) -> Vec<String> {
+) -> Vec<(usize, String)> {
     match notation {
         Literal(text) => {
-            let line = format!("{}{}", prefix.pop().unwrap(), text);
-            let mut answer = prefix;
-            answer.push(line);
-            answer
+            prefix.last_mut().unwrap().1.push_str(text);
+            prefix
         }
         Newline => {
-            // TODO better way to print spaces? E.g. return Vec<(indent, line)>.
-            let line = format!("{:indent$}", "", indent = indent);
-            let mut answer = prefix;
-            answer.push(line);
-            answer
+            prefix.push((indent, "".to_string()));
+            prefix
         }
         Indent(i, notation) => pp(width, indent + i, prefix, suffix_req, notation),
         Flat(notation) => {
-            let text = pp_flat(notation);
-            let mut answer = prefix;
-            let line = format!("{}{}", answer.pop().unwrap(), text);
-            answer.push(line);
-            answer
+            prefix.last_mut().unwrap().1.push_str(&pp_flat(notation));
+            prefix
         }
         Concat(left, right, right_req) => {
             let new_suffix_req = right_req.concat(suffix_req);
@@ -43,11 +35,13 @@ fn pp(
             pp(width, indent, prefix, suffix_req, right)
         }
         Align(note) => {
-            let indent = prefix.last().unwrap().chars().count();
+            let (i, s) = prefix.last().unwrap();
+            let indent = i + s.chars().count();
             pp(width, indent, prefix, suffix_req, note)
         }
         Choice((left, left_req), (right, _)) => {
-            let prefix_len = prefix.last().unwrap().chars().count();
+            let (i, s) = prefix.last().unwrap();
+            let prefix_len = i + s.chars().count();
             let req = Requirement::new_single_line(prefix_len)
                 .concat(*left_req)
                 .concat(suffix_req);
@@ -176,7 +170,10 @@ mod tests {
     fn assert_pp(notation: Notation, width: usize, expected_lines: &[&str]) {
         let notation = notation.validate().unwrap();
         let notation = notation.measure();
-        let lines = pretty_print(&notation, width);
+        let mut lines = vec![];
+        for (indent, line) in pretty_print(&notation, width) {
+            lines.push(format!("{:indent$}{}", "", line, indent = indent));
+        }
         if lines != expected_lines {
             eprintln!(
                 "EXPECTED:\n{}\n\nACTUAL:\n{}\n",
@@ -379,5 +376,4 @@ mod tests {
             ],
         );
     }
-
 }
