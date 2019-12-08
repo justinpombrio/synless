@@ -2,7 +2,8 @@ use lazy_static::lazy_static;
 use std::collections::HashMap;
 
 use language::{ConstructName, Language, LanguageName};
-use pretty::{child, literal, Notation, Style};
+use pretty::notation_constructors::{child, literal};
+use pretty::{Notation, Style};
 use utility::GrowOnlyMap;
 
 pub struct NotationSet {
@@ -59,6 +60,7 @@ impl NotationSet {
 mod example {
     use super::*;
     use language::{Arity, Construct, Language};
+    use pretty::notation_constructors::text;
     use pretty::*;
 
     fn punct(s: &str) -> Notation {

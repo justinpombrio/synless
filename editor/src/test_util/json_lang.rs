@@ -1,8 +1,7 @@
 use crate::NotationSet;
 use language::{Arity, Construct, Language};
-use pretty::{
-    child, if_empty_text, literal, no_wrap, repeat, text, Color, Emph, Notation, Repeat, Style,
-};
+use pretty::notation_constructors::{child, literal, no_wrap, repeat, text};
+use pretty::{Color, Emph, Notation, RepeatInner, Style};
 
 pub fn make_json_lang() -> (Language, NotationSet) {
     let notations = vec![
@@ -57,7 +56,7 @@ fn json_key() -> Notation {
 
 fn json_number() -> Notation {
     let style = Style::color(Color::Base09);
-    if_empty_text(literal("·", style), text(style))
+    Notation::IfEmptyText(Box::new(literal("·", style)), Box::new(text(style)))
 }
 
 fn json_boolean(value: bool) -> Notation {
@@ -104,17 +103,17 @@ fn json_null() -> Notation {
 fn json_list() -> Notation {
     let empty = punct("[]");
     let lone = punct("[") + child(0) + punct("]");
-    repeat(Repeat {
+    repeat(RepeatInner {
         empty: empty.clone(),
         lone: lone.clone(),
-        join: (child(0) + punct(", ") + no_wrap(child(1)))
-            | ((child(0) + punct(",")) ^ no_wrap(child(1))),
-        surround: punct("[") + child(0) + punct("]"),
-    }) | repeat(Repeat {
+        join: (Notation::Left + punct(", ") + no_wrap(Notation::Right))
+            | ((Notation::Left + punct(",")) ^ no_wrap(Notation::Right)),
+        surround: punct("[") + Notation::Surrounded + punct("]"),
+    }) | repeat(RepeatInner {
         empty,
         lone,
-        join: (child(0) + punct(",")) ^ child(1),
-        surround: punct("[") + child(0) + punct("]"),
+        join: (Notation::Left + punct(",")) ^ Notation::Right,
+        surround: punct("[") + Notation::Surrounded + punct("]"),
     })
 }
 
@@ -127,11 +126,11 @@ fn json_dict_entry() -> Notation {
 /// Put all entries on separate lines.
 /// If there is more than one entry, put the opening and closing delimiters on separate lines too.
 fn json_dict() -> Notation {
-    repeat(Repeat {
+    repeat(RepeatInner {
         empty: punct("{}"),
         lone: punct("{") + child(0) + punct("}"),
-        join: (child(0) + punct(",")) ^ child(1),
-        surround: punct("{") ^ (indent() + child(0)) ^ punct("}"),
+        join: (Notation::Left + punct(",")) ^ Notation::Right,
+        surround: punct("{") ^ (indent() + Notation::Surrounded) ^ punct("}"),
     })
 }
 

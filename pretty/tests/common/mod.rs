@@ -92,6 +92,17 @@ pub fn make_json_doc() -> Doc {
     ])
 }
 
+pub fn make_short_json_list() -> Doc {
+    let notations = make_json_notation();
+    let boolean = |value: bool| -> Doc {
+        let name = if value { "true" } else { "false" };
+        Doc::new_branch(notations[name].clone(), Vec::new())
+    };
+    let list = |elems: Vec<Doc>| -> Doc { Doc::new_branch(notations["list"].clone(), elems) };
+
+    list(vec![boolean(true), boolean(false)])
+}
+
 pub fn make_long_json_list() -> Doc {
     let notations = make_json_notation();
     let boolean = |value: bool| -> Doc {

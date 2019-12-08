@@ -1,4 +1,4 @@
-use crate::{Ast, AstForest, Clipboard, Doc, DocError, MetaCommand, NotationSet};
+use crate::{Ast, AstForest, AstRef, Clipboard, Doc, DocError, MetaCommand, NotationSet};
 use language::{ConstructName, Language, LanguageName, LanguageSet};
 use pretty::{Col, CursorVis, DocPosSpec, PlainText, Pos, PrettyDocument, PrettyWindow, Row};
 
@@ -80,6 +80,10 @@ impl<'l> TestEditor<'l> {
             )
             .unwrap();
         assert_eq!(window.to_string(), expected)
+    }
+
+    pub fn ast_ref<'a>(&'a self) -> AstRef<'l, 'a> {
+        self.doc.ast_ref()
     }
 }
 

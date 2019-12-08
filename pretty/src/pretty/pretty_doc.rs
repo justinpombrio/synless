@@ -1,11 +1,9 @@
 use std::cmp;
+use typed_arena::Arena;
 
-use self::Layout::*;
 use super::pretty_window::PrettyWindow;
-use crate::geometry::{Bound, Col, Pos, Rect, Region, Row};
-use crate::layout::{
-    compute_bounds, compute_layouts, text_bounds, Bounds, Layout, LayoutRegion, Layouts,
-};
+use crate::geometry::{Col, Pos, Rect, Region, Row, Bound};
+use crate::layout::{compute_bounds, compute_layout, BoundSet, Layout, LayoutElement, NotationOps, ResolvedNotation};
 use crate::notation::Notation;
 use crate::pane::{CursorVis, Pane};
 use crate::style::{Shade, Style};
@@ -68,35 +66,37 @@ pub trait PrettyDocument: Sized + Clone {
     where
         T: PrettyWindow,
     {
-        let root = self.root();
-        let bound = Bound::infinite_scroll(width);
-        let lay = Layouts::compute(&root).fit_bound(bound);
-
-        let cursor_region = self.locate_cursor(width);
-        let doc_pos = match doc_pos_spec {
-            DocPosSpec::CursorHeight { fraction } => {
-                let fraction = f32::max(0.0, f32::min(1.0, fraction));
-                let offset_from_top =
-                    f32::round((pane.rect.height() - 1) as f32 * (1.0 - fraction)) as Row;
-                Pos {
-                    col: 0,
-                    row: u32::saturating_sub(cursor_region.pos.row, offset_from_top),
+        let owned_arena = Arena::new();
+        let arena = &owned_arena;
+        {
+            let root = self.root();
+            let layout = layout(&root, Pos::zero(), width, arena);
+            let cursor_region = self.locate_cursor(width);
+            let doc_pos = match doc_pos_spec {
+                DocPosSpec::CursorHeight { fraction } => {
+                    let fraction = f32::max(0.0, f32::min(1.0, fraction));
+                    let offset_from_top =
+                        f32::round((pane.rect.height() - 1) as f32 * (1.0 - fraction)) as Row;
+                    Pos {
+                        col: 0,
+                        row: u32::saturating_sub(cursor_region.pos.row, offset_from_top),
+                    }
                 }
-            }
-            DocPosSpec::Fixed(pos) => pos,
-            DocPosSpec::Beginning => Pos { row: 0, col: 0 },
-        };
-
-        let doc_rect = Rect::new(doc_pos, pane.rect().size());
-        render(&root, pane, doc_rect, &lay)?;
-
-        // TODO handle multiple levels of cursor shading
-        if let CursorVis::Show = cursor_visibility {
-            let region = Region {
-                pos: cursor_region.pos - doc_pos,
-                ..cursor_region
+                DocPosSpec::Fixed(pos) => pos,
+                DocPosSpec::Beginning => Pos { row: 0, col: 0 },
             };
-            pane.highlight(region, Some(Shade(0)), false)?;
+
+            let doc_rect = Rect::new(doc_pos, pane.rect().size());
+            render(&root, pane, doc_rect, &layout, arena)?;
+
+            // TODO handle multiple levels of cursor shading
+            if let CursorVis::Show = cursor_visibility {
+                let region = Region {
+                    pos: cursor_region.pos - doc_pos,
+                    ..cursor_region
+                };
+                pane.highlight(region, Some(Shade(0)), false)?;
+            }
         }
         Ok(())
     }
@@ -104,6 +104,9 @@ pub trait PrettyDocument: Sized + Clone {
     /// Find the region covered by this sub-document, when the entire document is
     /// pretty-printed with the given `width`.
     fn locate_cursor(&self, width: Col) -> Region {
+        // TODO use the same arena as pretty_print()?
+        let arena = Arena::new();
+
         // Find the root of the Document, and the path from the root to the
         // selected node.
         let mut path = vec![];
@@ -114,16 +117,18 @@ pub trait PrettyDocument: Sized + Clone {
         }
         path.reverse();
         // Recursively compute the cursor region.
-        let lay = Layouts::compute(&root).fit_bound(Bound::infinite_scroll(width));
-        loc_cursor(&root, &lay, &path)
+        let bound = root.bounds().fit_width(width);
+        let region = Region {
+            pos: Pos::zero(),
+            bound,
+        };
+        loc_cursor(&root, region, &path, &arena)
     }
 
     /// Find the minimum height required to pretty-print the document with the given width.
     fn required_height(&self, width: Col) -> Row {
         let root = self.root();
-        let bound = Bound::infinite_scroll(width);
-        let lay = Layouts::compute(&root).fit_bound(bound);
-        lay.region.height()
+        root.bounds().fit_width(width).height
     }
 
     /// Goto the root of the document.
@@ -136,6 +141,12 @@ pub trait PrettyDocument: Sized + Clone {
     }
 }
 
+/// Every node must keep an up-to-date `Bounds`, computed using
+/// [`compute_bounds`](compute_bounds). It contains pre-computed information
+/// that helps pretty-print a document.
+#[derive(Debug, Clone)]
+pub struct Bounds(BoundSet<()>);
+
 impl Bounds {
     /// _Compute_ the possible bounds of this node. This is required in order to
     /// pretty-print it. Note that:
@@ -145,90 +156,121 @@ impl Bounds {
     /// 2. This _does not_ depend on the width with which the document will be
     /// pretty-printed.
     pub fn compute<Doc: PrettyDocument>(doc: &Doc) -> Bounds {
-        compute_bounds(&child_bounds(doc), &expanded_notation(doc))
+        let owned_child_bounds = child_bounds(doc);
+        let refs: Vec<_> = owned_child_bounds.iter().map(|b| &b.0).collect();
+        Bounds(compute_bounds(doc.notation(), &refs, is_empty_text(doc), ()))
     }
-}
 
-impl Layouts {
-    pub fn compute<Doc: PrettyDocument>(doc: &Doc) -> Layouts {
-        compute_layouts(&child_bounds(doc), &expanded_notation(doc))
+    /// Construct an empty, uninitialized `Bounds`. You shouldn't use an
+    /// uinitialized `Bounds` for anything! You should use a properly
+    /// computed `Bounds` returned by `Bounds::compute()`, instead.
+    pub fn uninitialized() -> Bounds {
+        Bounds(BoundSet::new())
+    }
+
+    /// Pick the best (i.e., smallest) Bound that fits within the
+    /// given width. Panics if none fit.
+    fn fit_width(&self, width: Col) -> Bound {
+        self.0.fit_width(width).0
     }
 }
 
 fn child_bounds<Doc: PrettyDocument>(doc: &Doc) -> Vec<Bounds> {
     match doc.text() {
         None => doc.children().iter().map(|child| child.bounds()).collect(),
-        Some(text) => vec![text_bounds(text.as_ref())],
+        Some(text) => vec![Bounds(BoundSet::literal(text.as_ref(), Style::plain(), ()))],
     }
 }
 
-fn expanded_notation<Doc: PrettyDocument>(doc: &Doc) -> Notation {
-    let len = match doc.text() {
-        None => doc.children().len(),
-        Some(text) => text.as_ref().chars().count(),
-    };
-    doc.notation().expand(len)
+fn is_empty_text<Doc: PrettyDocument>(doc: &Doc) -> bool {
+    if let Some(text) = doc.text() {
+        text.as_ref().is_empty()
+    } else {
+        false
+    }
 }
 
-fn loc_cursor<Doc>(doc: &Doc, lay: &LayoutRegion, path: &[usize]) -> Region
+fn layout<'a, Doc: PrettyDocument>(
+    doc: &Doc, pos: Pos, width: Col, allocator: &'a Arena<ResolvedNotation<'a>>,
+) -> Layout {
+    let owned_child_bounds = child_bounds(doc);
+    let refs: Vec<_> = owned_child_bounds.iter().map(|b| &b.0).collect();
+
+    compute_layout(
+        doc.notation(),
+        pos,
+        width,
+        &refs,
+        is_empty_text(doc),
+        allocator,
+    )
+}
+
+fn loc_cursor<'a, Doc>(doc: &Doc, region: Region, path: &[usize], allocator: &'a Arena<ResolvedNotation<'a>>) -> Region
 where
     Doc: PrettyDocument,
 {
     match path {
-        [] => lay.region,
+        [] => Region {
+            pos: region.pos,
+            bound: doc.bounds().fit_width(region.width()),
+        },
         [i, path @ ..] => {
-            let child_region = lay
-                .find_child(*i)
-                .expect("PrettyDocument::locate_cursor - got lost looking for cursor")
-                .region;
-            let child_lay = Layouts::compute(&doc.child(*i)).fit_region(child_region);
-            loc_cursor(&doc.child(*i), &child_lay, path)
+            let layout = layout(doc, region.pos, region.width(), allocator);
+            let child_region = match layout.children.get(*i) {
+                Some(Some(element)) => element.region(),
+                Some(None) => panic!("PrettyDocument::locate_cursor - cursor is on an invisible node"),
+                None => panic!("PrettyDocument::locate_cursor - lost child"),
+            };
+            loc_cursor(&doc.child(*i), child_region, path, allocator)
         }
     }
 }
 
 // TODO: shading and highlighting
-fn render<'a, Doc, Win>(
+fn render<'a, 'arena, Doc, Win>(
     doc: &Doc,
     pane: &mut Pane<'a, Win>,
     doc_rect: Rect,
-    lay: &LayoutRegion,
+    layout: &Layout,
+    allocator: &'arena Arena<ResolvedNotation<'arena>>,
 ) -> Result<(), Win::Error>
 where
     Doc: PrettyDocument,
     Win: PrettyWindow,
 {
-    if !lay.region.overlaps_rect(doc_rect) {
-        // It's entirely offscreen. Nothing to show.
-        return Ok(());
+    for element in &layout.elements {
+        if !element.region().overlaps_rect(doc_rect) {
+            // It's entirely offscreen. Nothing to show.
+            continue;
+        }
+        match element {
+            LayoutElement::Literal(region, text, style) => {
+                render_text(text, *region, pane, doc_rect, *style)?;
+            }
+            LayoutElement::Text(region, style) => {
+                let text = doc
+                    .text()
+                    .expect("PrettyDocument::render - Expected text, found branch node");
+                render_text(text.as_ref(), *region, pane, doc_rect, *style)?;
+            }
+            LayoutElement::Child(region, index) => {
+                let child = &doc.child(*index);
+                let owned_grandchild_bounds = child_bounds(child);
+                let refs: Vec<_> = owned_grandchild_bounds.iter().map(|b| &b.0).collect();
+                let layout = compute_layout(
+                    child.notation(),
+                    region.pos,
+                    region.width(),
+                    &refs,
+                    is_empty_text(child),
+                    allocator,
+                );
+                render(child, pane, doc_rect, &layout, allocator)?;
+            }
+        }
     }
-    match &lay.layout {
-        Empty => Ok(()),
-        Literal(text, style) => render_text(text.as_ref(), lay.region, pane, doc_rect, *style),
-        Text(style) => {
-            let text = doc
-                .text()
-                .expect("PrettyDocument::render - Expected text, found branch node");
-            render_text(text.as_ref(), lay.region, pane, doc_rect, *style)
-        }
-        Child(i) => {
-            let child = &doc.child(*i);
-            let child_lay = Layouts::compute(child).fit_region(lay.region);
-            render(child, pane, doc_rect, &child_lay)
-        }
-        Concat(box lay1, box lay2) => {
-            render(doc, pane, doc_rect, &lay1)?;
-            render(doc, pane, doc_rect, &lay2)
-        }
-        Horz(box lay1, box lay2) => {
-            render(doc, pane, doc_rect, &lay1)?;
-            render(doc, pane, doc_rect, &lay2)
-        }
-        Vert(box lay1, box lay2) => {
-            render(doc, pane, doc_rect, &lay1)?;
-            render(doc, pane, doc_rect, &lay2)
-        }
-    }
+    Ok(())
 }
 
 fn render_text<'a, Win>(

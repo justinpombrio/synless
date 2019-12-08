@@ -1,4 +1,5 @@
-use pretty::{child, literal, no_wrap, repeat, text, Notation, Repeat, Style};
+use pretty::notation_constructors::{child, literal, no_wrap, repeat, text};
+use pretty::{Notation, RepeatInner, Style};
 use std::collections::HashMap;
 
 pub fn make_json_notation() -> HashMap<String, Notation> {
@@ -41,17 +42,17 @@ fn json_null() -> Notation {
 fn json_list() -> Notation {
     let empty = punct("[]");
     let lone = punct("[") + child(0) + punct("]");
-    repeat(Repeat {
+    repeat(RepeatInner {
         empty: empty.clone(),
         lone: lone.clone(),
-        join: (child(0) + punct(", ") + no_wrap(child(1)))
-            | (child(0) + punct(",")) ^ no_wrap(child(1)),
-        surround: punct("[") + child(0) + punct("]"),
-    }) | repeat(Repeat {
+        join: (Notation::Left + punct(", ") + no_wrap(Notation::Right))
+            | (Notation::Left + punct(",")) ^ no_wrap(Notation::Right),
+        surround: punct("[") + Notation::Surrounded + punct("]"),
+    }) | repeat(RepeatInner {
         empty,
         lone,
-        join: (child(0) + punct(",")) ^ child(1),
-        surround: punct("[") + child(0) + punct("]"),
+        join: (Notation::Left + punct(",")) ^ Notation::Right,
+        surround: punct("[") + Notation::Surrounded + punct("]"),
     })
 }
 
@@ -64,11 +65,11 @@ fn json_dict_entry() -> Notation {
 /// Put all entries on separate lines.
 /// If there is more than one entry, put the opening and closing delimiters on separate lines too.
 fn json_dict() -> Notation {
-    repeat(Repeat {
+    repeat(RepeatInner {
         empty: punct("{}"),
         lone: punct("{") + child(0) + punct("}"),
-        join: (child(0) + punct(",")) ^ child(1),
-        surround: punct("{") ^ (indent() + child(0)) ^ punct("}"),
+        join: (Notation::Left + punct(",")) ^ Notation::Right,
+        surround: punct("{") ^ (indent() + Notation::Surrounded) ^ punct("}"),
     })
 }
 

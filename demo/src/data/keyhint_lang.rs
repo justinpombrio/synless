@@ -1,6 +1,7 @@
 use crate::NotationSet;
 use language::{Arity, Construct, Language};
-use pretty::{child, literal, no_wrap, repeat, text, Color, Notation, Repeat, Style};
+use pretty::notation_constructors::{child, literal, no_wrap, repeat, text};
+use pretty::{Color, Notation, RepeatInner, Style};
 
 pub fn make_keyhint_lang() -> (Language, NotationSet) {
     let notations = vec![
@@ -42,12 +43,12 @@ fn binding() -> Notation {
 
 /// Wrap entries tightly.
 fn keymap() -> Notation {
-    repeat(Repeat {
+    repeat(RepeatInner {
         empty: punct("(empty keyhints)"),
         lone: child(0),
-        join: (child(0) + punct(", ") + no_wrap(child(1)))
-            | (child(0) + punct(",")) ^ no_wrap(child(1)),
-        surround: child(0),
+        join: (Notation::Left + punct(", ") + no_wrap(Notation::Right))
+            | (Notation::Left + punct(",")) ^ no_wrap(Notation::Right),
+        surround: Notation::Surrounded,
     })
 }
 

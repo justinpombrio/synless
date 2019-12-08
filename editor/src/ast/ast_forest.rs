@@ -33,7 +33,7 @@ impl<'l> AstForest<'l> {
     ) -> Option<Ast<'l>> {
         let construct = language.lookup_construct(construct_name);
         let node = Node {
-            bounds: Bounds::empty(),
+            bounds: Bounds::uninitialized(),
             language,
             construct,
             notation: notation_set.lookup(construct_name),
@@ -59,7 +59,7 @@ impl<'l> AstForest<'l> {
             .get(&"hole".into())
             .expect("no builtin 'hole' construct found");
         let node = Node {
-            bounds: Bounds::empty(),
+            bounds: Bounds::uninitialized(),
             language,
             construct: hole,
             notation: notation_set.lookup(&hole.name),
@@ -75,7 +75,7 @@ impl<'l> AstForest<'l> {
         notation_set: &'l NotationSet,
     ) -> Ast<'l> {
         let node = Node {
-            bounds: Bounds::empty(),
+            bounds: Bounds::uninitialized(),
             language,
             construct,
             notation: notation_set.lookup(&construct.name),
@@ -99,7 +99,7 @@ impl<'l> AstForest<'l> {
         notation_set: &'l NotationSet,
     ) -> Ast<'l> {
         let node = Node {
-            bounds: Bounds::empty(),
+            bounds: Bounds::uninitialized(),
             language,
             construct,
             notation: notation_set.lookup(&construct.name),
@@ -123,7 +123,7 @@ impl<'l> AstForest<'l> {
         notation_set: &'l NotationSet,
     ) -> Ast<'l> {
         let node = Node {
-            bounds: Bounds::empty(),
+            bounds: Bounds::uninitialized(),
             language,
             construct,
             notation: notation_set.lookup(&construct.name),
@@ -143,7 +143,7 @@ impl<'l> AstForest<'l> {
     ) -> Ast<'l> {
         // TODO: probably shouldn't be copy-pasting this
         let node = Node {
-            bounds: Bounds::empty(),
+            bounds: Bounds::uninitialized(),
             language,
             construct,
             notation: notation_set.lookup(&construct.name),

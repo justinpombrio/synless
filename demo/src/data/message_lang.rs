@@ -1,6 +1,7 @@
 use crate::NotationSet;
 use language::{Arity, Construct, Language};
-use pretty::{child, literal, repeat, text, Color, Notation, Repeat, Style};
+use pretty::notation_constructors::{child, literal, repeat, text};
+use pretty::{Color, Notation, RepeatInner, Style};
 
 pub fn make_message_lang() -> (Language, NotationSet) {
     let notations = vec![
@@ -22,10 +23,10 @@ pub fn make_message_lang() -> (Language, NotationSet) {
 
 /// Put all messages on separate lines
 fn list() -> Notation {
-    repeat(Repeat {
+    repeat(RepeatInner {
         empty: literal("", Style::plain()),
         lone: child(0),
-        join: child(0) ^ child(1),
-        surround: child(0),
+        join: Notation::Left ^ Notation::Right,
+        surround: Notation::Surrounded,
     })
 }

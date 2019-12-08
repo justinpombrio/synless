@@ -29,7 +29,7 @@ impl Doc {
     pub fn new_branch(notation: Notation, children: Vec<Doc>) -> Doc {
         let mut tree = Doc {
             node: Branch(children),
-            bounds: Bounds::empty(),
+            bounds: Bounds::uninitialized(),
             notation,
         };
         tree.bounds = Bounds::compute(&tree.as_ref());
@@ -39,7 +39,7 @@ impl Doc {
     pub fn new_leaf(notation: Notation, contents: &str) -> Doc {
         let mut tree = Doc {
             node: Leaf(contents.to_string()),
-            bounds: Bounds::empty(),
+            bounds: Bounds::uninitialized(),
             notation,
         };
         tree.bounds = Bounds::compute(&tree.as_ref());
