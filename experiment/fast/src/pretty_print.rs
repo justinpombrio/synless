@@ -76,6 +76,7 @@ fn pp_flat(notation: &MeasuredNotation) -> String {
 mod tests {
     use super::super::notation::Notation;
     use super::*;
+    use crate::oracular_pretty_print::oracular_pretty_print;
 
     fn flat(notation: Notation) -> Notation {
         Notation::Flat(Box::new(notation))
@@ -168,19 +169,31 @@ mod tests {
     }
 
     fn assert_pp(notation: Notation, width: usize, expected_lines: &[&str]) {
-        let notation = notation.validate().unwrap();
-        let notation = notation.measure();
-        let mut lines = vec![];
-        for (indent, line) in pretty_print(&notation, width) {
-            lines.push(format!("{:indent$}{}", "", line, indent = indent));
+        let valid_notation = notation.validate().unwrap();
+        let measured_notation = valid_notation.measure();
+        let oracle_lines: Vec<String> = oracular_pretty_print(&valid_notation, width)
+            .into_iter()
+            .map(|(indent, line)| format!("{:indent$}{}", "", line, indent = indent))
+            .collect();
+        let actual_lines: Vec<String> = pretty_print(&measured_notation, width)
+            .into_iter()
+            .map(|(indent, line)| format!("{:indent$}{}", "", line, indent = indent))
+            .collect();
+        if oracle_lines != expected_lines {
+            eprintln!(
+                "BAD TEST CASE!\n\nTEST CASE EXPECTS:\n{}\n\nBUT ORACLE SAYS:\n{}\n",
+                expected_lines.join("\n"),
+                oracle_lines.join("\n"),
+            );
+            assert_eq!(oracle_lines, expected_lines);
         }
-        if lines != expected_lines {
+        if actual_lines != expected_lines {
             eprintln!(
                 "EXPECTED:\n{}\n\nACTUAL:\n{}\n",
                 expected_lines.join("\n"),
-                lines.join("\n"),
+                actual_lines.join("\n"),
             );
-            assert_eq!(lines, expected_lines);
+            assert_eq!(actual_lines, expected_lines);
         }
     }
 
