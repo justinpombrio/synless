@@ -43,7 +43,7 @@ fn pp(
             let (i, s) = prefix.last().unwrap();
             let prefix_len = i + s.chars().count();
             let req = Requirement::new_single_line(prefix_len)
-                .concat(*left_req)
+                .concat(left_req.indent(indent))
                 .concat(suffix_req);
             if req.fits(width) {
                 pp(width, indent, prefix, suffix_req, left)
@@ -168,17 +168,19 @@ mod tests {
         Notation::repeat(entries, empty, lone, first, middle, middle, surround)
     }
 
+    fn expand_line(indent: usize, line: String) -> String {
+        format!("{:indent$}{}", "", line, indent = indent)
+    }
+
+    fn expand_lines(lines: Vec<(usize, String)>) -> Vec<String> {
+        lines.into_iter().map(|(i, s)| expand_line(i, s)).collect()
+    }
+
     fn assert_pp(notation: Notation, width: usize, expected_lines: &[&str]) {
         let valid_notation = notation.validate().unwrap();
         let measured_notation = valid_notation.measure();
-        let oracle_lines: Vec<String> = oracular_pretty_print(&valid_notation, width)
-            .into_iter()
-            .map(|(indent, line)| format!("{:indent$}{}", "", line, indent = indent))
-            .collect();
-        let actual_lines: Vec<String> = pretty_print(&measured_notation, width)
-            .into_iter()
-            .map(|(indent, line)| format!("{:indent$}{}", "", line, indent = indent))
-            .collect();
+        let oracle_lines: Vec<String> = expand_lines(oracular_pretty_print(&valid_notation, width));
+        let actual_lines: Vec<String> = expand_lines(pretty_print(&measured_notation, width));
         if oracle_lines != expected_lines {
             eprintln!(
                 "BAD TEST CASE!\n\nTEST CASE EXPECTS:\n{}\n\nBUT ORACLE SAYS:\n{}\n",

@@ -71,7 +71,7 @@ fn fits(width: usize, lines: &[(usize, String)]) -> bool {
 fn pp_flat(notation: &Notation) -> Option<String> {
     match notation {
         Literal(text) => Some(text.to_string()),
-        Newline => panic!("pp_flat found a newline!"),
+        Newline => None,
         Indent(_, notation) => pp_flat(notation),
         Flat(notation) => pp_flat(notation),
         Concat(left, right) => Some(format!("{}{}", pp_flat(left)?, pp_flat(right)?)),

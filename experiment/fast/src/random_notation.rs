@@ -1,29 +1,44 @@
 use super::Notation;
-use rand::rngs::ThreadRng;
-use rand::{thread_rng, Rng};
+use rand::rngs::{StdRng, ThreadRng};
+use rand::{thread_rng, Rng, SeedableRng};
 use Notation::*;
 
-struct Generator {
+struct Builder {
     next_letter: char,
-    rng: ThreadRng,
+    rng: StdRng,
     num_choices: usize,
 }
 
 const MAX_CHOICES: usize = 6;
-const SIZE_RANGE: (usize, usize) = (1, 20);
+const SIZE_RANGE: (usize, usize) = (6, 7);
 const LITERAL_RANGE: (usize, usize) = (0, 10);
 const INDENT_RANGE: (usize, usize) = (0, 10);
 
-pub fn random_notation() -> Notation {
-    let size = thread_rng().gen_range(SIZE_RANGE.0, SIZE_RANGE.1);
-    Generator::new().notation(size)
+pub struct NotationGenerator {
+    rng: StdRng,
 }
 
-impl Generator {
-    fn new() -> Generator {
-        Generator {
+impl NotationGenerator {
+    fn new(seed: u64) -> NotationGenerator {
+        NotationGenerator {
+            rng: StdRng::seed_from_u64(seed),
+        }
+    }
+
+    fn random_notation(&mut self) -> Notation {
+        let size = self.rng.gen_range(SIZE_RANGE.0, SIZE_RANGE.1);
+        let mut builder = Builder::new(StdRng::seed_from_u64(self.rng.gen()));
+        let notation = builder.notation(size);
+        self.rng = builder.rng;
+        notation
+    }
+}
+
+impl Builder {
+    fn new(rng: StdRng) -> Builder {
+        Builder {
             next_letter: 'a',
-            rng: thread_rng(),
+            rng,
             num_choices: MAX_CHOICES,
         }
     }
@@ -38,12 +53,17 @@ impl Generator {
         let p: f32 = self.rng.gen();
         match size {
             0 => panic!("Random notation: unexpected size 0"),
-            1 => match self.rng.gen_range(0, 7) {
+            1 => {
+                if self.rng.gen() {
+                    self.literal()
+                } else {
+                    Newline
+                }
+            }
+            2 => match self.rng.gen_range(0, 3) {
                 0 => self.indent(size),
                 1 => self.flat(size),
                 2 => self.align(size),
-                3 | 4 => self.literal(),
-                5 | 6 => Newline,
                 _ => unreachable!(),
             },
             _ => {
@@ -78,18 +98,19 @@ impl Generator {
 
     fn indent(&mut self, size: usize) -> Notation {
         let indent = self.rng.gen_range(INDENT_RANGE.0, INDENT_RANGE.1);
-        Indent(indent, Box::new(self.notation(size)))
+        Indent(indent, Box::new(self.notation(size - 1)))
     }
 
     fn flat(&mut self, size: usize) -> Notation {
-        Flat(Box::new(self.notation(size)))
+        Flat(Box::new(self.notation(size - 1)))
     }
 
     fn align(&mut self, size: usize) -> Notation {
-        Align(Box::new(self.notation(size)))
+        Align(Box::new(self.notation(size - 1)))
     }
 
     fn concat(&mut self, size: usize) -> Notation {
+        let size = size - 1;
         let left_size = self.rng.gen_range(1, size);
         let right_size = size - left_size;
         Concat(
@@ -99,6 +120,7 @@ impl Generator {
     }
 
     fn choice(&mut self, size: usize) -> Notation {
+        let size = size - 1;
         self.num_choices -= 1;
         let left_size = self.rng.gen_range(1, size);
         let right_size = size - left_size;
@@ -106,5 +128,94 @@ impl Generator {
             Box::new(self.notation(left_size)),
             Box::new(self.notation(right_size)),
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::NotationGenerator;
+    use crate::notation::Notation;
+    use crate::oracular_pretty_print::oracular_pretty_print;
+    use crate::pretty_print::pretty_print;
+
+    enum PPResult {
+        Ok,
+        Invalid,
+        Error(PPError),
+    }
+
+    struct PPError {
+        notation: Notation,
+        width: usize,
+        actual: Vec<String>,
+        oracular: Vec<String>,
+    }
+
+    fn expand_line(indent: usize, line: String) -> String {
+        format!("{:indent$}{}", "", line, indent = indent)
+    }
+
+    fn expand_lines(lines: Vec<(usize, String)>) -> Vec<String> {
+        lines.into_iter().map(|(i, s)| expand_line(i, s)).collect()
+    }
+
+    fn try_pretty_print(notation: Notation) -> PPResult {
+        let valid_notation = match notation.clone().validate() {
+            Ok(valid) => valid,
+            Err(_) => return PPResult::Invalid,
+        };
+        let measured_notation = valid_notation.measure();
+        for width in WIDTH_RANGE.0..WIDTH_RANGE.1 {
+            let oracle_lines = oracular_pretty_print(&valid_notation, width);
+            let actual_lines = pretty_print(&measured_notation, width);
+            if actual_lines != oracle_lines {
+                return PPResult::Error(PPError {
+                    notation,
+                    width,
+                    actual: expand_lines(actual_lines),
+                    oracular: expand_lines(oracle_lines),
+                });
+            }
+        }
+        PPResult::Ok
+    }
+
+    const WIDTH_RANGE: (usize, usize) = (1, 20);
+    const NUM_TESTS: usize = 10000;
+    const SEED: u64 = 17;
+
+    #[test]
+    fn oracle_tests() {
+        let mut first_error = None;
+        let mut num_invalid = 0;
+        let mut num_errors = 0;
+        let mut generator = NotationGenerator::new(SEED);
+        for _ in 0..NUM_TESTS {
+            match try_pretty_print(generator.random_notation()) {
+                PPResult::Ok => (),
+                PPResult::Invalid => {
+                    num_invalid += 1;
+                }
+                PPResult::Error(error) => {
+                    // WLOG this is first.
+                    first_error = Some(error);
+                    num_errors += 1;
+                }
+            }
+        }
+        println!(
+            "Tested {} notations. {} were invalid. {} were printed incorrectly.",
+            NUM_TESTS, num_invalid, num_errors
+        );
+        if let Some(error) = first_error {
+            eprintln!(
+                "PRETTY PRINTER PRODUCED:\n{}\n\nBUT ORACLE SAYS IT SHOULD BE:\n{}\n\nNOTATION:\n{:#?}\nWIDTH:{}",
+                error.actual.join("\n"),
+                error.oracular.join("\n"),
+                error.notation,
+                error.width,
+            );
+            assert!(false);
+        }
     }
 }

@@ -70,12 +70,7 @@ impl Notation {
             }
             Notation::Indent(indent, note) => {
                 let (note, mut req) = note.measure_rec();
-                if let Some(multi_line) = req.multi_line.as_mut() {
-                    multi_line.last += *indent;
-                }
-                if let Some(aligned) = req.aligned.as_mut() {
-                    aligned.last += *indent;
-                }
+                req = req.indent(*indent);
                 let note = MeasuredNotation::Indent(*indent, Box::new(note));
                 (note, req)
             }
@@ -149,6 +144,14 @@ impl Requirement {
 
     pub fn has_single_line(&self) -> bool {
         self.single_line.is_some()
+    }
+
+    pub fn indent(mut self, indent: usize) -> Self {
+        if let Some(multi_line) = self.multi_line.as_mut() {
+            multi_line.middle += indent;
+            multi_line.last += indent;
+        }
+        self
     }
 
     pub fn concat(self, other: Requirement) -> Self {
