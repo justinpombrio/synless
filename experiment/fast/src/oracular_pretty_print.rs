@@ -33,9 +33,11 @@ fn pp(
         }
         Indent(i, notation) => pp(indent + i, lines, notation),
         Flat(notation) => {
-            let text = pp_flat(notation).expect("Oracle found Flat containing newline!");
-            lines.last_mut().unwrap().1.push_str(&text);
-            vec![lines]
+            let len = lines.len();
+            pp(indent, lines, notation)
+                .into_iter()
+                .filter(|ls| ls.len() == len)
+                .collect()
         }
         Concat(left, right) => {
             let mut options = vec![];
@@ -66,16 +68,4 @@ fn fits(width: usize, lines: &[(usize, String)]) -> bool {
         }
     }
     true
-}
-
-fn pp_flat(notation: &Notation) -> Option<String> {
-    match notation {
-        Literal(text) => Some(text.to_string()),
-        Newline => None,
-        Indent(_, notation) => pp_flat(notation),
-        Flat(notation) => pp_flat(notation),
-        Concat(left, right) => Some(format!("{}{}", pp_flat(left)?, pp_flat(right)?)),
-        Align(notation) => pp_flat(notation),
-        Choice(left, right) => pp_flat(left).or_else(|| pp_flat(right)),
-    }
 }

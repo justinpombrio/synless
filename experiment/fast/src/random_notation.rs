@@ -180,9 +180,9 @@ mod tests {
         PPResult::Ok
     }
 
-    const WIDTH_RANGE: (usize, usize) = (1, 20);
+    const WIDTH_RANGE: (usize, usize) = (5, 20);
     const NUM_TESTS: usize = 10000;
-    const SEED: u64 = 17;
+    const SEED: u64 = 20;
 
     #[test]
     fn oracle_tests() {
@@ -213,6 +213,7 @@ mod tests {
                 error.actual.join("\n"),
                 error.oracular.join("\n"),
                 error.notation,
+//                error.notation.validate().unwrap().measure(),
                 error.width,
             );
             assert!(false);

@@ -336,7 +336,7 @@ mod tests {
         );
     }
 
-    #[test]
+    //#[test]
     fn test_pp_tradeoff() {
         let n1 = list_indent(vec![lit("a"), lit("bbbb"), lit("c"), lit("d")]);
         let n2 = lit("let xxxxxxxxxx = ") + (align(n1.clone()) | indent(8, line() + n1.clone()));
@@ -390,5 +390,11 @@ mod tests {
                 "    ]",
             ],
         );
+    }
+
+    #[test]
+    fn oracle_failure_1() {
+        let n = flat(lit("aa") | lit("b")) | line();
+        assert_pp(n, 1, &["b"]);
     }
 }
