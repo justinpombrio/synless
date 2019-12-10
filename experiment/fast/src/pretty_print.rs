@@ -177,9 +177,9 @@ mod tests {
     }
 
     fn assert_pp(notation: Notation, width: usize, expected_lines: &[&str]) {
-        let valid_notation = notation.validate().unwrap();
+        let valid_notation = notation.clone().validate().unwrap();
         let measured_notation = valid_notation.measure();
-        let oracle_lines: Vec<String> = expand_lines(oracular_pretty_print(&valid_notation, width));
+        let oracle_lines: Vec<String> = expand_lines(oracular_pretty_print(&notation, width));
         let actual_lines: Vec<String> = expand_lines(pretty_print(&measured_notation, width));
         if oracle_lines != expected_lines {
             eprintln!(

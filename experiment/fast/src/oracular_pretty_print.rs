@@ -1,12 +1,11 @@
 //! Slow (exp time), but definitely correct, pretty printer.
 
-use super::validate::ValidNotation;
 use super::Notation;
 use Notation::*;
 
-pub fn oracular_pretty_print(notation: &ValidNotation, width: usize) -> Vec<(usize, String)> {
+pub fn oracular_pretty_print(notation: &Notation, width: usize) -> Vec<(usize, String)> {
     let prefix = vec![(0, "".to_string())];
-    let options = pp(0, prefix, &notation.0);
+    let options = pp(0, prefix, &notation);
     let fallback = options.last().unwrap().clone();
     for option in options {
         if fits(width, &option) {

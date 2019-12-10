@@ -1,3 +1,5 @@
+//! Validate that there is at least _one_ way to lay out a notation.
+
 use super::Notation;
 use std::mem;
 use Notation::*;

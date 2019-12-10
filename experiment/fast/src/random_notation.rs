@@ -166,7 +166,7 @@ mod tests {
         };
         let measured_notation = valid_notation.measure();
         for width in WIDTH_RANGE.0..WIDTH_RANGE.1 {
-            let oracle_lines = oracular_pretty_print(&valid_notation, width);
+            let oracle_lines = oracular_pretty_print(&notation, width);
             let actual_lines = pretty_print(&measured_notation, width);
             if actual_lines != oracle_lines {
                 return PPResult::Error(PPError {
