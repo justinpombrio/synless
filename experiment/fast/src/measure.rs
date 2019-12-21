@@ -8,7 +8,7 @@ pub enum MeasuredNotation {
     Indent(usize, Box<MeasuredNotation>),
     Flat(Box<MeasuredNotation>),
     Align(Box<MeasuredNotation>),
-    /// Requirement is for second MesuredNotation
+    /// Requirement is for second MeasuredNotation
     Concat(Box<MeasuredNotation>, Box<MeasuredNotation>, Requirement),
     Choice(
         (Box<MeasuredNotation>, Requirement),
@@ -76,38 +76,38 @@ impl Notation {
             }
             Notation::Flat(note) => {
                 let (note, mut req) = note.measure_rec();
+                let note = MeasuredNotation::Flat(Box::new(note));
                 req.multi_line = None;
                 req.aligned = None;
-                let note = MeasuredNotation::Flat(Box::new(note));
                 (note, req)
             }
             Notation::Align(note) => {
                 let (note, mut req) = note.measure_rec();
+                let note = MeasuredNotation::Align(Box::new(note));
                 let multi_line = req.multi_line.take();
                 let aligned = multi_line.map(|ml| AlignedMultiLine {
                     middle: ml.first.max(ml.middle),
                     last: ml.last,
                 });
                 let req = req.or_aligned(aligned);
-                let note = MeasuredNotation::Align(Box::new(note));
                 (note, req)
             }
             Notation::Concat(left, right) => {
                 let (left_note, left_req) = left.measure_rec();
                 let (right_note, right_req) = right.measure_rec();
-                let req = left_req.concat(right_req);
                 let note =
                     MeasuredNotation::Concat(Box::new(left_note), Box::new(right_note), right_req);
+                let req = left_req.concat(right_req);
                 (note, req)
             }
             Notation::Choice(left, right) => {
                 let (left_note, left_req) = left.measure_rec();
                 let (right_note, right_req) = right.measure_rec();
-                let req = left_req.best(right_req);
                 let note = MeasuredNotation::Choice(
                     (Box::new(left_note), left_req),
                     (Box::new(right_note), right_req),
                 );
+                let req = left_req.best(right_req);
                 (note, req)
             }
         }
@@ -140,10 +140,6 @@ impl Requirement {
             }
         }
         false
-    }
-
-    pub fn has_single_line(&self) -> bool {
-        self.single_line.is_some()
     }
 
     pub fn indent(mut self, indent: usize) -> Self {
@@ -218,7 +214,7 @@ impl Requirement {
                 last: rm.last,
             });
         }
-        // This only works well if the options left and right obey Justin's Property:
+        // This only works well if the options left and right obey the No-Tradeoff rule.
         //   (left.first < right.first) -> (left.last <= right.last).
         req.multi_line = multi_line_options.into_iter().min_by_key(|ml| ml.first);
         req.aligned = aligned_options.into_iter().min_by_key(|al| al.middle);
@@ -239,6 +235,7 @@ impl Requirement {
         if let Some(new) = multi_line {
             self.multi_line = match self.multi_line {
                 Some(old) => {
+                    // TODO: Need to keep multiple options here
                     if new.first < old.first {
                         Some(new)
                     } else {
@@ -246,7 +243,7 @@ impl Requirement {
                     }
                 }
                 None => Some(new),
-            }
+            };
         }
         self
     }
@@ -255,6 +252,7 @@ impl Requirement {
         if let Some(new) = aligned {
             self.aligned = match self.aligned {
                 Some(old) => {
+                    // TODO: Need to keep multiple options here
                     if new.middle < old.middle {
                         Some(new)
                     } else {
@@ -262,16 +260,33 @@ impl Requirement {
                     }
                 }
                 None => Some(new),
-            }
+            };
         }
         self
     }
 
-    /// Combine the best (smallest) parts of both Requirements.
+    /// Combine the best (smallest) options from both Requirements.
     fn best(self, other: Self) -> Self {
         self.or_single_line(other.single_line)
             .or_multi_line(other.multi_line)
             .or_aligned(other.aligned)
+    }
+
+    pub fn min_first_line_len(&self) -> usize {
+        let mut options = vec![];
+        if let Some(len) = self.single_line {
+            options.push(len);
+        }
+        if let Some(ml) = &self.multi_line {
+            options.push(ml.first);
+        }
+        if let Some(al) = &self.aligned {
+            options.push(al.middle);
+        }
+        options
+            .into_iter()
+            .min()
+            .expect("min_first_line_len: no options")
     }
 }
 

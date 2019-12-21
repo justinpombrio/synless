@@ -1,7 +1,6 @@
 //! Validate that there is at least _one_ way to lay out a notation.
 
 use super::Notation;
-use std::mem;
 use Notation::*;
 
 pub struct ValidNotation(pub(crate) Notation);
@@ -27,7 +26,7 @@ impl Notation {
         }
     }
 
-    fn validate_rec(&mut self) -> Possibilities {
+    fn validate_rec(&self) -> Possibilities {
         match self {
             Literal(_) => Possibilities {
                 single_line: true,
@@ -57,21 +56,9 @@ impl Notation {
             Choice(left, right) => {
                 let left_poss = left.validate_rec();
                 let right_poss = right.validate_rec();
-                if !left_poss.is_possible() {
-                    let dummy = Notation::Newline;
-                    let right = mem::replace(right.as_mut(), dummy);
-                    *self = right;
-                    right_poss
-                } else if !right_poss.is_possible() {
-                    let dummy = Notation::Newline;
-                    let left = mem::replace(left.as_mut(), dummy);
-                    *self = left;
-                    left_poss
-                } else {
-                    Possibilities {
-                        single_line: left_poss.single_line || right_poss.single_line,
-                        multi_line: left_poss.multi_line || right_poss.multi_line,
-                    }
+                Possibilities {
+                    single_line: left_poss.single_line || right_poss.single_line,
+                    multi_line: left_poss.multi_line || right_poss.multi_line,
                 }
             }
         }

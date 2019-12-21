@@ -38,12 +38,10 @@ fn pp(
                 .filter(|ls| ls.len() == len)
                 .collect()
         }
-        Concat(left, right) => {
+        Concat(left_note, right_note) => {
             let mut options = vec![];
-            for left_option in pp(indent, lines.clone(), left) {
-                for option in pp(indent, left_option.clone(), right) {
-                    options.push(option);
-                }
+            for left_option in pp(indent, lines.clone(), left_note) {
+                options.append(&mut pp(indent, left_option.clone(), right_note));
             }
             options
         }

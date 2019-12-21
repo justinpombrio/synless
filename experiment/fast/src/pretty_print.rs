@@ -7,6 +7,10 @@ pub fn pretty_print(notation: &MeasuredNotation, width: usize) -> Vec<(usize, St
     pp(width, 0, prefix, suffix_req, notation)
 }
 
+// TODO:
+// - make pp a method on `prefix`
+// - helper method: self.prefix_len()
+
 // INVARIANT: prefix is never empty. It should at the very least contain 1 empty string.
 fn pp(
     width: usize,
@@ -26,7 +30,12 @@ fn pp(
         }
         Indent(i, notation) => pp(width, indent + i, prefix, suffix_req, notation),
         Flat(notation) => {
-            prefix.last_mut().unwrap().1.push_str(&pp_flat(notation));
+            let (i, s) = prefix.last().unwrap();
+            let prefix_len = i + s.chars().count();
+            let min_suffix_len = suffix_req.min_first_line_len();
+            let max_len = width.saturating_sub(prefix_len + min_suffix_len);
+            let flat = pp_flat(max_len, notation);
+            prefix.last_mut().unwrap().1.push_str(&flat);
             prefix
         }
         Concat(left, right, right_req) => {
@@ -54,19 +63,28 @@ fn pp(
     }
 }
 
-fn pp_flat(notation: &MeasuredNotation) -> String {
+fn pp_flat(max_len: usize, notation: &MeasuredNotation) -> String {
     match notation {
         Literal(text) => text.to_string(),
         Newline => panic!("pp_flat found a newline!"),
-        Indent(_, notation) => pp_flat(notation),
-        Flat(notation) => pp_flat(notation),
-        Concat(left, right, _) => format!("{}{}", pp_flat(left), pp_flat(right)),
-        Align(notation) => pp_flat(notation),
+        Indent(_, notation) => pp_flat(max_len, notation),
+        Flat(notation) => pp_flat(max_len, notation),
+        Align(notation) => pp_flat(max_len, notation),
+        Concat(left, right, right_req) => {
+            let min_right_len = right_req
+                .single_line
+                .expect("pp_flat found a non-flat right");
+            let left_str = pp_flat(max_len - min_right_len, left);
+            let actual_left_len = left_str.chars().count();
+            let right_str = pp_flat(max_len - actual_left_len, right);
+            format!("{}{}", left_str, right_str)
+        }
         Choice((left, left_req), (right, _)) => {
-            if left_req.has_single_line() {
-                pp_flat(left)
+            let fits_left = left_req.single_line.map_or(false, |l| l <= max_len);
+            if fits_left {
+                pp_flat(max_len, left)
             } else {
-                pp_flat(right)
+                pp_flat(max_len, right)
             }
         }
     }
