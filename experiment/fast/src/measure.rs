@@ -142,6 +142,10 @@ impl Requirement {
         false
     }
 
+    pub fn is_possible(&self) -> bool {
+        self.single_line.is_some() || self.multi_line.is_some() || self.aligned.is_some()
+    }
+
     pub fn indent(mut self, indent: usize) -> Self {
         if let Some(multi_line) = self.multi_line.as_mut() {
             multi_line.middle += indent;

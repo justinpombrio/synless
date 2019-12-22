@@ -17,7 +17,7 @@ impl Possibilities {
 }
 
 impl Notation {
-    pub fn validate(mut self) -> Result<ValidNotation, ()> {
+    pub fn validate(self) -> Result<ValidNotation, ()> {
         let possibilities = self.validate_rec();
         if possibilities.is_possible() {
             Ok(ValidNotation(self))

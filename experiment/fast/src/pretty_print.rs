@@ -39,7 +39,7 @@ fn pp(
             prefix
         }
         Concat(left, right, right_req) => {
-            let new_suffix_req = right_req.concat(suffix_req);
+            let new_suffix_req = right_req.indent(indent).concat(suffix_req);
             let prefix = pp(width, indent, prefix, new_suffix_req, left);
             pp(width, indent, prefix, suffix_req, right)
         }
@@ -48,13 +48,18 @@ fn pp(
             let indent = i + s.chars().count();
             pp(width, indent, prefix, suffix_req, note)
         }
-        Choice((left, left_req), (right, _)) => {
+        Choice((left, left_req), (right, right_req)) => {
             let (i, s) = prefix.last().unwrap();
             let prefix_len = i + s.chars().count();
-            let req = Requirement::new_single_line(prefix_len)
+            let full_left_req = Requirement::new_single_line(prefix_len)
                 .concat(left_req.indent(indent))
                 .concat(suffix_req);
-            if req.fits(width) {
+            let full_right_req = Requirement::new_single_line(prefix_len)
+                .concat(right_req.indent(indent))
+                .concat(suffix_req);
+            let left_fits = full_left_req.fits(width);
+            let right_impossible = !full_right_req.is_possible();
+            if left_fits || right_impossible {
                 pp(width, indent, prefix, suffix_req, left)
             } else {
                 pp(width, indent, prefix, suffix_req, right)
@@ -74,14 +79,15 @@ fn pp_flat(max_len: usize, notation: &MeasuredNotation) -> String {
             let min_right_len = right_req
                 .single_line
                 .expect("pp_flat found a non-flat right");
-            let left_str = pp_flat(max_len - min_right_len, left);
+            let left_str = pp_flat(max_len.saturating_sub(min_right_len), left);
             let actual_left_len = left_str.chars().count();
-            let right_str = pp_flat(max_len - actual_left_len, right);
+            let right_str = pp_flat(max_len.saturating_sub(actual_left_len), right);
             format!("{}{}", left_str, right_str)
         }
-        Choice((left, left_req), (right, _)) => {
-            let fits_left = left_req.single_line.map_or(false, |l| l <= max_len);
-            if fits_left {
+        Choice((left, left_req), (right, right_req)) => {
+            let left_fits = left_req.single_line.map_or(false, |l| l <= max_len);
+            let right_impossible = right_req.single_line.is_none();
+            if left_fits || right_impossible {
                 pp_flat(max_len, left)
             } else {
                 pp_flat(max_len, right)
@@ -195,7 +201,7 @@ mod tests {
     }
 
     fn assert_pp(notation: Notation, width: usize, expected_lines: &[&str]) {
-        let valid_notation = notation.clone().validate().unwrap();
+        let valid_notation = notation.clone().validate().expect("failed to validate");
         let measured_notation = valid_notation.measure();
         let oracle_lines: Vec<String> = expand_lines(oracular_pretty_print(&notation, width));
         let actual_lines: Vec<String> = expand_lines(pretty_print(&measured_notation, width));
@@ -354,7 +360,7 @@ mod tests {
         );
     }
 
-    //#[test]
+    #[test]
     fn test_pp_tradeoff() {
         let n1 = list_indent(vec![lit("a"), lit("bbbb"), lit("c"), lit("d")]);
         let n2 = lit("let xxxxxxxxxx = ") + (align(n1.clone()) | indent(8, line() + n1.clone()));
@@ -414,5 +420,17 @@ mod tests {
     fn oracle_failure_1() {
         let n = flat(lit("aa") | lit("b")) | line();
         assert_pp(n, 1, &["b"]);
+    }
+
+    #[test]
+    fn oracle_failure_2() {
+        let n = indent(9, (lit("a") | lit("bb")) + line());
+        assert_pp(n, 5, &["bb", "         "]);
+    }
+
+    #[test]
+    fn oracle_failure_3() {
+        let n = indent(8, line()) | line() | lit("aaaaaaa");
+        assert_pp(n, 5, &["", ""]);
     }
 }

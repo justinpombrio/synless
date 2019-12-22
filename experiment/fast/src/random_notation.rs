@@ -1,6 +1,6 @@
 use super::Notation;
-use rand::rngs::{StdRng, ThreadRng};
-use rand::{thread_rng, Rng, SeedableRng};
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 use Notation::*;
 
 struct Builder {
@@ -50,7 +50,6 @@ impl Builder {
     }
 
     fn notation(&mut self, size: usize) -> Notation {
-        let p: f32 = self.rng.gen();
         match size {
             0 => panic!("Random notation: unexpected size 0"),
             1 => {
@@ -191,7 +190,8 @@ mod tests {
         let mut num_errors = 0;
         let mut generator = NotationGenerator::new(SEED);
         for _ in 0..NUM_TESTS {
-            match try_pretty_print(generator.random_notation()) {
+            let note = generator.random_notation();
+            match try_pretty_print(note) {
                 PPResult::Ok => (),
                 PPResult::Invalid => {
                     num_invalid += 1;
@@ -203,7 +203,7 @@ mod tests {
                 }
             }
         }
-        println!(
+        eprintln!(
             "Tested {} notations. {} were invalid. {} were printed incorrectly.",
             NUM_TESTS, num_invalid, num_errors
         );
