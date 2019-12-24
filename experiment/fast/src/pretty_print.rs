@@ -33,8 +33,7 @@ fn pp(
             let (i, s) = prefix.last().unwrap();
             let prefix_len = i + s.chars().count();
             let min_suffix_len = suffix_req.min_first_line_len();
-            let max_len = width.saturating_sub(prefix_len + min_suffix_len);
-            let flat = pp_flat(max_len, notation);
+            let flat = pp_flat(width, prefix_len, min_suffix_len, notation);
             prefix.last_mut().unwrap().1.push_str(&flat);
             prefix
         }
@@ -68,29 +67,36 @@ fn pp(
     }
 }
 
-fn pp_flat(max_len: usize, notation: &MeasuredNotation) -> String {
+fn pp_flat(
+    width: usize,
+    prefix_len: usize,
+    suffix_len: usize,
+    notation: &MeasuredNotation,
+) -> String {
     match notation {
         Literal(text) => text.to_string(),
         Newline => panic!("pp_flat found a newline!"),
-        Indent(_, notation) => pp_flat(max_len, notation),
-        Flat(notation) => pp_flat(max_len, notation),
-        Align(notation) => pp_flat(max_len, notation),
+        Indent(_, notation) => pp_flat(width, prefix_len, suffix_len, notation),
+        Flat(notation) => pp_flat(width, prefix_len, suffix_len, notation),
+        Align(notation) => pp_flat(width, prefix_len, suffix_len, notation),
         Concat(left, right, right_req) => {
             let min_right_len = right_req
                 .single_line
                 .expect("pp_flat found a non-flat right");
-            let left_str = pp_flat(max_len.saturating_sub(min_right_len), left);
+            let left_str = pp_flat(width, prefix_len, suffix_len + min_right_len, left);
             let actual_left_len = left_str.chars().count();
-            let right_str = pp_flat(max_len.saturating_sub(actual_left_len), right);
+            let right_str = pp_flat(width, prefix_len + actual_left_len, suffix_len, right);
             format!("{}{}", left_str, right_str)
         }
         Choice((left, left_req), (right, right_req)) => {
-            let left_fits = left_req.single_line.map_or(false, |l| l <= max_len);
+            let left_fits = left_req
+                .single_line
+                .map_or(false, |l| prefix_len + l + suffix_len <= width);
             let right_impossible = right_req.single_line.is_none();
             if left_fits || right_impossible {
-                pp_flat(max_len, left)
+                pp_flat(width, prefix_len, suffix_len, left)
             } else {
-                pp_flat(max_len, right)
+                pp_flat(width, prefix_len, suffix_len, right)
             }
         }
     }
