@@ -430,6 +430,12 @@ mod tests {
 
     #[test]
     fn oracle_failure_3() {
+        let n = flat(lit("aaaaaaaa") + (lit("") | lit("cccccc")));
+        assert_pp(n, 6, &["aaaaaaaacccccc"]);
+    }
+
+    #[test]
+    fn oracle_failure_4() {
         let n = indent(8, line()) | line() | lit("aaaaaaa");
         assert_pp(n, 5, &["", ""]);
     }
