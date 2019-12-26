@@ -1,4 +1,5 @@
-use super::measure::{MeasuredNotation, Requirement};
+use super::measure::MeasuredNotation;
+use super::requirement::Requirement;
 use MeasuredNotation::*;
 
 pub fn pretty_print(notation: &MeasuredNotation, width: usize) -> Vec<(usize, String)> {
