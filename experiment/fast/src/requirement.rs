@@ -1,19 +1,10 @@
-/*
 use crate::staircase::{Stair, Staircase};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct RequirementSet {
+pub struct Requirements {
     pub single_line: Option<usize>,
     pub multi_line: Staircase<MultiLine>,
-    pub aligned: Staircase<AlignedMultiLine>,
-}
-*/
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Requirement {
-    pub single_line: Option<usize>,
-    pub multi_line: Option<MultiLine>,
-    pub aligned: Option<AlignedMultiLine>,
+    pub aligned: Staircase<Aligned>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -24,18 +15,18 @@ pub struct MultiLine {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct AlignedMultiLine {
+pub struct Aligned {
     // includes first line
     pub middle: usize,
     pub last: usize,
 }
-/*
+
 impl Stair for MultiLine {
     fn x(&self) -> usize {
-        self.middle
+        self.first
     }
     fn y(&self) -> usize {
-        self.last
+        self.middle
     }
 }
 
@@ -47,28 +38,30 @@ impl Stair for AlignedMultiLine {
         self.last
     }
 }
-*/
-impl Requirement {
-    pub fn new_single_line(len: usize) -> Requirement {
-        Requirement {
+
+impl Requirements {
+    pub fn new_single_line(len: usize) -> Requirements {
+        Requirements {
             single_line: Some(len),
             multi_line: None,
             aligned: None,
         }
     }
 
+    /// Do _any_ of the requirements fit within this width?
     pub fn fits(&self, width: usize) -> bool {
         if let Some(sl) = self.single_line {
             if sl <= width {
                 return true;
             }
         }
-        if let Some(ml) = self.multi_line {
+        // TODO: could be more efficient
+        for ml in &self.multi_line {
             if ml.first <= width && ml.middle <= width && ml.last <= width {
                 return true;
             }
         }
-        if let Some(al) = self.aligned {
+        for al in &self.aligned {
             if al.middle <= width && al.last <= width {
                 return true;
             }
@@ -77,17 +70,21 @@ impl Requirement {
     }
 
     pub fn is_possible(&self) -> bool {
-        self.single_line.is_some() || self.multi_line.is_some() || self.aligned.is_some()
+        self.single_line.is_some() || !self.multi_line.is_empty() || !self.aligned.is_empty()
     }
 
     pub fn indent(mut self, indent: usize) -> Self {
-        if let Some(multi_line) = self.multi_line.as_mut() {
-            multi_line.middle += indent;
-            multi_line.last += indent;
+        let multi_lines = self.multi_line.into_iter();
+        self.multi_line = Staircase::new();
+        for mut ml in multi_lines {
+            ml.middle += indent;
+            ml.last += indent;
+            self.multi_line.unchecked_insert(ml);
         }
         self
     }
 
+    // TODO: rewrite
     pub fn concat(self, other: Requirement) -> Self {
         let mut req = Requirement {
             single_line: None,
@@ -159,6 +156,7 @@ impl Requirement {
         req
     }
 
+    // TODO: rewrite
     pub fn or_single_line(mut self, single_line: Option<usize>) -> Self {
         if let Some(new) = single_line {
             self.single_line = match self.single_line {
@@ -169,6 +167,7 @@ impl Requirement {
         self
     }
 
+    // TODO: rewrite
     pub fn or_multi_line(mut self, multi_line: Option<MultiLine>) -> Self {
         if let Some(new) = multi_line {
             self.multi_line = match self.multi_line {
@@ -186,6 +185,7 @@ impl Requirement {
         self
     }
 
+    // TODO: rewrite
     pub fn or_aligned(mut self, aligned: Option<AlignedMultiLine>) -> Self {
         if let Some(new) = aligned {
             self.aligned = match self.aligned {
@@ -203,6 +203,7 @@ impl Requirement {
         self
     }
 
+    // TODO: rewrite
     /// Combine the best (smallest) options from both Requirements.
     pub fn best(self, other: Self) -> Self {
         self.or_single_line(other.single_line)
@@ -211,19 +212,17 @@ impl Requirement {
     }
 
     pub fn min_first_line_len(&self) -> usize {
-        let mut options = vec![];
+        let mut min_len = None;
+        let add_option = |x: usize| min_len = min_len.map_or(x, |y| x.min(y));
         if let Some(len) = self.single_line {
-            options.push(len);
+            add_option(len);
         }
-        if let Some(ml) = &self.multi_line {
-            options.push(ml.first);
+        if let Some(ml) = self.multi_line.iter().first() {
+            add_option(ml.first);
         }
-        if let Some(al) = &self.aligned {
-            options.push(al.middle);
+        if let Some(al) = &self.aligned.iter().first() {
+            add_option(al.middle);
         }
-        options
-            .into_iter()
-            .min()
-            .expect("min_first_line_len: no options")
+        min_len.expect("min_first_line_len: no options")
     }
 }

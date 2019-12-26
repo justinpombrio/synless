@@ -20,6 +20,10 @@ impl<T: Stair> Staircase<T> {
         Staircase { stairs: Vec::new() }
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.stairs.is_empty()
+    }
+
     /// Insert a new stair into a staircase.
     pub fn insert(&mut self, stair: T) {
         let (skip_left, skip_right, delete_left, delete_right) = self.indices(stair.x(), stair.y());
@@ -32,6 +36,10 @@ impl<T: Stair> Staircase<T> {
             self.stairs.drain(delete_left..delete_right);
         }
         // Insert the new stair.
+        self.stairs.insert(delete_left, stair);
+    }
+
+    pub fn unchecked_insert(&mut self, stair: T) {
         self.stairs.insert(delete_left, stair);
     }
 
@@ -57,6 +65,14 @@ impl<T: Stair> iter::IntoIterator for Staircase<T> {
     type IntoIter = <Vec<T> as iter::IntoIterator>::IntoIter;
     fn into_iter(self) -> Self::IntoIter {
         self.stairs.into_iter()
+    }
+}
+
+impl<'a, T: Stair> iter::IntoIterator for &'a Staircase<T> {
+    type Item = &'a T;
+    type IntoIter = <&'a [T] as iter::IntoIterator>::IntoIter;
+    fn into_iter(self) -> Self::IntoIter {
+        self.stairs.iter()
     }
 }
 
