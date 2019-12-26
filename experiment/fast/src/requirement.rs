@@ -244,6 +244,125 @@ mod tests {
     fn test_possible() {
         assert!(!Requirements::new().is_possible());
         assert!(Requirements::new_single_line(4).is_possible());
+        assert!(Requirements::new()
+            .with_multi_line(MultiLine {
+                first: 1,
+                middle: 2,
+                last: 3
+            })
+            .is_possible());
+        assert!(Requirements::new()
+            .with_aligned(Aligned { middle: 2, last: 3 })
+            .is_possible());
+    }
+
+    fn example_req() -> Requirements {
+        Requirements::new_single_line(10)
+            .with_multi_line(MultiLine {
+                first: 2,
+                middle: 6,
+                last: 3,
+            })
+            .with_multi_line(MultiLine {
+                first: 3,
+                middle: 5,
+                last: 4,
+            })
+            .with_aligned(Aligned { middle: 3, last: 4 })
+            .with_aligned(Aligned { middle: 4, last: 3 })
+    }
+
+    #[test]
+    fn test_indent() {
+        let req = example_req();
+        let expected = Requirements::new_single_line(10)
+            .with_multi_line(MultiLine {
+                first: 2,
+                middle: 106,
+                last: 103,
+            })
+            .with_multi_line(MultiLine {
+                first: 3,
+                middle: 105,
+                last: 104,
+            })
+            .with_aligned(Aligned { middle: 3, last: 4 })
+            .with_aligned(Aligned { middle: 4, last: 3 });
+
+        assert_eq!(req.indent(100), expected);
+    }
+
+    fn assert_fits_exactly(width: usize, req: Requirements) {
+        assert!(req.fits(width + 1));
+        assert!(req.fits(width));
+        assert!(!req.fits(width - 1));
+    }
+
+    #[test]
+    fn test_fits() {
+        assert_fits_exactly(6, Requirements::new_single_line(6));
+
+        assert_fits_exactly(
+            6,
+            Requirements::new().with_multi_line(MultiLine {
+                first: 5,
+                middle: 6,
+                last: 5,
+            }),
+        );
+
+        assert_fits_exactly(
+            6,
+            Requirements::new().with_multi_line(MultiLine {
+                first: 6,
+                middle: 5,
+                last: 5,
+            }),
+        );
+
+        assert_fits_exactly(
+            6,
+            Requirements::new().with_multi_line(MultiLine {
+                first: 5,
+                middle: 5,
+                last: 6,
+            }),
+        );
+
+        assert_fits_exactly(
+            6,
+            Requirements::new()
+                .with_multi_line(MultiLine {
+                    first: 5,
+                    middle: 5,
+                    last: 6,
+                })
+                .with_multi_line(MultiLine {
+                    first: 10,
+                    middle: 1,
+                    last: 10,
+                }),
+        );
+
+        assert_fits_exactly(
+            6,
+            Requirements::new().with_aligned(Aligned { middle: 6, last: 5 }),
+        );
+
+        assert_fits_exactly(
+            6,
+            Requirements::new().with_aligned(Aligned { middle: 5, last: 6 }),
+        );
+
+        assert_fits_exactly(
+            6,
+            Requirements::new()
+                .with_aligned(Aligned {
+                    middle: 10,
+                    last: 1,
+                })
+                .with_aligned(Aligned { middle: 5, last: 6 }),
+        );
     }
 
     #[test]
