@@ -1,10 +1,10 @@
 use super::measure::MeasuredNotation;
-use super::requirement::Requirement;
+use super::requirement::Requirements;
 use MeasuredNotation::*;
 
 pub fn pretty_print(notation: &MeasuredNotation, width: usize) -> Vec<(usize, String)> {
     let prefix = vec![(0, "".to_string())];
-    let suffix_req = Requirement::new_single_line(0);
+    let suffix_req = Requirements::new_single_line(0);
     pp(width, 0, prefix, suffix_req, notation)
 }
 
@@ -17,7 +17,7 @@ fn pp(
     width: usize,
     indent: usize,
     mut prefix: Vec<(usize, String)>,
-    suffix_req: Requirement,
+    suffix_req: Requirements,
     notation: &MeasuredNotation,
 ) -> Vec<(usize, String)> {
     match notation {
@@ -33,13 +33,16 @@ fn pp(
         Flat(notation) => {
             let (i, s) = prefix.last().unwrap();
             let prefix_len = i + s.chars().count();
-            let min_suffix_len = suffix_req.min_first_line_len();
+            let min_suffix_len = suffix_req
+                .min_first_line_len()
+                .expect("pp: suffix req has no possibilities");
             let flat = pp_flat(width, prefix_len, min_suffix_len, notation);
             prefix.last_mut().unwrap().1.push_str(&flat);
             prefix
         }
         Concat(left, right, right_req) => {
-            let new_suffix_req = right_req.indent(indent).concat(suffix_req);
+            // TODO should indent() not take ownership of the req?
+            let new_suffix_req = right_req.clone().indent(indent).concat(&suffix_req);
             let prefix = pp(width, indent, prefix, new_suffix_req, left);
             pp(width, indent, prefix, suffix_req, right)
         }
@@ -51,12 +54,12 @@ fn pp(
         Choice((left, left_req), (right, right_req)) => {
             let (i, s) = prefix.last().unwrap();
             let prefix_len = i + s.chars().count();
-            let full_left_req = Requirement::new_single_line(prefix_len)
-                .concat(left_req.indent(indent))
-                .concat(suffix_req);
-            let full_right_req = Requirement::new_single_line(prefix_len)
-                .concat(right_req.indent(indent))
-                .concat(suffix_req);
+            let full_left_req = Requirements::new_single_line(prefix_len)
+                .concat(&(left_req.clone().indent(indent)))
+                .concat(&suffix_req);
+            let full_right_req = Requirements::new_single_line(prefix_len)
+                .concat(&(right_req.clone()).indent(indent))
+                .concat(&suffix_req);
             let left_fits = full_left_req.fits(width);
             let right_impossible = !full_right_req.is_possible();
             if left_fits || right_impossible {

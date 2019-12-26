@@ -1,4 +1,4 @@
-use fast::{AlignedMultiLine, MultiLine, Requirement};
+use fast::{Aligned, MultiLine, Requirement};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 
@@ -34,7 +34,7 @@ impl RequirementGenerator {
             });
         }
         if rng.gen() {
-            req.aligned = Some(AlignedMultiLine {
+            req.aligned = Some(Aligned {
                 middle: rng.gen_range(LINE_RANGE.0, LINE_RANGE.1),
                 last: rng.gen_range(LINE_RANGE.0, LINE_RANGE.1),
             });

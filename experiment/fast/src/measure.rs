@@ -1,5 +1,6 @@
 use super::notation::Notation;
-use super::requirement::{AlignedMultiLine, MultiLine, Requirement};
+use super::requirement::{Aligned, MultiLine, Requirements};
+use super::staircase::Staircase;
 use super::validate::ValidNotation;
 
 #[derive(Clone, Debug)]
@@ -9,11 +10,11 @@ pub enum MeasuredNotation {
     Indent(usize, Box<MeasuredNotation>),
     Flat(Box<MeasuredNotation>),
     Align(Box<MeasuredNotation>),
-    /// Requirement is for second MeasuredNotation
-    Concat(Box<MeasuredNotation>, Box<MeasuredNotation>, Requirement),
+    /// Requirements is for second MeasuredNotation
+    Concat(Box<MeasuredNotation>, Box<MeasuredNotation>, Requirements),
     Choice(
-        (Box<MeasuredNotation>, Requirement),
-        (Box<MeasuredNotation>, Requirement),
+        (Box<MeasuredNotation>, Requirements),
+        (Box<MeasuredNotation>, Requirements),
     ),
 }
 
@@ -24,28 +25,21 @@ impl ValidNotation {
 }
 
 impl Notation {
-    fn measure_rec(&self) -> (MeasuredNotation, Requirement) {
+    fn measure_rec(&self) -> (MeasuredNotation, Requirements) {
         match self {
             Notation::Literal(lit) => {
                 let note = MeasuredNotation::Literal(lit.clone());
-                let req = Requirement {
-                    single_line: Some(lit.chars().count()),
-                    multi_line: None,
-                    aligned: None,
-                };
+                let req = Requirements::new_single_line(lit.chars().count());
                 (note, req)
             }
             Notation::Newline => {
                 let note = MeasuredNotation::Newline;
-                let req = Requirement {
-                    single_line: None,
-                    multi_line: Some(MultiLine {
-                        first: 0,
-                        middle: 0,
-                        last: 0,
-                    }),
-                    aligned: None,
-                };
+                let mut req = Requirements::new();
+                req.multi_line.insert(MultiLine {
+                    first: 0,
+                    middle: 0,
+                    last: 0,
+                });
                 (note, req)
             }
             Notation::Indent(indent, note) => {
@@ -57,35 +51,36 @@ impl Notation {
             Notation::Flat(note) => {
                 let (note, mut req) = note.measure_rec();
                 let note = MeasuredNotation::Flat(Box::new(note));
-                req.multi_line = None;
-                req.aligned = None;
+                req.multi_line = Staircase::new();
+                req.aligned = Staircase::new();
                 (note, req)
             }
             Notation::Align(note) => {
                 let (note, mut req) = note.measure_rec();
                 let note = MeasuredNotation::Align(Box::new(note));
-                let multi_line = req.multi_line.take();
-                let aligned = multi_line.map(|ml| AlignedMultiLine {
-                    middle: ml.first.max(ml.middle),
-                    last: ml.last,
-                });
-                let req = req.or_aligned(aligned);
+                for ml in req.multi_line.drain() {
+                    req.aligned.insert(Aligned {
+                        middle: ml.first.max(ml.middle),
+                        last: ml.last,
+                    })
+                }
                 (note, req)
             }
             Notation::Concat(left, right) => {
                 let (left_note, left_req) = left.measure_rec();
                 let (right_note, right_req) = right.measure_rec();
+                let req = left_req.concat(&right_req);
                 let note =
                     MeasuredNotation::Concat(Box::new(left_note), Box::new(right_note), right_req);
-                let req = left_req.concat(right_req);
                 (note, req)
             }
             Notation::Choice(left, right) => {
                 let (left_note, left_req) = left.measure_rec();
                 let (right_note, right_req) = right.measure_rec();
+                // TODO avoid cloning?
                 let note = MeasuredNotation::Choice(
-                    (Box::new(left_note), left_req),
-                    (Box::new(right_note), right_req),
+                    (Box::new(left_note), left_req.clone()),
+                    (Box::new(right_note), right_req.clone()),
                 );
                 let req = left_req.best(right_req);
                 (note, req)
@@ -102,55 +97,32 @@ mod tests {
     fn test_literal() {
         let lit = Notation::Literal("foobar".into());
         let req = lit.measure_rec().1;
-        assert_eq!(
-            req,
-            Requirement {
-                single_line: Some(6),
-                multi_line: None,
-                aligned: None,
-            }
-        );
+        assert_eq!(req, Requirements::new_single_line(6));
     }
 
     #[test]
     fn test_newline() {
         let newline = Notation::Newline;
         let req = newline.measure_rec().1;
-        assert_eq!(
-            req,
-            Requirement {
-                single_line: None,
-                multi_line: Some(MultiLine {
-                    first: 0,
-                    middle: 0,
-                    last: 0
-                }),
-                aligned: None,
-            }
-        );
+        let mut expected_req = Requirements::new();
+        expected_req.multi_line.insert(MultiLine {
+            first: 0,
+            middle: 0,
+            last: 0,
+        });
+        assert_eq!(req, expected_req);
     }
 
     #[test]
     fn test_concat_literals() {
         let note = Notation::concat(Notation::literal("foo"), Notation::literal("bar"));
         let (note, req) = note.measure_rec();
-        assert_eq!(
-            req,
-            Requirement {
-                single_line: Some(6),
-                multi_line: None,
-                aligned: None
-            }
-        );
+
+        assert_eq!(req, Requirements::new_single_line(6));
         match note {
-            MeasuredNotation::Concat(_, _, reserved) => assert_eq!(
-                reserved,
-                Requirement {
-                    single_line: Some(3),
-                    multi_line: None,
-                    aligned: None
-                }
-            ),
+            MeasuredNotation::Concat(_, _, reserved) => {
+                assert_eq!(reserved, Requirements::new_single_line(3))
+            }
             _ => panic!("Expected MeasuredNotation::Concat variant"),
         }
     }

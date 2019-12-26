@@ -40,7 +40,16 @@ impl<T: Stair> Staircase<T> {
     }
 
     pub fn unchecked_insert(&mut self, stair: T) {
-        self.stairs.insert(delete_left, stair);
+        let (skip_left, _, _, _) = self.indices(stair.x(), stair.y());
+        self.stairs.insert(skip_left, stair);
+    }
+
+    pub fn iter<'a>(&'a self) -> impl Iterator<Item = &'a T> {
+        self.into_iter()
+    }
+
+    pub fn drain<'a>(&'a mut self) -> impl Iterator<Item = T> + 'a {
+        self.stairs.drain(..)
     }
 
     fn indices(&self, x: usize, y: usize) -> (usize, usize, usize, usize) {
