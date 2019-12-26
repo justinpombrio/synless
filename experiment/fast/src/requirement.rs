@@ -58,6 +58,28 @@ impl Requirements {
         }
     }
 
+    #[cfg(test)]
+    pub fn with_single_line(mut self, single_line: usize) -> Requirements {
+        if let Some(sl) = self.single_line {
+            self.single_line = Some(sl.min(single_line))
+        } else {
+            self.single_line = Some(single_line)
+        }
+        self
+    }
+
+    #[cfg(test)]
+    pub fn with_multi_line(mut self, multi_line: MultiLine) -> Requirements {
+        self.multi_line.insert(multi_line);
+        self
+    }
+
+    #[cfg(test)]
+    pub fn with_aligned(mut self, aligned: Aligned) -> Requirements {
+        self.aligned.insert(aligned);
+        self
+    }
+
     /// Do _any_ of the requirements fit within this width?
     pub fn fits(&self, width: usize) -> bool {
         if let Some(sl) = self.single_line {
@@ -203,12 +225,144 @@ impl Requirements {
         if let Some(len) = self.single_line {
             add_option(len);
         }
-        if let Some(ml) = self.multi_line.iter().next() {
+        // Make sure this matches the x and y chosen when implementing the `Stair` trait!
+        if let Some(ml) = self.multi_line.min_by_x() {
             add_option(ml.first);
         }
-        if let Some(al) = &self.aligned.iter().next() {
+        if let Some(al) = self.aligned.min_by_x() {
             add_option(al.middle);
         }
         min_len
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_possible() {
+        assert!(!Requirements::new().is_possible());
+        assert!(Requirements::new_single_line(4).is_possible());
+    }
+
+    #[test]
+    fn test_min_first_line() {
+        assert_eq!(Requirements::new().min_first_line_len(), None);
+        assert_eq!(
+            Requirements::new_single_line(5).min_first_line_len(),
+            Some(5)
+        );
+
+        assert_eq!(
+            Requirements::new_single_line(5)
+                .with_multi_line(MultiLine {
+                    first: 4,
+                    middle: 0,
+                    last: 0,
+                })
+                .min_first_line_len(),
+            Some(4)
+        );
+
+        assert_eq!(
+            Requirements::new_single_line(5)
+                .with_multi_line(MultiLine {
+                    first: 6,
+                    middle: 0,
+                    last: 0,
+                })
+                .min_first_line_len(),
+            Some(5)
+        );
+
+        assert_eq!(
+            Requirements::new_single_line(5)
+                .with_multi_line(MultiLine {
+                    first: 6,
+                    middle: 2,
+                    last: 0,
+                })
+                .with_multi_line(MultiLine {
+                    first: 4,
+                    middle: 1,
+                    last: 0,
+                })
+                .min_first_line_len(),
+            Some(4)
+        );
+
+        assert_eq!(
+            Requirements::new_single_line(5)
+                .with_multi_line(MultiLine {
+                    first: 6,
+                    middle: 1,
+                    last: 0,
+                })
+                .with_multi_line(MultiLine {
+                    first: 4,
+                    middle: 2,
+                    last: 0,
+                })
+                .min_first_line_len(),
+            Some(4)
+        );
+
+        assert_eq!(
+            Requirements::new_single_line(5)
+                .with_aligned(Aligned { middle: 4, last: 0 })
+                .min_first_line_len(),
+            Some(4)
+        );
+        assert_eq!(
+            Requirements::new_single_line(5)
+                .with_aligned(Aligned { middle: 4, last: 1 })
+                .with_aligned(Aligned { middle: 6, last: 2 })
+                .min_first_line_len(),
+            Some(4)
+        );
+        assert_eq!(
+            Requirements::new_single_line(5)
+                .with_aligned(Aligned { middle: 4, last: 2 })
+                .with_aligned(Aligned { middle: 6, last: 1 })
+                .min_first_line_len(),
+            Some(4)
+        );
+
+        assert_eq!(
+            Requirements::new_single_line(5)
+                .with_aligned(Aligned { middle: 3, last: 2 })
+                .with_multi_line(MultiLine {
+                    first: 4,
+                    middle: 2,
+                    last: 0,
+                })
+                .min_first_line_len(),
+            Some(3)
+        );
+
+        assert_eq!(
+            Requirements::new_single_line(5)
+                .with_aligned(Aligned { middle: 4, last: 2 })
+                .with_multi_line(MultiLine {
+                    first: 3,
+                    middle: 2,
+                    last: 0,
+                })
+                .min_first_line_len(),
+            Some(3)
+        );
+
+        assert_eq!(
+            Requirements::new_single_line(3)
+                .with_aligned(Aligned { middle: 4, last: 2 })
+                .with_multi_line(MultiLine {
+                    first: 5,
+                    middle: 2,
+                    last: 0,
+                })
+                .min_first_line_len(),
+            Some(3)
+        );
     }
 }

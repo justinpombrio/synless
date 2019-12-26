@@ -52,6 +52,14 @@ impl<T: Stair> Staircase<T> {
         self.stairs.drain(..)
     }
 
+    pub fn min_by_x(&self) -> Option<&T> {
+        self.stairs.iter().last()
+    }
+
+    pub fn min_by_y(&self) -> Option<&T> {
+        self.stairs.iter().next()
+    }
+
     fn indices(&self, x: usize, y: usize) -> (usize, usize, usize, usize) {
         let x_index = self
             .stairs
@@ -123,6 +131,8 @@ mod tests {
     fn test_empty_staircase() {
         let stairs: Staircase<CharStair> = Staircase::new();
         assert_eq!(stairs.stairs, vec![]);
+        assert_eq!(stairs.min_by_x(), None);
+        assert_eq!(stairs.min_by_y(), None);
     }
 
     #[test]
@@ -145,5 +155,7 @@ mod tests {
                 CharStair::new(2, 6, 'a')
             ]
         );
+        assert_eq!(stairs.min_by_x(), Some(&CharStair::new(2, 6, 'a')));
+        assert_eq!(stairs.min_by_y(), Some(&CharStair::new(6, 2, 'a')));
     }
 }
