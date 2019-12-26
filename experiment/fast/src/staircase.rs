@@ -21,7 +21,6 @@ impl<T: Stair> Staircase<T> {
     }
 
     /// Insert a new stair into a staircase.
-    #[cfg(test)]
     pub fn insert(&mut self, stair: T) {
         let (skip_left, skip_right, delete_left, delete_right) = self.indices(stair.x(), stair.y());
         // If the new stair is already covered, skip it.
@@ -34,29 +33,6 @@ impl<T: Stair> Staircase<T> {
         }
         // Insert the new stair.
         self.stairs.insert(delete_left, stair);
-    }
-
-    /// Does a stair in this staircase dominate the given stair?
-    /// (I.e., is there a smaller stair in the staircase?)
-    pub fn dominates(&self, x: usize, y: usize) -> bool {
-        let (skip_left, skip_right, _, _) = self.indices(x, y);
-        skip_left < skip_right
-    }
-
-    /// Delete all stairs in the staircase that a dominated by the given stair.
-    /// (I.e., delete all stairs that are larger than it.)
-    pub fn clear_dominated(&mut self, x: usize, y: usize) {
-        let (_, _, delete_left, delete_right) = self.indices(x, y);
-        if delete_left < delete_right {
-            self.stairs.drain(delete_left..delete_right);
-        }
-    }
-
-    /// Insert a stair without checking domination. Only use this if you you
-    /// have already called `dominates` and `clear_dominated`.
-    pub fn unchecked_insert(&mut self, stair: T) {
-        let (skip_left, _, _, _) = self.indices(stair.x(), stair.y());
-        self.stairs.insert(skip_left, stair);
     }
 
     fn indices(&self, x: usize, y: usize) -> (usize, usize, usize, usize) {
@@ -116,39 +92,6 @@ mod tests {
         stairs.insert(CharStair::new(2, 6, 'a'));
         stairs.insert(CharStair::new(4, 4, 'a'));
         stairs
-    }
-
-    #[test]
-    fn test_dominates() {
-        let stairs = basic_stairs();
-        assert!(stairs.dominates(2, 6));
-        assert!(stairs.dominates(4, 4));
-        assert!(stairs.dominates(2, 7));
-        assert!(stairs.dominates(3, 6));
-        assert!(stairs.dominates(10, 10));
-        assert!(!stairs.dominates(3, 5));
-        assert!(!stairs.dominates(4, 3));
-    }
-
-    #[test]
-    fn test_clear_dominated() {
-        let mut stairs = basic_stairs();
-        stairs.clear_dominated(4, 2);
-        assert_eq!(stairs.stairs, vec![CharStair::new(2, 6, 'a')]);
-
-        let mut stairs = basic_stairs();
-        stairs.clear_dominated(4, 3);
-        assert_eq!(
-            stairs.stairs,
-            vec![CharStair::new(6, 2, 'a'), CharStair::new(2, 6, 'a')]
-        );
-
-        let mut stairs = basic_stairs();
-        stairs.clear_dominated(5, 2);
-        assert_eq!(
-            stairs.stairs,
-            vec![CharStair::new(4, 4, 'a'), CharStair::new(2, 6, 'a')]
-        );
     }
 
     #[test]

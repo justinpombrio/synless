@@ -1,5 +1,4 @@
-use crate::requirement::{AlignedMultiLine, MultiLine, Requirement};
-
+use fast::{AlignedMultiLine, MultiLine, Requirement};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 

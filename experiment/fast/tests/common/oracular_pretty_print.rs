@@ -1,6 +1,6 @@
 //! Slow (exp time), but definitely correct, pretty printer.
 
-use super::Notation;
+use fast::Notation;
 use Notation::*;
 
 pub fn oracular_pretty_print(notation: &Notation, width: usize) -> Vec<(usize, String)> {

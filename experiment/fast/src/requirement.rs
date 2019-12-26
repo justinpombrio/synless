@@ -1,3 +1,4 @@
+/*
 use crate::staircase::{Stair, Staircase};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -6,6 +7,7 @@ pub struct RequirementSet {
     pub multi_line: Staircase<MultiLine>,
     pub aligned: Staircase<AlignedMultiLine>,
 }
+*/
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Requirement {
@@ -27,7 +29,7 @@ pub struct AlignedMultiLine {
     pub middle: usize,
     pub last: usize,
 }
-
+/*
 impl Stair for MultiLine {
     fn x(&self) -> usize {
         self.middle
@@ -45,7 +47,7 @@ impl Stair for AlignedMultiLine {
         self.last
     }
 }
-
+*/
 impl Requirement {
     pub fn new_single_line(len: usize) -> Requirement {
         Requirement {
