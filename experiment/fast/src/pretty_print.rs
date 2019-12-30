@@ -1,106 +1,81 @@
 use super::measure::MeasuredNotation;
-use super::requirement::Requirements;
+use super::requirement::{NonChoosyFirstLineLen, Requirements};
 use MeasuredNotation::*;
 
 pub fn pretty_print(notation: &MeasuredNotation, width: usize) -> Vec<(usize, String)> {
-    let prefix = vec![(0, "".to_string())];
-    let suffix_req = Requirements::new_single_line(0);
-    pp(width, 0, prefix, suffix_req, notation)
+    let mut printer = PrettyPrinter {
+        lines: vec![(0, "".to_string())],
+        width,
+    };
+    printer.pp(Some(0), 0, notation);
+    printer.lines
 }
 
 // TODO:
 // - make pp a method on `prefix`
 // - helper method: self.prefix_len()
 
-// INVARIANT: prefix is never empty. It should at the very least contain 1 empty string.
-fn pp(
+struct PrettyPrinter {
+    /// INVARIANT: Never empty
+    lines: Vec<(usize, String)>,
     width: usize,
-    indent: usize,
-    mut prefix: Vec<(usize, String)>,
-    suffix_req: Requirements,
-    notation: &MeasuredNotation,
-) -> Vec<(usize, String)> {
-    match notation {
-        Literal(text) => {
-            prefix.last_mut().unwrap().1.push_str(text);
-            prefix
-        }
-        Newline => {
-            prefix.push((indent, "".to_string()));
-            prefix
-        }
-        Indent(i, notation) => pp(width, indent + i, prefix, suffix_req, notation),
-        Flat(notation) => {
-            let (i, s) = prefix.last().unwrap();
-            let prefix_len = i + s.chars().count();
-            let min_suffix_len = suffix_req
-                .min_first_line_len()
-                .expect("pp: suffix req has no possibilities");
-            let flat = pp_flat(width, prefix_len, min_suffix_len, notation);
-            prefix.last_mut().unwrap().1.push_str(&flat);
-            prefix
-        }
-        Concat(left, right, right_req) => {
-            // TODO should indent() not take ownership of the req?
-            let new_suffix_req = right_req.clone().indent(indent).concat(&suffix_req);
-            let prefix = pp(width, indent, prefix, new_suffix_req, left);
-            pp(width, indent, prefix, suffix_req, right)
-        }
-        Align(note) => {
-            let (i, s) = prefix.last().unwrap();
-            let indent = i + s.chars().count();
-            pp(width, indent, prefix, suffix_req, note)
-        }
-        Choice((left, left_req), (right, right_req)) => {
-            let (i, s) = prefix.last().unwrap();
-            let prefix_len = i + s.chars().count();
-            let full_left_req = Requirements::new_single_line(prefix_len)
-                .concat(&(left_req.clone().indent(indent)))
-                .concat(&suffix_req);
-            let full_right_req = Requirements::new_single_line(prefix_len)
-                .concat(&(right_req.clone()).indent(indent))
-                .concat(&suffix_req);
-            let left_fits = full_left_req.fits(width);
-            let right_impossible = !full_right_req.is_possible();
-            if left_fits || right_impossible {
-                pp(width, indent, prefix, suffix_req, left)
-            } else {
-                pp(width, indent, prefix, suffix_req, right)
-            }
-        }
-    }
 }
 
-fn pp_flat(
-    width: usize,
-    prefix_len: usize,
-    suffix_len: usize,
-    notation: &MeasuredNotation,
-) -> String {
-    match notation {
-        Literal(text) => text.to_string(),
-        Newline => panic!("pp_flat found a newline!"),
-        Indent(_, notation) => pp_flat(width, prefix_len, suffix_len, notation),
-        Flat(notation) => pp_flat(width, prefix_len, suffix_len, notation),
-        Align(notation) => pp_flat(width, prefix_len, suffix_len, notation),
-        Concat(left, right, right_req) => {
-            let min_right_len = right_req
-                .single_line
-                .expect("pp_flat found a non-flat right");
-            let left_str = pp_flat(width, prefix_len, suffix_len + min_right_len, left);
-            let actual_left_len = left_str.chars().count();
-            let right_str = pp_flat(width, prefix_len + actual_left_len, suffix_len, right);
-            format!("{}{}", left_str, right_str)
-        }
-        Choice((left, left_req), (right, right_req)) => {
-            let left_fits = left_req
-                .single_line
-                .map_or(false, |l| prefix_len + l + suffix_len <= width);
-            let right_impossible = right_req.single_line.is_none();
-            if left_fits || right_impossible {
-                pp_flat(width, prefix_len, suffix_len, left)
-            } else {
-                pp_flat(width, prefix_len, suffix_len, right)
+impl PrettyPrinter {
+    fn prefix_len(&self) -> usize {
+        let (i, s) = self.lines.last().unwrap();
+        i + s.chars().count()
+    }
+
+    // If indent is None, we're inside a Flat
+    fn pp(&mut self, indent: Option<usize>, suffix_len: usize, notation: &MeasuredNotation) {
+        match notation {
+            Literal(text) => {
+                self.lines.last_mut().unwrap().1.push_str(text);
+            }
+            Flat(note) => {
+                self.pp(None, suffix_len, note);
+            }
+            Align(note) => {
+                let indent = indent.map(|i| i + self.prefix_len());
+                self.pp(indent, suffix_len, note)
+            }
+            Nest(left, i, right) => {
+                if indent.is_none() {
+                    unreachable!();
+                }
+                self.pp(indent, 0, left);
+                let new_indent = indent.map(|j| j + i);
+                self.lines.push((new_indent.unwrap(), String::new()));
+                self.pp(new_indent, suffix_len, right);
+            }
+            Concat(left, right, _, non_choosy_right_first_line_len) => {
+                let new_suffix_len = match non_choosy_right_first_line_len {
+                    None => 666, // this shouldn't actually get used, because left isn't choosy
+                    Some(NonChoosyFirstLineLen::Multi(len)) => *len,
+                    Some(NonChoosyFirstLineLen::Single(len)) => *len + suffix_len,
+                };
+                self.pp(indent, new_suffix_len, left);
+                self.pp(indent, suffix_len, right);
+            }
+            Choice((left, left_req), (right, right_req)) => {
+                let prefix_req = Requirements::new_single_line(self.prefix_len());
+                let suffix_req = Requirements::new_single_line(suffix_len);
+
+                let full_left_req = match indent {
+                    None => prefix_req.concat(left_req).concat(&suffix_req),
+                    Some(i) => prefix_req
+                        .concat(&left_req.clone().indent(i))
+                        .concat(&suffix_req),
+                };
+
+                let left_fits = full_left_req.fits(self.width);
+                let right_impossible = !right_req.is_possible();
+                if left_fits || right_impossible {
+                    self.pp(indent, suffix_len, left)
+                } else {
+                    self.pp(indent, suffix_len, right)
+                }
             }
         }
     }

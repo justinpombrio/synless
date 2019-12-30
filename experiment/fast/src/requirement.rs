@@ -21,6 +21,12 @@ pub struct Aligned {
     pub last: usize,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NonChoosyFirstLineLen {
+    Single(usize),
+    Multi(usize),
+}
+
 impl Stair for MultiLine {
     fn x(&self) -> usize {
         // This only works well if the options left and right obey the No-Tradeoff rule.
@@ -106,13 +112,15 @@ impl Requirements {
     }
 
     pub fn indent(mut self, indent: usize) -> Self {
-        // TODO iterate over mutable refs? is the order guaranteed to be the same?
         let multi_lines = self.multi_line.into_iter();
         self.multi_line = Staircase::new();
         for mut ml in multi_lines {
+            ml.first += indent;
             ml.middle += indent;
             ml.last += indent;
-            self.multi_line.unchecked_insert(ml);
+            // TODO can we use unchecked insert, or iterate over mutable refs?
+            // is the order guaranteed to be the same?
+            self.multi_line.insert(ml);
         }
         self
     }
@@ -203,6 +211,101 @@ impl Requirements {
         req
     }
 
+    pub fn nest(&self, indent: usize, other: Requirements) -> Self {
+        let other = other.indent(indent);
+
+        let mut req = Requirements::new();
+
+        if let (Some(ls), Some(rs)) = (self.single_line, other.single_line) {
+            req.multi_line.insert(MultiLine {
+                first: ls,
+                middle: 0,
+                last: rs,
+            });
+        }
+
+        if let Some(ls) = self.single_line {
+            for rm in &other.multi_line {
+                req.multi_line.insert(MultiLine {
+                    first: ls,
+                    middle: rm.first.max(rm.middle),
+                    last: rm.last,
+                });
+            }
+        }
+
+        if let Some(rs) = other.single_line {
+            for lm in &self.multi_line {
+                req.multi_line.insert(MultiLine {
+                    first: lm.first,
+                    middle: lm.middle.max(lm.last),
+                    last: rs,
+                });
+            }
+        }
+
+        for lm in &self.multi_line {
+            for rm in &other.multi_line {
+                req.multi_line.insert(MultiLine {
+                    first: lm.first,
+                    middle: lm.middle.max(lm.last).max(rm.first).max(rm.middle),
+                    last: rm.last,
+                });
+            }
+        }
+
+        if let Some(ls) = self.single_line {
+            for ra in &other.aligned {
+                req.multi_line.insert(MultiLine {
+                    first: ls,
+                    middle: ra.middle,
+                    last: ra.last,
+                });
+            }
+        }
+
+        if let Some(rs) = other.single_line {
+            for la in &self.aligned {
+                req.multi_line.insert(MultiLine {
+                    first: la.middle.max(la.last),
+                    middle: 0, // TODO 0? the smaller of la.middle and la.last? does it matter?
+                    last: rs,
+                });
+            }
+        }
+
+        for la in &self.aligned {
+            for ra in &other.aligned {
+                req.multi_line.insert(MultiLine {
+                    first: la.middle.max(la.last),
+                    middle: ra.middle,
+                    last: ra.last,
+                });
+            }
+        }
+
+        for lm in &self.multi_line {
+            for ra in &other.aligned {
+                req.multi_line.insert(MultiLine {
+                    first: lm.first,
+                    middle: lm.middle.max(lm.last).max(ra.middle),
+                    last: ra.last,
+                });
+            }
+        }
+
+        for la in &self.aligned {
+            for rm in &other.multi_line {
+                req.multi_line.insert(MultiLine {
+                    first: la.middle.max(la.last),
+                    middle: rm.first.max(rm.middle),
+                    last: rm.last,
+                });
+            }
+        }
+        req
+    }
+
     /// Combine the best (smallest) options from both Requirements.
     pub fn best(mut self, other: Self) -> Self {
         self.single_line = match (self.single_line, other.single_line) {
@@ -233,6 +336,27 @@ impl Requirements {
             add_option(al.middle);
         }
         min_len
+    }
+
+    /// Panics if there's more than one possible first line
+    pub fn non_choosy_first_line_len(&self) -> NonChoosyFirstLineLen {
+        if !self.aligned.is_empty() {
+            panic!("non_choosy_first_line_len: found an aligned possibility");
+        }
+        match self.multi_line.len() {
+            0 => NonChoosyFirstLineLen::Single(
+                self.single_line
+                    .expect("non_choosy_first_line_len: impossible requirements"),
+            ),
+            1 => {
+                assert!(
+                    self.single_line.is_none(),
+                    "non_choosy_first_line_len: found both multi and single line possibilities"
+                );
+                NonChoosyFirstLineLen::Multi(self.multi_line.iter().next().unwrap().first)
+            }
+            _ => panic!("non_choosy_first_line_len: found multiple multi-line possibilities"),
+        }
     }
 }
 
@@ -277,12 +401,12 @@ mod tests {
         let req = example_req();
         let expected = Requirements::new_single_line(10)
             .with_multi_line(MultiLine {
-                first: 2,
+                first: 102,
                 middle: 106,
                 last: 103,
             })
             .with_multi_line(MultiLine {
-                first: 3,
+                first: 103,
                 middle: 105,
                 last: 104,
             })

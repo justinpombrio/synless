@@ -8,4 +8,5 @@ mod validate;
 
 pub use notation::Notation;
 pub use pretty_print::pretty_print;
-//pub use requirement::{Aligned, MultiLine, Requirement};
+
+pub use requirement::{Aligned, MultiLine, NonChoosyFirstLineLen, Requirements};

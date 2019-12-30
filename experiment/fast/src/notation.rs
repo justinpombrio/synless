@@ -6,17 +6,16 @@ use std::ops::{Add, BitOr};
 #[derive(Clone, Debug)]
 pub enum Notation {
     Literal(String),
-    Newline,
-    Indent(usize, Box<Notation>),
     Flat(Box<Notation>),
     Align(Box<Notation>),
     Concat(Box<Notation>, Box<Notation>),
+    Nest(Box<Notation>, usize, Box<Notation>),
     Choice(Box<Notation>, Box<Notation>),
 }
 
 impl Notation {
-    pub fn indent(indent: usize, notation: Notation) -> Self {
-        Notation::Indent(indent, Box::new(notation))
+    pub fn nest(left: Notation, indent: usize, right: Notation) -> Self {
+        Notation::Nest(Box::new(left), indent, Box::new(right))
     }
 
     pub fn literal(lit: &str) -> Self {
@@ -27,20 +26,16 @@ impl Notation {
         Notation::Concat(Box::new(left), Box::new(right))
     }
 
-    pub fn repeat<O, F, M, L, S>(
+    pub fn repeat<L, J, S>(
         elements: Vec<Notation>,
         empty: Notation,
-        lone: O,
-        first: F,
-        middle: M,
-        last: L,
+        lone: L,
+        join: J,
         surround: S,
     ) -> Notation
     where
-        O: Fn(Notation) -> Notation,
-        F: Fn(Notation) -> Notation,
-        M: Fn(Notation) -> Notation,
         L: Fn(Notation) -> Notation,
+        J: Fn(Notation, Notation) -> Notation,
         S: Fn(Notation) -> Notation,
     {
         let length = elements.len();
@@ -49,15 +44,9 @@ impl Notation {
             0 => empty,
             1 => lone(elem_iter.next().unwrap()),
             _ => {
-                let mut accumulator = Notation::Newline; // dummy value
-                for (i, elem) in elem_iter.enumerate() {
-                    if i == 0 {
-                        accumulator = first(elem);
-                    } else if i == length - 2 {
-                        accumulator = accumulator + last(elem);
-                    } else {
-                        accumulator = accumulator + middle(elem);
-                    }
+                let mut accumulator = elem_iter.next().unwrap();
+                for elem in elem_iter {
+                    accumulator = join(accumulator, elem);
                 }
                 surround(accumulator)
             }

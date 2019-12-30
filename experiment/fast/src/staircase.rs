@@ -24,6 +24,10 @@ impl<T: Stair> Staircase<T> {
         self.stairs.is_empty()
     }
 
+    pub fn len(&self) -> usize {
+        self.stairs.len()
+    }
+
     /// Insert a new stair into a staircase.
     pub fn insert(&mut self, stair: T) {
         let (skip_left, skip_right, delete_left, delete_right) = self.indices(stair.x(), stair.y());
