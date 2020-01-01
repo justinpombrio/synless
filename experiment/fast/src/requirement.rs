@@ -64,6 +64,20 @@ impl Requirements {
         }
     }
 
+    pub fn new_newline() -> Requirements {
+        let mut multi_line = Staircase::new();
+        multi_line.insert(MultiLine {
+            first: 0,
+            middle: 0,
+            last: 0,
+        });
+        Requirements {
+            single_line: None,
+            multi_line,
+            aligned: Staircase::new(),
+        }
+    }
+
     #[cfg(test)]
     pub fn with_single_line(mut self, single_line: usize) -> Requirements {
         if let Some(sl) = self.single_line {
@@ -211,99 +225,8 @@ impl Requirements {
         req
     }
 
-    pub fn nest(&self, indent: usize, other: Requirements) -> Self {
-        let other = other.indent(indent);
-
-        let mut req = Requirements::new();
-
-        if let (Some(ls), Some(rs)) = (self.single_line, other.single_line) {
-            req.multi_line.insert(MultiLine {
-                first: ls,
-                middle: 0,
-                last: rs,
-            });
-        }
-
-        if let Some(ls) = self.single_line {
-            for rm in &other.multi_line {
-                req.multi_line.insert(MultiLine {
-                    first: ls,
-                    middle: rm.first.max(rm.middle),
-                    last: rm.last,
-                });
-            }
-        }
-
-        if let Some(rs) = other.single_line {
-            for lm in &self.multi_line {
-                req.multi_line.insert(MultiLine {
-                    first: lm.first,
-                    middle: lm.middle.max(lm.last),
-                    last: rs,
-                });
-            }
-        }
-
-        for lm in &self.multi_line {
-            for rm in &other.multi_line {
-                req.multi_line.insert(MultiLine {
-                    first: lm.first,
-                    middle: lm.middle.max(lm.last).max(rm.first).max(rm.middle),
-                    last: rm.last,
-                });
-            }
-        }
-
-        if let Some(ls) = self.single_line {
-            for ra in &other.aligned {
-                req.multi_line.insert(MultiLine {
-                    first: ls,
-                    middle: ra.middle,
-                    last: ra.last,
-                });
-            }
-        }
-
-        if let Some(rs) = other.single_line {
-            for la in &self.aligned {
-                req.multi_line.insert(MultiLine {
-                    first: la.middle.max(la.last),
-                    middle: 0, // TODO 0? the smaller of la.middle and la.last? does it matter?
-                    last: rs,
-                });
-            }
-        }
-
-        for la in &self.aligned {
-            for ra in &other.aligned {
-                req.multi_line.insert(MultiLine {
-                    first: la.middle.max(la.last),
-                    middle: ra.middle,
-                    last: ra.last,
-                });
-            }
-        }
-
-        for lm in &self.multi_line {
-            for ra in &other.aligned {
-                req.multi_line.insert(MultiLine {
-                    first: lm.first,
-                    middle: lm.middle.max(lm.last).max(ra.middle),
-                    last: ra.last,
-                });
-            }
-        }
-
-        for la in &self.aligned {
-            for rm in &other.multi_line {
-                req.multi_line.insert(MultiLine {
-                    first: la.middle.max(la.last),
-                    middle: rm.first.max(rm.middle),
-                    last: rm.last,
-                });
-            }
-        }
-        req
+    pub fn nest(self, indent: usize) -> Self {
+        Requirements::new_newline().concat(&self.indent(indent))
     }
 
     /// Combine the best (smallest) options from both Requirements.

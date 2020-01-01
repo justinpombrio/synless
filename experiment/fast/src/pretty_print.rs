@@ -40,14 +40,13 @@ impl PrettyPrinter {
                 let indent = indent.map(|i| i + self.prefix_len());
                 self.pp(indent, suffix_len, note)
             }
-            Nest(left, i, right) => {
+            Nest(j, note) => {
                 if indent.is_none() {
                     unreachable!();
                 }
-                self.pp(indent, 0, left);
-                let new_indent = indent.map(|j| j + i);
+                let new_indent = indent.map(|i| i + j);
                 self.lines.push((new_indent.unwrap(), String::new()));
-                self.pp(new_indent, suffix_len, right);
+                self.pp(new_indent, suffix_len, note);
             }
             Concat(left, right, _, non_choosy_right_first_line_len) => {
                 let new_suffix_len = match non_choosy_right_first_line_len {

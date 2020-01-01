@@ -5,7 +5,7 @@ use super::validate::{ChoosyChild, ValidNotation};
 #[derive(Clone, Debug)]
 pub enum MeasuredNotation {
     Literal(String),
-    Nest(Box<MeasuredNotation>, usize, Box<MeasuredNotation>),
+    Nest(usize, Box<MeasuredNotation>),
     Flat(Box<MeasuredNotation>),
     Align(Box<MeasuredNotation>),
     Concat(
@@ -34,13 +34,12 @@ impl ValidNotation {
                 let req = Requirements::new_single_line(lit.chars().count());
                 (note, req)
             }
-            ValidNotation::Nest(left, indent, right) => {
-                let (left_note, left_req) = left.measure_rec();
-                let (right_note, right_req) = right.measure_rec();
-                let note =
-                    MeasuredNotation::Nest(Box::new(left_note), *indent, Box::new(right_note));
-                let req = left_req.nest(*indent, right_req);
-                (note, req)
+            ValidNotation::Nest(indent, note) => {
+                let (note, req) = note.measure_rec();
+                (
+                    MeasuredNotation::Nest(*indent, Box::new(note)),
+                    req.nest(*indent),
+                )
             }
             ValidNotation::Flat(note) => {
                 let (note, mut req) = note.measure_rec();

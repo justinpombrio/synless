@@ -9,13 +9,13 @@ pub enum Notation {
     Flat(Box<Notation>),
     Align(Box<Notation>),
     Concat(Box<Notation>, Box<Notation>),
-    Nest(Box<Notation>, usize, Box<Notation>),
+    Nest(usize, Box<Notation>),
     Choice(Box<Notation>, Box<Notation>),
 }
 
 impl Notation {
-    pub fn nest(left: Notation, indent: usize, right: Notation) -> Self {
-        Notation::Nest(Box::new(left), indent, Box::new(right))
+    pub fn nest(indent: usize, note: Notation) -> Self {
+        Notation::Nest(indent, Box::new(note))
     }
 
     pub fn literal(lit: &str) -> Self {

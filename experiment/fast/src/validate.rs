@@ -8,7 +8,7 @@ pub enum ValidNotation {
     Flat(Box<ValidNotation>),
     Align(Box<ValidNotation>),
     Concat(Box<ValidNotation>, Box<ValidNotation>, ChoosyChild),
-    Nest(Box<ValidNotation>, usize, Box<ValidNotation>),
+    Nest(usize, Box<ValidNotation>),
     Choice(Box<ValidNotation>, Box<ValidNotation>),
 }
 
@@ -129,19 +129,16 @@ impl Notation {
                 }
                 (ValidNotation::Align(Box::new(valid_note)), poss)
             }
-            Notation::Nest(left, indent, right) => {
-                let (valid_left, left_poss) = left.validate_rec()?;
-                let (valid_right, right_poss) = right.validate_rec()?;
+            Notation::Nest(indent, note) => {
+                let (valid_note, poss) = note.validate_rec()?;
 
-                let multi_line = match (left_poss.choosy_first(), right_poss.choosy_last()) {
-                    (Some(first), Some(last)) => Some(ChoosyLines { first, last }),
-                    _ => None,
-                };
                 (
-                    ValidNotation::Nest(Box::new(valid_left), *indent, Box::new(valid_right)),
+                    ValidNotation::Nest(*indent, Box::new(valid_note)),
                     Possibilities {
                         single_line: None,
-                        multi_line,
+                        multi_line: poss
+                            .choosy_last()
+                            .map(|last| ChoosyLines { first: false, last }),
                     },
                 )
             }
@@ -230,8 +227,8 @@ mod tests {
         Notation::Flat(Box::new(note))
     }
 
-    fn nest(left: Notation, indent: usize, right: Notation) -> Notation {
-        Notation::Nest(Box::new(left), indent, Box::new(right))
+    fn nest(indent: usize, note: Notation) -> Notation {
+        Notation::Nest(indent, Box::new(note))
     }
 
     #[test]
@@ -239,10 +236,10 @@ mod tests {
         let note = lit("foo") + lit("bar");
         note.validate().unwrap();
 
-        let note = nest(lit("foo"), 4, lit("bar"));
+        let note = lit("foo") + nest(4, lit("bar"));
         note.validate().unwrap();
 
-        let note = flat(nest(lit("foo"), 4, lit("bar")));
+        let note = flat(lit("foo") + nest(4, lit("bar")));
         assert_eq!(note.validate(), Err(ValidationError::Impossible));
     }
 
