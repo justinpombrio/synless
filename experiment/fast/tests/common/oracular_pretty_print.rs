@@ -24,11 +24,19 @@ fn pp(notation: &Notation) -> Doc {
     }
 }
 
+/// A document, half-rendered by the Oracle.
+///
+/// INVARIANT: The first line has no indent.
 enum Doc {
+    /// Attempted to flatten a document containing a required newline.
     Impossible,
+    /// A line of text: `String` indented to the right by `usize` spaces.
     Line(usize, String),
+    /// An aligned set of lines. When indented, they move as a group.
     Align(Box<Doc>),
+    /// Vertical concatentation: left + newline + right.
     Vert(Box<Doc>, Box<Doc>),
+    /// Choice: use left if it fits, otherwise use right.
     Choice(Box<Doc>, Box<Doc>),
 }
 
@@ -64,10 +72,14 @@ impl Doc {
         }
     }
 
+    /// Prepend text (without newlines) onto the beginning of the first line of
+    /// the Doc. `indent` is the indentation level of that text, as a number of
+    /// spaces.
     fn prepend(&mut self, indent: usize, text: &str) {
         match self {
             Doc::Impossible => (),
             Doc::Line(i, line) => {
+                assert_eq!(*i, 0);
                 *i = indent;
                 *line = format!("{}{}", text, line);
             }
@@ -83,6 +95,7 @@ impl Doc {
         }
     }
 
+    /// Append text (without newlines) onto the end of the last line of the Doc.
     fn postpend(&mut self, text: &str) {
         match self {
             Doc::Impossible => (),
@@ -96,6 +109,7 @@ impl Doc {
         }
     }
 
+    /// Shift every line but the first to the right by `indent` spaces.
     fn align(&mut self, indent: usize) {
         match self {
             Doc::Impossible => (),
@@ -112,6 +126,7 @@ impl Doc {
         }
     }
 
+    /// Shift every line to the right by `indent` spaces.
     fn indent(&mut self, indent: usize) {
         match self {
             Doc::Impossible => (),
@@ -128,6 +143,7 @@ impl Doc {
         }
     }
 
+    /// Flatten, eliminating any choices containing newlines.
     fn flat(self) -> Doc {
         match self {
             Doc::Impossible => Doc::Impossible,
@@ -138,13 +154,16 @@ impl Doc {
         }
     }
 
+    /// Render. Each `(usize, String)` is a line, and the `usize` is the
+    /// indentation level of that line, in spaces.
     fn render(self, width: usize) -> Option<Vec<(usize, String)>> {
         match self {
             Doc::Impossible => None,
             Doc::Line(i, s) => Some(vec![(i, s)]),
             Doc::Align(doc) => doc.render(width),
             Doc::Vert(top, bottom) => {
-                let mut lines = top.render(width)?;
+                let mut lines = vec![];
+                lines.append(&mut top.render(width)?);
                 lines.append(&mut bottom.render(width)?);
                 Some(lines)
             }
@@ -164,6 +183,8 @@ impl Doc {
     }
 }
 
+/// Does the rendered document (`(index, text)` for each line) fit within the
+/// given width?
 fn fits_width(lines: &[(usize, String)], width: usize) -> bool {
     for (i, s) in lines {
         if i + s.chars().count() > width {
@@ -171,23 +192,4 @@ fn fits_width(lines: &[(usize, String)], width: usize) -> bool {
         }
     }
     true
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_oracle_literal() {
-        let note = Notation::literal("foo");
-        let lines = oracular_pretty_print(&note, 5);
-        assert_eq!(lines, vec![(0, "foo".into())]);
-    }
-
-    #[test]
-    fn test_oracle_concat() {
-        let note = Notation::concat(Notation::literal("foo"), Notation::literal("bar"));
-        let lines = oracular_pretty_print(&note, 5);
-        assert_eq!(lines, vec![(0, "foobar".into())]);
-    }
 }
