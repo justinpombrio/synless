@@ -12,16 +12,12 @@ fn lit(s: &str) -> Notation {
     Notation::literal(s)
 }
 
-fn indent(i: usize, notation: Notation) -> Notation {
-    Notation::Indent(i, Box::new(notation))
+fn nest(i: usize, notation: Notation) -> Notation {
+    Notation::Nest(i, Box::new(notation))
 }
 
 fn align(notation: Notation) -> Notation {
     Notation::Align(Box::new(notation))
-}
-
-fn line() -> Notation {
-    Notation::Newline
 }
 
 fn hello() -> Notation {
@@ -29,36 +25,53 @@ fn hello() -> Notation {
 }
 
 fn goodbye() -> Notation {
-    lit("Good") + Notation::Newline + lit("Bye")
+    lit("Good") + nest(0, lit("Bye"))
 }
 
 fn list_one(element: Notation) -> Notation {
     let option1 = lit("[") + element.clone() + lit("]");
-    let option2 = lit("[") + align(line() + element) + line() + lit("]");
+    let option2 = lit("[") + align(nest(0, element)) + nest(0, lit("]"));
     option1 | option2
+}
+
+fn list_align_unchoosy(elements: Vec<Notation>) -> Notation {
+    let empty = lit("[]");
+    let lone = |elem| lit("[") + elem + lit("]");
+    let join = |accum: Notation, elem: Notation| {
+        (accum.clone() + lit(", ") + elem.clone()) | (accum.clone() + lit(",") + nest(0, elem))
+    };
+    let surround = |accum: Notation| {
+        let multi = align(lit("[") + nest(1, accum) + nest(0, lit("]")));
+        multi
+    };
+    Notation::repeat(elements, empty, lone, join, surround)
 }
 
 fn list_align(elements: Vec<Notation>) -> Notation {
     let empty = lit("[]");
     let lone = |elem| lit("[") + elem + lit("]");
-    let first = |first: Notation| first;
-    let middle = |note: Notation| (lit(", ") | (lit(",") + line())) + note;
+    let join = |accum: Notation, elem: Notation| {
+        accum + lit(",") + ((lit(" ") + elem.clone()) | nest(0, elem))
+    };
     let surround = |accum: Notation| {
         let single = flat(lit("[") + accum.clone() + lit("]"));
-        let multi = align(lit("[") + indent(1, line() + accum) + line() + lit("]"));
+        let multi = align(lit("[") + nest(1, accum) + nest(0, lit("]")));
         single | multi
     };
-    Notation::repeat(elements, empty, lone, first, middle, middle, surround)
+    Notation::repeat(elements, empty, lone, join, surround)
 }
 
-fn list_indent(elements: Vec<Notation>) -> Notation {
-    let empty = lit("[]");
-    let lone = |elem| lit("[") + elem + lit("]");
-    let first = |first: Notation| first;
-    let middle = |note: Notation| (lit(", ") | (lit(",") + line())) + note;
-    let surround = |accum: Notation| indent(8, lit("[") + accum.clone() + lit("]"));
-    Notation::repeat(elements, empty, lone, first, middle, middle, surround)
-}
+// fn list_indent(elements: Vec<Notation>) -> Notation {
+//     let empty = lit("[]");
+//     let lone = |elem| lit("[") + elem + lit("]");
+//     let join = |accum: Notation, elem: Notation| {
+//         (accum.clone() + lit(", ") + elem.clone()) | (accum.clone() + lit(",") + nest(0, elem))
+//     };
+
+//     // TODO is there any way to do this without the old indent operator?
+//     // let surround = |accum: Notation| indent(8, lit("[") + accum.clone() + lit("]"));
+//     Notation::repeat(elements, empty, lone, join, surround)
+// }
 
 fn json_string(s: &str) -> Notation {
     // Using single quote instead of double quote to avoid inconvenient
@@ -67,13 +80,10 @@ fn json_string(s: &str) -> Notation {
 }
 
 fn json_key(s: &str) -> Notation {
-    // Using single quote instead of double quote to avoid inconvenient
-    // escaping
-    lit("'") + lit(s) + lit("'")
+    json_string(s)
 }
 
 fn json_entry(key: &str, value: Notation) -> Notation {
-    // json_key(key) + lit(":") + (lit(" ") | line()) + value
     json_key(key) + lit(": ") + value
 }
 
@@ -82,16 +92,15 @@ fn json_dict(entries: Vec<Notation>) -> Notation {
     let empty = lit("{}");
     let lone = |elem: Notation| {
         (lit("{") + flat(elem.clone()) + lit("}"))
-            | (lit("{") + indent(tab, line() + elem) + line() + lit("}"))
+            | (lit("{") + nest(tab, elem) + nest(0, lit("}")))
     };
-    let first = |first: Notation| first;
-    let middle = |note: Notation| lit(",") + line() + note;
+    let join = |accum: Notation, elem: Notation| accum + lit(",") + nest(0, elem);
     let surround = |accum: Notation| {
         let single = flat(lit("{") + accum.clone() + lit("}"));
-        let multi = lit("{") + indent(tab, line() + accum) + line() + lit("}");
+        let multi = lit("{") + nest(tab, accum) + nest(0, lit("}"));
         single | multi
     };
-    Notation::repeat(entries, empty, lone, first, middle, middle, surround)
+    Notation::repeat(entries, empty, lone, join, surround)
 }
 
 fn expand_line(indent: usize, line: String) -> String {
@@ -127,13 +136,7 @@ fn assert_pp(notation: Notation, width: usize, expected_lines: &[&str]) {
 
 #[test]
 fn test_pp_hello() {
-    let n = Notation::indent(
-        4,
-        Notation::concat(
-            Notation::concat(lit("Hello"), Notation::Newline),
-            lit("world!"),
-        ),
-    );
+    let n = lit("Hello") + nest(4, lit("world!"));
     assert_pp(n, 80, &["Hello", "    world!"])
 }
 
@@ -166,6 +169,37 @@ fn test_pp_list_one() {
 }
 
 #[test]
+fn test_pp_list_unchoosy() {
+    let n = list_align_unchoosy(vec![]);
+    assert_pp(n, 80, &["[]"]);
+
+    let n = list_align_unchoosy(vec![hello()]);
+    assert_pp(n, 80, &["[Hello]"]);
+
+    let n = list_align_unchoosy(vec![hello(), hello()]);
+    assert_pp(n, 80, &["[", " Hello, Hello", "]"]);
+
+    let n = list_align_unchoosy(vec![hello(), hello()]);
+    assert_pp(n, 10, &["[", " Hello,", " Hello", "]"]);
+
+    let n = list_align_unchoosy(vec![goodbye()]);
+    assert_pp(n, 80, &["[Good", "Bye]"]);
+
+    // let n = list_align_unchoosy(vec![hello(), hello(), hello(), hello()]);
+    // assert_pp(n, 15, &["[", " Hello, Hello,", " Hello, Hello", "]"]);
+
+    let n = list_align_unchoosy(vec![goodbye(), hello(), hello()]);
+    assert_pp(n, 80, &["[", " Good", " Bye, Hello, Hello", "]"]);
+
+    let n = list_align_unchoosy(vec![goodbye(), hello(), hello(), goodbye()]);
+    assert_pp(
+        n,
+        80,
+        &["[", " Good", " Bye, Hello, Hello, Good", " Bye", "]"],
+    );
+}
+
+#[test]
 fn test_pp_list() {
     let n = list_align(vec![]);
     assert_pp(n, 80, &["[]"]);
@@ -182,25 +216,26 @@ fn test_pp_list() {
     let n = list_align(vec![goodbye()]);
     assert_pp(n, 80, &["[Good", "Bye]"]);
 
-    let n = list_align(vec![hello(), hello(), hello(), hello()]);
-    assert_pp(n, 15, &["[", " Hello, Hello,", " Hello, Hello", "]"]);
+    // let n = list_align(vec![hello(), hello(), hello(), hello()]);
+    // assert_pp(n, 15, &["[", " Hello, Hello,", " Hello, Hello", "]"]);
 
-    let n = list_align(vec![goodbye(), hello(), hello()]);
-    assert_pp(n, 80, &["[", " Good", " Bye, Hello, Hello", "]"]);
+    // let n = list_align(vec![goodbye(), hello(), hello()]);
+    // assert_pp(n, 80, &["[", " Good", " Bye, Hello, Hello", "]"]);
 
-    let n = list_align(vec![goodbye(), hello(), hello(), goodbye()]);
-    assert_pp(
-        n,
-        80,
-        &["[", " Good", " Bye, Hello, Hello, Good", " Bye", "]"],
-    );
+    // let n = list_align(vec![goodbye(), hello(), hello(), goodbye()]);
+    // assert_pp(
+    //     n,
+    //     80,
+    //     &["[", " Good", " Bye, Hello, Hello, Good", " Bye", "]"],
+    // );
 }
 
+// much too choosy!
 #[test]
 fn test_pp_simple_choice() {
-    let ab = lit("ab") | (lit("a") + line() + lit("b"));
-    let cd = lit("cd") | (lit("c") + line() + lit("d"));
-    let ef = lit("ef") | (lit("e") + line() + lit("f"));
+    let ab = lit("ab") | (lit("a") + nest(0, lit("b")));
+    let cd = lit("cd") | (lit("c") + nest(0, lit("d")));
+    let ef = lit("ef") | (lit("e") + nest(0, lit("f")));
     let abcd = ab.clone() + cd.clone();
     assert_pp(abcd.clone(), 5, &["abcd"]);
     assert_pp(abcd.clone(), 4, &["abcd"]);
@@ -220,14 +255,12 @@ fn test_pp_simple_choice() {
 fn test_pp_dict() {
     let e1 = json_entry("Name", json_string("Alice"));
     let e2 = json_entry("Age", lit("42"));
-    let e3 = json_entry(
-        "Favorites",
-        list_align(vec![
-            json_string("chocolate"),
-            json_string("lemon"),
-            json_string("almond"),
-        ]),
-    );
+    let favorites_list = list_align_unchoosy(vec![
+        json_string("chocolate"),
+        json_string("lemon"),
+        json_string("almond"),
+    ]);
+    let e3 = json_entry("Favorites", favorites_list.clone());
 
     let n = json_dict(vec![e1.clone()]);
     assert_pp(n, 80, &["{'Name': 'Alice'}"]);
@@ -245,6 +278,25 @@ fn test_pp_dict() {
         ],
     );
 
+    assert_pp(
+        favorites_list.clone(),
+        20,
+        &["[", " 'chocolate',", " 'lemon', 'almond'", "]"],
+    );
+
+    // This can fit in 34, but the pretty printer puts them all on separate lines!
+    // assert_pp(
+    //     e3.clone(),
+    //     34,
+    //     &[
+    //         "'Favorites': [",
+    //         "              'chocolate',",
+    //         "              'lemon', 'almond'",
+    //         "             ]",
+    //     ],
+    // );
+
+    // This looks totally broken
     let n = json_dict(vec![e1, e2, e3]);
     assert_pp(
         n,
@@ -262,45 +314,45 @@ fn test_pp_dict() {
     );
 }
 
-#[test]
-fn test_pp_tradeoff() {
-    let n1 = list_indent(vec![lit("a"), lit("bbbb"), lit("c"), lit("d")]);
-    let n2 = lit("let xxxxxxxxxx = ") + (align(n1.clone()) | indent(8, line() + n1.clone()));
-    let n3 = (lit("xx") | lit("xx")) + align(n1.clone());
+// #[test]
+// fn test_pp_tradeoff() {
+//     let n1 = list_indent(vec![lit("a"), lit("bbbb"), lit("c"), lit("d")]);
+//     let n2 = lit("let xxxxxxxxxx = ") + (align(n1.clone()) | indent(8, line() + n1.clone()));
+//     let n3 = (lit("xx") | lit("xx")) + align(n1.clone());
 
-    assert_pp(
-        n3,
-        12,
-        &[
-            // make rustfmt split lines
-            "xx[a, bbbb,",
-            "          c,",
-            "          d]",
-        ],
-    );
+//     assert_pp(
+//         n3,
+//         12,
+//         &[
+//             // make rustfmt split lines
+//             "xx[a, bbbb,",
+//             "          c,",
+//             "          d]",
+//         ],
+//     );
 
-    assert_pp(
-        n1,
-        11,
-        &[
-            // make rustfmt split lines
-            "[a, bbbb,",
-            "        c,",
-            "        d]",
-        ],
-    );
+//     assert_pp(
+//         n1,
+//         11,
+//         &[
+//             // make rustfmt split lines
+//             "[a, bbbb,",
+//             "        c,",
+//             "        d]",
+//         ],
+//     );
 
-    assert_pp(
-        n2,
-        27,
-        &[
-            // make rustfmt split lines
-            "let xxxxxxxxxx = [a, bbbb,",
-            "                         c,",
-            "                         d]",
-        ],
-    );
-}
+//     assert_pp(
+//         n2,
+//         27,
+//         &[
+//             // make rustfmt split lines
+//             "let xxxxxxxxxx = [a, bbbb,",
+//             "                         c,",
+//             "                         d]",
+//         ],
+//     );
+// }
 
 #[test]
 fn test_pp_align() {
@@ -320,15 +372,17 @@ fn test_pp_align() {
 
 #[test]
 fn oracle_failure_1() {
-    let n = flat(lit("aa") | lit("b")) | line();
+    //     let n = flat(lit("aa") | lit("b")) | line();
+    let n = flat(lit("aa") | lit("b")) | nest(0, lit(""));
     assert_pp(n, 1, &["b"]);
 }
 
-#[test]
-fn oracle_failure_2() {
-    let n = indent(9, (lit("a") | lit("bb")) + line());
-    assert_pp(n, 5, &["bb", "         "]);
-}
+// #[test]
+// fn oracle_failure_2() {
+//     // let n = indent(9, (lit("a") | lit("bb")) + line());
+//     let n = (lit("a") | lit("bb")) + nest(9, lit(""));
+//     assert_pp(n, 5, &["bb", "         "]);
+// }
 
 #[test]
 fn oracle_failure_3() {
@@ -336,8 +390,9 @@ fn oracle_failure_3() {
     assert_pp(n, 6, &["aaaaaaaacccccc"]);
 }
 
-#[test]
-fn oracle_failure_4() {
-    let n = indent(8, line()) | line() | lit("aaaaaaa");
-    assert_pp(n, 5, &["", ""]);
-}
+// #[test]
+// fn oracle_failure_4() {
+//     // let n = indent(8, line()) | line() | lit("aaaaaaa");
+//     let n = nest(8, lit("")) | nest(0, lit("")) | lit("aaaaaaa");
+//     assert_pp(n, 5, &["", ""]);
+// }
