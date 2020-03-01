@@ -1,19 +1,16 @@
-use super::measure::MeasuredNotation;
-use super::requirement::{NonChoosyFirstLineLen, Requirements};
-use MeasuredNotation::*;
+use super::measure::{KnownLineLengths, LineLength, MeasuredNotation, Shapes};
 
+/// Display the notation, using at most `width` columns if at all possible.
+/// Returns a list of `(indent, line)` pairs, where `indent` is the number of
+/// spaces that should precede `line`.
 pub fn pretty_print(notation: &MeasuredNotation, width: usize) -> Vec<(usize, String)> {
     let mut printer = PrettyPrinter {
         lines: vec![(0, "".to_string())],
         width,
     };
-    printer.pp(Some(0), 0, notation);
+    printer.pp(notation, Some(0), Some(0), Some(0));
     printer.lines
 }
-
-// TODO:
-// - make pp a method on `prefix`
-// - helper method: self.prefix_len()
 
 struct PrettyPrinter {
     /// INVARIANT: Never empty
@@ -22,58 +19,70 @@ struct PrettyPrinter {
 }
 
 impl PrettyPrinter {
-    fn prefix_len(&self) -> usize {
-        let (i, s) = self.lines.last().unwrap();
-        i + s.chars().count()
-    }
+    /// - `indent` is `None` iff we're inside a Flat.
+    /// - `prefix_len` and `suffix_len` are `None` when they are unknown because
+    ///   there's a choosy notation there.
+    fn pp(
+        &mut self,
+        notation: &MeasuredNotation,
+        indent: Option<usize>,
+        prefix_len: Option<usize>,
+        suffix_len: Option<usize>,
+    ) {
+        use MeasuredNotation::*;
 
-    // If indent is None, we're inside a Flat
-    fn pp(&mut self, indent: Option<usize>, suffix_len: usize, notation: &MeasuredNotation) {
         match notation {
             Literal(text) => {
                 self.lines.last_mut().unwrap().1.push_str(text);
             }
             Flat(note) => {
-                self.pp(None, suffix_len, note);
+                self.pp(note, None, prefix_len, suffix_len);
             }
             Align(note) => {
-                let indent = indent.map(|i| i + self.prefix_len());
-                self.pp(indent, suffix_len, note)
+                let indent = indent.map(|i| i + prefix_len.expect("Too choosy! (Align)"));
+                self.pp(note, indent, prefix_len, suffix_len)
             }
             Nest(j, note) => {
-                if indent.is_none() {
-                    unreachable!();
+                let new_indent = indent.expect("Nest in Flat") + j;
+                self.lines.push((new_indent, String::new()));
+                self.pp(note, Some(new_indent), Some(new_indent), suffix_len);
+            }
+            Concat(left, right, known_line_lens) => match known_line_lens {
+                KnownLineLengths::Left { left_last_line } => {
+                    self.pp(left, indent, prefix_len, None);
+                    let middle_prefix_len = match left_last_line {
+                        LineLength::Single(len) => prefix_len.expect("Too choosy! Concat") + len,
+                        LineLength::Multi(len) => indent.expect("Multi in Flat") + len,
+                    };
+                    self.pp(right, indent, Some(middle_prefix_len), suffix_len);
                 }
-                let new_indent = indent.map(|i| i + j);
-                self.lines.push((new_indent.unwrap(), String::new()));
-                self.pp(new_indent, suffix_len, note);
-            }
-            Concat(left, right, _, non_choosy_right_first_line_len) => {
-                let new_suffix_len = match non_choosy_right_first_line_len {
-                    None => 666, // this shouldn't actually get used, because left isn't choosy
-                    Some(NonChoosyFirstLineLen::Multi(len)) => *len,
-                    Some(NonChoosyFirstLineLen::Single(len)) => *len + suffix_len,
-                };
-                self.pp(indent, new_suffix_len, left);
-                self.pp(indent, suffix_len, right);
-            }
-            Choice((left, left_req), (right, right_req)) => {
-                let prefix_req = Requirements::new_single_line(self.prefix_len());
-                let suffix_req = Requirements::new_single_line(suffix_len);
+                KnownLineLengths::Right { right_first_line } => {
+                    let middle_suffix_len = match right_first_line {
+                        LineLength::Single(len) => *len + suffix_len.expect("Too choosy! Concat"),
+                        LineLength::Multi(len) => *len,
+                    };
+                    self.pp(left, indent, prefix_len, Some(middle_suffix_len));
+                    self.pp(right, indent, None, suffix_len);
+                }
+                KnownLineLengths::Both { .. } => {
+                    self.pp(left, indent, prefix_len, None);
+                    self.pp(right, indent, None, suffix_len);
+                }
+            },
+            Choice((left, left_shapes), (right, right_shapes)) => {
+                let prefix_shape = Shapes::new_single_line(prefix_len.expect("Too choosy! Choice"));
+                let suffix_shape = Shapes::new_single_line(suffix_len.expect("Too choosy! Choice"));
 
-                let full_left_req = match indent {
-                    None => prefix_req.concat(left_req).concat(&suffix_req),
-                    Some(i) => prefix_req
-                        .concat(&left_req.clone().indent(i))
-                        .concat(&suffix_req),
-                };
+                let full_left_shapes = prefix_shape
+                    .concat(left_shapes.clone().indent(indent.unwrap_or(0)))
+                    .concat(suffix_shape);
 
-                let left_fits = full_left_req.fits(self.width);
-                let right_impossible = !right_req.is_possible();
+                let left_fits = full_left_shapes.fits(self.width);
+                let right_impossible = !right_shapes.is_possible();
                 if left_fits || right_impossible {
-                    self.pp(indent, suffix_len, left)
+                    self.pp(left, indent, prefix_len, suffix_len);
                 } else {
-                    self.pp(indent, suffix_len, right)
+                    self.pp(right, indent, prefix_len, suffix_len);
                 }
             }
         }

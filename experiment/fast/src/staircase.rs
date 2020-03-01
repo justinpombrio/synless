@@ -1,6 +1,12 @@
 use std::fmt::Debug;
 use std::iter;
 
+/// A set of elements of type `T`. The elements have two `usize` dimensions `x`
+/// and `y`, as defined by the `Stair` trait. If one element has smaller `x`
+/// and smaller `y` than another, we say it _dominates_ it. This set only stores
+/// elements that are not dominated by any other element in the set. As a
+/// result, it will never need to store more than `max(X, Y)` elements, where
+/// `X` and `Y` are the number of possible values of `x` and `y` respectively.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Staircase<T>
 where
@@ -28,7 +34,6 @@ impl<T: Stair> Staircase<T> {
         self.stairs.len()
     }
 
-    /// Insert a new stair into a staircase.
     pub fn insert(&mut self, stair: T) {
         let (skip_left, skip_right, delete_left, delete_right) = self.indices(stair.x(), stair.y());
         // If the new stair is already covered, skip it.
@@ -65,6 +70,8 @@ impl<T: Stair> Staircase<T> {
     }
 
     fn indices(&self, x: usize, y: usize) -> (usize, usize, usize, usize) {
+        // TODO: linear search for efficiency
+        // (Basic testing shows that it's more efficient for sets of size <100 or so.)
         let x_index = self
             .stairs
             .binary_search_by_key(&-(x as isize), |stair| -(stair.x() as isize));

@@ -1,16 +1,4 @@
-//! Validate that there is at least _one_ way to lay out a notation.
-
 use super::Notation;
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum ValidNotation {
-    Literal(String),
-    Flat(Box<ValidNotation>),
-    Align(Box<ValidNotation>),
-    Concat(Box<ValidNotation>, Box<ValidNotation>, ChoosyChild),
-    Nest(usize, Box<ValidNotation>),
-    Choice(Box<ValidNotation>, Box<ValidNotation>),
-}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ValidationError {
@@ -18,21 +6,24 @@ pub enum ValidationError {
     TooChoosy,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ChoosyChild {
-    Left,
-    Right,
-    Neither,
-}
-
+/// There may be several ways to display a Notation. This struct captures
+/// whether it can be displayed on a single line, and whether it can be
+/// displayed over multiple lines, and what lines might contain choosy nodes in
+/// the _worst case_.
 #[derive(Clone, Copy, Debug)]
 struct Possibilities {
-    /// `Some` if there's at least one single line possibility, and `true` if there's more than one.
+    /// - `None` if the notation cannot be displayed on a single line.
+    /// - `Some(false)` if it can be displayed on a single line, but that line
+    ///   is guaranteed to not be choosy.
+    /// - `Some(true)` if it can be displayed on a single line, and that line
+    ///   might be choosy.
     single_line: Option<bool>,
+    /// `None` if the notation cannot be displayed across multiple lines.
     multi_line: Option<ChoosyLines>,
 }
 
-// In the worst case, might this position be choosy (contain a choice or an aligned)
+/// For a notation that can be displayed across multiple lines, could the first
+/// or last line be choosy?
 #[derive(Clone, Copy, Debug)]
 struct ChoosyLines {
     first: bool,
@@ -68,6 +59,7 @@ impl Possibilities {
         self.single_line.is_some() || self.multi_line.is_some()
     }
 
+    /// _Could_ the first line be choosy? `None` if not possible.
     fn choosy_first(self) -> Option<bool> {
         match (self.single_line, self.multi_line) {
             (Some(_), Some(_)) => Some(true),
@@ -77,6 +69,7 @@ impl Possibilities {
         }
     }
 
+    /// _Could_ the last line be choosy? `None` if not possible.
     fn choosy_last(self) -> Option<bool> {
         match (self.single_line, self.multi_line) {
             (Some(_), Some(_)) => Some(true),
@@ -86,10 +79,12 @@ impl Possibilities {
         }
     }
 
-    fn or(self, other: Possibilities) -> Possibilities {
+    /// Determine the Possibilities of `Choice(A, B)` given the Possibilities of
+    /// `A` and the Possibilities of `B`.
+    fn choice(self, other: Possibilities) -> Possibilities {
         Possibilities {
-            single_line: or_map(self.single_line, other.single_line, |_, _| true),
-            multi_line: or_map(self.multi_line, other.multi_line, |_, _| ChoosyLines {
+            single_line: union_options(self.single_line, other.single_line, |_, _| true),
+            multi_line: union_options(self.multi_line, other.multi_line, |_, _| ChoosyLines {
                 first: true,
                 last: true,
             }),
@@ -98,119 +93,89 @@ impl Possibilities {
 }
 
 impl Notation {
-    pub fn validate(self) -> Result<ValidNotation, ValidationError> {
-        let (valid_notation, poss) = self.validate_rec()?;
+    /// Validate a notation. This consists of:
+    ///
+    /// 1. Ensuring there is at least one layout option for displaying it.
+    /// 2. Ensuring that no two choosy nodes (Choices or Aligns) share a line.
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        let poss = self.validate_rec()?;
         if poss.is_possible() {
-            Ok(valid_notation)
+            Ok(())
         } else {
             Err(ValidationError::Impossible)
         }
     }
 
-    fn validate_rec(&self) -> Result<(ValidNotation, Possibilities), ValidationError> {
-        Ok(match self {
-            Notation::Literal(l) => (
-                ValidNotation::Literal(l.into()),
-                Possibilities {
-                    single_line: Some(false),
-                    multi_line: None,
-                },
-            ),
-            Notation::Flat(note) => {
-                let (valid_note, mut poss) = note.validate_rec()?;
+    fn validate_rec(&self) -> Result<Possibilities, ValidationError> {
+        use Notation::*;
+
+        match self {
+            Literal(_) => Ok(Possibilities {
+                single_line: Some(false),
+                multi_line: None,
+            }),
+            Flat(note) => {
+                let mut poss = note.validate_rec()?;
                 poss.multi_line = None;
-                (ValidNotation::Flat(Box::new(valid_note)), poss)
+                Ok(poss)
             }
-            Notation::Align(note) => {
-                let (valid_note, mut poss) = note.validate_rec()?;
+            Align(note) => {
+                let mut poss = note.validate_rec()?;
                 if let Some(multi) = poss.multi_line.as_mut() {
                     multi.first = true;
                     multi.last = true;
                 }
-                (ValidNotation::Align(Box::new(valid_note)), poss)
+                Ok(poss)
             }
-            Notation::Nest(indent, note) => {
-                let (valid_note, poss) = note.validate_rec()?;
-
-                (
-                    ValidNotation::Nest(*indent, Box::new(valid_note)),
-                    Possibilities {
-                        single_line: None,
-                        multi_line: poss
-                            .choosy_last()
-                            .map(|last| ChoosyLines { first: false, last }),
-                    },
-                )
+            Nest(_indent, note) => {
+                let poss = note.validate_rec()?;
+                match poss.choosy_last() {
+                    None => Ok(Possibilities::new_impossible()),
+                    Some(last) => Ok(Possibilities::new_multi(false, last)),
+                }
             }
-            Notation::Concat(left, right) => {
-                let (valid_left, left_poss) = left.validate_rec()?;
-                let (valid_right, right_poss) = right.validate_rec()?;
+            Concat(left, right) => {
+                let left_poss = left.validate_rec()?;
+                let right_poss = right.validate_rec()?;
 
-                let choosy_child = match (
-                    left_poss.choosy_last().unwrap_or(false),
-                    right_poss.choosy_first().unwrap_or(false),
-                ) {
-                    (false, false) => ChoosyChild::Neither,
-                    (true, false) => ChoosyChild::Left,
-                    (false, true) => ChoosyChild::Right,
-                    (true, true) => return Err(ValidationError::TooChoosy),
-                };
+                if left_poss.choosy_last() == Some(true) && right_poss.choosy_first() == Some(true)
+                {
+                    return Err(ValidationError::TooChoosy);
+                }
 
                 let mut poss = Possibilities::new_impossible();
                 if let (Some(ls), Some(rs)) = (left_poss.single_line, right_poss.single_line) {
-                    poss = poss.or(Possibilities::new_single(ls || rs));
+                    poss = poss.choice(Possibilities::new_single(ls || rs));
                 }
                 if let (Some(ls), Some(rm)) = (left_poss.single_line, right_poss.multi_line) {
-                    poss = poss.or(Possibilities::new_multi(ls | rm.first, rm.last));
+                    poss = poss.choice(Possibilities::new_multi(ls || rm.first, rm.last));
                 }
                 if let (Some(lm), Some(rs)) = (left_poss.multi_line, right_poss.single_line) {
-                    poss = poss.or(Possibilities::new_multi(lm.first, lm.last || rs));
+                    poss = poss.choice(Possibilities::new_multi(lm.first, lm.last || rs));
                 }
                 if let (Some(lm), Some(rm)) = (left_poss.multi_line, right_poss.multi_line) {
-                    poss = poss.or(Possibilities::new_multi(lm.first, rm.last));
+                    poss = poss.choice(Possibilities::new_multi(lm.first, rm.last));
                 }
 
-                (
-                    ValidNotation::Concat(
-                        Box::new(valid_left),
-                        Box::new(valid_right),
-                        choosy_child,
-                    ),
-                    poss,
-                )
+                Ok(poss)
             }
-            Notation::Choice(left, right) => {
-                let (valid_left, left_poss) = left.validate_rec()?;
-                let (valid_right, right_poss) = right.validate_rec()?;
-
-                (
-                    ValidNotation::Choice(Box::new(valid_left), Box::new(valid_right)),
-                    left_poss.or(right_poss),
-                )
+            Choice(left, right) => {
+                let left_poss = left.validate_rec()?;
+                let right_poss = right.validate_rec()?;
+                Ok(left_poss.choice(right_poss))
             }
-        })
+        }
     }
 }
 
-fn or_map<T, F>(opta: Option<T>, optb: Option<T>, combine: F) -> Option<T>
+fn union_options<T, F>(opt_a: Option<T>, opt_b: Option<T>, combine: F) -> Option<T>
 where
     F: Fn(T, T) -> T,
 {
-    match (opta, optb) {
+    match (opt_a, opt_b) {
         (None, None) => None,
         (Some(a), None) => Some(a),
         (None, Some(b)) => Some(b),
-        (Some(a), Some(b)) => Some(combine(a, b)),
-    }
-}
-
-#[allow(dead_code)]
-fn and_map<T, F>(opta: Option<T>, optb: Option<T>, combine: F) -> Option<T>
-where
-    F: Fn(T, T) -> T,
-{
-    match (opta, optb) {
-        (None, None) | (Some(..), None) | (None, Some(..)) => None,
         (Some(a), Some(b)) => Some(combine(a, b)),
     }
 }

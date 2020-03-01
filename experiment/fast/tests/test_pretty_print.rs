@@ -112,8 +112,8 @@ fn expand_lines(lines: Vec<(usize, String)>) -> Vec<String> {
 }
 
 fn assert_pp(notation: Notation, width: usize, expected_lines: &[&str]) {
-    let valid_notation = notation.clone().validate().expect("failed to validate");
-    let measured_notation = valid_notation.measure();
+    notation.validate().expect("failed to validate");
+    let measured_notation = notation.measure();
     let oracle_lines: Vec<String> = expand_lines(oracular_pretty_print(&notation, width));
     let actual_lines: Vec<String> = expand_lines(pretty_print(&measured_notation, width));
     if oracle_lines != expected_lines {
@@ -284,17 +284,17 @@ fn test_pp_dict() {
         &["[", " 'chocolate',", " 'lemon', 'almond'", "]"],
     );
 
-    // This can fit in 34, but the pretty printer puts them all on separate lines!
-    // assert_pp(
-    //     e3.clone(),
-    //     34,
-    //     &[
-    //         "'Favorites': [",
-    //         "              'chocolate',",
-    //         "              'lemon', 'almond'",
-    //         "             ]",
-    //     ],
-    // );
+    //This can fit in 34, but the pretty printer puts them all on separate lines!
+    assert_pp(
+        e3.clone(),
+        34,
+        &[
+            "'Favorites': [",
+            "              'chocolate',",
+            "              'lemon', 'almond'",
+            "             ]",
+        ],
+    );
 
     // This looks totally broken
     let n = json_dict(vec![e1, e2, e3]);
