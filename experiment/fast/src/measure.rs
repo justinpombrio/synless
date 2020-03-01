@@ -45,9 +45,6 @@ pub struct Shapes {
 pub struct MultiLineShape {
     /// The number of characters required for the first line.
     pub first: usize,
-    /// The maximum number of characters required for any line except the first
-    /// and last.
-    pub middle: usize,
     /// The number of characters required for the last line.
     pub last: usize,
 }
@@ -92,6 +89,7 @@ pub enum LineLength {
     Multi(usize),
 }
 
+// TODO: Update prose
 /// MultiLineShapes have three dimensions of variation, but it's only practical to
 /// store tradeoffs between two of them. We therefore store the tradeoff between
 /// `first` and `middle`, and require that notation authors follow the "No
@@ -103,7 +101,7 @@ impl Stair for MultiLineShape {
         self.first
     }
     fn y(&self) -> usize {
-        self.middle
+        self.last
     }
 }
 
@@ -122,7 +120,6 @@ impl MultiLineShape {
     /// Insert `indent` spaces to the left of all of the lines.
     pub fn indent(mut self, indent: usize) -> Self {
         self.first += indent;
-        self.middle += indent;
         self.last += indent;
         self
     }
@@ -171,7 +168,7 @@ impl Notation {
                 let note = MeasuredNotation::Align(Box::new(note));
                 for ml in shapes.multi_line.drain() {
                     shapes.aligned.insert(AlignedShape {
-                        non_last: ml.first.max(ml.middle),
+                        non_last: ml.first.max(ml.first),
                         last: ml.last,
                     })
                 }
@@ -244,11 +241,7 @@ impl Shapes {
     /// (This is the `Shapes` of `Nest(0, Literal(""))`.)
     pub fn new_newline() -> Shapes {
         let mut multi_line = Staircase::new();
-        multi_line.insert(MultiLineShape {
-            first: 0,
-            middle: 0,
-            last: 0,
-        });
+        multi_line.insert(MultiLineShape { first: 0, last: 0 });
         Shapes {
             single_line: None,
             multi_line,
@@ -287,7 +280,7 @@ impl Shapes {
         }
         // TODO: could be more efficient
         for ml in &self.multi_line {
-            if ml.first <= width && ml.middle <= width && ml.last <= width {
+            if ml.first <= width && ml.last <= width {
                 return true;
             }
         }
@@ -353,7 +346,6 @@ impl Shapes {
             for rm in &other.multi_line {
                 shapes.multi_line.insert(MultiLineShape {
                     first: ls + rm.first,
-                    middle: rm.middle,
                     last: rm.last,
                 });
             }
@@ -363,7 +355,6 @@ impl Shapes {
             for lm in &self.multi_line {
                 shapes.multi_line.insert(MultiLineShape {
                     first: lm.first,
-                    middle: lm.middle,
                     last: lm.last + rs,
                 });
             }
@@ -373,7 +364,6 @@ impl Shapes {
             for rm in &other.multi_line {
                 shapes.multi_line.insert(MultiLineShape {
                     first: lm.first,
-                    middle: lm.middle.max(lm.last + rm.first).max(rm.middle),
                     last: rm.last,
                 });
             }
@@ -410,7 +400,6 @@ impl Shapes {
             for ra in &other.aligned {
                 shapes.multi_line.insert(MultiLineShape {
                     first: lm.first,
-                    middle: lm.middle.max(lm.last + ra.non_last),
                     last: lm.last + ra.last,
                 });
             }
@@ -421,7 +410,6 @@ impl Shapes {
                 shapes.multi_line.insert(MultiLineShape {
                     // Eh, this is _basically_ true...
                     first: la.non_last.max(la.last + rm.first),
-                    middle: rm.middle,
                     last: rm.last,
                 });
             }
@@ -499,11 +487,7 @@ mod tests {
         assert!(!Shapes::new().is_possible());
         assert!(Shapes::new_single_line(4).is_possible());
         assert!(Shapes::new()
-            .with_multi_line(MultiLineShape {
-                first: 1,
-                middle: 2,
-                last: 3
-            })
+            .with_multi_line(MultiLineShape { first: 1, last: 3 })
             .is_possible());
         assert!(Shapes::new()
             .with_aligned(AlignedShape {
@@ -515,16 +499,8 @@ mod tests {
 
     fn example_shapes() -> Shapes {
         Shapes::new_single_line(10)
-            .with_multi_line(MultiLineShape {
-                first: 2,
-                middle: 6,
-                last: 3,
-            })
-            .with_multi_line(MultiLineShape {
-                first: 3,
-                middle: 5,
-                last: 4,
-            })
+            .with_multi_line(MultiLineShape { first: 2, last: 3 })
+            .with_multi_line(MultiLineShape { first: 3, last: 4 })
             .with_aligned(AlignedShape {
                 non_last: 3,
                 last: 4,
@@ -541,12 +517,10 @@ mod tests {
         let expected = Shapes::new_single_line(110)
             .with_multi_line(MultiLineShape {
                 first: 102,
-                middle: 106,
                 last: 103,
             })
             .with_multi_line(MultiLineShape {
                 first: 103,
-                middle: 105,
                 last: 104,
             })
             .with_aligned(AlignedShape {
@@ -572,43 +546,26 @@ mod tests {
         assert_fits_exactly(6, Shapes::new_single_line(6));
 
         assert_fits_exactly(
-            6,
-            Shapes::new().with_multi_line(MultiLineShape {
-                first: 5,
-                middle: 6,
-                last: 5,
-            }),
+            5,
+            Shapes::new().with_multi_line(MultiLineShape { first: 5, last: 5 }),
         );
 
         assert_fits_exactly(
             6,
-            Shapes::new().with_multi_line(MultiLineShape {
-                first: 6,
-                middle: 5,
-                last: 5,
-            }),
+            Shapes::new().with_multi_line(MultiLineShape { first: 6, last: 5 }),
         );
 
         assert_fits_exactly(
             6,
-            Shapes::new().with_multi_line(MultiLineShape {
-                first: 5,
-                middle: 5,
-                last: 6,
-            }),
+            Shapes::new().with_multi_line(MultiLineShape { first: 5, last: 6 }),
         );
 
         assert_fits_exactly(
             6,
             Shapes::new()
-                .with_multi_line(MultiLineShape {
-                    first: 5,
-                    middle: 5,
-                    last: 6,
-                })
+                .with_multi_line(MultiLineShape { first: 5, last: 6 })
                 .with_multi_line(MultiLineShape {
                     first: 10,
-                    middle: 1,
                     last: 10,
                 }),
         );

@@ -55,6 +55,7 @@ impl Notation {
             0 => empty,
             1 => lone(iter.next().unwrap()),
             _ => {
+                let mut iter = iter.rev();
                 let mut accumulator = iter.next().unwrap();
                 for elem in iter {
                     accumulator = join(elem, accumulator);

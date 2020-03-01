@@ -39,7 +39,7 @@ impl PrettyPrinter {
                 self.pp(note, None, prefix_len, suffix_len);
             }
             Align(note) => {
-                let indent = indent.map(|i| i + prefix_len.expect("Too choosy! (Align)"));
+                let indent = Some(prefix_len.expect("Too choosy! Align"));
                 self.pp(note, indent, prefix_len, suffix_len)
             }
             Nest(j, note) => {
@@ -49,11 +49,11 @@ impl PrettyPrinter {
             }
             Concat(left, right, known_line_lens) => match known_line_lens {
                 KnownLineLengths::Left { left_last_line } => {
-                    self.pp(left, indent, prefix_len, None);
                     let middle_prefix_len = match left_last_line {
                         LineLength::Single(len) => prefix_len.expect("Too choosy! Concat") + len,
                         LineLength::Multi(len) => indent.expect("Multi in Flat") + len,
                     };
+                    self.pp(left, indent, prefix_len, None);
                     self.pp(right, indent, Some(middle_prefix_len), suffix_len);
                 }
                 KnownLineLengths::Right { right_first_line } => {
@@ -64,9 +64,22 @@ impl PrettyPrinter {
                     self.pp(left, indent, prefix_len, Some(middle_suffix_len));
                     self.pp(right, indent, None, suffix_len);
                 }
-                KnownLineLengths::Both { .. } => {
-                    self.pp(left, indent, prefix_len, None);
-                    self.pp(right, indent, None, suffix_len);
+                KnownLineLengths::Both {
+                    left_last_line,
+                    right_first_line,
+                } => {
+                    let middle_prefix_len = match (prefix_len, left_last_line) {
+                        (None, LineLength::Single(_)) => None,
+                        (Some(prefix), LineLength::Single(len)) => Some(prefix + *len),
+                        (_, LineLength::Multi(len)) => Some(indent.expect("Multi in Flat") + *len),
+                    };
+                    let middle_suffix_len = match (suffix_len, right_first_line) {
+                        (None, LineLength::Single(_)) => None,
+                        (Some(suffix), LineLength::Single(len)) => Some(*len + suffix),
+                        (_, LineLength::Multi(len)) => Some(*len),
+                    };
+                    self.pp(left, indent, prefix_len, middle_suffix_len);
+                    self.pp(right, indent, middle_prefix_len, suffix_len);
                 }
             },
             Choice((left, left_shapes), (right, right_shapes)) => {
@@ -85,7 +98,10 @@ impl PrettyPrinter {
                     return;
                 }
 
-                let prefix_shape = Shapes::new_single_line(prefix_len.expect("Too choosy! Choice"));
+                // TODO: this is gross
+                let prefix_shape = Shapes::new_single_line(
+                    prefix_len.expect("Too choosy! Choice") - indent.unwrap_or(0),
+                );
                 let suffix_shape = Shapes::new_single_line(suffix_len.expect("Too choosy! Choice"));
 
                 let full_left_shapes = prefix_shape

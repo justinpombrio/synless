@@ -42,25 +42,11 @@ fn list_align(elements: Vec<Notation>) -> Notation {
     };
     let surround = |accum: Notation| {
         let single = lit("[") + flat(accum.clone()) + lit("]");
-        let multi = lit("[") + nest(1, accum) + nest(0, lit("]"));
-        //        single | multi
-        // TODO: temporary
-        multi
+        let multi = align(lit("[") + nest(1, accum) + nest(0, lit("]")));
+        single | multi
     };
     Notation::repeat(elements, empty, lone, join, surround)
 }
-
-// fn list_indent(elements: Vec<Notation>) -> Notation {
-//     let empty = lit("[]");
-//     let lone = |elem| lit("[") + elem + lit("]");
-//     let join = |accum: Notation, elem: Notation| {
-//         (accum.clone() + lit(", ") + elem.clone()) | (accum.clone() + lit(",") + nest(0, elem))
-//     };
-
-//     // TODO is there any way to do this without the old indent operator?
-//     // let surround = |accum: Notation| indent(8, lit("[") + accum.clone() + lit("]"));
-//     Notation::repeat(elements, empty, lone, join, surround)
-// }
 
 fn json_string(s: &str) -> Notation {
     // Using single quote instead of double quote to avoid inconvenient
@@ -130,7 +116,6 @@ fn test_pp_hello() {
     assert_pp(n, 80, &["Hello", "    world!"])
 }
 
-/*
 #[test]
 fn test_pp_choice() {
     let n = (hello() | goodbye()) + lit(" world");
@@ -151,7 +136,6 @@ fn test_pp_choice() {
     let n = (hello() | goodbye()) + lit(" world");
     assert_pp(n, 3, &["Good", "Bye world"]);
 }
-*/
 
 #[test]
 fn test_pp_list_one() {
@@ -165,19 +149,15 @@ fn test_pp_list_one() {
 
 #[test]
 fn test_pp_list() {
-    /*
     let n = list_align(vec![]);
     assert_pp(n, 80, &["[]"]);
 
     let n = list_align(vec![hello()]);
     assert_pp(n, 80, &["[Hello]"]);
-     */
 
     let n = list_align(vec![hello(), hello()]);
-    println!("{:#?}", n.measure());
     assert_pp(n, 80, &["[Hello, Hello]"]);
 
-    /*
     let n = list_align(vec![hello(), hello()]);
     assert_pp(n, 13, &["[", " Hello, Hello", "]"]);
 
@@ -198,7 +178,6 @@ fn test_pp_list() {
         80,
         &["[", " Good", " Bye, Hello, Hello, Good", " Bye", "]"],
     );
-     */
 }
 
 /*
@@ -222,12 +201,13 @@ fn test_pp_simple_choice() {
     assert_pp(abcdef.clone(), 3, &["abc", "def"]);
     assert_pp(abcdef, 2, &["a", "bc", "de", "f"]);
 }
+*/
 
 #[test]
 fn test_pp_dict() {
     let e1 = json_entry("Name", json_string("Alice"));
     let e2 = json_entry("Age", lit("42"));
-    let favorites_list = list_align_unchoosy(vec![
+    let favorites_list = list_align(vec![
         json_string("chocolate"),
         json_string("lemon"),
         json_string("almond"),
@@ -285,7 +265,19 @@ fn test_pp_dict() {
         ],
     );
 }
-*/
+
+// This notation cannot be expressed with the current combinators.
+
+// fn list_indent(elements: Vec<Notation>) -> Notation {
+//     let empty = lit("[]");
+//     let lone = |elem| lit("[") + elem + lit("]");
+//     let join = |accum: Notation, elem: Notation| {
+//         (accum.clone() + lit(", ") + elem.clone()) | (accum.clone() + lit(",") + nest(0, elem))
+//     };
+//
+//     // let surround = |accum: Notation| indent(8, lit("[") + accum.clone() + lit("]"));
+//     Notation::repeat(elements, empty, lone, join, surround)
+// }
 
 // #[test]
 // fn test_pp_tradeoff() {
@@ -327,7 +319,6 @@ fn test_pp_dict() {
 //     );
 // }
 
-/*
 #[test]
 fn test_pp_align() {
     let n = lit("four") + list_align(vec![hello(), hello()]);
@@ -346,17 +337,18 @@ fn test_pp_align() {
 
 #[test]
 fn oracle_failure_1() {
-    //     let n = flat(lit("aa") | lit("b")) | line();
     let n = flat(lit("aa") | lit("b")) | nest(0, lit(""));
     assert_pp(n, 1, &["b"]);
 }
 
-// #[test]
-// fn oracle_failure_2() {
-//     // let n = indent(9, (lit("a") | lit("bb")) + line());
-//     let n = (lit("a") | lit("bb")) + nest(9, lit(""));
-//     assert_pp(n, 5, &["bb", "         "]);
-// }
+#[test]
+// NOTE: This test case originally expected `bb` instead of `a`, because that
+// was the "correct" but questionable behavior of a previous pretty-printing
+// algorithm.
+fn oracle_failure_2() {
+    let n = (lit("a") | lit("bb")) + nest(9, lit(""));
+    assert_pp(n, 5, &["a", "         "]);
+}
 
 #[test]
 fn oracle_failure_3() {
@@ -364,10 +356,8 @@ fn oracle_failure_3() {
     assert_pp(n, 6, &["aaaaaaaacccccc"]);
 }
 
-// #[test]
-// fn oracle_failure_4() {
-//     // let n = indent(8, line()) | line() | lit("aaaaaaa");
-//     let n = nest(8, lit("")) | nest(0, lit("")) | lit("aaaaaaa");
-//     assert_pp(n, 5, &["", ""]);
-// }
-*/
+#[test]
+fn oracle_failure_4() {
+    let n = nest(8, lit("")) | nest(0, lit("")) | lit("aaaaaaa");
+    assert_pp(n, 5, &["", ""]);
+}
