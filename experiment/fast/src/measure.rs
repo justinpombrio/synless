@@ -161,10 +161,9 @@ impl Notation {
                 )
             }
             Notation::Flat(note) => {
-                let (note, mut shapes) = note.measure_rec();
+                let (note, shapes) = note.measure_rec();
                 let note = MeasuredNotation::Flat(Box::new(note));
-                shapes.multi_line = Staircase::new();
-                shapes.aligned = Staircase::new();
+                let shapes = shapes.flat();
                 (note, shapes)
             }
             Notation::Align(note) => {
@@ -303,6 +302,14 @@ impl Shapes {
     /// Does the Notation have at least one possible layout?
     pub fn is_possible(&self) -> bool {
         self.single_line.is_some() || !self.multi_line.is_empty() || !self.aligned.is_empty()
+    }
+
+    /// Returns the Shapes for `Flat(n)`,
+    /// where `self` is the Shapes for a Notation `n`.
+    pub fn flat(mut self) -> Self {
+        self.multi_line = Staircase::new();
+        self.aligned = Staircase::new();
+        self
     }
 
     /// Insert `indent` spaces to the left of all of the lines.
@@ -446,9 +453,15 @@ impl Shapes {
         if !self.aligned.is_empty() {
             return None;
         }
-        self.single_line
-            .map(LineLength::Single)
-            .xor(self.sole_multiline().map(|ml| LineLength::Multi(ml.first)))
+        if let Some(sl) = self.single_line {
+            if !self.multi_line.is_empty() {
+                None
+            } else {
+                Some(LineLength::Single(sl))
+            }
+        } else {
+            self.sole_multiline().map(|ml| LineLength::Multi(ml.first))
+        }
     }
 
     /// The length of the last line, if it is not choosy.
@@ -456,9 +469,15 @@ impl Shapes {
         if !self.aligned.is_empty() {
             return None;
         }
-        self.single_line
-            .map(LineLength::Single)
-            .xor(self.sole_multiline().map(|ml| LineLength::Multi(ml.last)))
+        if let Some(sl) = self.single_line {
+            if !self.multi_line.is_empty() {
+                None
+            } else {
+                Some(LineLength::Single(sl))
+            }
+        } else {
+            self.sole_multiline().map(|ml| LineLength::Multi(ml.last))
+        }
     }
 
     fn sole_multiline(&self) -> Option<MultiLineShape> {

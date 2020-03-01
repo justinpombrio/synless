@@ -34,29 +34,18 @@ fn list_one(element: Notation) -> Notation {
     option1 | option2
 }
 
-fn list_align_unchoosy(elements: Vec<Notation>) -> Notation {
-    let empty = lit("[]");
-    let lone = |elem| lit("[") + elem + lit("]");
-    let join = |accum: Notation, elem: Notation| {
-        (accum.clone() + lit(", ") + elem.clone()) | (accum.clone() + lit(",") + nest(0, elem))
-    };
-    let surround = |accum: Notation| {
-        let multi = align(lit("[") + nest(1, accum) + nest(0, lit("]")));
-        multi
-    };
-    Notation::repeat(elements, empty, lone, join, surround)
-}
-
 fn list_align(elements: Vec<Notation>) -> Notation {
     let empty = lit("[]");
     let lone = |elem| lit("[") + elem + lit("]");
-    let join = |accum: Notation, elem: Notation| {
-        accum + lit(",") + ((lit(" ") + elem.clone()) | nest(0, elem))
+    let join = |elem: Notation, accum: Notation| {
+        (elem.clone() + lit(", ") + accum.clone()) | (elem.clone() + lit(",") + nest(0, accum))
     };
     let surround = |accum: Notation| {
-        let single = flat(lit("[") + accum.clone() + lit("]"));
-        let multi = align(lit("[") + nest(1, accum) + nest(0, lit("]")));
-        single | multi
+        let single = lit("[") + flat(accum.clone()) + lit("]");
+        let multi = lit("[") + nest(1, accum) + nest(0, lit("]"));
+        //        single | multi
+        // TODO: temporary
+        multi
     };
     Notation::repeat(elements, empty, lone, join, surround)
 }
@@ -91,12 +80,13 @@ fn json_dict(entries: Vec<Notation>) -> Notation {
     let tab = 4;
     let empty = lit("{}");
     let lone = |elem: Notation| {
-        (lit("{") + flat(elem.clone()) + lit("}"))
-            | (lit("{") + nest(tab, elem) + nest(0, lit("}")))
+        let single = lit("{") + flat(elem.clone()) + lit("}");
+        let multi = lit("{") + nest(tab, elem) + nest(0, lit("}"));
+        single | multi
     };
-    let join = |accum: Notation, elem: Notation| accum + lit(",") + nest(0, elem);
+    let join = |elem: Notation, accum: Notation| elem + lit(",") + nest(0, accum);
     let surround = |accum: Notation| {
-        let single = flat(lit("{") + accum.clone() + lit("}"));
+        let single = lit("{") + flat(accum.clone()) + lit("}");
         let multi = lit("{") + nest(tab, accum) + nest(0, lit("}"));
         single | multi
     };
@@ -140,6 +130,7 @@ fn test_pp_hello() {
     assert_pp(n, 80, &["Hello", "    world!"])
 }
 
+/*
 #[test]
 fn test_pp_choice() {
     let n = (hello() | goodbye()) + lit(" world");
@@ -155,8 +146,12 @@ fn test_pp_choice() {
     assert_pp(n, 80, &["Hello world"]);
 
     let n = (hello() | goodbye()) + lit(" world");
+    assert_pp(n, 10, &["Good", "Bye world"]);
+
+    let n = (hello() | goodbye()) + lit(" world");
     assert_pp(n, 3, &["Good", "Bye world"]);
 }
+*/
 
 #[test]
 fn test_pp_list_one() {
@@ -169,67 +164,44 @@ fn test_pp_list_one() {
 }
 
 #[test]
-fn test_pp_list_unchoosy() {
-    let n = list_align_unchoosy(vec![]);
-    assert_pp(n, 80, &["[]"]);
-
-    let n = list_align_unchoosy(vec![hello()]);
-    assert_pp(n, 80, &["[Hello]"]);
-
-    let n = list_align_unchoosy(vec![hello(), hello()]);
-    assert_pp(n, 80, &["[", " Hello, Hello", "]"]);
-
-    let n = list_align_unchoosy(vec![hello(), hello()]);
-    assert_pp(n, 10, &["[", " Hello,", " Hello", "]"]);
-
-    let n = list_align_unchoosy(vec![goodbye()]);
-    assert_pp(n, 80, &["[Good", "Bye]"]);
-
-    // let n = list_align_unchoosy(vec![hello(), hello(), hello(), hello()]);
-    // assert_pp(n, 15, &["[", " Hello, Hello,", " Hello, Hello", "]"]);
-
-    let n = list_align_unchoosy(vec![goodbye(), hello(), hello()]);
-    assert_pp(n, 80, &["[", " Good", " Bye, Hello, Hello", "]"]);
-
-    let n = list_align_unchoosy(vec![goodbye(), hello(), hello(), goodbye()]);
-    assert_pp(
-        n,
-        80,
-        &["[", " Good", " Bye, Hello, Hello, Good", " Bye", "]"],
-    );
-}
-
-#[test]
 fn test_pp_list() {
+    /*
     let n = list_align(vec![]);
     assert_pp(n, 80, &["[]"]);
 
     let n = list_align(vec![hello()]);
     assert_pp(n, 80, &["[Hello]"]);
+     */
 
     let n = list_align(vec![hello(), hello()]);
+    println!("{:#?}", n.measure());
     assert_pp(n, 80, &["[Hello, Hello]"]);
+
+    /*
+    let n = list_align(vec![hello(), hello()]);
+    assert_pp(n, 13, &["[", " Hello, Hello", "]"]);
 
     let n = list_align(vec![hello(), hello()]);
     assert_pp(n, 10, &["[", " Hello,", " Hello", "]"]);
-
     let n = list_align(vec![goodbye()]);
     assert_pp(n, 80, &["[Good", "Bye]"]);
 
-    // let n = list_align(vec![hello(), hello(), hello(), hello()]);
-    // assert_pp(n, 15, &["[", " Hello, Hello,", " Hello, Hello", "]"]);
+    let n = list_align(vec![hello(), hello(), hello(), hello()]);
+    assert_pp(n, 15, &["[", " Hello, Hello,", " Hello, Hello", "]"]);
 
-    // let n = list_align(vec![goodbye(), hello(), hello()]);
-    // assert_pp(n, 80, &["[", " Good", " Bye, Hello, Hello", "]"]);
+    let n = list_align(vec![goodbye(), hello(), hello()]);
+    assert_pp(n, 80, &["[", " Good", " Bye, Hello, Hello", "]"]);
 
-    // let n = list_align(vec![goodbye(), hello(), hello(), goodbye()]);
-    // assert_pp(
-    //     n,
-    //     80,
-    //     &["[", " Good", " Bye, Hello, Hello, Good", " Bye", "]"],
-    // );
+    let n = list_align(vec![goodbye(), hello(), hello(), goodbye()]);
+    assert_pp(
+        n,
+        80,
+        &["[", " Good", " Bye, Hello, Hello, Good", " Bye", "]"],
+    );
+     */
 }
 
+/*
 // much too choosy!
 #[test]
 fn test_pp_simple_choice() {
@@ -313,6 +285,7 @@ fn test_pp_dict() {
         ],
     );
 }
+*/
 
 // #[test]
 // fn test_pp_tradeoff() {
@@ -354,6 +327,7 @@ fn test_pp_dict() {
 //     );
 // }
 
+/*
 #[test]
 fn test_pp_align() {
     let n = lit("four") + list_align(vec![hello(), hello()]);
@@ -396,3 +370,4 @@ fn oracle_failure_3() {
 //     let n = nest(8, lit("")) | nest(0, lit("")) | lit("aaaaaaa");
 //     assert_pp(n, 5, &["", ""]);
 // }
+*/
