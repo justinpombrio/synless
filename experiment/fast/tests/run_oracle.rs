@@ -62,7 +62,6 @@ fn check_random() {
 */
 
 #[test]
-#[ignore]
 fn run_oracle() {
     let mut first_error = None;
     let mut num_invalid = 0;

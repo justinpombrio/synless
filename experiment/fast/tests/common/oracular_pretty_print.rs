@@ -61,7 +61,7 @@ impl Doc {
         match (left, right) {
             (Doc::Impossible, _) | (_, Doc::Impossible) => Doc::Impossible,
             (Doc::Line(i, s), mut right) => {
-                right.prepend(i, &s);
+                right.prepend(i, &s, false);
                 right
             }
             (mut left, Doc::Line(_, s)) => {
@@ -78,7 +78,7 @@ impl Doc {
     /// Prepend text (without newlines) onto the beginning of the first line of
     /// the Doc. `indent` is the indentation level of that text, as a number of
     /// spaces.
-    fn prepend(&mut self, indent: usize, text: &str) {
+    fn prepend(&mut self, indent: usize, text: &str, in_aligned: bool) {
         match self {
             Doc::Impossible => (),
             Doc::Line(i, line) => {
@@ -87,13 +87,15 @@ impl Doc {
                 *line = format!("{}{}", text, line);
             }
             Doc::Align(doc) => {
-                doc.indent_all_but_first(text.chars().count());
-                doc.prepend(indent, text);
+                if !in_aligned {
+                    doc.indent_all_but_first(indent + text.chars().count());
+                }
+                doc.prepend(indent, text, true);
             }
-            Doc::Vert(top, _) => top.prepend(indent, text),
+            Doc::Vert(top, _) => top.prepend(indent, text, in_aligned),
             Doc::Choice(opt1, opt2) => {
-                opt1.prepend(indent, text);
-                opt2.prepend(indent, text);
+                opt1.prepend(indent, text, in_aligned);
+                opt2.prepend(indent, text, in_aligned);
             }
         }
     }
