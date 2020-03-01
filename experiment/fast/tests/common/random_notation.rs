@@ -34,6 +34,56 @@ impl NotationGenerator {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Option {
+    Literal,
+    Flat,
+    Align,
+    Nest,
+    Concat,
+    Choice,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct OptionInfo {
+    option: Option,
+    arity: usize,
+    weight: usize,
+}
+
+const OPTIONS: &[OptionInfo] = &[
+    OptionInfo {
+        option: Option::Literal,
+        arity: 0,
+        weight: 1,
+    },
+    OptionInfo {
+        option: Option::Flat,
+        arity: 1,
+        weight: 1,
+    },
+    OptionInfo {
+        option: Option::Align,
+        arity: 1,
+        weight: 1,
+    },
+    OptionInfo {
+        option: Option::Nest,
+        arity: 1,
+        weight: 1,
+    },
+    OptionInfo {
+        option: Option::Concat,
+        arity: 2,
+        weight: 2,
+    },
+    OptionInfo {
+        option: Option::Choice,
+        arity: 2,
+        weight: 1,
+    },
+];
+
 impl Builder {
     fn new(rng: StdRng) -> Builder {
         Builder {
@@ -50,41 +100,30 @@ impl Builder {
     }
 
     fn notation(&mut self, size: usize) -> Notation {
-        match size {
-            0 => panic!("Random notation: unexpected size 0"),
-            1 => {
-                if self.rng.gen() {
-                    self.literal()
-                } else {
-                    Newline
-                }
+        let options = OPTIONS
+            .iter()
+            .filter(|opt| (opt.arity == 0 && size == 1) || (opt.arity > 0 && size >= opt.arity + 1))
+            .filter(|opt| opt.option != Option::Choice || self.num_choices > 0)
+            .collect::<Vec<_>>();
+        let total_weight: usize = options.iter().map(|opt| opt.weight).sum();
+        let mut selection = self.rng.gen_range(0, total_weight);
+        for option in options {
+            if selection < option.weight {
+                return self.use_option(option.option, size);
             }
-            2 => match self.rng.gen_range(0, 3) {
-                0 => self.indent(size),
-                1 => self.flat(size),
-                2 => self.align(size),
-                _ => unreachable!(),
-            },
-            _ => {
-                if self.num_choices > 0 {
-                    match self.rng.gen_range(0, 7) {
-                        0 => self.indent(size),
-                        1 => self.flat(size),
-                        2 => self.align(size),
-                        3 | 4 => self.concat(size),
-                        5 | 6 => self.choice(size),
-                        _ => unreachable!(),
-                    }
-                } else {
-                    match self.rng.gen_range(0, 5) {
-                        0 => self.indent(size),
-                        1 => self.flat(size),
-                        2 => self.align(size),
-                        3 | 4 => self.concat(size),
-                        _ => unreachable!(),
-                    }
-                }
-            }
+            selection -= option.weight;
+        }
+        unreachable!();
+    }
+
+    fn use_option(&mut self, option: Option, size: usize) -> Notation {
+        match option {
+            Option::Literal => self.literal(),
+            Option::Flat => self.flat(size),
+            Option::Align => self.align(size),
+            Option::Nest => self.nest(size),
+            Option::Concat => self.concat(size),
+            Option::Choice => self.choice(size),
         }
     }
 
@@ -95,17 +134,17 @@ impl Builder {
         Literal(string)
     }
 
-    fn indent(&mut self, size: usize) -> Notation {
-        let indent = self.rng.gen_range(INDENT_RANGE.0, INDENT_RANGE.1);
-        Indent(indent, Box::new(self.notation(size - 1)))
-    }
-
     fn flat(&mut self, size: usize) -> Notation {
         Flat(Box::new(self.notation(size - 1)))
     }
 
     fn align(&mut self, size: usize) -> Notation {
         Align(Box::new(self.notation(size - 1)))
+    }
+
+    fn nest(&mut self, size: usize) -> Notation {
+        let indent = self.rng.gen_range(INDENT_RANGE.0, INDENT_RANGE.1);
+        Nest(indent, Box::new(self.notation(size - 1)))
     }
 
     fn concat(&mut self, size: usize) -> Notation {

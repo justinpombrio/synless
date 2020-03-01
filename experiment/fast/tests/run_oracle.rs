@@ -1,4 +1,3 @@
-/*
 mod common;
 
 use common::{oracular_pretty_print, NotationGenerator};
@@ -30,11 +29,11 @@ fn expand_lines(lines: Vec<(usize, String)>) -> Vec<String> {
 }
 
 fn try_pretty_print(notation: Notation) -> PPResult {
-    let valid_notation = match notation.clone().validate() {
-        Ok(valid) => valid,
+    match notation.clone().validate() {
+        Ok(()) => (),
         Err(_) => return PPResult::Invalid,
     };
-    let measured_notation = valid_notation.measure();
+    let measured_notation = notation.measure();
     for width in WIDTH_RANGE.0..WIDTH_RANGE.1 {
         let oracle_lines = oracular_pretty_print(&notation, width);
         let actual_lines = pretty_print(&measured_notation, width);
@@ -49,6 +48,18 @@ fn try_pretty_print(notation: Notation) -> PPResult {
     }
     PPResult::Ok
 }
+
+// TODO: temporary
+/*
+#[test]
+fn check_random() {
+    let mut generator = NotationGenerator::new(SEED);
+    for i in 0..100 {
+        println!("{:#?}", generator.random_notation());
+    }
+    panic!("Fail!");
+}
+*/
 
 #[test]
 #[ignore]
@@ -86,4 +97,3 @@ fn run_oracle() {
         assert!(false);
     }
 }
-*/

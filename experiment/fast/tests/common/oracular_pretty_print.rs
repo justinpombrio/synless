@@ -19,7 +19,10 @@ fn pp(notation: &Notation) -> Doc {
         }
         Flat(notation) => pp(notation).flat(),
         Concat(left, right) => pp(left).concat(pp(right)),
-        Align(notation) => Doc::Align(Box::new(pp(notation))),
+        Align(notation) => match pp(notation) {
+            doc @ Doc::Line(_, _) => doc,
+            doc => Doc::Align(Box::new(doc)),
+        },
         Choice(opt1, opt2) => Doc::choice(pp(opt1), pp(opt2)),
     }
 }
@@ -84,7 +87,7 @@ impl Doc {
                 *line = format!("{}{}", text, line);
             }
             Doc::Align(doc) => {
-                doc.align(text.chars().count());
+                doc.indent_all_but_first(text.chars().count());
                 doc.prepend(indent, text);
             }
             Doc::Vert(top, _) => top.prepend(indent, text),
@@ -110,18 +113,18 @@ impl Doc {
     }
 
     /// Shift every line but the first to the right by `indent` spaces.
-    fn align(&mut self, indent: usize) {
+    fn indent_all_but_first(&mut self, indent: usize) {
         match self {
             Doc::Impossible => (),
             Doc::Line(_, _) => (),
-            Doc::Align(doc) => doc.align(indent),
+            Doc::Align(doc) => doc.indent_all_but_first(indent),
             Doc::Vert(top, bottom) => {
-                top.align(indent);
+                top.indent_all_but_first(indent);
                 bottom.indent(indent);
             }
             Doc::Choice(opt1, opt2) => {
-                opt1.align(indent);
-                opt2.align(indent);
+                opt1.indent_all_but_first(indent);
+                opt2.indent_all_but_first(indent);
             }
         }
     }

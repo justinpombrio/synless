@@ -38,10 +38,7 @@ impl PrettyPrinter {
             Flat(note) => {
                 self.pp(note, None, prefix_len, suffix_len);
             }
-            Align(note) => {
-                let indent = Some(prefix_len.expect("Too choosy! Align"));
-                self.pp(note, indent, prefix_len, suffix_len)
-            }
+            Align(note) => self.pp(note, prefix_len, prefix_len, suffix_len),
             Nest(j, note) => {
                 let new_indent = indent.expect("Nest in Flat") + j;
                 self.lines.push((new_indent, String::new()));

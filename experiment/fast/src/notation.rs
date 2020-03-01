@@ -12,13 +12,13 @@ pub enum Notation {
     /// Start all lines in the contained notation from the column of the
     /// leftmost character of the first line.
     Align(Box<Notation>),
+    /// Display a newline, followed by the contained notation indented to the
+    /// right by the given number of spaces.
+    Nest(usize, Box<Notation>),
     /// Display both notations. The first character of the right notation
     /// immediately follows the last character of the left notation. The right
     /// notation's indentation level is not affected.
     Concat(Box<Notation>, Box<Notation>),
-    /// Display a newline, followed by the contained notation indented to the
-    /// right by the given number of spaces.
-    Nest(usize, Box<Notation>),
     /// Display the left notation if it fits within the required width;
     /// otherwise the right.
     Choice(Box<Notation>, Box<Notation>),
