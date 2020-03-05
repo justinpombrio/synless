@@ -18,10 +18,11 @@ fn pp(notation: &Notation) -> Doc {
             Doc::vert(Doc::new_string(""), bottom)
         }
         Flat(notation) => pp(notation).flat(),
-        Concat(left, right) => pp(left).concat(pp(right)),
+        Concat(left, right) => Doc::concat(pp(left), pp(right)),
         Align(notation) => match pp(notation) {
+            Doc::Impossible => Doc::Impossible,
             doc @ Doc::Line(_, _) => doc,
-            doc => Doc::Align(Box::new(doc)),
+            doc => Doc::align(doc),
         },
         Choice(opt1, opt2) => Doc::choice(pp(opt1), pp(opt2)),
     }
@@ -29,7 +30,11 @@ fn pp(notation: &Notation) -> Doc {
 
 /// A document, half-rendered by the Oracle.
 ///
-/// INVARIANT: The first line has no indent.
+/// INVARIANTS:
+/// - The first line has no indent.
+/// - `Impossible` is only ever at the root (it's never inside an Align, Vert, or Choice)
+/// - One `Align` is never inside another.
+#[derive(Debug, Clone)]
 enum Doc {
     /// Attempted to flatten a document containing a required newline.
     Impossible,
@@ -48,37 +53,75 @@ impl Doc {
         Doc::Line(0, s.to_string())
     }
 
+    fn is_impossible(&self) -> bool {
+        match self {
+            Doc::Impossible => true,
+            _ => false,
+        }
+    }
+
+    fn align(doc: Doc) -> Doc {
+        if doc.is_impossible() {
+            return Doc::Impossible;
+        }
+        Doc::Align(Box::new(doc.remove_aligns()))
+    }
+
     fn vert(top: Doc, bottom: Doc) -> Doc {
+        if top.is_impossible() || bottom.is_impossible() {
+            return Doc::Impossible;
+        }
         Doc::Vert(Box::new(top), Box::new(bottom))
     }
 
     fn choice(opt1: Doc, opt2: Doc) -> Doc {
-        Doc::Choice(Box::new(opt1), Box::new(opt2))
+        match (opt1, opt2) {
+            (Doc::Impossible, Doc::Impossible) => Doc::Impossible,
+            (Doc::Impossible, doc) => doc,
+            (doc, Doc::Impossible) => doc,
+            (doc1, doc2) => Doc::Choice(Box::new(doc1), Box::new(doc2)),
+        }
     }
 
-    fn concat(self, right: Doc) -> Doc {
-        let left = self;
+    fn concat(left: Doc, right: Doc) -> Doc {
+        let left = left;
         match (left, right) {
             (Doc::Impossible, _) | (_, Doc::Impossible) => Doc::Impossible,
             (Doc::Line(i, s), mut right) => {
-                right.prepend(i, &s, false);
+                right.prepend(i, &s);
                 right
             }
             (mut left, Doc::Line(_, s)) => {
                 left.postpend(&s);
                 left
             }
-            (Doc::Vert(top, bottom), right) => Doc::vert(*top, bottom.concat(right)),
-            (left, Doc::Vert(top, bottom)) => Doc::vert(left.concat(*top), *bottom),
+            (Doc::Vert(top, bottom), right) => Doc::vert(*top, Doc::concat(*bottom, right)),
+            (left, Doc::Vert(top, bottom)) => Doc::vert(Doc::concat(left, *top), *bottom),
             // Remaining cases involve (align|choice)+(align|choice)
             (_, _) => panic!("oracular_pp: too choosy"),
+        }
+    }
+
+    /// Delete all `Align`s inside this Doc.
+    fn remove_aligns(self) -> Doc {
+        match self {
+            Doc::Impossible | Doc::Line(_, _) => self,
+            Doc::Align(doc) => doc.remove_aligns(),
+            Doc::Vert(top, bottom) => Doc::Vert(
+                Box::new(top.remove_aligns()),
+                Box::new(bottom.remove_aligns()),
+            ),
+            Doc::Choice(opt1, opt2) => Doc::Choice(
+                Box::new(opt1.remove_aligns()),
+                Box::new(opt2.remove_aligns()),
+            ),
         }
     }
 
     /// Prepend text (without newlines) onto the beginning of the first line of
     /// the Doc. `indent` is the indentation level of that text, as a number of
     /// spaces.
-    fn prepend(&mut self, indent: usize, text: &str, in_aligned: bool) {
+    fn prepend(&mut self, indent: usize, text: &str) {
         match self {
             Doc::Impossible => (),
             Doc::Line(i, line) => {
@@ -87,15 +130,13 @@ impl Doc {
                 *line = format!("{}{}", text, line);
             }
             Doc::Align(doc) => {
-                if !in_aligned {
-                    doc.indent_all_but_first(indent + text.chars().count());
-                }
-                doc.prepend(indent, text, true);
+                doc.indent_all_but_first(indent + text.chars().count());
+                doc.prepend(indent, text);
             }
-            Doc::Vert(top, _) => top.prepend(indent, text, in_aligned),
+            Doc::Vert(top, _) => top.prepend(indent, text),
             Doc::Choice(opt1, opt2) => {
-                opt1.prepend(indent, text, in_aligned);
-                opt2.prepend(indent, text, in_aligned);
+                opt1.prepend(indent, text);
+                opt2.prepend(indent, text);
             }
         }
     }
@@ -191,7 +232,15 @@ impl Doc {
 /// Does the rendered document (`(index, text)` for each line) fit within the
 /// given width?
 fn fits_width(lines: &[(usize, String)], width: usize) -> bool {
-    for (i, s) in lines {
+    // We only check if the first and last lines fit! This is definitely poor
+    // behavior. However, it is the price we pay for a fast pretty printing
+    // algorithm.
+    if let Some((i, s)) = lines.first() {
+        if i + s.chars().count() > width {
+            return false;
+        }
+    }
+    if let Some((i, s)) = lines.last() {
         if i + s.chars().count() > width {
             return false;
         }
