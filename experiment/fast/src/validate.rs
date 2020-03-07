@@ -95,8 +95,16 @@ impl Possibilities {
 impl Notation {
     /// Validate a notation. This consists of:
     ///
-    /// 1. Ensuring there is at least one layout option for displaying it.
-    /// 2. Ensuring that no two choosy nodes (Choices or Aligns) share a line.
+    /// - Ensuring there is at least one layout option for displaying it.
+    /// - Ensuring that no two _choosy_ nodes share a line.
+    ///
+    /// A node is _choosy_ iff:
+    ///
+    /// 1. It is a `Choice`, and both of its options are possible. (A notation
+    ///    can only be _impossible_ if it contains `Flat` of a `Nest`.)
+    /// 2. Or it is an `Align`, and contains at least one multi-line layout option.
+    ///    (If an `Align` can only be laid out on a single line, then it has no
+    ///     effect and can be ignored.)
     pub fn validate(&self) -> Result<(), ValidationError> {
         let poss = self.validate_rec()?;
         if poss.is_possible() {

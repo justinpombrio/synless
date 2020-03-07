@@ -12,28 +12,37 @@ pub fn oracular_pretty_print(notation: &Notation, width: usize) -> Vec<(usize, S
 fn pp(notation: &Notation) -> Doc {
     match notation {
         Literal(text) => Doc::new_string(text),
-        Nest(indent, notation) => {
-            let mut bottom = pp(notation);
-            bottom.indent(*indent);
-            Doc::vert(Doc::new_string(""), bottom)
-        }
+        Nest(indent, notation) => Doc::nest(*indent, pp(notation)),
         Flat(notation) => pp(notation).flat(),
         Concat(left, right) => Doc::concat(pp(left), pp(right)),
-        Align(notation) => match pp(notation) {
-            Doc::Impossible => Doc::Impossible,
-            doc @ Doc::Line(_, _) => doc,
-            doc => Doc::align(doc),
-        },
+        Align(notation) => Doc::align(pp(notation)),
         Choice(opt1, opt2) => Doc::choice(pp(opt1), pp(opt2)),
     }
 }
 
 /// A document, half-rendered by the Oracle.
 ///
-/// INVARIANTS:
+/// # Normalization
+///
+/// To simplify the Oracle's pretty-printing, `Doc`s are normalized in the
+/// following ways:
+///
+/// 1. A `Doc::Impossible` is only ever at the root of a `Doc`. This makes it easy
+///    to tell whether a `Doc` is impossible or not. For example, `Concat(x,
+///    Impossible)` is normalized to `Impossible`, and `Choice(x, Impossible)`
+///    is normalized to `x`. (See Choosiness Rule #1 in `validate`.)
+/// 2. A `Doc::Align` must always have at least one multi-line layout option. If
+///    it doesn't, then it is omitted. This is safe because it would have no
+///    effect. (See Choosiness Rule #2 in `validate`.)
+/// 3. One `Doc::Align` is never inside of another. If it would be, it is
+///    removed. This is safe because it would have no effect. Doing this
+///    simplifies the `prepend` function. (Consider `Align(Align(Nest(_, _)))`.)
+///
+/// # Invariants
+///
+/// In addition, `Doc`s obey the invariant:
+///
 /// - The first line has no indent.
-/// - `Impossible` is only ever at the root (it's never inside an Align, Vert, or Choice)
-/// - One `Align` is never inside another.
 #[derive(Debug, Clone)]
 enum Doc {
     /// Attempted to flatten a document containing a required newline.
@@ -64,7 +73,18 @@ impl Doc {
         if doc.is_impossible() {
             return Doc::Impossible;
         }
+        if !doc.may_be_multiline() {
+            return doc;
+        }
         Doc::Align(Box::new(doc.remove_aligns()))
+    }
+
+    fn nest(indent: usize, mut doc: Doc) -> Doc {
+        if doc.is_impossible() {
+            return Doc::Impossible;
+        }
+        doc.indent(indent);
+        Doc::vert(Doc::new_string(""), doc)
     }
 
     fn vert(top: Doc, bottom: Doc) -> Doc {
@@ -99,6 +119,20 @@ impl Doc {
             (left, Doc::Vert(top, bottom)) => Doc::vert(Doc::concat(left, *top), *bottom),
             // Remaining cases involve (align|choice)+(align|choice)
             (_, _) => panic!("oracular_pp: too choosy"),
+        }
+    }
+
+    /// Is there at least one multi-line layout option for this Doc?
+    fn may_be_multiline(&self) -> bool {
+        match self {
+            Doc::Impossible => false,
+            Doc::Line(_, _) => false,
+            Doc::Align(doc) => {
+                assert!(doc.may_be_multiline());
+                true
+            }
+            Doc::Vert(_, _) => true,
+            Doc::Choice(opt1, opt2) => opt1.may_be_multiline() || opt2.may_be_multiline(),
         }
     }
 
