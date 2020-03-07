@@ -64,21 +64,12 @@ pub struct AlignedShape {
 /// ambiguous because making the choice in different ways could result in
 /// different lengths.
 ///
-/// There is no `Neither` case, because that would only happen if _both_
-/// children were choosy, which is illegal.
+/// `left_last_line` and `right_first_line` cannot both be `None`, because that
+/// would only happen if _both_ children were choosy, which is illegal.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum KnownLineLengths {
-    Left {
-        left_last_line: LineLength,
-    },
-    Right {
-        right_first_line: LineLength,
-    },
-    // TODO: This info isn't needed?
-    Both {
-        left_last_line: LineLength,
-        right_first_line: LineLength,
-    },
+pub struct KnownLineLengths {
+    pub left_last_line: Option<LineLength>,
+    pub right_first_line: Option<LineLength>,
 }
 
 /// The length of a line, and whether it is a single line, or part of a
@@ -182,13 +173,7 @@ impl Notation {
                     right_shapes.known_first_line_len(),
                 ) {
                     (None, None) => panic!("Too choosy! Should not have passed validation."),
-                    (Some(left_len), None) => KnownLineLengths::Left {
-                        left_last_line: left_len,
-                    },
-                    (None, Some(right_len)) => KnownLineLengths::Right {
-                        right_first_line: right_len,
-                    },
-                    (Some(left_len), Some(right_len)) => KnownLineLengths::Both {
+                    (left_len, right_len) => KnownLineLengths {
                         left_last_line: left_len,
                         right_first_line: right_len,
                     },
@@ -617,14 +602,13 @@ mod tests {
         assert_eq!(shapes, Shapes::new_single_line(7));
         match note {
             MeasuredNotation::Concat(_, _, known_line_lens) => match known_line_lens {
-                KnownLineLengths::Both {
+                KnownLineLengths {
                     left_last_line,
                     right_first_line,
                 } => {
-                    assert_eq!(left_last_line, LineLength::Single(4));
-                    assert_eq!(right_first_line, LineLength::Single(3));
+                    assert_eq!(left_last_line, Some(LineLength::Single(4)));
+                    assert_eq!(right_first_line, Some(LineLength::Single(3)));
                 }
-                _ => panic!("Expected KnownLineLengths::Both variant"),
             },
             _ => panic!("Expected MeasuredNotation::Concat variant"),
         }

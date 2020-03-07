@@ -1,4 +1,4 @@
-use super::measure::{KnownLineLengths, LineLength, MeasuredNotation, Shapes};
+use super::measure::{LineLength, MeasuredNotation, Shapes};
 
 /// Display the notation, using at most `width` columns if at all possible.
 /// Returns a list of `(indent, line)` pairs, where `indent` is the number of
@@ -47,41 +47,20 @@ impl PrettyPrinter {
                 self.lines.push((new_indent, String::new()));
                 self.pp(note, Some(new_indent), Some(new_indent), suffix_len);
             }
-            Concat(left, right, known_line_lens) => match known_line_lens {
-                KnownLineLengths::Left { left_last_line } => {
-                    let middle_prefix_len = match left_last_line {
-                        LineLength::Single(len) => prefix_len.expect("Too choosy! Concat") + len,
-                        LineLength::Multi(len) => indent.expect("Multi in Flat") + len,
-                    };
-                    self.pp(left, indent, prefix_len, None);
-                    self.pp(right, indent, Some(middle_prefix_len), suffix_len);
-                }
-                KnownLineLengths::Right { right_first_line } => {
-                    let middle_suffix_len = match right_first_line {
-                        LineLength::Single(len) => *len + suffix_len.expect("Too choosy! Concat"),
-                        LineLength::Multi(len) => *len,
-                    };
-                    self.pp(left, indent, prefix_len, Some(middle_suffix_len));
-                    self.pp(right, indent, None, suffix_len);
-                }
-                KnownLineLengths::Both {
-                    left_last_line,
-                    right_first_line,
-                } => {
-                    let middle_prefix_len = match (prefix_len, left_last_line) {
-                        (None, LineLength::Single(_)) => None,
-                        (Some(prefix), LineLength::Single(len)) => Some(prefix + *len),
-                        (_, LineLength::Multi(len)) => Some(indent.expect("Multi in Flat") + *len),
-                    };
-                    let middle_suffix_len = match (suffix_len, right_first_line) {
-                        (None, LineLength::Single(_)) => None,
-                        (Some(suffix), LineLength::Single(len)) => Some(*len + suffix),
-                        (_, LineLength::Multi(len)) => Some(*len),
-                    };
-                    self.pp(left, indent, prefix_len, middle_suffix_len);
-                    self.pp(right, indent, middle_prefix_len, suffix_len);
-                }
-            },
+            Concat(left, right, known_line_lens) => {
+                let middle_suffix_len = match known_line_lens.right_first_line {
+                    None => None,
+                    Some(LineLength::Single(len)) => suffix_len.map(|s| len + s),
+                    Some(LineLength::Multi(len)) => Some(len),
+                };
+                let middle_prefix_len = match known_line_lens.left_last_line {
+                    None => None,
+                    Some(LineLength::Single(len)) => prefix_len.map(|p| p + len),
+                    Some(LineLength::Multi(len)) => indent.map(|i| i + len),
+                };
+                self.pp(left, indent, prefix_len, middle_suffix_len);
+                self.pp(right, indent, middle_prefix_len, suffix_len);
+            }
             Choice((left, left_shapes), (right, right_shapes)) => {
                 // TODO: avoid clone
                 let (left_shapes, right_shapes) = if indent == None {
