@@ -63,11 +63,12 @@ impl PrettyPrinter {
             }
             Choice((left, left_shapes), (right, right_shapes)) => {
                 // TODO: avoid clone
-                let (left_shapes, right_shapes) = if indent == None {
-                    (left_shapes.clone().flat(), right_shapes.clone().flat())
-                } else {
-                    (left_shapes.clone(), right_shapes.clone())
-                };
+                let mut left_shapes = left_shapes.to_owned();
+                let mut right_shapes = right_shapes.to_owned();
+                if indent == None {
+                    left_shapes = left_shapes.flat();
+                    right_shapes = right_shapes.flat();
+                }
                 if !left_shapes.is_possible() {
                     self.pp(right, indent, prefix_len, suffix_len);
                     return;
@@ -77,15 +78,12 @@ impl PrettyPrinter {
                     return;
                 }
 
-                // TODO: this is gross
-                let prefix_shape = Shapes::new_single_line(
-                    prefix_len.expect("Too choosy! Choice") - indent.unwrap_or(0),
-                );
+                let prefix_shape = Shapes::new_single_line(prefix_len.expect("Too choosy! Choice"));
                 let suffix_shape = Shapes::new_single_line(suffix_len.expect("Too choosy! Choice"));
-
                 let full_left_shapes = prefix_shape
-                    .concat(left_shapes.clone().indent(indent.unwrap_or(0)))
-                    .concat(suffix_shape);
+                    .concat(left_shapes)
+                    .concat(suffix_shape)
+                    .indent(indent.unwrap_or(0));
 
                 if full_left_shapes.fits(self.width) {
                     self.pp(left, indent, prefix_len, suffix_len);

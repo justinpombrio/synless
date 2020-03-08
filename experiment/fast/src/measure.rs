@@ -108,19 +108,18 @@ impl Stair for AlignedShape {
 }
 
 impl MultiLineShape {
-    /// Insert `indent` spaces to the left of all of the lines.
+    /// Insert `indent` spaces to the left of all of the lines but the first.
     pub fn indent(mut self, indent: usize) -> Self {
-        self.first += indent;
         self.last += indent;
         self
     }
 }
 
 impl AlignedShape {
-    /// Insert `indent` spaces to the left of all of the lines.
-    pub fn indent(mut self, indent: usize) -> Self {
-        self.non_last += indent;
-        self.last += indent;
+    /// Insert `indent` spaces to the left of all of the lines but the first.
+    pub fn indent(self, _indent: usize) -> Self {
+        // Everything is aligned based on the _first_ line.
+        // First line doesn't move -> nothing moves.
         self
     }
 }
@@ -290,15 +289,12 @@ impl Shapes {
         self
     }
 
-    /// Insert `indent` spaces to the left of all of the lines.
+    /// Insert `indent` spaces to the left of all of the lines but the first.
     pub fn indent(mut self, indent: usize) -> Self {
-        self.single_line.as_mut().map(|sl| *sl += indent);
-
         let multi_lines = self.multi_line.into_iter();
         self.multi_line = Staircase::new();
         for ml in multi_lines {
-            // TODO can we use unchecked insert, or iterate over mutable refs?
-            // is the order guaranteed to be the same?
+            // TODO: unchecked insert?
             self.multi_line.insert(ml.indent(indent));
         }
 
@@ -315,7 +311,7 @@ impl Shapes {
     /// Returns the Shapes for `Nest(indent, n)`,
     /// where `self` is the Shapes for a Notation `n`.
     pub fn nest(self, indent: usize) -> Self {
-        Shapes::new_newline().concat(self.indent(indent))
+        Shapes::new_newline().concat(self).indent(indent)
     }
 
     /// Returns the Shapes for `Concat(n, m)`,
@@ -499,22 +495,22 @@ mod tests {
     #[test]
     fn test_indent() {
         let shapes = example_shapes();
-        let expected = Shapes::new_single_line(110)
+        let expected = Shapes::new_single_line(10)
             .with_multi_line(MultiLineShape {
-                first: 102,
+                first: 2,
                 last: 103,
             })
             .with_multi_line(MultiLineShape {
-                first: 103,
+                first: 3,
                 last: 104,
             })
             .with_aligned(AlignedShape {
-                non_last: 103,
-                last: 104,
+                non_last: 3,
+                last: 4,
             })
             .with_aligned(AlignedShape {
-                non_last: 104,
-                last: 103,
+                non_last: 4,
+                last: 3,
             });
 
         assert_eq!(shapes.indent(100), expected);
