@@ -1,6 +1,6 @@
 mod common;
 
-use common::{oracular_pretty_print, NotationGenerator};
+use common::{oracular_pretty_print, NotationGenerator, NotationGeneratorConfig};
 use fast::{pretty_print, Notation};
 
 const WIDTH_RANGE: (usize, usize) = (5, 20);
@@ -66,7 +66,13 @@ fn run_oracle() {
     let mut first_error = None;
     let mut num_invalid = 0;
     let mut num_errors = 0;
-    let mut generator = NotationGenerator::new(SEED);
+    let config = NotationGeneratorConfig {
+        max_choices: 6,
+        size_range: (6, 7),
+        literal_range: (0, 10),
+        indent_range: (0, 10),
+    };
+    let mut generator = NotationGenerator::new(SEED, config);
     for _ in 0..NUM_TESTS {
         let note = generator.random_notation();
         match try_pretty_print(note) {

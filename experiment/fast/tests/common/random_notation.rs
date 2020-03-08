@@ -3,31 +3,32 @@ use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use Notation::*;
 
-struct Builder {
-    next_letter: char,
-    rng: StdRng,
-    num_choices: usize,
+#[derive(Clone)]
+pub struct NotationGeneratorConfig {
+    pub max_choices: usize,
+    pub size_range: (usize, usize),
+    pub literal_range: (usize, usize),
+    pub indent_range: (usize, usize),
 }
-
-const MAX_CHOICES: usize = 6;
-const SIZE_RANGE: (usize, usize) = (6, 7);
-const LITERAL_RANGE: (usize, usize) = (0, 10);
-const INDENT_RANGE: (usize, usize) = (0, 10);
 
 pub struct NotationGenerator {
     rng: StdRng,
+    config: NotationGeneratorConfig,
 }
 
 impl NotationGenerator {
-    pub fn new(seed: u64) -> NotationGenerator {
+    pub fn new(seed: u64, config: NotationGeneratorConfig) -> NotationGenerator {
         NotationGenerator {
             rng: StdRng::seed_from_u64(seed),
+            config,
         }
     }
 
     pub fn random_notation(&mut self) -> Notation {
-        let size = self.rng.gen_range(SIZE_RANGE.0, SIZE_RANGE.1);
-        let mut builder = Builder::new(StdRng::seed_from_u64(self.rng.gen()));
+        let size = self
+            .rng
+            .gen_range(self.config.size_range.0, self.config.size_range.1);
+        let mut builder = Builder::new(StdRng::seed_from_u64(self.rng.gen()), &self.config);
         let notation = builder.notation(size);
         self.rng = builder.rng;
         notation
@@ -84,12 +85,22 @@ const OPTIONS: &[OptionInfo] = &[
     },
 ];
 
+struct Builder {
+    next_letter: char,
+    rng: StdRng,
+    num_choices: usize,
+    literal_range: (usize, usize),
+    indent_range: (usize, usize),
+}
+
 impl Builder {
-    fn new(rng: StdRng) -> Builder {
+    fn new(rng: StdRng, config: &NotationGeneratorConfig) -> Builder {
         Builder {
             next_letter: 'a',
             rng,
-            num_choices: MAX_CHOICES,
+            num_choices: config.max_choices,
+            literal_range: config.literal_range,
+            indent_range: config.indent_range,
         }
     }
 
@@ -129,7 +140,9 @@ impl Builder {
 
     fn literal(&mut self) -> Notation {
         let letter = self.letter();
-        let len = self.rng.gen_range(LITERAL_RANGE.0, LITERAL_RANGE.1);
+        let len = self
+            .rng
+            .gen_range(self.literal_range.0, self.literal_range.1);
         let string = (0..len).map(|_| letter).collect();
         Literal(string)
     }
@@ -143,7 +156,7 @@ impl Builder {
     }
 
     fn nest(&mut self, size: usize) -> Notation {
-        let indent = self.rng.gen_range(INDENT_RANGE.0, INDENT_RANGE.1);
+        let indent = self.rng.gen_range(self.indent_range.0, self.indent_range.1);
         Nest(indent, Box::new(self.notation(size - 1)))
     }
 
