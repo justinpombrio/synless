@@ -167,15 +167,9 @@ impl Notation {
             Notation::Concat(left, right) => {
                 let (left_note, left_shapes) = left.measure_rec();
                 let (right_note, right_shapes) = right.measure_rec();
-                let known_line_lens = match (
-                    left_shapes.known_last_line_len(),
-                    right_shapes.known_first_line_len(),
-                ) {
-                    (None, None) => panic!("Too choosy! Should not have passed validation."),
-                    (left_len, right_len) => KnownLineLengths {
-                        left_last_line: left_len,
-                        right_first_line: right_len,
-                    },
+                let known_line_lens = KnownLineLengths {
+                    left_last_line: left_shapes.known_last_line_len(),
+                    right_first_line: right_shapes.known_first_line_len(),
                 };
                 let note = MeasuredNotation::Concat(
                     Box::new(left_note),

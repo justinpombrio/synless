@@ -67,8 +67,8 @@ fn run_oracle() {
     let mut num_invalid = 0;
     let mut num_errors = 0;
     let config = NotationGeneratorConfig {
-        max_choices: 8,
-        size_range: (8, 9),
+        max_choices: 5,
+        size_range: (10, 12),
         literal_range: (0, 10),
         indent_range: (0, 10),
     };
