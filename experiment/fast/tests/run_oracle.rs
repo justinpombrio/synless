@@ -3,9 +3,16 @@ mod common;
 use common::{oracular_pretty_print, NotationGenerator, NotationGeneratorConfig};
 use fast::{pretty_print, Notation};
 
-const WIDTH_RANGE: (usize, usize) = (5, 20);
-const NUM_TESTS: usize = 10000;
-const SEED: u64 = 21;
+// Tested with:
+// - NUM_TESTS = 10_000_000 & SEED = 28
+const NUM_TESTS: usize = 100000;
+const SEED: u64 = 28;
+
+const MAX_CHOICES: usize = 5;
+const SIZE_RANGE: (usize, usize) = (1, 50);
+const WIDTH_RANGE: (usize, usize) = (1, 25);
+const LITERAL_RANGE: (usize, usize) = (0, 10);
+const INDENT_RANGE: (usize, usize) = (0, 10);
 
 enum PPResult {
     Ok,
@@ -49,28 +56,16 @@ fn try_pretty_print(notation: Notation) -> PPResult {
     PPResult::Ok
 }
 
-// TODO: temporary
-/*
-#[test]
-fn check_random() {
-    let mut generator = NotationGenerator::new(SEED);
-    for i in 0..100 {
-        println!("{:#?}", generator.random_notation());
-    }
-    panic!("Fail!");
-}
-*/
-
 #[test]
 fn run_oracle() {
     let mut first_error = None;
     let mut num_invalid = 0;
     let mut num_errors = 0;
     let config = NotationGeneratorConfig {
-        max_choices: 5,
-        size_range: (10, 12),
-        literal_range: (0, 10),
-        indent_range: (0, 10),
+        max_choices: MAX_CHOICES,
+        size_range: SIZE_RANGE,
+        literal_range: LITERAL_RANGE,
+        indent_range: INDENT_RANGE,
     };
     let mut generator = NotationGenerator::new(SEED, config);
     for _ in 0..NUM_TESTS {

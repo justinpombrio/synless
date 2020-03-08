@@ -6,6 +6,8 @@ use Notation::*;
 pub fn oracular_pretty_print(notation: &Notation, width: usize) -> Vec<(usize, String)> {
     pp(notation)
         .render(width)
+        .into_iter()
+        .next()
         .expect("oracular_pp: impossible notation")
 }
 
@@ -234,31 +236,49 @@ impl Doc {
         }
     }
 
-    /// Render. Each `(usize, String)` is a line, and the `usize` is the
-    /// indentation level of that line, in spaces.
-    fn render(self, width: usize) -> Option<Vec<(usize, String)>> {
+    /// Render. The outer vector is the set of all ways that this document
+    /// _could_ be rendered. Its first element is the way that it _will_ be
+    /// rendered. (The full set is required for resolving choices.)
+    ///
+    /// Each rendering is a list of lines. Each line is represented as a
+    /// `(usize, String)` pair, where the `usize` is the indentation level as a
+    /// number of spaces, and the `String` is the text of the line (not
+    /// including those spaces).
+    fn render(self, width: usize) -> Vec<Vec<(usize, String)>> {
         match self {
-            Doc::Impossible => None,
-            Doc::Line(i, s) => Some(vec![(i, s)]),
+            Doc::Impossible => vec![],
+            Doc::Line(i, s) => vec![vec![(i, s)]],
             Doc::Align(doc) => doc.render(width),
             Doc::Vert(top, bottom) => {
-                let mut lines = vec![];
-                lines.append(&mut top.render(width)?);
-                lines.append(&mut bottom.render(width)?);
-                Some(lines)
-            }
-            Doc::Choice(opt1, opt2) => match (opt1.render(width), opt2.render(width)) {
-                (Some(lines1), Some(lines2)) => {
-                    if fits_width(&lines1, width) {
-                        Some(lines1)
-                    } else {
-                        Some(lines2)
+                let mut options = vec![];
+                let top_opts = top.render(width);
+                let bottom_opts = bottom.render(width);
+                for top_opt in &top_opts {
+                    for bottom_opt in &bottom_opts {
+                        let mut lines = vec![];
+                        lines.extend(top_opt.clone());
+                        lines.extend(bottom_opt.clone());
+                        options.push(lines);
                     }
                 }
-                (Some(lines1), None) => Some(lines1),
-                (None, Some(lines2)) => Some(lines2),
-                (None, None) => None,
-            },
+                options
+            }
+            Doc::Choice(left, right) => {
+                let left_opts = left.render(width);
+                let right_opts = right.render(width);
+
+                let mut options = vec![];
+                let left_fits = left_opts.iter().any(|opt| fits_width(opt, width));
+                let right_impossible = right_opts.is_empty();
+                if left_fits || right_impossible {
+                    options.extend(left_opts);
+                    options.extend(right_opts);
+                } else {
+                    options.extend(right_opts);
+                    options.extend(left_opts);
+                }
+                options
+            }
         }
     }
 }
