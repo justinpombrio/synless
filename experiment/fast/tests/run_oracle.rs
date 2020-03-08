@@ -5,7 +5,7 @@ use fast::{pretty_print, Notation};
 
 const WIDTH_RANGE: (usize, usize) = (5, 20);
 const NUM_TESTS: usize = 10000;
-const SEED: u64 = 20;
+const SEED: u64 = 21;
 
 enum PPResult {
     Ok,
@@ -67,8 +67,8 @@ fn run_oracle() {
     let mut num_invalid = 0;
     let mut num_errors = 0;
     let config = NotationGeneratorConfig {
-        max_choices: 6,
-        size_range: (6, 7),
+        max_choices: 8,
+        size_range: (8, 9),
         literal_range: (0, 10),
         indent_range: (0, 10),
     };

@@ -385,3 +385,9 @@ fn oracle_failure_8() {
     let n = lit("a") + align(align(nest(7, lit("bbbbbbbb"))));
     assert_pp(n, 5, &["a", "        bbbbbbbb"]);
 }
+
+#[test]
+fn oracle_failure_9() {
+    let n = (align(nest(6, lit("aaaaaaaaa"))) + nest(3, lit("bb"))) | lit("ccc");
+    assert_pp(n, 5, &["", "      aaaaaaaaa", "   bb"]);
+}

@@ -158,7 +158,7 @@ impl Notation {
                 let note = MeasuredNotation::Align(Box::new(note));
                 for ml in shapes.multi_line.drain() {
                     shapes.aligned.insert(AlignedShape {
-                        non_last: ml.first.max(ml.first),
+                        non_last: ml.first,
                         last: ml.last,
                     })
                 }
@@ -389,8 +389,8 @@ impl Shapes {
         for la in &self.aligned {
             for rm in &other.multi_line {
                 shapes.multi_line.insert(MultiLineShape {
-                    // Eh, this is _basically_ true...
-                    first: la.non_last.max(la.last + rm.first),
+                    // Eh, this is _basically_ true
+                    first: la.non_last,
                     last: rm.last,
                 });
             }
