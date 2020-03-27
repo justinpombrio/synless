@@ -3,8 +3,10 @@ use crate::staircase::{Stair, Staircase};
 
 #[derive(Clone, Debug)]
 pub enum MeasuredNotation {
+    Empty,
     Literal(String),
-    Nest(usize, Box<MeasuredNotation>),
+    Indent(usize, Box<MeasuredNotation>),
+    Vert(Box<MeasuredNotation>, Box<MeasuredNotation>),
     Flat(Box<MeasuredNotation>),
     Align(Box<MeasuredNotation>),
     Concat(
@@ -135,17 +137,11 @@ impl Notation {
 
     fn measure_rec(&self) -> (MeasuredNotation, Shapes) {
         match self {
+            Notation::Empty => (MeasuredNotation::Empty, Shapes::new_single_line(0)),
             Notation::Literal(lit) => {
                 let note = MeasuredNotation::Literal(lit.clone());
                 let shapes = Shapes::new_single_line(lit.chars().count());
                 (note, shapes)
-            }
-            Notation::Nest(indent, note) => {
-                let (note, shapes) = note.measure_rec();
-                (
-                    MeasuredNotation::Nest(*indent, Box::new(note)),
-                    shapes.nest(*indent),
-                )
             }
             Notation::Flat(note) => {
                 let (note, shapes) = note.measure_rec();
@@ -163,6 +159,21 @@ impl Notation {
                     })
                 }
                 (note, shapes)
+            }
+            Notation::Indent(indent, note) => {
+                let (note, shapes) = note.measure_rec();
+                (
+                    MeasuredNotation::Indent(*indent, Box::new(note)),
+                    shapes.indent(*indent),
+                )
+            }
+            Notation::Vert(left, right) => {
+                let (left_note, left_shapes) = left.measure_rec();
+                let (right_note, right_shapes) = right.measure_rec();
+                (
+                    MeasuredNotation::Vert(Box::new(left_note), Box::new(right_note)),
+                    left_shapes.vert(right_shapes),
+                )
             }
             Notation::Concat(left, right) => {
                 let (left_note, left_shapes) = left.measure_rec();
@@ -216,7 +227,7 @@ impl Shapes {
     }
 
     /// The shape of a newline.
-    /// (This is the `Shapes` of `Nest(0, Literal(""))`.)
+    /// (This is the `Shapes` of `Vert(Literal(""), Literal(""))`.)
     pub fn new_newline() -> Shapes {
         let mut multi_line = Staircase::new();
         multi_line.insert(MultiLineShape { first: 0, last: 0 });
@@ -284,6 +295,7 @@ impl Shapes {
     }
 
     /// Insert `indent` spaces to the left of all of the lines but the first.
+    /// This is the Shapes for `Indent(usize, n)`, where `self` is the Shapes for Notation `n`.
     pub fn indent(mut self, indent: usize) -> Self {
         let multi_lines = self.multi_line.into_iter();
         self.multi_line = Staircase::new();
@@ -302,10 +314,10 @@ impl Shapes {
         self
     }
 
-    /// Returns the Shapes for `Nest(indent, n)`,
-    /// where `self` is the Shapes for a Notation `n`.
-    pub fn nest(self, indent: usize) -> Self {
-        Shapes::new_newline().concat(self).indent(indent)
+    /// Returns the Shapes for `Vert(n, m)`,
+    /// where `self` and `other` are the Shapes for Notations `n` and `m` respectively.
+    pub fn vert(self, other: Shapes) -> Self {
+        self.concat(Shapes::new_newline()).concat(other)
     }
 
     /// Returns the Shapes for `Concat(n, m)`,
@@ -585,7 +597,10 @@ mod tests {
 
     #[test]
     fn test_concat_literals() {
-        let note = Notation::concat(Notation::literal("fooo"), Notation::literal("bar"));
+        let note = Notation::Concat(
+            Box::new(Notation::Literal("fooo".to_string())),
+            Box::new(Notation::Literal("bar".to_string())),
+        );
         note.validate().unwrap();
         let (note, shapes) = note.measure_rec();
 

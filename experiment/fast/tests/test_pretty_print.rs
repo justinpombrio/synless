@@ -9,11 +9,17 @@ fn flat(notation: Notation) -> Notation {
 }
 
 fn lit(s: &str) -> Notation {
-    Notation::literal(s)
+    Notation::Literal(s.to_string())
 }
 
 fn nest(i: usize, notation: Notation) -> Notation {
-    Notation::Nest(i, Box::new(notation))
+    Notation::Indent(
+        i,
+        Box::new(Notation::Vert(
+            Box::new(Notation::Empty),
+            Box::new(notation),
+        )),
+    )
 }
 
 fn align(notation: Notation) -> Notation {

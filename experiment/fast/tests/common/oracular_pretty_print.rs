@@ -13,8 +13,10 @@ pub fn oracular_pretty_print(notation: &Notation, width: usize) -> Vec<(usize, S
 
 fn pp(notation: &Notation) -> Doc {
     match notation {
+        Empty => Doc::new_string(""),
         Literal(text) => Doc::new_string(text),
-        Nest(indent, notation) => Doc::nest(*indent, pp(notation)),
+        Indent(indent, notation) => pp(notation).indent(*indent),
+        Vert(left, right) => Doc::vert(pp(left), pp(right)),
         Flat(notation) => pp(notation).flat(),
         Concat(left, right) => Doc::concat(pp(left), pp(right)),
         Align(notation) => Doc::align(pp(notation)),
@@ -39,12 +41,6 @@ fn pp(notation: &Notation) -> Doc {
 /// 3. One `Doc::Align` is never inside of another. If it would be, it is
 ///    removed. This is safe because it would have no effect. Doing this
 ///    simplifies the `prepend` function. (Consider `Align(Align(Nest(_, _)))`.)
-///
-/// # Invariants
-///
-/// In addition, `Doc`s obey the invariant:
-///
-/// - The first line has no indent.
 #[derive(Debug, Clone)]
 enum Doc {
     /// Attempted to flatten a document containing a required newline.
@@ -79,14 +75,6 @@ impl Doc {
             return doc;
         }
         Doc::Align(Box::new(doc.remove_aligns()))
-    }
-
-    fn nest(indent: usize, mut doc: Doc) -> Doc {
-        if doc.is_impossible() {
-            return Doc::Impossible;
-        }
-        doc.indent(indent);
-        Doc::vert(Doc::new_string(""), doc)
     }
 
     fn vert(top: Doc, bottom: Doc) -> Doc {
@@ -161,12 +149,11 @@ impl Doc {
         match self {
             Doc::Impossible => (),
             Doc::Line(i, line) => {
-                assert_eq!(*i, 0);
                 *i = indent;
                 *line = format!("{}{}", text, line);
             }
             Doc::Align(doc) => {
-                doc.indent_all_but_first(indent + text.chars().count());
+                doc.shift_right_all_but_first(indent + text.chars().count());
                 doc.prepend(indent, text);
             }
             Doc::Vert(top, _) => top.prepend(indent, text),
@@ -192,36 +179,49 @@ impl Doc {
     }
 
     /// Shift every line but the first to the right by `indent` spaces.
-    fn indent_all_but_first(&mut self, indent: usize) {
+    fn shift_right_all_but_first(&mut self, indent: usize) {
         match self {
             Doc::Impossible => (),
             Doc::Line(_, _) => (),
-            Doc::Align(doc) => doc.indent_all_but_first(indent),
+            Doc::Align(doc) => doc.shift_right_all_but_first(indent),
             Doc::Vert(top, bottom) => {
-                top.indent_all_but_first(indent);
-                bottom.indent(indent);
+                top.shift_right_all_but_first(indent);
+                bottom.shift_right(indent);
             }
             Doc::Choice(opt1, opt2) => {
-                opt1.indent_all_but_first(indent);
-                opt2.indent_all_but_first(indent);
+                opt1.shift_right_all_but_first(indent);
+                opt2.shift_right_all_but_first(indent);
             }
         }
     }
 
     /// Shift every line to the right by `indent` spaces.
-    fn indent(&mut self, indent: usize) {
+    fn shift_right(&mut self, indent: usize) {
         match self {
             Doc::Impossible => (),
             Doc::Line(i, _) => *i += indent,
-            Doc::Align(doc) => doc.indent(indent),
+            Doc::Align(doc) => doc.shift_right(indent),
             Doc::Vert(top, bottom) => {
-                top.indent(indent);
-                bottom.indent(indent);
+                top.shift_right(indent);
+                bottom.shift_right(indent);
             }
             Doc::Choice(opt1, opt2) => {
-                opt1.indent(indent);
-                opt2.indent(indent);
+                opt1.shift_right(indent);
+                opt2.shift_right(indent);
             }
+        }
+    }
+
+    fn indent(self, indent: usize) -> Doc {
+        match self {
+            Doc::Impossible => Doc::Impossible,
+            Doc::Line(i, doc) => Doc::Line(i, doc),
+            Doc::Align(doc) => Doc::Align(doc),
+            Doc::Vert(top, mut bottom) => {
+                bottom.shift_right(indent);
+                Doc::vert(top.indent(indent), *bottom)
+            }
+            Doc::Choice(opt1, opt2) => Doc::choice(opt1.indent(indent), opt2.indent(indent)),
         }
     }
 

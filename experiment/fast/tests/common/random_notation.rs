@@ -40,7 +40,8 @@ enum Option {
     Literal,
     Flat,
     Align,
-    Nest,
+    Indent,
+    Vert,
     Concat,
     Choice,
 }
@@ -69,8 +70,13 @@ const OPTIONS: &[OptionInfo] = &[
         weight: 1,
     },
     OptionInfo {
-        option: Option::Nest,
+        option: Option::Indent,
         arity: 1,
+        weight: 1,
+    },
+    OptionInfo {
+        option: Option::Vert,
+        arity: 2,
         weight: 1,
     },
     OptionInfo {
@@ -132,7 +138,8 @@ impl Builder {
             Option::Literal => self.literal(),
             Option::Flat => self.flat(size),
             Option::Align => self.align(size),
-            Option::Nest => self.nest(size),
+            Option::Indent => self.indent(size),
+            Option::Vert => self.vert(size),
             Option::Concat => self.concat(size),
             Option::Choice => self.choice(size),
         }
@@ -155,29 +162,30 @@ impl Builder {
         Align(Box::new(self.notation(size - 1)))
     }
 
-    fn nest(&mut self, size: usize) -> Notation {
+    fn indent(&mut self, size: usize) -> Notation {
         let indent = self.rng.gen_range(self.indent_range.0, self.indent_range.1);
-        Nest(indent, Box::new(self.notation(size - 1)))
+        Indent(indent, Box::new(self.notation(size - 1)))
+    }
+
+    fn vert(&mut self, size: usize) -> Notation {
+        let (top, bottom) = self.bifurcate(size - 1);
+        Vert(Box::new(top), Box::new(bottom))
     }
 
     fn concat(&mut self, size: usize) -> Notation {
-        let size = size - 1;
-        let left_size = self.rng.gen_range(1, size);
-        let right_size = size - left_size;
-        Concat(
-            Box::new(self.notation(left_size)),
-            Box::new(self.notation(right_size)),
-        )
+        let (left, right) = self.bifurcate(size - 1);
+        Concat(Box::new(left), Box::new(right))
     }
 
     fn choice(&mut self, size: usize) -> Notation {
-        let size = size - 1;
         self.num_choices -= 1;
+        let (left, right) = self.bifurcate(size - 1);
+        Choice(Box::new(left), Box::new(right))
+    }
+
+    fn bifurcate(&mut self, size: usize) -> (Notation, Notation) {
         let left_size = self.rng.gen_range(1, size);
         let right_size = size - left_size;
-        Choice(
-            Box::new(self.notation(left_size)),
-            Box::new(self.notation(right_size)),
-        )
+        (self.notation(left_size), self.notation(right_size))
     }
 }

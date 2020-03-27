@@ -5,6 +5,8 @@ use std::ops::{Add, BitOr};
 // wrapping.
 #[derive(Clone, Debug)]
 pub enum Notation {
+    /// Display nothing. Identical to `Literal("")`.
+    Empty,
     /// Literal text. Cannot contain a newline.
     Literal(String),
     /// Only consider single-line options of the contained notation.
@@ -12,9 +14,11 @@ pub enum Notation {
     /// Start all lines in the contained notation from the column of the
     /// leftmost character of the first line.
     Align(Box<Notation>),
-    /// Display a newline, followed by the contained notation indented to the
-    /// right by the given number of spaces.
-    Nest(usize, Box<Notation>),
+    /// Indent all lines of the contained notation except the first to the right
+    /// by the given number of spaces.
+    Indent(usize, Box<Notation>),
+    /// Display the left notation, then a newline, then the right notation.
+    Vert(Box<Notation>, Box<Notation>),
     /// Display both notations. The first character of the right notation
     /// immediately follows the last character of the left notation. The right
     /// notation's indentation level is not affected.
@@ -25,18 +29,6 @@ pub enum Notation {
 }
 
 impl Notation {
-    pub fn nest(indent: usize, note: Notation) -> Self {
-        Notation::Nest(indent, Box::new(note))
-    }
-
-    pub fn literal(lit: &str) -> Self {
-        Notation::Literal(lit.to_owned())
-    }
-
-    pub fn concat(left: Notation, right: Notation) -> Self {
-        Notation::Concat(Box::new(left), Box::new(right))
-    }
-
     // TODO: build this into the notation. This can be exponentially large!
     pub fn repeat<L, J, S>(
         elements: Vec<Notation>,

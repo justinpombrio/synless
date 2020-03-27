@@ -101,7 +101,7 @@ impl Notation {
     /// A node is _choosy_ iff:
     ///
     /// 1. It is a `Choice`, and both of its options are possible. (A notation
-    ///    can only be _impossible_ if it contains `Flat` of a `Nest`.)
+    ///    can only be _impossible_ if it contains `Flat` of a `Vert`.)
     /// 2. Or it is an `Align`, and contains at least one multi-line layout option.
     ///    (If an `Align` can only be laid out on a single line, then it has no
     ///     effect and can be ignored.)
@@ -118,7 +118,7 @@ impl Notation {
         use Notation::*;
 
         match self {
-            Literal(_) => Ok(Possibilities {
+            Empty | Literal(_) => Ok(Possibilities {
                 single_line: Some(false),
                 multi_line: None,
             }),
@@ -135,11 +135,16 @@ impl Notation {
                 }
                 Ok(poss)
             }
-            Nest(_indent, note) => {
-                let poss = note.validate_rec()?;
-                match poss.choosy_last() {
-                    None => Ok(Possibilities::new_impossible()),
-                    Some(last) => Ok(Possibilities::new_multi(false, last)),
+            Indent(_indent, note) => note.validate_rec(),
+            Vert(left, right) => {
+                let left_poss = left.validate_rec()?;
+                let right_poss = right.validate_rec()?;
+                if let (Some(first), Some(last)) =
+                    (left_poss.choosy_first(), right_poss.choosy_last())
+                {
+                    Ok(Possibilities::new_multi(first, last))
+                } else {
+                    Ok(Possibilities::new_impossible())
                 }
             }
             Concat(left, right) => {
@@ -201,7 +206,10 @@ mod tests {
     }
 
     fn nest(indent: usize, note: Notation) -> Notation {
-        Notation::Nest(indent, Box::new(note))
+        Notation::Indent(
+            indent,
+            Box::new(Notation::Vert(Box::new(Notation::Empty), Box::new(note))),
+        )
     }
 
     #[test]

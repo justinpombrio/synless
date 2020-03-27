@@ -32,6 +32,7 @@ impl PrettyPrinter {
         use MeasuredNotation::*;
 
         match notation {
+            Empty => (),
             Literal(text) => {
                 self.lines.last_mut().unwrap().1.push_str(text);
             }
@@ -42,10 +43,14 @@ impl PrettyPrinter {
                 let new_indent = indent.and(prefix_len);
                 self.pp(note, new_indent, prefix_len, suffix_len)
             }
-            Nest(j, note) => {
-                let new_indent = indent.expect("Nest in Flat") + j;
-                self.lines.push((new_indent, String::new()));
-                self.pp(note, Some(new_indent), Some(new_indent), suffix_len);
+            Indent(j, note) => {
+                self.pp(note, indent.map(|i| i + j), prefix_len, suffix_len);
+            }
+            Vert(left, right) => {
+                let indent = indent.expect("Vert in Flat");
+                self.pp(left, Some(indent), prefix_len, Some(0));
+                self.lines.push((indent, String::new()));
+                self.pp(right, Some(indent), Some(indent), suffix_len);
             }
             Concat(left, right, known_line_lens) => {
                 let middle_suffix_len = match known_line_lens.right_first_line {
