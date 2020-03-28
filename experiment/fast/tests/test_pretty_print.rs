@@ -15,8 +15,8 @@ fn lit(s: &str) -> Notation {
 fn nest(i: usize, notation: Notation) -> Notation {
     Notation::Indent(
         i,
-        Box::new(Notation::Vert(
-            Box::new(Notation::Empty),
+        Box::new(Notation::Concat(
+            Box::new(Notation::Newline),
             Box::new(notation),
         )),
     )

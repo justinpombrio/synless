@@ -36,59 +36,43 @@ impl NotationGenerator {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Option {
+enum Variant {
+    Newline,
     Literal,
     Flat,
     Align,
     Indent,
-    Vert,
     Concat,
     Choice,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct OptionInfo {
-    option: Option,
-    arity: usize,
-    weight: usize,
+impl Variant {
+    fn arity(self) -> usize {
+        use Variant::*;
+        match self {
+            Newline | Literal => 0,
+            Flat | Align | Indent => 1,
+            Concat | Choice => 2,
+        }
+    }
+
+    fn weight(self) -> usize {
+        use Variant::*;
+        match self {
+            Newline | Literal | Flat | Align | Indent | Choice => 1,
+            Concat => 2,
+        }
+    }
 }
 
-const OPTIONS: &[OptionInfo] = &[
-    OptionInfo {
-        option: Option::Literal,
-        arity: 0,
-        weight: 1,
-    },
-    OptionInfo {
-        option: Option::Flat,
-        arity: 1,
-        weight: 1,
-    },
-    OptionInfo {
-        option: Option::Align,
-        arity: 1,
-        weight: 1,
-    },
-    OptionInfo {
-        option: Option::Indent,
-        arity: 1,
-        weight: 1,
-    },
-    OptionInfo {
-        option: Option::Vert,
-        arity: 2,
-        weight: 1,
-    },
-    OptionInfo {
-        option: Option::Concat,
-        arity: 2,
-        weight: 2,
-    },
-    OptionInfo {
-        option: Option::Choice,
-        arity: 2,
-        weight: 1,
-    },
+const VARIANTS: &[Variant] = &[
+    Variant::Newline,
+    Variant::Literal,
+    Variant::Flat,
+    Variant::Align,
+    Variant::Indent,
+    Variant::Concat,
+    Variant::Choice,
 ];
 
 struct Builder {
@@ -117,31 +101,34 @@ impl Builder {
     }
 
     fn notation(&mut self, size: usize) -> Notation {
-        let options = OPTIONS
+        let variants = VARIANTS
             .iter()
-            .filter(|opt| (opt.arity == 0 && size == 1) || (opt.arity > 0 && size >= opt.arity + 1))
-            .filter(|opt| opt.option != Option::Choice || self.num_choices > 0)
+            .copied()
+            .filter(|opt| {
+                (opt.arity() == 0 && size == 1) || (opt.arity() > 0 && size >= opt.arity() + 1)
+            })
+            .filter(|&opt| opt != Variant::Choice || self.num_choices > 0)
             .collect::<Vec<_>>();
-        let total_weight: usize = options.iter().map(|opt| opt.weight).sum();
+        let total_weight: usize = variants.iter().map(|opt| opt.weight()).sum();
         let mut selection = self.rng.gen_range(0, total_weight);
-        for option in options {
-            if selection < option.weight {
-                return self.use_option(option.option, size);
+        for variant in variants {
+            if selection < variant.weight() {
+                return self.use_variant(variant, size);
             }
-            selection -= option.weight;
+            selection -= variant.weight();
         }
         unreachable!();
     }
 
-    fn use_option(&mut self, option: Option, size: usize) -> Notation {
-        match option {
-            Option::Literal => self.literal(),
-            Option::Flat => self.flat(size),
-            Option::Align => self.align(size),
-            Option::Indent => self.indent(size),
-            Option::Vert => self.vert(size),
-            Option::Concat => self.concat(size),
-            Option::Choice => self.choice(size),
+    fn use_variant(&mut self, variant: Variant, size: usize) -> Notation {
+        match variant {
+            Variant::Literal => self.literal(),
+            Variant::Newline => self.newline(),
+            Variant::Flat => self.flat(size),
+            Variant::Align => self.align(size),
+            Variant::Indent => self.indent(size),
+            Variant::Concat => self.concat(size),
+            Variant::Choice => self.choice(size),
         }
     }
 
@@ -152,6 +139,10 @@ impl Builder {
             .gen_range(self.literal_range.0, self.literal_range.1);
         let string = (0..len).map(|_| letter).collect();
         Literal(string)
+    }
+
+    fn newline(&mut self) -> Notation {
+        Newline
     }
 
     fn flat(&mut self, size: usize) -> Notation {
@@ -165,11 +156,6 @@ impl Builder {
     fn indent(&mut self, size: usize) -> Notation {
         let indent = self.rng.gen_range(self.indent_range.0, self.indent_range.1);
         Indent(indent, Box::new(self.notation(size - 1)))
-    }
-
-    fn vert(&mut self, size: usize) -> Notation {
-        let (top, bottom) = self.bifurcate(size - 1);
-        Vert(Box::new(top), Box::new(bottom))
     }
 
     fn concat(&mut self, size: usize) -> Notation {

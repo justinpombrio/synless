@@ -15,8 +15,8 @@ fn pp(notation: &Notation) -> Doc {
     match notation {
         Empty => Doc::new_string(""),
         Literal(text) => Doc::new_string(text),
+        Newline => Doc::newline(),
         Indent(indent, notation) => pp(notation).indent(*indent),
-        Vert(left, right) => Doc::vert(pp(left), pp(right)),
         Flat(notation) => pp(notation).flat(),
         Concat(left, right) => Doc::concat(pp(left), pp(right)),
         Align(notation) => Doc::align(pp(notation)),
@@ -75,6 +75,10 @@ impl Doc {
             return doc;
         }
         Doc::Align(Box::new(doc.remove_aligns()))
+    }
+
+    fn newline() -> Doc {
+        Doc::Vert(Box::new(Doc::new_string("")), Box::new(Doc::new_string("")))
     }
 
     fn vert(top: Doc, bottom: Doc) -> Doc {

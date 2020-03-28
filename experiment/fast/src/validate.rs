@@ -118,10 +118,8 @@ impl Notation {
         use Notation::*;
 
         match self {
-            Empty | Literal(_) => Ok(Possibilities {
-                single_line: Some(false),
-                multi_line: None,
-            }),
+            Empty | Literal(_) => Ok(Possibilities::new_single(false)),
+            Newline => Ok(Possibilities::new_multi(false, false)),
             Flat(note) => {
                 let mut poss = note.validate_rec()?;
                 poss.multi_line = None;
@@ -136,17 +134,6 @@ impl Notation {
                 Ok(poss)
             }
             Indent(_indent, note) => note.validate_rec(),
-            Vert(left, right) => {
-                let left_poss = left.validate_rec()?;
-                let right_poss = right.validate_rec()?;
-                if let (Some(first), Some(last)) =
-                    (left_poss.choosy_first(), right_poss.choosy_last())
-                {
-                    Ok(Possibilities::new_multi(first, last))
-                } else {
-                    Ok(Possibilities::new_impossible())
-                }
-            }
             Concat(left, right) => {
                 let left_poss = left.validate_rec()?;
                 let right_poss = right.validate_rec()?;
@@ -208,7 +195,10 @@ mod tests {
     fn nest(indent: usize, note: Notation) -> Notation {
         Notation::Indent(
             indent,
-            Box::new(Notation::Vert(Box::new(Notation::Empty), Box::new(note))),
+            Box::new(Notation::Concat(
+                Box::new(Notation::Newline),
+                Box::new(note),
+            )),
         )
     }
 

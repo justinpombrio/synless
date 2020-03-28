@@ -36,6 +36,10 @@ impl PrettyPrinter {
             Literal(text) => {
                 self.lines.last_mut().unwrap().1.push_str(text);
             }
+            Newline => {
+                let indent = indent.expect("Newline in Flat");
+                self.lines.push((indent, String::new()));
+            }
             Flat(note) => {
                 self.pp(note, None, prefix_len, suffix_len);
             }
@@ -45,12 +49,6 @@ impl PrettyPrinter {
             }
             Indent(j, note) => {
                 self.pp(note, indent.map(|i| i + j), prefix_len, suffix_len);
-            }
-            Vert(left, right) => {
-                let indent = indent.expect("Vert in Flat");
-                self.pp(left, Some(indent), prefix_len, Some(0));
-                self.lines.push((indent, String::new()));
-                self.pp(right, Some(indent), Some(indent), suffix_len);
             }
             Concat(left, right, known_line_lens) => {
                 let middle_suffix_len = match known_line_lens.right_first_line {

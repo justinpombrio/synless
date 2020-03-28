@@ -9,6 +9,9 @@ pub enum Notation {
     Empty,
     /// Literal text. Cannot contain a newline.
     Literal(String),
+    /// Display a newline. If this is inside an `Indent`, the new line will be
+    /// indented.
+    Newline,
     /// Only consider single-line options of the contained notation.
     Flat(Box<Notation>),
     /// Start all lines in the contained notation from the column of the
@@ -17,8 +20,6 @@ pub enum Notation {
     /// Indent all lines of the contained notation except the first to the right
     /// by the given number of spaces.
     Indent(usize, Box<Notation>),
-    /// Display the left notation, then a newline, then the right notation.
-    Vert(Box<Notation>, Box<Notation>),
     /// Display both notations. The first character of the right notation
     /// immediately follows the last character of the left notation. The right
     /// notation's indentation level is not affected.

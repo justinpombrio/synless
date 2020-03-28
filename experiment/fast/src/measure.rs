@@ -5,8 +5,8 @@ use crate::staircase::{Stair, Staircase};
 pub enum MeasuredNotation {
     Empty,
     Literal(String),
+    Newline,
     Indent(usize, Box<MeasuredNotation>),
-    Vert(Box<MeasuredNotation>, Box<MeasuredNotation>),
     Flat(Box<MeasuredNotation>),
     Align(Box<MeasuredNotation>),
     Concat(
@@ -143,6 +143,7 @@ impl Notation {
                 let shapes = Shapes::new_single_line(lit.chars().count());
                 (note, shapes)
             }
+            Notation::Newline => (MeasuredNotation::Newline, Shapes::new_newline()),
             Notation::Flat(note) => {
                 let (note, shapes) = note.measure_rec();
                 let note = MeasuredNotation::Flat(Box::new(note));
@@ -165,14 +166,6 @@ impl Notation {
                 (
                     MeasuredNotation::Indent(*indent, Box::new(note)),
                     shapes.indent(*indent),
-                )
-            }
-            Notation::Vert(left, right) => {
-                let (left_note, left_shapes) = left.measure_rec();
-                let (right_note, right_shapes) = right.measure_rec();
-                (
-                    MeasuredNotation::Vert(Box::new(left_note), Box::new(right_note)),
-                    left_shapes.vert(right_shapes),
                 )
             }
             Notation::Concat(left, right) => {
