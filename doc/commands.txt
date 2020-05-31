@@ -1,3 +1,42 @@
+~~~~~~~~~ OVERVIEW ~~~~~~~~~~
+
+Navigation      h, H - left, first sibling
+                l, L - right, last sibling
+                   j - child
+                k, K - parent, root
+                   v - continguous selection
+Clipboard          y - copy
+                   p - paste
+Deletion           d - cursor -> hole
+                   x - delete list element
+                   c - clear (delete all children)
+Hole Insertion  i, I - left, first
+                a, A - right, last
+                o, O - append child, prepend child
+Node Creation    r _ - construct node
+                 w _ - surround with node
+Rearrangement   s, S - swap w/ next, prev (chain it!)
+Undo               u - undo
+                 C-r - redo
+Search             / - search
+                n, N - next, prev
+                 f _ - goto next node
+Text             Ent - append text
+               S-Ent - prepend text
+                   t - replace text
+Misc               m - mark
+                   q - macro
+                   z - screen center
+                   e - extended commands
+                   g - mode-specific commands
+
+Remaining letters: b
+
+    [ 1 , >[ 2 ]< , 3 ]
+     I  i   O o   a  A
+
+------------
+
 Diva Scheme commands:
 https://cs.brown.edu/research/plt/software/divascheme/doc.txt
 
