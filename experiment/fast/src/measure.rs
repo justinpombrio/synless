@@ -14,10 +14,15 @@ pub enum MeasuredNotation {
         Box<MeasuredNotation>,
         KnownLineLengths,
     ),
-    Choice(
-        (Box<MeasuredNotation>, Shapes),
-        (Box<MeasuredNotation>, Shapes),
-    ),
+    Choice(ChoiceInner),
+}
+
+#[derive(Clone, Debug)]
+pub struct ChoiceInner {
+    left: Box<MeasuredNotation>,
+    left_shapes: Shapes,
+    right: Box<MeasuredNotation>,
+    right_shapes: Shapes,
 }
 
 /// A set of shapes that a Notation fits inside. Since a Notation may be
@@ -187,10 +192,12 @@ impl Notation {
                 let (left_note, left_shapes) = left.measure_rec();
                 let (right_note, right_shapes) = right.measure_rec();
                 // TODO avoid cloning?
-                let note = MeasuredNotation::Choice(
-                    (Box::new(left_note), left_shapes.clone()),
-                    (Box::new(right_note), right_shapes.clone()),
-                );
+                let note = MeasuredNotation::Choice(ChoiceInner {
+                    left: Box::new(left_note),
+                    right: Box::new(right_note),
+                    left_shapes: left_shapes.clone(),
+                    right_shapes: right_shapes.clone(),
+                });
                 let shapes = left_shapes.union(right_shapes);
                 (note, shapes)
             }
@@ -454,6 +461,66 @@ impl Shapes {
         } else {
             None
         }
+    }
+}
+
+impl ChoiceInner {
+    // TODO: doc string
+    // indent=None -> flat
+    // prefix/suffix_len=None -> unknown
+    pub fn choose(
+        &self,
+        indent: Option<usize>,
+        prefix_len: Option<usize>,
+        suffix_len: Option<usize>,
+        width: usize,
+    ) -> &MeasuredNotation {
+        // TODO: avoid clone
+        let mut left_shapes = self.left_shapes.to_owned();
+        let mut right_shapes = self.right_shapes.to_owned();
+        if indent == None {
+            left_shapes = left_shapes.flat();
+            right_shapes = right_shapes.flat();
+        }
+        if !left_shapes.is_possible() {
+            return &self.right;
+        }
+        if !right_shapes.is_possible() {
+            return &self.left;
+        }
+
+        let prefix_shape =
+            Shapes::new_single_line(prefix_len.expect("Too choosy! ChoiceInner::choose"));
+        let suffix_shape =
+            Shapes::new_single_line(suffix_len.expect("Too choosy! ChoiceInner::choose"));
+        let full_left_shapes = prefix_shape
+            .concat(left_shapes)
+            .concat(suffix_shape)
+            .indent(indent.unwrap_or(0));
+
+        if full_left_shapes.fits(width) {
+            &self.left
+        } else {
+            &self.right
+        }
+    }
+
+    // TODO: doc string, give a better name
+    // TODO: combine with above
+    pub fn choose_if_impossible(&self, is_flat: bool) -> Option<&MeasuredNotation> {
+        let mut left_shapes = self.left_shapes.to_owned();
+        let mut right_shapes = self.right_shapes.to_owned();
+        if is_flat {
+            left_shapes = left_shapes.flat();
+            right_shapes = right_shapes.flat();
+        }
+        if !left_shapes.is_possible() {
+            return Some(&self.right);
+        }
+        if !right_shapes.is_possible() {
+            return Some(&self.left);
+        }
+        None
     }
 }
 

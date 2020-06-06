@@ -59,7 +59,8 @@ impl Variant {
     fn weight(self) -> usize {
         use Variant::*;
         match self {
-            Newline | Literal | Flat | Align | Indent | Choice => 1,
+            Align => 0, // Disable Align testing!
+            Newline | Literal | Flat | Indent | Choice => 1,
             Concat => 2,
         }
     }

@@ -1,4 +1,4 @@
-use super::measure::{LineLength, MeasuredNotation, Shapes};
+use super::measure::{LineLength, MeasuredNotation};
 
 /// Display the notation, using at most `width` columns if at all possible.
 /// Returns a list of `(indent, line)` pairs, where `indent` is the number of
@@ -64,35 +64,9 @@ impl PrettyPrinter {
                 self.pp(left, indent, prefix_len, middle_suffix_len);
                 self.pp(right, indent, middle_prefix_len, suffix_len);
             }
-            Choice((left, left_shapes), (right, right_shapes)) => {
-                // TODO: avoid clone
-                let mut left_shapes = left_shapes.to_owned();
-                let mut right_shapes = right_shapes.to_owned();
-                if indent == None {
-                    left_shapes = left_shapes.flat();
-                    right_shapes = right_shapes.flat();
-                }
-                if !left_shapes.is_possible() {
-                    self.pp(right, indent, prefix_len, suffix_len);
-                    return;
-                }
-                if !right_shapes.is_possible() {
-                    self.pp(left, indent, prefix_len, suffix_len);
-                    return;
-                }
-
-                let prefix_shape = Shapes::new_single_line(prefix_len.expect("Too choosy! Choice"));
-                let suffix_shape = Shapes::new_single_line(suffix_len.expect("Too choosy! Choice"));
-                let full_left_shapes = prefix_shape
-                    .concat(left_shapes)
-                    .concat(suffix_shape)
-                    .indent(indent.unwrap_or(0));
-
-                if full_left_shapes.fits(self.width) {
-                    self.pp(left, indent, prefix_len, suffix_len);
-                } else {
-                    self.pp(right, indent, prefix_len, suffix_len);
-                }
+            Choice(choice) => {
+                let notation = choice.choose(indent, prefix_len, suffix_len, self.width);
+                self.pp(notation, indent, prefix_len, suffix_len);
             }
         }
     }

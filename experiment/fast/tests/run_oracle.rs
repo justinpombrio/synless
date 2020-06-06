@@ -1,11 +1,11 @@
 mod common;
 
 use common::{oracular_pretty_print, NotationGenerator, NotationGeneratorConfig};
-use fast::{pretty_print, Notation};
+use fast::{pretty_print, Notation, PartialPrettyPrinter};
 
 // Tests passed with:
 // - NUM_TESTS = 10_000_000 & SEED = 28
-const NUM_TESTS: usize = 100000;
+const NUM_TESTS: usize = 1000_000;
 const SEED: u64 = 28;
 
 const MAX_CHOICES: usize = 5;
@@ -13,6 +13,7 @@ const SIZE_RANGE: (usize, usize) = (1, 50);
 const WIDTH_RANGE: (usize, usize) = (1, 25);
 const LITERAL_RANGE: (usize, usize) = (0, 10);
 const INDENT_RANGE: (usize, usize) = (0, 10);
+const NUM_PARTIAL_LINES_RANGE: (usize, usize) = (1, 5);
 
 enum PPResult {
     Ok,
@@ -20,11 +21,17 @@ enum PPResult {
     Error(PPError),
 }
 
+enum Mode {
+    PrettyPrint,
+    PartialPrettyPrintFirst(usize),
+}
+
 struct PPError {
     notation: Notation,
     width: usize,
     actual: Vec<String>,
     oracular: Vec<String>,
+    mode: Mode,
 }
 
 fn expand_line(indent: usize, line: String) -> String {
@@ -42,15 +49,37 @@ fn try_pretty_print(notation: Notation) -> PPResult {
     };
     let measured_notation = notation.measure();
     for width in WIDTH_RANGE.0..WIDTH_RANGE.1 {
-        let oracle_lines = oracular_pretty_print(&notation, width);
-        let actual_lines = pretty_print(&measured_notation, width);
+        let oracle_lines = expand_lines(oracular_pretty_print(&notation, width));
+        // Test the regular printer
+        let actual_lines = expand_lines(pretty_print(&measured_notation, width));
         if actual_lines != oracle_lines {
             return PPResult::Error(PPError {
                 notation,
                 width,
-                actual: expand_lines(actual_lines),
-                oracular: expand_lines(oracle_lines),
+                actual: actual_lines,
+                oracular: oracle_lines,
+                mode: Mode::PrettyPrint,
             });
+        }
+        // Test the partial pretty printer
+        let range = NUM_PARTIAL_LINES_RANGE.clone();
+        for num_partial_lines in range.0..range.1 {
+            let printer = PartialPrettyPrinter::new(&measured_notation, width);
+            let actual_lines = printer.first_lines(num_partial_lines);
+            let oracle_lines = oracle_lines
+                .iter()
+                .take(num_partial_lines)
+                .map(|s| s.to_string())
+                .collect();
+            if actual_lines != oracle_lines {
+                return PPResult::Error(PPError {
+                    notation,
+                    width,
+                    actual: actual_lines,
+                    oracular: oracle_lines,
+                    mode: Mode::PartialPrettyPrintFirst(num_partial_lines),
+                });
+            }
         }
     }
     PPResult::Ok
@@ -87,8 +116,15 @@ fn run_oracle() {
         NUM_TESTS, num_invalid, num_errors
     );
     if let Some(error) = first_error {
+        let printer = match error.mode {
+            Mode::PrettyPrint => "PRETTY PRINTER".to_string(),
+            Mode::PartialPrettyPrintFirst(num_lines) => {
+                format!("PARTIAL PRETTY PRINTING OF THE FIRST {} LINES", num_lines)
+            }
+        };
         eprintln!(
-            "PRETTY PRINTER PRODUCED:\n{}\n\nBUT ORACLE SAYS IT SHOULD BE:\n{}\n\nNOTATION:\n{:#?}\nWIDTH:{}",
+            "{} PRODUCED:\n{}\nBUT ORACLE SAYS IT SHOULD BE:\n{}\nNOTATION:\n{:#?}\nWIDTH:{}",
+            printer,
             error.actual.join("\n"),
             error.oracular.join("\n"),
             error.notation,

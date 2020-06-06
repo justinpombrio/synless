@@ -8,6 +8,10 @@ fn flat(notation: Notation) -> Notation {
     Notation::Flat(Box::new(notation))
 }
 
+fn newline() -> Notation {
+    Notation::Newline
+}
+
 fn lit(s: &str) -> Notation {
     Notation::Literal(s.to_string())
 }
@@ -409,3 +413,59 @@ fn oracle_failure_11() {
     let n = (nest(8, lit("aaaaa")) + (nest(0, lit("bbbb")) | lit("ccc"))) | lit("ddddd");
     assert_pp(n, 4, &["", "        aaaaaccc"]);
 }
+
+#[test]
+fn oracle_ppp_failure_1() {
+    let n = (lit("aaaaa"), lit("bbbbb")) + newline();
+    assert_pp_first(n, 1, 2, &["bbbbb", ""]);
+}
+
+// Partial pretty printing failure:
+/*
+PARTIAL PRETTY PRINTING OF THE FIRST 2 LINES PRODUCED:
+bbbbb
+BUT ORACLE SAYS IT SHOULD BE:
+bbbbb
+
+NOTATION:
+Concat(
+    Choice(
+        Literal(
+            "aaaaa",
+        ),
+        Literal(
+            "bbbbb",
+        ),
+    ),
+    Newline,
+)
+WIDTH:1
+*/
+
+// Partial pretty printing failure:
+/*
+PARTIAL PRETTY PRINTING OF THE FIRST 1 LINES PRODUCED:
+aaaaaabb
+BUT ORACLE SAYS IT SHOULD BE:
+aaaaaa
+NOTATION:
+Concat(
+    Flat(
+        Choice(
+            Newline,
+            Literal(
+                "aaaaaa",
+            ),
+        ),
+    ),
+    Choice(
+        Literal(
+            "bb",
+        ),
+        Literal(
+            "",
+        ),
+    ),
+)
+WIDTH:2
+*/
