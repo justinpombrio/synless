@@ -5,7 +5,7 @@ use fast::{pretty_print, Notation, PartialPrettyPrinter};
 
 // Tests passed with:
 // - NUM_TESTS = 10_000_000 & SEED = 28
-const NUM_TESTS: usize = 1000_000;
+const NUM_TESTS: usize = 1000;
 const SEED: u64 = 28;
 
 const MAX_CHOICES: usize = 5;
@@ -87,7 +87,7 @@ fn try_pretty_print(notation: Notation) -> PPResult {
 
 #[test]
 fn run_oracle() {
-    let mut first_error = None;
+    let mut error = None;
     let mut num_invalid = 0;
     let mut num_errors = 0;
     let config = NotationGeneratorConfig {
@@ -104,9 +104,8 @@ fn run_oracle() {
             PPResult::Invalid => {
                 num_invalid += 1;
             }
-            PPResult::Error(error) => {
-                // WLOG this is first.
-                first_error = Some(error);
+            PPResult::Error(err) => {
+                error = Some(err);
                 num_errors += 1;
             }
         }
@@ -115,7 +114,7 @@ fn run_oracle() {
         "Tested {} notations. {} were invalid. {} were printed incorrectly.",
         NUM_TESTS, num_invalid, num_errors
     );
-    if let Some(error) = first_error {
+    if let Some(error) = error {
         let printer = match error.mode {
             Mode::PrettyPrint => "PRETTY PRINTER".to_string(),
             Mode::PartialPrettyPrintFirst(num_lines) => {

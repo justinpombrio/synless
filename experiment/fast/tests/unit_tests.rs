@@ -2,7 +2,7 @@
 mod common;
 
 use common::oracular_pretty_print;
-use fast::{pretty_print, Notation};
+use fast::{pretty_print, Notation, PartialPrettyPrinter};
 
 fn flat(notation: Notation) -> Notation {
     Notation::Flat(Box::new(notation))
@@ -93,15 +93,15 @@ fn expand_line(indent: usize, line: String) -> String {
     format!("{:indent$}{}", "", line, indent = indent)
 }
 
-fn expand_lines(lines: Vec<(usize, String)>) -> Vec<String> {
-    lines.into_iter().map(|(i, s)| expand_line(i, s)).collect()
+fn expand_lines(lines: Vec<(usize, String)>) -> impl Iterator<Item = String> {
+    lines.into_iter().map(|(i, s)| expand_line(i, s))
 }
 
 fn assert_pp(notation: Notation, width: usize, expected_lines: &[&str]) {
     notation.validate().expect("failed to validate");
     let measured_notation = notation.measure();
-    let oracle_lines: Vec<String> = expand_lines(oracular_pretty_print(&notation, width));
-    let actual_lines: Vec<String> = expand_lines(pretty_print(&measured_notation, width));
+    let oracle_lines: Vec<String> = expand_lines(oracular_pretty_print(&notation, width)).collect();
+    let actual_lines: Vec<String> = expand_lines(pretty_print(&measured_notation, width)).collect();
     if oracle_lines != expected_lines {
         eprintln!(
             "BAD TEST CASE!\n\nTEST CASE EXPECTS:\n{}\n\nBUT ORACLE SAYS:\n{}\n",
@@ -113,6 +113,32 @@ fn assert_pp(notation: Notation, width: usize, expected_lines: &[&str]) {
     if actual_lines != expected_lines {
         eprintln!(
             "EXPECTED:\n{}\n\nACTUAL:\n{}\n",
+            expected_lines.join("\n"),
+            actual_lines.join("\n"),
+        );
+        assert_eq!(actual_lines, expected_lines);
+    }
+}
+
+fn assert_ppp_first(notation: Notation, width: usize, num_first_lines: usize, expected_lines: &[&str]) {
+    notation.validate().expect("failed to validate");
+    let measured_notation = notation.measure();
+    let oracle_lines: Vec<String> = expand_lines(oracular_pretty_print(&notation, width)).take(num_first_lines).collect();
+    let ppp = PartialPrettyPrinter::new(&measured_notation, width);
+    let actual_lines: Vec<String> = ppp.first_lines(num_first_lines);
+    if oracle_lines != expected_lines {
+        eprintln!(
+            "BAD TEST CASE!\n\nTEST CASE EXPECTS THE FIRST {} LINES TO BE:\n{}\n\nBUT ORACLE SAYS THEY ARE:\n{}\n",
+            num_first_lines,
+            expected_lines.join("\n"),
+            oracle_lines.join("\n"),
+        );
+        assert_eq!(oracle_lines, expected_lines);
+    }
+    if actual_lines != expected_lines {
+        eprintln!(
+            "EXPECTED FIRST {} LINES:\n{}\n\nACTUAL:\n{}\n",
+            num_first_lines,
             expected_lines.join("\n"),
             actual_lines.join("\n"),
         );
@@ -415,57 +441,13 @@ fn oracle_failure_11() {
 }
 
 #[test]
-fn oracle_ppp_failure_1() {
-    let n = (lit("aaaaa"), lit("bbbbb")) + newline();
-    assert_pp_first(n, 1, 2, &["bbbbb", ""]);
+fn oracle_ppp_first_failure_1() {
+    let n = (lit("aaaaa") | lit("bbbbb")) + newline();
+    assert_ppp_first(n, 1, 2, &["bbbbb", ""]);
 }
 
-// Partial pretty printing failure:
-/*
-PARTIAL PRETTY PRINTING OF THE FIRST 2 LINES PRODUCED:
-bbbbb
-BUT ORACLE SAYS IT SHOULD BE:
-bbbbb
-
-NOTATION:
-Concat(
-    Choice(
-        Literal(
-            "aaaaa",
-        ),
-        Literal(
-            "bbbbb",
-        ),
-    ),
-    Newline,
-)
-WIDTH:1
-*/
-
-// Partial pretty printing failure:
-/*
-PARTIAL PRETTY PRINTING OF THE FIRST 1 LINES PRODUCED:
-aaaaaabb
-BUT ORACLE SAYS IT SHOULD BE:
-aaaaaa
-NOTATION:
-Concat(
-    Flat(
-        Choice(
-            Newline,
-            Literal(
-                "aaaaaa",
-            ),
-        ),
-    ),
-    Choice(
-        Literal(
-            "bb",
-        ),
-        Literal(
-            "",
-        ),
-    ),
-)
-WIDTH:2
-*/
+#[test]
+fn oracle_ppp_first_failure_2() {
+    let n = flat(newline() | lit("aaaaaa")) + (lit("bb") | lit(""));
+    assert_ppp_first(n, 2, 1, &["aaaaaa"]);
+}

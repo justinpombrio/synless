@@ -3,6 +3,10 @@ use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use Notation::*;
 
+/// - `max_choices`: max number of Choice nodes
+/// - `size_range`: min & max total Notation size (in number of nodes)
+/// - `literal_range`: min & max length of literal text
+/// - `indent_range`: min & max indents (in Indent nodes)
 #[derive(Clone)]
 pub struct NotationGeneratorConfig {
     pub max_choices: usize,
@@ -11,6 +15,7 @@ pub struct NotationGeneratorConfig {
     pub indent_range: (usize, usize),
 }
 
+/// Construct random Notations.
 pub struct NotationGenerator {
     rng: StdRng,
     config: NotationGeneratorConfig,

@@ -1,6 +1,6 @@
 use super::measure::{LineLength, MeasuredNotation};
 
-/// Display the notation, using at most `width` columns if at all possible.
+/// Display the notation, using at most `width` columns if possible.
 /// Returns a list of `(indent, line)` pairs, where `indent` is the number of
 /// spaces that should precede `line`.
 pub fn pretty_print(notation: &MeasuredNotation, width: usize) -> Vec<(usize, String)> {

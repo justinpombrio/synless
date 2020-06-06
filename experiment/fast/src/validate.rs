@@ -13,7 +13,7 @@ pub enum ValidationError {
 #[derive(Clone, Copy, Debug)]
 struct Possibilities {
     /// - `None` if the notation cannot be displayed on a single line.
-    /// - `Some(false)` if it can be displayed on a single line, but that line
+    /// - `Some(false)` if it can be displayed on a single line, and that line
     ///   is guaranteed to not be choosy.
     /// - `Some(true)` if it can be displayed on a single line, and that line
     ///   might be choosy.
@@ -188,6 +188,10 @@ mod tests {
         Notation::Literal(s.into())
     }
 
+    fn newline() -> Notation {
+        Notation::Newline
+    }
+
     fn flat(note: Notation) -> Notation {
         Notation::Flat(Box::new(note))
     }
@@ -227,6 +231,11 @@ mod tests {
 
         let note = (lit("foo") | lit("bar")) + (lit("red") | lit("blue"));
         assert_eq!(note.validate(), Err(ValidationError::TooChoosy));
-        // TODO add test with multiline choice inside of flat
+
+        let note = flat(lit("foo") + newline() + lit("bar") | lit("baz"));
+        note.validate().unwrap();
+
+        let note = flat(lit("first") + newline() + lit("second") | lit("1") + newline() + lit("2"));
+        assert_eq!(note.validate(), Err(ValidationError::Impossible));
     }
 }

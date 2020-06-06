@@ -1,4 +1,5 @@
-//! Slow, but definitely correct, pretty printer.
+//! Slow, but definitely correct, pretty printer. Used for testing, by generating random notations
+//! and checking if the real pretty printer produces the same output as the Oracle.
 
 use fast::Notation;
 use Notation::*;

@@ -85,7 +85,7 @@ fn expand_first_line<'n>(
             expand_first_line(prefix, indent, left, remaining, width)
         }
         Choice(choice) => {
-            if let Some(chosen_notation) = choice.choose_if_impossible(indent.is_none()) {
+            if let Some(chosen_notation) = choice.sole_option(indent.is_none()) {
                 return expand_first_line(prefix, indent, chosen_notation, remaining, width);
             }
             let (suffix, mut blocks) = remaining.expand_first_line(width);

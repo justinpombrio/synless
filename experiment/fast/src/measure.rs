@@ -87,13 +87,13 @@ pub enum LineLength {
     Multi(usize),
 }
 
-// TODO: Update prose
+// TODO: Is this No Tradeoff rule right?
 /// MultiLineShapes have three dimensions of variation, but it's only practical to
 /// store tradeoffs between two of them. We therefore store the tradeoff between
-/// `first` and `middle`, and require that notation authors follow the "No
+/// `first` and `last`, and require that notation authors follow the "No
 /// Tradeoff" rule, which says that for all Multilines `x` and `y` of a Notation:
 ///
-/// > cmp(x.first, y.first) == cmp(x.last, y.last)
+/// > cmp(x.first, y.first) == cmp(x.middle, y.middle)
 impl Stair for MultiLineShape {
     fn x(&self) -> usize {
         self.first
@@ -465,9 +465,31 @@ impl Shapes {
 }
 
 impl ChoiceInner {
-    // TODO: doc string
-    // indent=None -> flat
-    // prefix/suffix_len=None -> unknown
+    /// If exactly one of the Choice's options is possible, return it.
+    ///
+    /// `is_flat`: whether this Choice is inside a Flat.
+    pub fn sole_option(&self, is_flat: bool) -> Option<&MeasuredNotation> {
+        // TODO: avoid clone
+        let mut left_shapes = self.left_shapes.to_owned();
+        let mut right_shapes = self.right_shapes.to_owned();
+        if is_flat {
+            left_shapes = left_shapes.flat();
+            right_shapes = right_shapes.flat();
+        }
+        if !left_shapes.is_possible() {
+            return Some(&self.right);
+        }
+        if !right_shapes.is_possible() {
+            return Some(&self.left);
+        }
+        None
+    }
+
+    /// Given information about the text surrounding this Choice, pick one of its two options.
+    ///
+    /// - `indent`: The current indentation level, or `None` if this Choice is in a Flat.
+    /// - `prefix_len` and `suffix_len`: The number of characters preceding the first line and
+    /// following the last line of this choice. `None` when unknown.
     pub fn choose(
         &self,
         indent: Option<usize>,
@@ -503,24 +525,6 @@ impl ChoiceInner {
         } else {
             &self.right
         }
-    }
-
-    // TODO: doc string, give a better name
-    // TODO: combine with above
-    pub fn choose_if_impossible(&self, is_flat: bool) -> Option<&MeasuredNotation> {
-        let mut left_shapes = self.left_shapes.to_owned();
-        let mut right_shapes = self.right_shapes.to_owned();
-        if is_flat {
-            left_shapes = left_shapes.flat();
-            right_shapes = right_shapes.flat();
-        }
-        if !left_shapes.is_possible() {
-            return Some(&self.right);
-        }
-        if !right_shapes.is_possible() {
-            return Some(&self.left);
-        }
-        None
     }
 }
 
