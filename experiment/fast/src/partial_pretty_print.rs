@@ -25,7 +25,11 @@ struct FirstLinePrinter<'n> {
     width: usize,
 }
 
-pub fn partial_pretty_print_first<'n>(notation: &'n MeasuredNotation, num_lines: usize, width: usize) -> Vec<(usize, String)> {
+pub fn partial_pretty_print_first<'n>(
+    notation: &'n MeasuredNotation,
+    num_lines: usize,
+    width: usize,
+) -> Vec<(usize, String)> {
     let mut blocks = vec![Block {
         spaces: 0,
         chunks: vec![Chunk::Notation {
@@ -64,19 +68,14 @@ impl<'n> FirstLinePrinter<'n> {
         while let Some(chunk) = self.chunks.pop() {
             match chunk {
                 Chunk::Text(text) => self.prefix += &text,
-                Chunk::Notation { indent, notation } => {
-                    self.expand_notation(indent, notation)
-                }
+                Chunk::Notation { indent, notation } => self.expand_notation(indent, notation),
             }
         }
         (self.spaces, self.prefix, self.blocks)
     }
 
     fn push_chunk(&mut self, indent: Option<usize>, notation: &'n MeasuredNotation) {
-        self.chunks.push(Chunk::Notation {
-            indent,
-            notation
-        });
+        self.chunks.push(Chunk::Notation { indent, notation });
     }
 
     fn push_text(&mut self, text: String) {
@@ -122,7 +121,8 @@ impl<'n> FirstLinePrinter<'n> {
                 assert_eq!(suffix_spaces, 0);
                 let prefix_len = self.spaces + self.prefix.chars().count();
                 let suffix_len = suffix.chars().count();
-                let chosen_notation = choice.choose(indent, Some(prefix_len), Some(suffix_len), self.width);
+                let chosen_notation =
+                    choice.choose(indent, Some(prefix_len), Some(suffix_len), self.width);
                 self.blocks = blocks;
                 self.push_text(suffix);
                 self.push_chunk(indent, chosen_notation);

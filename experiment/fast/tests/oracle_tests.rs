@@ -1,7 +1,7 @@
 mod common;
 
 use common::{oracular_pretty_print, NotationGenerator, NotationGeneratorConfig};
-use fast::{pretty_print, Notation, partial_pretty_print_first};
+use fast::{partial_pretty_print_first, pretty_print, Notation};
 
 // Tests passed with:
 // - NUM_TESTS = 10_000_000 & SEED = 28
@@ -64,7 +64,11 @@ fn try_pretty_print(notation: Notation) -> PPResult {
         // Test the partial pretty printer
         let range = NUM_PARTIAL_LINES_RANGE.clone();
         for num_partial_lines in range.0..range.1 {
-            let actual_lines = expand_lines(partial_pretty_print_first(&measured_notation, num_partial_lines, width));
+            let actual_lines = expand_lines(partial_pretty_print_first(
+                &measured_notation,
+                num_partial_lines,
+                width,
+            ));
             let oracle_lines = oracle_lines
                 .iter()
                 .take(num_partial_lines)
