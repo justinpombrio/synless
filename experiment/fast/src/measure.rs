@@ -1,20 +1,23 @@
 use super::notation::Notation;
 use crate::staircase::{Stair, Staircase};
 
+type Pos = u64;
+
 #[derive(Clone, Debug)]
 pub enum MeasuredNotation {
-    Empty,
-    Literal(String),
-    Newline,
-    Indent(usize, Box<MeasuredNotation>),
-    Flat(Box<MeasuredNotation>),
-    Align(Box<MeasuredNotation>),
+    Empty(Pos),
+    Literal(Pos, String),
+    Newline(Pos),
+    Indent(Pos, usize, Box<MeasuredNotation>),
+    Flat(Pos, Box<MeasuredNotation>),
+    Align(Pos, Box<MeasuredNotation>),
     Concat(
+        Pos,
         Box<MeasuredNotation>,
         Box<MeasuredNotation>,
         KnownLineLengths,
     ),
-    Choice(ChoiceInner),
+    Choice(Pos, ChoiceInner),
 }
 
 #[derive(Clone, Debug)]
@@ -137,70 +140,96 @@ impl Notation {
     /// stored in the [`MeasuredNotation`](MeasuredNotation) for later use by
     /// pretty printing.
     pub fn measure(&self) -> MeasuredNotation {
-        self.measure_rec().0
+        self.measure_rec(0).0
     }
 
-    fn measure_rec(&self) -> (MeasuredNotation, Shapes) {
+    fn measure_rec(&self, pos: Pos) -> (MeasuredNotation, Shapes, Pos) {
         match self {
-            Notation::Empty => (MeasuredNotation::Empty, Shapes::new_single_line(0)),
+            Notation::Empty => (
+                MeasuredNotation::Empty(pos),
+                Shapes::new_single_line(0),
+                pos + 1,
+            ),
             Notation::Literal(lit) => {
-                let note = MeasuredNotation::Literal(lit.clone());
+                let note = MeasuredNotation::Literal(pos, lit.clone());
                 let shapes = Shapes::new_single_line(lit.chars().count());
-                (note, shapes)
+                (note, shapes, pos + 1)
             }
-            Notation::Newline => (MeasuredNotation::Newline, Shapes::new_newline()),
+            Notation::Newline => (
+                MeasuredNotation::Newline(pos),
+                Shapes::new_newline(),
+                pos + 1,
+            ),
             Notation::Flat(note) => {
-                let (note, shapes) = note.measure_rec();
-                let note = MeasuredNotation::Flat(Box::new(note));
+                let (note, shapes, new_pos) = note.measure_rec(pos + 1);
+                let note = MeasuredNotation::Flat(pos, Box::new(note));
                 let shapes = shapes.flat();
-                (note, shapes)
+                (note, shapes, new_pos)
             }
             Notation::Align(note) => {
-                let (note, mut shapes) = note.measure_rec();
-                let note = MeasuredNotation::Align(Box::new(note));
+                let (note, mut shapes, new_pos) = note.measure_rec(pos + 1);
+                let note = MeasuredNotation::Align(pos, Box::new(note));
                 for ml in shapes.multi_line.drain() {
                     shapes.aligned.insert(AlignedShape {
                         non_last: ml.first,
                         last: ml.last,
                     })
                 }
-                (note, shapes)
+                (note, shapes, new_pos)
             }
             Notation::Indent(indent, note) => {
-                let (note, shapes) = note.measure_rec();
-                (
-                    MeasuredNotation::Indent(*indent, Box::new(note)),
-                    shapes.indent(*indent),
-                )
+                let (note, shapes, new_pos) = note.measure_rec(pos + 1);
+                let note = MeasuredNotation::Indent(pos, *indent, Box::new(note));
+                let shapes = shapes.indent(*indent);
+                (note, shapes, new_pos)
             }
             Notation::Concat(left, right) => {
-                let (left_note, left_shapes) = left.measure_rec();
-                let (right_note, right_shapes) = right.measure_rec();
+                let (left_note, left_shapes, left_pos) = left.measure_rec(pos + 1);
+                let (right_note, right_shapes, right_pos) = right.measure_rec(left_pos);
                 let known_line_lens = KnownLineLengths {
                     left_last_line: left_shapes.known_last_line_len(),
                     right_first_line: right_shapes.known_first_line_len(),
                 };
                 let note = MeasuredNotation::Concat(
+                    pos,
                     Box::new(left_note),
                     Box::new(right_note),
                     known_line_lens,
                 );
                 let shapes = left_shapes.concat(right_shapes);
-                (note, shapes)
+                (note, shapes, right_pos)
             }
             Notation::Choice(left, right) => {
-                let (left_note, left_shapes) = left.measure_rec();
-                let (right_note, right_shapes) = right.measure_rec();
+                let (left_note, left_shapes, left_pos) = left.measure_rec(pos + 1);
+                let (right_note, right_shapes, right_pos) = right.measure_rec(pos + 1);
+                let new_pos = left_pos.max(right_pos);
                 // TODO avoid cloning?
-                let note = MeasuredNotation::Choice(ChoiceInner {
+                let choice = ChoiceInner {
                     left: Box::new(left_note),
                     right: Box::new(right_note),
                     left_shapes: left_shapes.clone(),
                     right_shapes: right_shapes.clone(),
-                });
+                };
+                let note = MeasuredNotation::Choice(pos, choice);
                 let shapes = left_shapes.union(right_shapes);
-                (note, shapes)
+                (note, shapes, new_pos)
             }
+        }
+    }
+}
+
+impl MeasuredNotation {
+    fn pos(&self) -> Pos {
+        use MeasuredNotation::*;
+        match self {
+            Empty(pos) => *pos,
+            Literal(pos, _) => *pos,
+            Newline(pos) => *pos,
+            Flat(pos, _) => *pos,
+            Align(pos, _) => *pos,
+            Indent(pos, _, _) => *pos,
+            Concat(pos, _, _, _) => *pos,
+            Choice(pos, _) => *pos,
         }
     }
 }
@@ -655,7 +684,7 @@ mod tests {
     fn test_literal() {
         let lit = Notation::Literal("foobar".into());
         lit.validate().unwrap();
-        let shapes = lit.measure_rec().1;
+        let shapes = lit.measure_rec(0).1;
         assert_eq!(shapes, Shapes::new_single_line(6));
     }
 
@@ -666,11 +695,12 @@ mod tests {
             Box::new(Notation::Literal("bar".to_string())),
         );
         note.validate().unwrap();
-        let (note, shapes) = note.measure_rec();
+        let (note, shapes, pos) = note.measure_rec(0);
 
+        assert_eq!(pos, 3);
         assert_eq!(shapes, Shapes::new_single_line(7));
         match note {
-            MeasuredNotation::Concat(_, _, known_line_lens) => match known_line_lens {
+            MeasuredNotation::Concat(_, _, _, known_line_lens) => match known_line_lens {
                 KnownLineLengths {
                     left_last_line,
                     right_first_line,

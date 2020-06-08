@@ -85,27 +85,27 @@ impl<'n> FirstLinePrinter<'n> {
     fn expand_notation(&mut self, indent: Option<usize>, notation: &'n MeasuredNotation) {
         use MeasuredNotation::*;
         match notation {
-            Empty => (),
-            Literal(text) => self.prefix += &text,
-            Newline => {
+            Empty(_) => (),
+            Literal(_, text) => self.prefix += &text,
+            Newline(_) => {
                 self.blocks.push(Block {
                     spaces: indent.unwrap(),
                     chunks: mem::replace(&mut self.chunks, vec![]),
                 });
             }
-            Indent(inner_indent, inner_notation) => {
+            Indent(_, inner_indent, inner_notation) => {
                 let full_indent = indent.map(|i| i + inner_indent);
                 self.push_chunk(full_indent, inner_notation);
             }
-            Flat(inner_notation) => {
+            Flat(_, inner_notation) => {
                 self.push_chunk(None, inner_notation);
             }
-            Align(_) => unimplemented!(),
-            Concat(left, right, _) => {
+            Align(_, _) => unimplemented!(),
+            Concat(_, left, right, _) => {
                 self.push_chunk(indent, right);
                 self.push_chunk(indent, left);
             }
-            Choice(choice) => {
+            Choice(_, choice) => {
                 if let Some(chosen_notation) = choice.sole_option(indent.is_none()) {
                     self.push_chunk(indent, chosen_notation);
                     return;
