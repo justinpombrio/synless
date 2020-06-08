@@ -31,43 +31,49 @@ pub struct FirstLineIter<'n> {
     width: usize,
 }
 
-pub fn partial_pretty_print_first_iter<'n>(
+struct LastLinePrinter<'n> {
+    spaces: usize,
+    suffix: String,
+    chunks: Vec<Chunk<'n>>,
+    blocks: Vec<Block<'n>>,
+    width: usize,
+}
+
+pub struct LastLineIter<'n> {
+    blocks: Vec<Block<'n>>,
+    width: usize,
+}
+
+pub fn partial_pretty_print_first<'n>(
     notation: &'n MeasuredNotation,
     width: usize,
 ) -> FirstLineIter<'n> {
-    let blocks = vec![Block {
-        spaces: 0,
-        chunks: vec![Chunk::Notation {
-            indent: Some(0),
-            notation,
-        }],
-    }];
+    let blocks = vec![Block::new(notation)];
     FirstLineIter { blocks, width }
+}
+
+pub fn partial_pretty_print_last<'n>(
+    notation: &'n MeasuredNotation,
+    width: usize,
+) -> LastLineIter<'n> {
+    let blocks = vec![Block::new(notation)];
+    LastLineIter { blocks, width }
 }
 
 impl<'n> Iterator for FirstLineIter<'n> {
     type Item = (usize, String);
+
     fn next(&mut self) -> Option<(usize, String)> {
         if self.blocks.is_empty() {
             return None;
         } else {
             let blocks = mem::take(&mut self.blocks);
             let printer = FirstLinePrinter::new(self.width, blocks);
-            let (spaces, line, new_blocks) = printer.expand();
+            let (spaces, line, new_blocks) = printer.print();
             self.blocks = new_blocks;
             Some((spaces, line))
         }
     }
-}
-
-pub fn partial_pretty_print_first<'n>(
-    notation: &'n MeasuredNotation,
-    num_lines: usize,
-    width: usize,
-) -> Vec<(usize, String)> {
-    partial_pretty_print_first_iter(notation, width)
-        .take(num_lines)
-        .collect()
 }
 
 impl<'n> FirstLinePrinter<'n> {
@@ -84,11 +90,11 @@ impl<'n> FirstLinePrinter<'n> {
         }
     }
 
-    fn expand(mut self) -> (usize, String, Vec<Block<'n>>) {
+    fn print(mut self) -> (usize, String, Vec<Block<'n>>) {
         while let Some(chunk) = self.chunks.pop() {
             match chunk {
                 Chunk::Text(text) => self.prefix += &text,
-                Chunk::Notation { indent, notation } => self.expand_notation(indent, notation),
+                Chunk::Notation { indent, notation } => self.print_notation(indent, notation),
             }
         }
         (self.spaces, self.prefix, self.blocks)
@@ -102,7 +108,7 @@ impl<'n> FirstLinePrinter<'n> {
         self.chunks.push(Chunk::Text(text));
     }
 
-    fn expand_notation(&mut self, indent: Option<usize>, notation: &'n MeasuredNotation) {
+    fn print_notation(&mut self, indent: Option<usize>, notation: &'n MeasuredNotation) {
         use MeasuredNotation::*;
         match notation {
             Empty(_) => (),
@@ -137,7 +143,7 @@ impl<'n> FirstLinePrinter<'n> {
                     blocks: mem::take(&mut self.blocks),
                     width: self.width,
                 };
-                let (suffix_spaces, suffix, blocks) = suffix_printer.expand();
+                let (suffix_spaces, suffix, blocks) = suffix_printer.print();
                 assert_eq!(suffix_spaces, 0);
                 let prefix_len = self.spaces + self.prefix.chars().count();
                 let suffix_len = suffix.chars().count();
@@ -147,6 +153,115 @@ impl<'n> FirstLinePrinter<'n> {
                 self.push_text(suffix);
                 self.push_chunk(indent, chosen_notation);
             }
+        }
+    }
+}
+
+impl<'n> Iterator for LastLineIter<'n> {
+    type Item = (usize, String);
+
+    fn next(&mut self) -> Option<(usize, String)> {
+        if self.blocks.is_empty() {
+            return None;
+        } else {
+            let blocks = mem::take(&mut self.blocks);
+            let printer = LastLinePrinter::new(self.width, blocks);
+            let (spaces, line, new_blocks) = printer.print();
+            self.blocks = new_blocks;
+            Some((spaces, line))
+        }
+    }
+}
+
+impl<'n> LastLinePrinter<'n> {
+    fn new(width: usize, blocks: Vec<Block<'n>>) -> LastLinePrinter<'n> {
+        let mut blocks = blocks;
+        assert!(blocks.len() >= 1);
+        let block = blocks.pop().unwrap();
+        LastLinePrinter {
+            spaces: 0,
+            suffix: "".to_string(),
+            chunks: block.chunks,
+            blocks,
+            width,
+        }
+    }
+
+    fn push_chunk(&mut self, indent: Option<usize>, notation: &'n MeasuredNotation) {
+        self.chunks.push(Chunk::Notation { indent, notation });
+    }
+
+    fn push_text(&mut self, text: String) {
+        self.chunks.push(Chunk::Text(text));
+    }
+
+    fn print(mut self) -> (usize, String, Vec<Block<'n>>) {
+        while let Some(chunk) = self.chunks.pop() {
+            match chunk {
+                Chunk::Text(text) => self.suffix += &text,
+                Chunk::Notation { indent, notation } => self.print_notation(indent, notation),
+            }
+        }
+        (self.spaces, self.suffix, self.blocks)
+    }
+
+    fn print_notation(&mut self, indent: Option<usize>, notation: &'n MeasuredNotation) {
+        use MeasuredNotation::*;
+        match notation {
+            Empty(_) => (),
+            Literal(_, text) => self.suffix += &text,
+            Newline(_) => {
+                self.blocks.push(Block {
+                    spaces: 0, // TODO: Is this correct?
+                    chunks: mem::take(&mut self.chunks),
+                });
+                self.spaces = indent.unwrap(); // TODO: Is this correct?
+            }
+            Indent(_, inner_indent, inner_notation) => {
+                let full_indent = indent.map(|i| i + inner_indent);
+                self.push_chunk(full_indent, inner_notation);
+            }
+            Flat(_, inner_notation) => {
+                self.push_chunk(None, inner_notation);
+            }
+            Align(_, _) => unimplemented!(),
+            Concat(_, left, right, _) => {
+                self.push_chunk(indent, left);
+                self.push_chunk(indent, right);
+            }
+            Choice(_, choice) => {
+                if let Some(chosen_notation) = choice.sole_option(indent.is_none()) {
+                    self.push_chunk(indent, chosen_notation);
+                    return;
+                }
+                let prefix_printer = LastLinePrinter {
+                    spaces: 0,
+                    suffix: "".to_string(),
+                    chunks: mem::take(&mut self.chunks),
+                    blocks: mem::take(&mut self.blocks),
+                    width: self.width,
+                };
+                let (prefix_spaces, prefix, blocks) = prefix_printer.print();
+                let prefix_len = prefix_spaces + prefix.chars().count();
+                let suffix_len = self.suffix.chars().count();
+                let chosen_notation =
+                    choice.choose(indent, Some(prefix_len), Some(suffix_len), self.width);
+                self.blocks = blocks;
+                self.push_text(prefix);
+                self.push_chunk(indent, chosen_notation);
+            }
+        }
+    }
+}
+
+impl<'n> Block<'n> {
+    fn new(notation: &'n MeasuredNotation) -> Block<'n> {
+        Block {
+            spaces: 0,
+            chunks: vec![Chunk::Notation {
+                indent: Some(0),
+                notation,
+            }],
         }
     }
 }

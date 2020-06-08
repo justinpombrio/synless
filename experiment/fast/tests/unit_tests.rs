@@ -131,12 +131,9 @@ fn assert_ppp_first(
     let oracle_lines: Vec<String> = expand_lines(oracular_pretty_print(&notation, width))
         .take(num_first_lines)
         .collect();
-    let actual_lines: Vec<String> = expand_lines(partial_pretty_print_first(
-        &measured_notation,
-        num_first_lines,
-        width,
-    ))
-    .collect();
+    let actual_lines_iter = partial_pretty_print_first(&measured_notation, width);
+    let actual_lines: Vec<String> =
+        expand_lines(actual_lines_iter.take(num_first_lines).collect()).collect();
     if oracle_lines != expected_lines {
         eprintln!(
             "BAD TEST CASE!\n\nTEST CASE EXPECTS THE FIRST {} LINES TO BE:\n{}\nBUT ORACLE SAYS THEY ARE:\n{}",

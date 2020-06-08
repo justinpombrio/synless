@@ -64,11 +64,8 @@ fn try_pretty_print(notation: Notation) -> PPResult {
         // Test the partial pretty printer
         let range = NUM_PARTIAL_LINES_RANGE.clone();
         for num_partial_lines in range.0..range.1 {
-            let actual_lines = expand_lines(partial_pretty_print_first(
-                &measured_notation,
-                num_partial_lines,
-                width,
-            ));
+            let actual_lines_iter = partial_pretty_print_first(&measured_notation, width);
+            let actual_lines = expand_lines(actual_lines_iter.take(num_partial_lines).collect());
             let oracle_lines = oracle_lines
                 .iter()
                 .take(num_partial_lines)
