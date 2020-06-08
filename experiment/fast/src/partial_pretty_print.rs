@@ -2,6 +2,7 @@
 // - functionality: last lines, seeking, multiple expand
 
 use super::measure::MeasuredNotation;
+use std::iter::Iterator;
 use std::mem;
 
 struct Block<'n> {
@@ -25,29 +26,48 @@ struct FirstLinePrinter<'n> {
     width: usize,
 }
 
-pub fn partial_pretty_print_first<'n>(
-    notation: &'n MeasuredNotation,
-    num_lines: usize,
+pub struct FirstLineIter<'n> {
+    blocks: Vec<Block<'n>>,
     width: usize,
-) -> Vec<(usize, String)> {
-    let mut blocks = vec![Block {
+}
+
+pub fn partial_pretty_print_first_iter<'n>(
+    notation: &'n MeasuredNotation,
+    width: usize,
+) -> FirstLineIter<'n> {
+    let blocks = vec![Block {
         spaces: 0,
         chunks: vec![Chunk::Notation {
             indent: Some(0),
             notation,
         }],
     }];
-    let mut lines = vec![];
-    for _ in 0..num_lines {
-        if blocks.is_empty() {
-            break;
+    FirstLineIter { blocks, width }
+}
+
+impl<'n> Iterator for FirstLineIter<'n> {
+    type Item = (usize, String);
+    fn next(&mut self) -> Option<(usize, String)> {
+        if self.blocks.is_empty() {
+            return None;
+        } else {
+            let blocks = mem::take(&mut self.blocks);
+            let printer = FirstLinePrinter::new(self.width, blocks);
+            let (spaces, line, new_blocks) = printer.expand();
+            self.blocks = new_blocks;
+            Some((spaces, line))
         }
-        let printer = FirstLinePrinter::new(width, blocks);
-        let (spaces, line, new_blocks) = printer.expand();
-        lines.push((spaces, line));
-        blocks = new_blocks;
     }
-    lines
+}
+
+pub fn partial_pretty_print_first<'n>(
+    notation: &'n MeasuredNotation,
+    num_lines: usize,
+    width: usize,
+) -> Vec<(usize, String)> {
+    partial_pretty_print_first_iter(notation, width)
+        .take(num_lines)
+        .collect()
 }
 
 impl<'n> FirstLinePrinter<'n> {
@@ -90,7 +110,7 @@ impl<'n> FirstLinePrinter<'n> {
             Newline(_) => {
                 self.blocks.push(Block {
                     spaces: indent.unwrap(),
-                    chunks: mem::replace(&mut self.chunks, vec![]),
+                    chunks: mem::take(&mut self.chunks),
                 });
             }
             Indent(_, inner_indent, inner_notation) => {
@@ -113,8 +133,8 @@ impl<'n> FirstLinePrinter<'n> {
                 let suffix_printer = FirstLinePrinter {
                     spaces: 0,
                     prefix: "".to_string(),
-                    chunks: mem::replace(&mut self.chunks, vec![]),
-                    blocks: mem::replace(&mut self.blocks, vec![]),
+                    chunks: mem::take(&mut self.chunks),
+                    blocks: mem::take(&mut self.blocks),
                     width: self.width,
                 };
                 let (suffix_spaces, suffix, blocks) = suffix_printer.expand();
