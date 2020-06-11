@@ -3,24 +3,36 @@ use crate::staircase::{Stair, Staircase};
 
 type Pos = u64;
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone, Copy)]
+pub struct Span {
+    start: Pos,
+    end: Pos,
+}
+
+impl Span {
+    fn new(start: Pos, end: Pos) -> Span {
+        Span { start, end }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum MeasuredNotation {
-    Empty(Pos),
-    Literal(Pos, String),
-    Newline(Pos),
-    Indent(Pos, usize, Box<MeasuredNotation>),
-    Flat(Pos, Box<MeasuredNotation>),
-    Align(Pos, Box<MeasuredNotation>),
+    Empty(Span),
+    Literal(Span, String),
+    Newline(Span),
+    Indent(Span, usize, Box<MeasuredNotation>),
+    Flat(Span, Box<MeasuredNotation>),
+    Align(Span, Box<MeasuredNotation>),
     Concat(
-        Pos,
+        Span,
         Box<MeasuredNotation>,
         Box<MeasuredNotation>,
         KnownLineLengths,
     ),
-    Choice(Pos, ChoiceInner),
+    Choice(Span, ChoiceInner),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct ChoiceInner {
     left: Box<MeasuredNotation>,
     left_shapes: Shapes,
@@ -35,7 +47,7 @@ pub struct ChoiceInner {
 ///
 /// For efficiency, within each category, only the smallest shapes are stored:
 /// if one shape fits inside another, only the former is stored.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Shapes {
     /// The minimum number of characters worth of space required for displaying
     /// the Notation on a single line. `None` if it cannot be displayed on a
@@ -51,7 +63,7 @@ pub struct Shapes {
 
 /// The space required for one way of laying out a Notation, across multiple
 /// lines, while not being aligned.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MultiLineShape {
     /// The number of characters required for the first line.
     pub first: usize,
@@ -61,7 +73,7 @@ pub struct MultiLineShape {
 
 /// The space required for one way of laying out a Notation, across multiple
 /// lines, while being aligned.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AlignedShape {
     /// The maximum number of characters required for any line except the last.
     pub non_last: usize,
@@ -76,7 +88,7 @@ pub struct AlignedShape {
 ///
 /// `left_last_line` and `right_first_line` cannot both be `None`, because that
 /// would only happen if _both_ children were choosy, which is illegal.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct KnownLineLengths {
     pub left_last_line: Option<LineLength>,
     pub right_first_line: Option<LineLength>,
@@ -84,7 +96,7 @@ pub struct KnownLineLengths {
 
 /// The length of a line, and whether it is a single line, or part of a
 /// multi-line layout.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LineLength {
     Single(usize),
     Multi(usize),
@@ -146,29 +158,32 @@ impl Notation {
     fn measure_rec(&self, pos: Pos) -> (MeasuredNotation, Shapes, Pos) {
         match self {
             Notation::Empty => (
-                MeasuredNotation::Empty(pos),
+                MeasuredNotation::Empty(Span::new(pos, pos + 1)),
                 Shapes::new_single_line(0),
                 pos + 1,
             ),
             Notation::Literal(lit) => {
-                let note = MeasuredNotation::Literal(pos, lit.clone());
+                let span = Span::new(pos, pos + 1);
+                let note = MeasuredNotation::Literal(span, lit.clone());
                 let shapes = Shapes::new_single_line(lit.chars().count());
                 (note, shapes, pos + 1)
             }
             Notation::Newline => (
-                MeasuredNotation::Newline(pos),
+                MeasuredNotation::Newline(Span::new(pos, pos + 1)),
                 Shapes::new_newline(),
                 pos + 1,
             ),
             Notation::Flat(note) => {
                 let (note, shapes, new_pos) = note.measure_rec(pos + 1);
-                let note = MeasuredNotation::Flat(pos, Box::new(note));
+                let span = Span::new(pos, new_pos);
+                let note = MeasuredNotation::Flat(span, Box::new(note));
                 let shapes = shapes.flat();
                 (note, shapes, new_pos)
             }
             Notation::Align(note) => {
                 let (note, mut shapes, new_pos) = note.measure_rec(pos + 1);
-                let note = MeasuredNotation::Align(pos, Box::new(note));
+                let span = Span::new(pos, new_pos);
+                let note = MeasuredNotation::Align(span, Box::new(note));
                 for ml in shapes.multi_line.drain() {
                     shapes.aligned.insert(AlignedShape {
                         non_last: ml.first,
@@ -179,19 +194,21 @@ impl Notation {
             }
             Notation::Indent(indent, note) => {
                 let (note, shapes, new_pos) = note.measure_rec(pos + 1);
-                let note = MeasuredNotation::Indent(pos, *indent, Box::new(note));
+                let span = Span::new(pos, new_pos);
+                let note = MeasuredNotation::Indent(span, *indent, Box::new(note));
                 let shapes = shapes.indent(*indent);
                 (note, shapes, new_pos)
             }
             Notation::Concat(left, right) => {
                 let (left_note, left_shapes, left_pos) = left.measure_rec(pos + 1);
                 let (right_note, right_shapes, right_pos) = right.measure_rec(left_pos);
+                let span = Span::new(pos, right_pos);
                 let known_line_lens = KnownLineLengths {
                     left_last_line: left_shapes.known_last_line_len(),
                     right_first_line: right_shapes.known_first_line_len(),
                 };
                 let note = MeasuredNotation::Concat(
-                    pos,
+                    span,
                     Box::new(left_note),
                     Box::new(right_note),
                     known_line_lens,
@@ -203,6 +220,7 @@ impl Notation {
                 let (left_note, left_shapes, left_pos) = left.measure_rec(pos + 1);
                 let (right_note, right_shapes, right_pos) = right.measure_rec(pos + 1);
                 let new_pos = left_pos.max(right_pos);
+                let span = Span::new(pos, new_pos);
                 // TODO avoid cloning?
                 let choice = ChoiceInner {
                     left: Box::new(left_note),
@@ -210,7 +228,7 @@ impl Notation {
                     left_shapes: left_shapes.clone(),
                     right_shapes: right_shapes.clone(),
                 };
-                let note = MeasuredNotation::Choice(pos, choice);
+                let note = MeasuredNotation::Choice(span, choice);
                 let shapes = left_shapes.union(right_shapes);
                 (note, shapes, new_pos)
             }
@@ -219,7 +237,7 @@ impl Notation {
 }
 
 impl MeasuredNotation {
-    fn pos(&self) -> Pos {
+    fn span(&self) -> Span {
         use MeasuredNotation::*;
         match self {
             Empty(pos) => *pos,
