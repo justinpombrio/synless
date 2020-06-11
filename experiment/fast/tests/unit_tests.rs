@@ -2,7 +2,7 @@
 mod common;
 
 use common::oracular_pretty_print;
-use fast::{partial_pretty_print_first, pretty_print, Notation};
+use fast::{partial_pretty_print_first, partial_pretty_print_last, pretty_print, Notation};
 
 fn flat(notation: Notation) -> Notation {
     Notation::Flat(Box::new(notation))
@@ -14,6 +14,10 @@ fn newline() -> Notation {
 
 fn lit(s: &str) -> Notation {
     Notation::Literal(s.to_string())
+}
+
+fn indent(i: usize, notation: Notation) -> Notation {
+    Notation::Indent(i, Box::new(notation))
 }
 
 fn nest(i: usize, notation: Notation) -> Notation {
@@ -136,7 +140,7 @@ fn assert_ppp_first(
         expand_lines(actual_lines_iter.take(num_first_lines).collect()).collect();
     if oracle_lines != expected_lines {
         eprintln!(
-            "BAD TEST CASE!\n\nTEST CASE EXPECTS THE FIRST {} LINES TO BE:\n{}\nBUT ORACLE SAYS THEY ARE:\n{}",
+            "BAD TEST CASE!\n\nTEST CASE EXPECTS THE LAST {} LINES TO BE:\n{}\nBUT ORACLE SAYS THEY ARE:\n{}",
             num_first_lines,
             expected_lines.join("\n"),
             oracle_lines.join("\n"),
@@ -145,8 +149,47 @@ fn assert_ppp_first(
     }
     if actual_lines != expected_lines {
         eprintln!(
-            "EXPECTED FIRST {} LINES:\n{}\nACTUAL:\n{}",
+            "EXPECTED LAST {} LINES:\n{}\nACTUAL:\n{}",
             num_first_lines,
+            expected_lines.join("\n"),
+            actual_lines.join("\n"),
+        );
+        assert_eq!(actual_lines, expected_lines);
+    }
+}
+
+fn assert_ppp_last(
+    notation: Notation,
+    width: usize,
+    num_last_lines: usize,
+    expected_lines: &[&str],
+) {
+    notation.validate().expect("failed to validate");
+    let measured_notation = notation.measure();
+    let oracle_lines: Vec<String> = expand_lines(oracular_pretty_print(&notation, width))
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .take(num_last_lines)
+        .rev()
+        .collect();
+    let actual_lines_iter = partial_pretty_print_last(&measured_notation, width);
+    let mut actual_lines: Vec<String> =
+        expand_lines(actual_lines_iter.take(num_last_lines).collect()).collect();
+    actual_lines.reverse();
+    if oracle_lines != expected_lines {
+        eprintln!(
+            "BAD TEST CASE!\n\nTEST CASE EXPECTS THE FIRST {} LINES TO BE:\n{}\nBUT ORACLE SAYS THEY ARE:\n{}",
+            num_last_lines,
+            expected_lines.join("\n"),
+            oracle_lines.join("\n"),
+        );
+        assert_eq!(oracle_lines, expected_lines);
+    }
+    if actual_lines != expected_lines {
+        eprintln!(
+            "EXPECTED FIRST {} LINES:\n{}\nACTUAL:\n{}",
+            num_last_lines,
             expected_lines.join("\n"),
             actual_lines.join("\n"),
         );
@@ -464,4 +507,28 @@ fn oracle_ppp_first_failure_2() {
 fn oracle_ppp_first_failure_3() {
     let n = newline();
     assert_ppp_first(n, 1, 3, &["", ""]);
+}
+
+#[test]
+fn oracle_ppp_last_failure_1() {
+    let n = lit("a") + lit("b");
+    assert_ppp_last(n, 2, 1, &["ab"]);
+}
+
+#[test]
+fn oracle_ppp_last_failure_2() {
+    let n = indent(5, newline()) + (newline() | lit("aaaaaaaa"));
+    assert_ppp_last(n, 1, 1, &["     aaaaaaaa"]);
+}
+
+#[test]
+fn oracle_ppp_last_failure_3() {
+    let n = indent(5, newline()) + (newline() | lit("aaaaaaaa"));
+    assert_ppp_last(n, 5, 2, &["     ", ""]);
+}
+
+#[test]
+fn oracle_ppp_last_failure_4() {
+    let n = indent(6, newline()) + ((newline() | newline()) | indent(9, lit("a")));
+    assert_ppp_last(n, 6, 2, &["      ", ""]);
 }

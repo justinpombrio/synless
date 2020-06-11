@@ -179,7 +179,7 @@ impl<'n> LastLinePrinter<'n> {
         assert!(blocks.len() >= 1);
         let block = blocks.pop().unwrap();
         LastLinePrinter {
-            spaces: 0,
+            spaces: block.spaces,
             suffix: "".to_string(),
             chunks: block.chunks,
             blocks,
@@ -198,7 +198,7 @@ impl<'n> LastLinePrinter<'n> {
     fn print(mut self) -> (usize, String, Vec<Block<'n>>) {
         while let Some(chunk) = self.chunks.pop() {
             match chunk {
-                Chunk::Text(text) => self.suffix += &text,
+                Chunk::Text(text) => self.suffix = text.to_owned() + &self.suffix,
                 Chunk::Notation { indent, notation } => self.print_notation(indent, notation),
             }
         }
@@ -209,13 +209,13 @@ impl<'n> LastLinePrinter<'n> {
         use MeasuredNotation::*;
         match notation {
             Empty(_) => (),
-            Literal(_, text) => self.suffix += &text,
+            Literal(_, text) => self.suffix = text.to_owned() + &self.suffix,
             Newline(_) => {
                 self.blocks.push(Block {
-                    spaces: 0, // TODO: Is this correct?
+                    spaces: self.spaces,
                     chunks: mem::take(&mut self.chunks),
                 });
-                self.spaces = indent.unwrap(); // TODO: Is this correct?
+                self.spaces = indent.unwrap();
             }
             Indent(_, inner_indent, inner_notation) => {
                 let full_indent = indent.map(|i| i + inner_indent);
@@ -235,7 +235,7 @@ impl<'n> LastLinePrinter<'n> {
                     return;
                 }
                 let prefix_printer = LastLinePrinter {
-                    spaces: 0,
+                    spaces: self.spaces,
                     suffix: "".to_string(),
                     chunks: mem::take(&mut self.chunks),
                     blocks: mem::take(&mut self.blocks),
@@ -246,6 +246,7 @@ impl<'n> LastLinePrinter<'n> {
                 let suffix_len = self.suffix.chars().count();
                 let chosen_notation =
                     choice.choose(indent, Some(prefix_len), Some(suffix_len), self.width);
+                self.spaces = prefix_spaces;
                 self.blocks = blocks;
                 self.push_text(prefix);
                 self.push_chunk(indent, chosen_notation);
