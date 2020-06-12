@@ -5,7 +5,7 @@ use fast::{partial_pretty_print_first, partial_pretty_print_last, pretty_print, 
 
 // Tests passed with:
 // - NUM_TESTS = 10_000_000 & SEED = 28
-const NUM_TESTS: usize = 10000;
+const NUM_TESTS: usize = 1000;
 const SEED: u64 = 28;
 
 const MAX_CHOICES: usize = 5;

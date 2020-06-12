@@ -1,15 +1,17 @@
 // TODO:
 // - functionality: seeking, multiple expand
 
-use super::measure::MeasuredNotation;
+use super::measure::{MeasuredNotation, Span};
 use std::iter::Iterator;
 use std::mem;
 
+#[derive(Debug, Clone)]
 struct Block<'n> {
     spaces: usize,
     chunks: Vec<Chunk<'n>>,
 }
 
+#[derive(Debug, Clone)]
 enum Chunk<'n> {
     Text(String),
     Notation {
@@ -18,6 +20,7 @@ enum Chunk<'n> {
     },
 }
 
+#[derive(Debug, Clone)]
 pub struct FirstLinePrinter<'n> {
     // Persistent:
     width: usize,
@@ -36,6 +39,7 @@ pub fn partial_pretty_print_first<'n>(
     FirstLinePrinter::new(width, blocks)
 }
 
+#[derive(Debug, Clone)]
 pub struct LastLinePrinter<'n> {
     // Persistent:
     width: usize,
@@ -45,6 +49,35 @@ pub struct LastLinePrinter<'n> {
     spaces: usize,
     chunks: Vec<Chunk<'n>>,
 }
+
+#[derive(Debug, Clone)]
+pub struct PartialPrinter<'n> {
+    width: usize,
+    prev_blocks: Vec<Block<'n>>,
+    next_blocks: Vec<Block<'n>>,
+    prev_chunks: Vec<Chunk<'n>>,
+    next_chunks: Vec<Chunk<'n>>,
+}
+
+/*
+impl<'n> PartialPrinter<'n> {
+    pub fn seek(&self, pos: u64) {
+        // Seek to correct block
+        while let Some(block) = self.next_blocks.pop() {
+        }
+        loop {
+            if let Some(block) = self.next_blocks.first() {
+                if block.
+            } else {
+                break;
+            }
+        }
+        while unimplemented!() {
+
+        }
+    }
+}
+*/
 
 pub fn partial_pretty_print_last<'n>(
     notation: &'n MeasuredNotation,

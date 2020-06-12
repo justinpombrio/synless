@@ -3,10 +3,10 @@ use crate::staircase::{Stair, Staircase};
 
 type Pos = u64;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Span {
-    start: Pos,
-    end: Pos,
+    pub start: Pos,
+    pub end: Pos,
 }
 
 impl Span {
@@ -17,9 +17,9 @@ impl Span {
 
 #[derive(Debug, Clone)]
 pub enum MeasuredNotation {
-    Empty(Span),
-    Literal(Span, String),
-    Newline(Span),
+    Empty(Pos),
+    Literal(Pos, String),
+    Newline(Pos),
     Indent(Span, usize, Box<MeasuredNotation>),
     Flat(Span, Box<MeasuredNotation>),
     Align(Span, Box<MeasuredNotation>),
@@ -158,18 +158,17 @@ impl Notation {
     fn measure_rec(&self, pos: Pos) -> (MeasuredNotation, Shapes, Pos) {
         match self {
             Notation::Empty => (
-                MeasuredNotation::Empty(Span::new(pos, pos + 1)),
+                MeasuredNotation::Empty(pos),
                 Shapes::new_single_line(0),
                 pos + 1,
             ),
             Notation::Literal(lit) => {
-                let span = Span::new(pos, pos + 1);
-                let note = MeasuredNotation::Literal(span, lit.clone());
+                let note = MeasuredNotation::Literal(pos, lit.clone());
                 let shapes = Shapes::new_single_line(lit.chars().count());
                 (note, shapes, pos + 1)
             }
             Notation::Newline => (
-                MeasuredNotation::Newline(Span::new(pos, pos + 1)),
+                MeasuredNotation::Newline(pos),
                 Shapes::new_newline(),
                 pos + 1,
             ),
@@ -237,17 +236,17 @@ impl Notation {
 }
 
 impl MeasuredNotation {
-    fn span(&self) -> Span {
+    pub fn span(&self) -> Span {
         use MeasuredNotation::*;
         match self {
-            Empty(pos) => *pos,
-            Literal(pos, _) => *pos,
-            Newline(pos) => *pos,
-            Flat(pos, _) => *pos,
-            Align(pos, _) => *pos,
-            Indent(pos, _, _) => *pos,
-            Concat(pos, _, _, _) => *pos,
-            Choice(pos, _) => *pos,
+            Empty(pos) => Span::new(*pos, *pos + 1),
+            Literal(pos, _) => Span::new(*pos, *pos + 1),
+            Newline(pos) => Span::new(*pos, *pos + 1),
+            Flat(span, _) => *span,
+            Align(span, _) => *span,
+            Indent(span, _, _) => *span,
+            Concat(span, _, _, _) => *span,
+            Choice(span, _) => *span,
         }
     }
 }
@@ -713,9 +712,8 @@ mod tests {
             Box::new(Notation::Literal("bar".to_string())),
         );
         note.validate().unwrap();
-        let (note, shapes, pos) = note.measure_rec(0);
+        let (note, shapes, _pos) = note.measure_rec(0);
 
-        assert_eq!(pos, 3);
         assert_eq!(shapes, Shapes::new_single_line(7));
         match note {
             MeasuredNotation::Concat(_, _, _, known_line_lens) => match known_line_lens {
@@ -728,6 +726,24 @@ mod tests {
                 }
             },
             _ => panic!("Expected MeasuredNotation::Concat variant"),
+        }
+    }
+
+    #[test]
+    fn test_span() {
+        let note = Notation::Concat(
+            Box::new(Notation::Literal("fooo".to_string())),
+            Box::new(Notation::Literal("bar".to_string())),
+        );
+        note.validate().unwrap();
+        let (note, _shapes, pos) = note.measure_rec(0);
+        assert_eq!(pos, 3);
+        assert_eq!(note.span(), Span::new(0, 3));
+        if let MeasuredNotation::Concat(_, left, right, _) = note {
+            assert_eq!(left.span(), Span::new(1, 2));
+            assert_eq!(right.span(), Span::new(2, 3));
+        } else {
+            panic!("Expected Concat");
         }
     }
 }
