@@ -1,7 +1,7 @@
 use super::notation::Notation;
 use crate::staircase::{Stair, Staircase};
 
-type Pos = u64;
+pub type Pos = u64;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Span {
@@ -10,7 +10,7 @@ pub struct Span {
 }
 
 impl Span {
-    fn new(start: Pos, end: Pos) -> Span {
+    pub fn new(start: Pos, end: Pos) -> Span {
         Span { start, end }
     }
 }
