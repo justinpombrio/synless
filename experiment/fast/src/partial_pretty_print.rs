@@ -20,26 +20,34 @@ enum Chunk<'n> {
     },
 }
 
+#[derive(Debug)]
+pub struct NextLinePrinter<'b, 'n> {
+    width: usize,
+    spaces: usize,
+    prefix: String,
+    chunks: &'b mut Vec<Chunk<'n>>,
+    blocks: &'b mut Vec<Block<'n>>,
+}
+
 #[derive(Debug, Clone)]
 pub struct ForwardPrinter<'n> {
-    // Persistent:
     width: usize,
-    prefix: String,
     blocks: Vec<Block<'n>>,
-    // Temporary:
+}
+
+#[derive(Debug)]
+pub struct PrevLinePrinter<'b, 'n> {
+    width: usize,
     spaces: usize,
-    chunks: Vec<Chunk<'n>>,
+    suffix: String,
+    chunks: &'b mut Vec<Chunk<'n>>,
+    blocks: &'b mut Vec<Block<'n>>,
 }
 
 #[derive(Debug, Clone)]
 pub struct BackwardPrinter<'n> {
-    // Persistent:
     width: usize,
-    suffix: String,
     blocks: Vec<Block<'n>>,
-    // Temporary:
-    spaces: usize,
-    chunks: Vec<Chunk<'n>>,
 }
 
 #[derive(Debug, Clone)]
@@ -57,7 +65,7 @@ pub fn partial_pretty_print<'n>(
     width: usize,
     pos: Pos,
 ) -> (BackwardPrinter<'n>, ForwardPrinter<'n>) {
-    let mut ppp = PartialPrettyPrinter::new(notation, width, pos);
+    let ppp = PartialPrettyPrinter::new(notation, width, pos);
     ppp.print()
 }
 
@@ -66,7 +74,7 @@ pub fn partial_pretty_print_first<'n>(
     width: usize,
 ) -> ForwardPrinter<'n> {
     let blocks = vec![Block::new(notation)];
-    ForwardPrinter::new(width, blocks)
+    ForwardPrinter { width, blocks }
 }
 
 pub fn partial_pretty_print_last<'n>(
@@ -74,7 +82,7 @@ pub fn partial_pretty_print_last<'n>(
     width: usize,
 ) -> BackwardPrinter<'n> {
     let blocks = vec![Block::new(notation)];
-    BackwardPrinter::new(width, blocks)
+    BackwardPrinter { width, blocks }
 }
 
 impl<'n> PartialPrettyPrinter<'n> {
@@ -130,22 +138,28 @@ impl<'n> PartialPrettyPrinter<'n> {
                     return;
                 }
 
-                self.move_chunks_to_blocks();
-
                 // Compute prefix
-                let mut prefix_printer =
-                    BackwardPrinter::new(self.width, mem::take(&mut self.prev_blocks));
-                let (prefix_spaces, prefix) = prefix_printer.next().unwrap();
-                self.prev_blocks = prefix_printer.blocks();
+                let prefix_printer = PrevLinePrinter {
+                    width: self.width,
+                    spaces: self.spaces,
+                    suffix: "".to_string(),
+                    chunks: &mut self.prev_chunks,
+                    blocks: &mut self.prev_blocks,
+                };
+                let (prefix_spaces, prefix) = prefix_printer.print();
                 let prefix_len = prefix_spaces + prefix.chars().count();
                 self.spaces = prefix_spaces;
                 self.prev_chunks.push(Chunk::Text(prefix));
 
                 // Compute suffix
-                let mut suffix_printer =
-                    ForwardPrinter::new(self.width, mem::take(&mut self.next_blocks));
-                let (suffix_spaces, suffix) = suffix_printer.next().unwrap();
-                self.next_blocks = suffix_printer.blocks();
+                let suffix_printer = NextLinePrinter {
+                    width: self.width,
+                    spaces: 0,
+                    prefix: "".to_string(),
+                    chunks: &mut self.next_chunks,
+                    blocks: &mut self.next_blocks,
+                };
+                let (suffix_spaces, suffix) = suffix_printer.print();
                 assert_eq!(suffix_spaces, 0);
                 let suffix_len = suffix.chars().count();
                 self.next_chunks.push(Chunk::Text(suffix));
@@ -158,7 +172,7 @@ impl<'n> PartialPrettyPrinter<'n> {
         }
     }
 
-    fn move_chunks_to_blocks(&mut self) {
+    fn print(mut self) -> (BackwardPrinter<'n>, ForwardPrinter<'n>) {
         self.prev_blocks.push(Block {
             spaces: self.spaces,
             chunks: mem::take(&mut self.prev_chunks),
@@ -167,12 +181,14 @@ impl<'n> PartialPrettyPrinter<'n> {
             spaces: 0,
             chunks: mem::take(&mut self.next_chunks),
         });
-    }
-
-    fn print(mut self) -> (BackwardPrinter<'n>, ForwardPrinter<'n>) {
-        self.move_chunks_to_blocks();
-        let bpp = BackwardPrinter::new(self.width, mem::take(&mut self.prev_blocks));
-        let fpp = ForwardPrinter::new(self.width, mem::take(&mut self.next_blocks));
+        let bpp = BackwardPrinter {
+            width: self.width,
+            blocks: self.prev_blocks,
+        };
+        let fpp = ForwardPrinter {
+            width: self.width,
+            blocks: self.next_blocks,
+        };
         (bpp, fpp)
     }
 }
@@ -181,43 +197,30 @@ impl<'n> Iterator for ForwardPrinter<'n> {
     type Item = (usize, String);
 
     fn next(&mut self) -> Option<(usize, String)> {
-        if let Some(block) = self.blocks.pop() {
-            self.spaces = block.spaces;
-            self.chunks = block.chunks;
-            while let Some(chunk) = self.chunks.pop() {
-                match chunk {
-                    Chunk::Text(text) => self.prefix += &text,
-                    Chunk::Notation { indent, notation } => self.print_notation(indent, notation),
-                }
-            }
-            Some((self.spaces, self.prefix.split_off(0)))
+        if let Some(mut block) = self.blocks.pop() {
+            let next_line_printer = NextLinePrinter {
+                width: self.width,
+                spaces: block.spaces,
+                prefix: "".to_string(),
+                chunks: &mut block.chunks,
+                blocks: &mut self.blocks,
+            };
+            Some(next_line_printer.print())
         } else {
             None
         }
     }
 }
 
-impl<'n> ForwardPrinter<'n> {
-    fn new(width: usize, blocks: Vec<Block<'n>>) -> ForwardPrinter<'n> {
-        ForwardPrinter {
-            width,
-            blocks,
-            prefix: "".to_string(),
-            spaces: 0,
-            chunks: vec![],
+impl<'b, 'n> NextLinePrinter<'b, 'n> {
+    fn print(mut self) -> (usize, String) {
+        while let Some(chunk) = self.chunks.pop() {
+            match chunk {
+                Chunk::Text(text) => self.prefix += &text,
+                Chunk::Notation { indent, notation } => self.print_notation(indent, notation),
+            }
         }
-    }
-
-    fn blocks(self) -> Vec<Block<'n>> {
-        self.blocks
-    }
-
-    fn push_chunk(&mut self, indent: Option<usize>, notation: &'n MeasuredNotation) {
-        self.chunks.push(Chunk::Notation { indent, notation });
-    }
-
-    fn push_text(&mut self, text: String) {
-        self.chunks.push(Chunk::Text(text));
+        (self.spaces, self.prefix)
     }
 
     fn print_notation(&mut self, indent: Option<usize>, notation: &'n MeasuredNotation) {
@@ -225,12 +228,7 @@ impl<'n> ForwardPrinter<'n> {
         match notation {
             Empty(_) => (),
             Literal(_, text) => self.prefix += &text,
-            Newline(_) => {
-                self.blocks.push(Block {
-                    spaces: indent.unwrap(),
-                    chunks: mem::take(&mut self.chunks),
-                });
-            }
+            Newline(_) => self.newline(indent),
             Indent(_, inner_indent, inner_notation) => {
                 let full_indent = indent.map(|i| i + inner_indent);
                 self.push_chunk(full_indent, inner_notation);
@@ -248,55 +246,22 @@ impl<'n> ForwardPrinter<'n> {
                     self.push_chunk(indent, chosen_notation);
                     return;
                 }
-                self.blocks.push(Block {
+                let suffix_printer = NextLinePrinter {
+                    width: self.width,
                     spaces: 0,
-                    chunks: mem::take(&mut self.chunks),
-                });
-                let mut suffix_printer =
-                    ForwardPrinter::new(self.width, mem::take(&mut self.blocks));
-                let (suffix_spaces, suffix) = suffix_printer.next().unwrap();
-                let blocks = suffix_printer.blocks();
+                    prefix: "".to_string(),
+                    chunks: &mut self.chunks,
+                    blocks: &mut self.blocks,
+                };
+                let (suffix_spaces, suffix) = suffix_printer.print();
                 assert_eq!(suffix_spaces, 0);
                 let prefix_len = self.spaces + self.prefix.chars().count();
                 let suffix_len = suffix.chars().count();
                 let chosen_notation =
                     choice.choose(indent, Some(prefix_len), Some(suffix_len), self.width);
-                self.blocks = blocks;
                 self.push_text(suffix);
                 self.push_chunk(indent, chosen_notation);
             }
-        }
-    }
-}
-
-impl<'n> Iterator for BackwardPrinter<'n> {
-    type Item = (usize, String);
-
-    fn next(&mut self) -> Option<(usize, String)> {
-        if let Some(block) = self.blocks.pop() {
-            self.spaces = block.spaces;
-            self.chunks = block.chunks;
-            while let Some(chunk) = self.chunks.pop() {
-                match chunk {
-                    Chunk::Text(text) => self.suffix = text.to_owned() + &self.suffix,
-                    Chunk::Notation { indent, notation } => self.print_notation(indent, notation),
-                }
-            }
-            Some((self.spaces, self.suffix.split_off(0)))
-        } else {
-            None
-        }
-    }
-}
-
-impl<'n> BackwardPrinter<'n> {
-    fn new(width: usize, blocks: Vec<Block<'n>>) -> BackwardPrinter<'n> {
-        BackwardPrinter {
-            width,
-            blocks,
-            suffix: "".to_string(),
-            spaces: 0,
-            chunks: vec![],
         }
     }
 
@@ -308,22 +273,50 @@ impl<'n> BackwardPrinter<'n> {
         self.chunks.push(Chunk::Text(text));
     }
 
-    fn blocks(self) -> Vec<Block<'n>> {
-        self.blocks
+    fn newline(&mut self, indent: Option<usize>) {
+        self.blocks.push(Block {
+            spaces: indent.unwrap(),
+            chunks: mem::take(&mut self.chunks),
+        });
+    }
+}
+
+impl<'n> Iterator for BackwardPrinter<'n> {
+    type Item = (usize, String);
+
+    fn next(&mut self) -> Option<(usize, String)> {
+        if let Some(mut block) = self.blocks.pop() {
+            let prev_line_printer = PrevLinePrinter {
+                width: self.width,
+                spaces: block.spaces,
+                suffix: "".to_string(),
+                chunks: &mut block.chunks,
+                blocks: &mut self.blocks,
+            };
+            Some(prev_line_printer.print())
+        } else {
+            None
+        }
+    }
+}
+
+impl<'b, 'n> PrevLinePrinter<'b, 'n> {
+    fn print(mut self) -> (usize, String) {
+        while let Some(chunk) = self.chunks.pop() {
+            match chunk {
+                Chunk::Text(text) => self.suffix = text + &self.suffix,
+                Chunk::Notation { indent, notation } => self.print_notation(indent, notation),
+            }
+        }
+        (self.spaces, self.suffix)
     }
 
     fn print_notation(&mut self, indent: Option<usize>, notation: &'n MeasuredNotation) {
         use MeasuredNotation::*;
         match notation {
             Empty(_) => (),
-            Literal(_, text) => self.suffix = text.to_owned() + &self.suffix,
-            Newline(pos) => {
-                self.blocks.push(Block {
-                    spaces: self.spaces,
-                    chunks: mem::take(&mut self.chunks),
-                });
-                self.spaces = indent.unwrap();
-            }
+            Literal(_, text) => self.suffix = text.to_string() + &self.suffix,
+            Newline(pos) => self.newline(indent),
             Indent(_, inner_indent, inner_notation) => {
                 let full_indent = indent.map(|i| i + inner_indent);
                 self.push_chunk(full_indent, inner_notation);
@@ -341,24 +334,39 @@ impl<'n> BackwardPrinter<'n> {
                     self.push_chunk(indent, chosen_notation);
                     return;
                 }
-                self.blocks.push(Block {
+                let prefix_printer = PrevLinePrinter {
+                    width: self.width,
                     spaces: self.spaces,
-                    chunks: mem::take(&mut self.chunks),
-                });
-                let mut prefix_printer =
-                    BackwardPrinter::new(self.width, mem::take(&mut self.blocks));
-                let (prefix_spaces, prefix) = prefix_printer.next().unwrap();
-                let blocks = prefix_printer.blocks();
+                    suffix: "".to_string(),
+                    chunks: &mut self.chunks,
+                    blocks: &mut self.blocks,
+                };
+                let (prefix_spaces, prefix) = prefix_printer.print();
                 let prefix_len = prefix_spaces + prefix.chars().count();
                 let suffix_len = self.suffix.chars().count();
                 let chosen_notation =
                     choice.choose(indent, Some(prefix_len), Some(suffix_len), self.width);
                 self.spaces = prefix_spaces;
-                self.blocks = blocks;
                 self.push_text(prefix);
                 self.push_chunk(indent, chosen_notation);
             }
         }
+    }
+
+    fn push_chunk(&mut self, indent: Option<usize>, notation: &'n MeasuredNotation) {
+        self.chunks.push(Chunk::Notation { indent, notation });
+    }
+
+    fn push_text(&mut self, text: String) {
+        self.chunks.push(Chunk::Text(text));
+    }
+
+    fn newline(&mut self, indent: Option<usize>) {
+        self.blocks.push(Block {
+            spaces: self.spaces,
+            chunks: mem::take(&mut self.chunks),
+        });
+        self.spaces = indent.unwrap();
     }
 }
 
