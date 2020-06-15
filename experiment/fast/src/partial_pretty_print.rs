@@ -20,6 +20,12 @@ enum Chunk<'n> {
     },
 }
 
+#[derive(Debug, Clone)]
+pub struct ForwardPrinter<'n> {
+    width: usize,
+    blocks: Vec<Block<'n>>,
+}
+
 #[derive(Debug)]
 pub struct NextLinePrinter<'b, 'n> {
     width: usize,
@@ -30,7 +36,7 @@ pub struct NextLinePrinter<'b, 'n> {
 }
 
 #[derive(Debug, Clone)]
-pub struct ForwardPrinter<'n> {
+pub struct BackwardPrinter<'n> {
     width: usize,
     blocks: Vec<Block<'n>>,
 }
@@ -45,15 +51,9 @@ pub struct PrevLinePrinter<'b, 'n> {
 }
 
 #[derive(Debug, Clone)]
-pub struct BackwardPrinter<'n> {
-    width: usize,
-    blocks: Vec<Block<'n>>,
-}
-
-#[derive(Debug, Clone)]
 pub struct PartialPrettyPrinter<'n> {
     width: usize,
-    spaces: usize,
+    spaces: usize, // TODO: needed?
     prev_blocks: Vec<Block<'n>>,
     next_blocks: Vec<Block<'n>>,
     prev_chunks: Vec<Chunk<'n>>,
@@ -65,7 +65,15 @@ pub fn partial_pretty_print<'n>(
     width: usize,
     pos: Pos,
 ) -> (BackwardPrinter<'n>, ForwardPrinter<'n>) {
-    let ppp = PartialPrettyPrinter::new(notation, width, pos);
+    let mut ppp = PartialPrettyPrinter {
+        width,
+        spaces: 0,
+        prev_blocks: vec![],
+        next_blocks: vec![],
+        prev_chunks: vec![],
+        next_chunks: vec![],
+    };
+    ppp.seek(pos, notation, Some(0));
     ppp.print()
 }
 
@@ -86,26 +94,13 @@ pub fn partial_pretty_print_last<'n>(
 }
 
 impl<'n> PartialPrettyPrinter<'n> {
-    pub fn new(notation: &'n MeasuredNotation, width: usize, pos: Pos) -> PartialPrettyPrinter<'n> {
-        let mut ppp = PartialPrettyPrinter {
-            width,
-            spaces: 0,
-            prev_blocks: vec![],
-            next_blocks: vec![],
-            prev_chunks: vec![],
-            next_chunks: vec![],
-        };
-        ppp.seek(pos, notation, Some(0));
-        ppp
-    }
-
     fn seek(&mut self, sought: Pos, notation: &'n MeasuredNotation, indent: Option<usize>) {
         use MeasuredNotation::*;
         if sought <= notation.span().start {
             self.next_chunks.push(Chunk::Notation { indent, notation });
             return;
         } else if sought >= notation.span().end {
-            self.next_chunks.push(Chunk::Notation { indent, notation });
+            self.prev_chunks.push(Chunk::Notation { indent, notation });
             return;
         }
         match notation {
@@ -127,7 +122,7 @@ impl<'n> PartialPrettyPrinter<'n> {
                 } else {
                     self.prev_chunks.push(Chunk::Notation {
                         indent,
-                        notation: right,
+                        notation: left,
                     });
                     self.seek(sought, right, indent);
                 }
@@ -173,13 +168,12 @@ impl<'n> PartialPrettyPrinter<'n> {
     }
 
     fn print(mut self) -> (BackwardPrinter<'n>, ForwardPrinter<'n>) {
-        self.prev_blocks.push(Block {
-            spaces: self.spaces,
-            chunks: mem::take(&mut self.prev_chunks),
-        });
+        let mut chunks = mem::take(&mut self.next_chunks);
+        self.prev_chunks.reverse();
+        chunks.append(&mut self.prev_chunks);
         self.next_blocks.push(Block {
-            spaces: 0,
-            chunks: mem::take(&mut self.next_chunks),
+            spaces: self.spaces,
+            chunks,
         });
         let bpp = BackwardPrinter {
             width: self.width,

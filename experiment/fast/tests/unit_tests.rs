@@ -2,7 +2,10 @@
 mod common;
 
 use common::oracular_pretty_print;
-use fast::{partial_pretty_print_first, partial_pretty_print_last, pretty_print, Notation};
+use fast::{
+    partial_pretty_print, partial_pretty_print_first, partial_pretty_print_last, pretty_print,
+    Notation, Pos,
+};
 
 fn flat(notation: Notation) -> Notation {
     Notation::Flat(Box::new(notation))
@@ -190,6 +193,33 @@ fn assert_ppp_last(
         eprintln!(
             "EXPECTED FIRST {} LINES:\n{}\nACTUAL:\n{}",
             num_last_lines,
+            expected_lines.join("\n"),
+            actual_lines.join("\n"),
+        );
+        assert_eq!(actual_lines, expected_lines);
+    }
+}
+
+fn assert_ppp_seek(notation: Notation, width: usize, sought_pos: Pos, expected_lines: &[&str]) {
+    notation.validate().expect("failed to validate");
+    let measured_notation = notation.measure();
+    let oracle_lines: Vec<String> = expand_lines(oracular_pretty_print(&notation, width)).collect();
+    let (mut bw_iter, mut fw_iter) = partial_pretty_print(&measured_notation, width, sought_pos);
+    let lines_iter = bw_iter.collect::<Vec<_>>().into_iter().rev().chain(fw_iter);
+    let actual_lines: Vec<String> = expand_lines(lines_iter.collect()).collect();
+    if oracle_lines != expected_lines {
+        eprintln!(
+            "BAD TEST CASE!\n\nWHEN SEEKING POS {}, TEST CASE EXPECTS THE LINES TO BE:\n{}\nBUT ORACLE SAYS THEY ARE:\n{}",
+            sought_pos,
+            expected_lines.join("\n"),
+            oracle_lines.join("\n"),
+        );
+        assert_eq!(oracle_lines, expected_lines);
+    }
+    if actual_lines != expected_lines {
+        eprintln!(
+            "WHEN SEEKING POS {}, EXPECTED LINES:\n{}\nACTUAL LINES:\n{}",
+            sought_pos,
             expected_lines.join("\n"),
             actual_lines.join("\n"),
         );
@@ -531,4 +561,10 @@ fn oracle_ppp_last_failure_3() {
 fn oracle_ppp_last_failure_4() {
     let n = indent(6, newline()) + ((newline() | newline()) | indent(9, lit("a")));
     assert_ppp_last(n, 6, 2, &["      ", ""]);
+}
+
+#[test]
+fn oracle_ppp_seek_failure_1() {
+    let n = lit("aaaaaa") + newline();
+    assert_ppp_seek(n, 1, 2, &["aaaaaa", ""]);
 }

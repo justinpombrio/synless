@@ -1,11 +1,15 @@
 mod common;
 
 use common::{oracular_pretty_print, NotationGenerator, NotationGeneratorConfig};
-use fast::{partial_pretty_print_first, partial_pretty_print_last, pretty_print, Notation};
+use fast::{
+    partial_pretty_print, partial_pretty_print_first, partial_pretty_print_last, pretty_print,
+    Notation, Pos,
+};
+use std::iter;
 
 // Tests passed with:
 // - NUM_TESTS = 10_000_000 & SEED = 28
-const NUM_TESTS: usize = 1000;
+const NUM_TESTS: usize = 10000000;
 const SEED: u64 = 28;
 
 const MAX_CHOICES: usize = 5;
@@ -25,6 +29,7 @@ enum Mode {
     PrettyPrint,
     PartialPrettyPrintFirst(usize),
     PartialPrettyPrintLast(usize),
+    PartialPrettyPrintSeek(Pos),
 }
 
 struct PPError {
@@ -106,6 +111,24 @@ fn try_pretty_print(notation: Notation) -> PPResult {
                 });
             }
         }
+        // Test the seeking partial pretty printer
+        let span = measured_notation.span();
+        for sought_pos in span.start..span.end {
+            let (mut bw_iter, mut fw_iter) =
+                partial_pretty_print(&measured_notation, width, sought_pos);
+            let lines_iter = bw_iter.collect::<Vec<_>>().into_iter().rev().chain(fw_iter);
+            let actual_lines = expand_lines(lines_iter.collect());
+            let oracle_lines = expand_lines(oracular_pretty_print(&notation, width));
+            if actual_lines != oracle_lines {
+                return PPResult::Error(PPError {
+                    notation,
+                    width,
+                    actual: actual_lines,
+                    oracular: oracle_lines,
+                    mode: Mode::PartialPrettyPrintSeek(sought_pos),
+                });
+            }
+        }
     }
     PPResult::Ok
 }
@@ -147,6 +170,9 @@ fn run_oracle() {
             }
             Mode::PartialPrettyPrintLast(num_lines) => {
                 format!("PARTIAL PRETTY PRINTING OF THE LAST {} LINES", num_lines)
+            }
+            Mode::PartialPrettyPrintSeek(pos) => {
+                format!("PARTIAL PRETTY PRINTING, AFTER SEEKING POS {}", pos)
             }
         };
         eprintln!(
