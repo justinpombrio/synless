@@ -1,7 +1,7 @@
 // TODO:
 // - functionality: seeking, multiple expand
 
-use super::measure::{MeasuredNotation, Pos, Span};
+use super::measure::{MeasuredNotation, Pos};
 use std::iter::Iterator;
 use std::mem;
 
@@ -111,7 +111,7 @@ impl<'n> PartialPrettyPrinter<'n> {
             Flat(_, inner_notation) => {
                 self.seek(sought, inner_notation, None);
             }
-            Align(_, inner_notation) => unimplemented!(),
+            Align(_, _inner_notation) => unimplemented!(),
             Concat(_, left, right, _) => {
                 if sought <= right.span().start {
                     self.next_chunks.push(Chunk::Notation {
@@ -310,7 +310,7 @@ impl<'b, 'n> PrevLinePrinter<'b, 'n> {
         match notation {
             Empty(_) => (),
             Literal(_, text) => self.suffix = text.to_string() + &self.suffix,
-            Newline(pos) => self.newline(indent),
+            Newline(_) => self.newline(indent),
             Indent(_, inner_indent, inner_notation) => {
                 let full_indent = indent.map(|i| i + inner_indent);
                 self.push_chunk(full_indent, inner_notation);

@@ -5,11 +5,10 @@ use fast::{
     partial_pretty_print, partial_pretty_print_first, partial_pretty_print_last, pretty_print,
     Notation, Pos,
 };
-use std::iter;
 
 // Tests passed with:
 // - NUM_TESTS = 10_000_000 & SEED = 28
-const NUM_TESTS: usize = 10000000;
+const NUM_TESTS: usize = 1000;
 const SEED: u64 = 28;
 
 const MAX_CHOICES: usize = 5;
@@ -114,8 +113,7 @@ fn try_pretty_print(notation: Notation) -> PPResult {
         // Test the seeking partial pretty printer
         let span = measured_notation.span();
         for sought_pos in span.start..span.end {
-            let (mut bw_iter, mut fw_iter) =
-                partial_pretty_print(&measured_notation, width, sought_pos);
+            let (bw_iter, fw_iter) = partial_pretty_print(&measured_notation, width, sought_pos);
             let lines_iter = bw_iter.collect::<Vec<_>>().into_iter().rev().chain(fw_iter);
             let actual_lines = expand_lines(lines_iter.collect());
             let oracle_lines = expand_lines(oracular_pretty_print(&notation, width));

@@ -204,7 +204,7 @@ fn assert_ppp_seek(notation: Notation, width: usize, sought_pos: Pos, expected_l
     notation.validate().expect("failed to validate");
     let measured_notation = notation.measure();
     let oracle_lines: Vec<String> = expand_lines(oracular_pretty_print(&notation, width)).collect();
-    let (mut bw_iter, mut fw_iter) = partial_pretty_print(&measured_notation, width, sought_pos);
+    let (bw_iter, fw_iter) = partial_pretty_print(&measured_notation, width, sought_pos);
     let lines_iter = bw_iter.collect::<Vec<_>>().into_iter().rev().chain(fw_iter);
     let actual_lines: Vec<String> = expand_lines(lines_iter.collect()).collect();
     if oracle_lines != expected_lines {
