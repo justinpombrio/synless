@@ -116,7 +116,7 @@ impl<'l> Prog<'l> {
 
     /// The display name of the program, if it has one.
     pub fn name(&self) -> Option<&str> {
-        self.name.as_ref().map(String::as_str)
+        self.name.as_deref()
     }
 
     /// Produce a literal value containing this program.
