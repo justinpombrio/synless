@@ -2,7 +2,10 @@ use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use std::time::Duration;
 
 use editor::{make_json_lang, make_singleton_lang_set, AstRef, TestEditor, TreeCmd, TreeNavCmd};
-use pretty::{CursorVis, DocPosSpec, PlainText, PrettyDocument, PrettyWindow};
+use pretty::{
+    CursorVisibility, PlainText, PrettyDocument, PrettyWindow, RenderOptions, ScrollStrategy,
+    WidthStrategy,
+};
 
 pub fn make_long_list(length: usize, ed: &mut TestEditor) {
     ed.exec(TreeNavCmd::Child(0)).unwrap();
@@ -22,13 +25,14 @@ pub fn make_long_list(length: usize, ed: &mut TestEditor) {
 
 pub fn render(ast_ref: AstRef) {
     let mut window = PlainText::new_infinite_scroll(80);
+    let options = RenderOptions {
+        scroll_strategy: ScrollStrategy::Beginning,
+        cursor_visibility: CursorVisibility::Hide,
+        width_strategy: WidthStrategy::Fixed(window.pane().unwrap().rect().width()),
+    };
+
     ast_ref
-        .pretty_print(
-            window.pane().unwrap().rect().width(),
-            &mut window.pane().unwrap(),
-            DocPosSpec::Beginning,
-            CursorVis::Hide,
-        )
+        .pretty_print(&mut window.pane().unwrap(), options)
         .unwrap()
 }
 

@@ -1,5 +1,4 @@
 use std::io;
-use thiserror;
 
 use editor::DocError;
 use frontends::{terminal::TermError, Key};
