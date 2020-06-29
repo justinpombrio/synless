@@ -3,7 +3,6 @@ use crate::{
 };
 
 use std::{error, fmt, iter};
-use thiserror;
 
 /// A rectangular area of a window. You can pretty-print to it, or get sub-panes
 /// of it and pretty-print to those.
