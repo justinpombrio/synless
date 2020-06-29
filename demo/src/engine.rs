@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::fmt::Debug;
+use std::fmt::{self, Debug};
 
 use editor::{
     Ast, AstForest, AstRef, Clipboard, Doc, MetaCommand, NotationSet, NotationSets, TreeCmd,
@@ -29,6 +29,12 @@ pub enum DocLabel {
     KeymapName,
     /// Messages to the user.
     Messages,
+}
+
+impl fmt::Display for DocLabel {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 /// This assumes that there is a single language associated with each Doc. That

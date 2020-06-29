@@ -45,7 +45,7 @@ pub enum PaneSize {
 #[derive(Clone, Debug)]
 pub enum PaneNotation<L>
 where
-    L: fmt::Debug,
+    L: fmt::Debug + fmt::Display,
 {
     /// Split the pane horizontally into multiple subpanes, each with its own
     /// `PaneNotation`. Each subpane has the same height as this `Pane`, and a
@@ -82,8 +82,7 @@ pub enum PaneError {
     #[error("invalid pane notation")]
     InvalidNotation,
 
-    // TODO use Display representation, not debug
-    #[error("missing document in pane notation: {0:?}")]
+    #[error("missing document in pane notation: {0}")]
     MissingLabel(String),
 
     /// The error should be the associated `Error` type of something that implements the
@@ -160,7 +159,7 @@ where
         get_content: F,
     ) -> Result<(), PaneError>
     where
-        L: fmt::Debug,
+        L: fmt::Debug + fmt::Display,
         F: Fn(&L) -> Option<U>,
         F: Clone,
         U: PrettyDocument,

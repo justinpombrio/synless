@@ -35,7 +35,7 @@ impl WidthStrategy {
     }
 }
 
-/// What part of the document to show.
+/// What part of the document to show, which may depend on the cursor position
 #[derive(Debug, Clone, Copy)]
 pub enum ScrollStrategy {
     /// Put this row and column of the document at the top left corner of the Pane.

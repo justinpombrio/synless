@@ -8,6 +8,7 @@ use pretty::{
     Bound, Col, CursorVisibility, PaneNotation, PaneSize, PlainText, Pos, PrettyDocument,
     PrettyWindow, Region, RenderOptions, ScrollStrategy, Style, WidthStrategy,
 };
+use std::fmt;
 
 // TODO: test ScrollStrategies other than Beginning.
 // TODO: test horz concat
@@ -18,6 +19,12 @@ enum DocLabel {
     ActiveDoc,
     /// Information about what key bindings are available in the current keymap and context.
     KeyHints,
+}
+
+impl fmt::Display for DocLabel {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 #[test]
