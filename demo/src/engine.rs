@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::fmt::Debug;
+use std::fmt::{self, Debug};
 
 use editor::{
     Ast, AstForest, AstRef, Clipboard, Doc, MetaCommand, NotationSet, NotationSets, TreeCmd,
@@ -8,9 +8,34 @@ use editor::{
 use forest::Bookmark;
 use frontends::Frontend;
 use language::{ConstructName, Language, LanguageName, LanguageSet};
-use pretty::{DocLabel, Pane, PaneNotation};
+use pretty::{Pane, PaneNotation};
 
 use crate::error::EngineError;
+
+/// A set of standard document labels that can be referenced in `PaneNotation`s.
+/// Every time `Pane.render()` is called, it will dynamically look up the document that is currently
+/// associated with each referenced label.
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+#[non_exhaustive]
+#[allow(dead_code)]
+pub enum DocLabel {
+    /// The document that currently has focus / is being actively edited.
+    ActiveDoc,
+    /// The name/title of the `ActiveDoc`, eg. for showing in a status bar.
+    ActiveDocName,
+    /// Information about what key bindings are available in the current keymap and context.
+    KeyHints,
+    /// The name of the current keymap.
+    KeymapName,
+    /// Messages to the user.
+    Messages,
+}
+
+impl fmt::Display for DocLabel {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
 
 /// This assumes that there is a single language associated with each Doc. That
 /// might not be true forever! But it's a huge pain to create new nodes for the
@@ -53,7 +78,7 @@ pub struct Engine<'l> {
     forest: AstForest<'l>,
     bookmarks: HashMap<char, Bookmark>,
     cut_stack: Clipboard<'l>,
-    pane_notation: PaneNotation,
+    pane_notation: PaneNotation<DocLabel>,
     language_set: &'l LanguageSet,
     notation_sets: &'l NotationSets,
 }
@@ -62,7 +87,7 @@ impl<'l> Engine<'l> {
     pub fn new(
         language_set: &'l LanguageSet,
         notation_sets: &'l NotationSets,
-        pane_notation: PaneNotation,
+        pane_notation: PaneNotation<DocLabel>,
         keyhint_lang: (Language, NotationSet),
         message_lang: (Language, NotationSet),
         active_lang: (Language, NotationSet),

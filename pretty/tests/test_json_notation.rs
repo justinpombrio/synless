@@ -1,5 +1,3 @@
-#![feature(slice_patterns)]
-
 mod common;
 
 use common::{
@@ -7,25 +5,39 @@ use common::{
     make_short_json_list, Doc,
 };
 use pretty::{
-    Bound, Col, CursorVis, DocLabel, DocPosSpec, PaneNotation, PaneSize, PlainText, Pos,
-    PrettyDocument, PrettyWindow, Region, Style,
+    Bound, Col, CursorVisibility, PaneNotation, PaneSize, PlainText, Pos, PrettyDocument,
+    PrettyWindow, Region, RenderOptions, ScrollStrategy, Style, WidthStrategy,
 };
+use std::fmt;
 
 // TODO: test ScrollStrategies other than Beginning.
 // TODO: test horz concat
 
+#[derive(Debug, Clone)]
+enum DocLabel {
+    /// The document that currently has focus / is being actively edited.
+    ActiveDoc,
+    /// Information about what key bindings are available in the current keymap and context.
+    KeyHints,
+}
+
+impl fmt::Display for DocLabel {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 #[test]
 fn test_pretty_print_very_small_screen_left() {
     let doc = make_json_doc();
-    let doc_pos_spec = DocPosSpec::Fixed(Pos { row: 2, col: 4 });
     let mut window = PlainText::new(Pos { row: 6, col: 6 });
+    let options = RenderOptions {
+        scroll_strategy: ScrollStrategy::Fixed(Pos { row: 2, col: 4 }),
+        cursor_visibility: CursorVisibility::Hide,
+        width_strategy: WidthStrategy::Fixed(80),
+    };
     doc.as_ref()
-        .pretty_print(
-            80,
-            &mut window.pane().unwrap(),
-            doc_pos_spec,
-            CursorVis::Hide,
-        )
+        .pretty_print(&mut window.pane().unwrap(), options)
         .unwrap();
     assert_strings_eq(
         &window.to_string(),
@@ -41,16 +53,15 @@ ddress
 #[test]
 fn test_pretty_print_small_screen_left() {
     let doc = make_json_doc();
-    let doc_pos_spec = DocPosSpec::Fixed(Pos { row: 2, col: 4 });
     let mut window = PlainText::new(Pos { row: 6, col: 8 });
+    let options = RenderOptions {
+        scroll_strategy: ScrollStrategy::Fixed(Pos { row: 2, col: 4 }),
+        cursor_visibility: CursorVisibility::Hide,
+        width_strategy: WidthStrategy::Fixed(80),
+    };
 
     doc.as_ref()
-        .pretty_print(
-            80,
-            &mut window.pane().unwrap(),
-            doc_pos_spec,
-            CursorVis::Hide,
-        )
+        .pretty_print(&mut window.pane().unwrap(), options)
         .unwrap();
     assert_strings_eq(
         &window.to_string(),
@@ -67,14 +78,14 @@ ddress":
 fn test_pretty_print_short_list() {
     let doc = make_short_json_list();
     let mut window = PlainText::new_infinite_scroll(80);
-    let doc_pos_spec = DocPosSpec::Fixed(Pos::zero());
+    let options = RenderOptions {
+        scroll_strategy: ScrollStrategy::Beginning,
+        cursor_visibility: CursorVisibility::Hide,
+        width_strategy: WidthStrategy::Fixed(80),
+    };
+
     doc.as_ref()
-        .pretty_print(
-            80,
-            &mut window.pane().unwrap(),
-            doc_pos_spec,
-            CursorVis::Hide,
-        )
+        .pretty_print(&mut window.pane().unwrap(), options)
         .unwrap();
     assert_strings_eq(&window.to_string(), r#"[true, false]"#);
 }
@@ -83,14 +94,14 @@ fn test_pretty_print_short_list() {
 fn test_pretty_print_long_list() {
     let doc = make_long_json_list();
     let mut window = PlainText::new_infinite_scroll(80);
-    let doc_pos_spec = DocPosSpec::Fixed(Pos::zero());
+    let options = RenderOptions {
+        scroll_strategy: ScrollStrategy::Beginning,
+        cursor_visibility: CursorVisibility::Hide,
+        width_strategy: WidthStrategy::Fixed(80),
+    };
+
     doc.as_ref()
-        .pretty_print(
-            80,
-            &mut window.pane().unwrap(),
-            doc_pos_spec,
-            CursorVis::Hide,
-        )
+        .pretty_print(&mut window.pane().unwrap(), options)
         .unwrap();
     assert_strings_eq(
         &window.to_string(),
@@ -105,16 +116,15 @@ fn test_pretty_print_long_list() {
 #[test]
 fn test_pretty_print_small_screen_right() {
     let doc = make_json_doc();
-    let doc_pos_spec = DocPosSpec::Fixed(Pos { row: 7, col: 13 });
     let mut window = PlainText::new(Pos { row: 4, col: 16 });
+    let options = RenderOptions {
+        scroll_strategy: ScrollStrategy::Fixed(Pos { row: 7, col: 13 }),
+        cursor_visibility: CursorVisibility::Hide,
+        width_strategy: WidthStrategy::Fixed(80),
+    };
 
     doc.as_ref()
-        .pretty_print(
-            80,
-            &mut window.pane().unwrap(),
-            doc_pos_spec,
-            CursorVis::Hide,
-        )
+        .pretty_print(&mut window.pane().unwrap(), options)
         .unwrap();
     assert_strings_eq(
         &window.to_string(),
@@ -128,16 +138,15 @@ Code": "10021-31"#,
 #[test]
 fn test_pretty_print_small_screen_middle() {
     let doc = make_json_doc();
-    let doc_pos_spec = DocPosSpec::Fixed(Pos { row: 1, col: 4 });
     let mut window = PlainText::new(Pos { row: 1, col: 1 });
+    let options = RenderOptions {
+        scroll_strategy: ScrollStrategy::Fixed(Pos { row: 1, col: 4 }),
+        cursor_visibility: CursorVisibility::Hide,
+        width_strategy: WidthStrategy::Fixed(80),
+    };
 
     doc.as_ref()
-        .pretty_print(
-            80,
-            &mut window.pane().unwrap(),
-            doc_pos_spec,
-            CursorVis::Hide,
-        )
+        .pretty_print(&mut window.pane().unwrap(), options)
         .unwrap();
     assert_strings_eq(&window.to_string(), "i");
 }
@@ -146,16 +155,15 @@ fn test_pretty_print_small_screen_middle() {
 fn test_pretty_print_small_screen_bottom() {
     let doc = make_json_doc();
     // Go past the bottom right corner of the document
-    let doc_pos_spec = DocPosSpec::Fixed(Pos { row: 27, col: 63 });
     let mut window = PlainText::new(Pos { row: 4, col: 13 });
+    let options = RenderOptions {
+        scroll_strategy: ScrollStrategy::Fixed(Pos { row: 27, col: 63 }),
+        cursor_visibility: CursorVisibility::Hide,
+        width_strategy: WidthStrategy::Fixed(74),
+    };
 
     doc.as_ref()
-        .pretty_print(
-            74,
-            &mut window.pane().unwrap(),
-            doc_pos_spec,
-            CursorVis::Hide,
-        )
+        .pretty_print(&mut window.pane().unwrap(), options)
         .unwrap();
     assert_strings_eq(&window.to_string(), "longer\"]]]]");
 }
@@ -163,15 +171,15 @@ fn test_pretty_print_small_screen_bottom() {
 #[test]
 fn test_lay_out_json_80() {
     let doc = make_json_doc();
-    let doc_pos_spec = DocPosSpec::Fixed(Pos::zero());
     let mut window = PlainText::new_infinite_scroll(80);
+    let options = RenderOptions {
+        scroll_strategy: ScrollStrategy::Beginning,
+        cursor_visibility: CursorVisibility::Hide,
+        width_strategy: WidthStrategy::Fixed(80),
+    };
+
     doc.as_ref()
-        .pretty_print(
-            80,
-            &mut window.pane().unwrap(),
-            doc_pos_spec,
-            CursorVis::Hide,
-        )
+        .pretty_print(&mut window.pane().unwrap(), options)
         .unwrap();
 
     assert_strings_eq(
@@ -212,16 +220,15 @@ fn test_lay_out_json_80() {
 fn test_string() {
     let notations = make_json_notation();
     let doc = Doc::new_leaf(notations["string"].clone(), "foobar");
-
-    let doc_pos_spec = DocPosSpec::Fixed(Pos::zero());
     let mut window = PlainText::new_infinite_scroll(30);
+    let options = RenderOptions {
+        scroll_strategy: ScrollStrategy::Beginning,
+        cursor_visibility: CursorVisibility::Hide,
+        width_strategy: WidthStrategy::Fixed(30),
+    };
+
     doc.as_ref()
-        .pretty_print(
-            30,
-            &mut window.pane().unwrap(),
-            doc_pos_spec,
-            CursorVis::Hide,
-        )
+        .pretty_print(&mut window.pane().unwrap(), options)
         .unwrap();
 
     assert_strings_eq(&window.to_string(), "\"foobar\"");
@@ -251,16 +258,15 @@ fn test_string_in_list() {
     let notations = make_json_notation();
     let s = Doc::new_leaf(notations["string"].clone(), "foobar");
     let doc = Doc::new_branch(notations["list"].clone(), vec![s]);
-
-    let doc_pos_spec = DocPosSpec::Fixed(Pos::zero());
     let mut window = PlainText::new_infinite_scroll(30);
+    let options = RenderOptions {
+        scroll_strategy: ScrollStrategy::Beginning,
+        cursor_visibility: CursorVisibility::Hide,
+        width_strategy: WidthStrategy::Fixed(30),
+    };
+
     doc.as_ref()
-        .pretty_print(
-            30,
-            &mut window.pane().unwrap(),
-            doc_pos_spec,
-            CursorVis::Hide,
-        )
+        .pretty_print(&mut window.pane().unwrap(), options)
         .unwrap();
 
     assert_strings_eq(&window.to_string(), "[\"foobar\"]");
@@ -306,15 +312,15 @@ fn test_dict_in_list() {
     let dict = Doc::new_branch(notations["dict"].clone(), vec![boolean]);
     let doc = Doc::new_branch(notations["list"].clone(), vec![dict]);
 
-    let doc_pos_spec = DocPosSpec::Fixed(Pos::zero());
     let mut window = PlainText::new_infinite_scroll(30);
+    let options = RenderOptions {
+        scroll_strategy: ScrollStrategy::Beginning,
+        cursor_visibility: CursorVisibility::Hide,
+        width_strategy: WidthStrategy::Fixed(30),
+    };
+
     doc.as_ref()
-        .pretty_print(
-            30,
-            &mut window.pane().unwrap(),
-            doc_pos_spec,
-            CursorVis::Hide,
-        )
+        .pretty_print(&mut window.pane().unwrap(), options)
         .unwrap();
 
     assert_strings_eq(&window.to_string(), "[{true}]");
@@ -430,15 +436,15 @@ fn test_dict_in_list_cursor() {
 #[test]
 fn test_lay_out_json_30() {
     let doc = make_json_doc();
-    let doc_pos_spec = DocPosSpec::Fixed(Pos::zero());
     let mut window = PlainText::new_infinite_scroll(30);
+    let options = RenderOptions {
+        scroll_strategy: ScrollStrategy::Beginning,
+        cursor_visibility: CursorVisibility::Hide,
+        width_strategy: WidthStrategy::Fixed(30),
+    };
+
     doc.as_ref()
-        .pretty_print(
-            30,
-            &mut window.pane().unwrap(),
-            doc_pos_spec,
-            CursorVis::Hide,
-        )
+        .pretty_print(&mut window.pane().unwrap(), options)
         .unwrap();
 
     assert_strings_eq(
@@ -494,15 +500,15 @@ fn test_lay_out_json_28() {
     // The doc won't fit in 28 characters
     // Eventually the strings should wrap, and it should stop panicking.
     let doc = make_json_doc();
-    let doc_pos_spec = DocPosSpec::Fixed(Pos::zero());
     let mut window = PlainText::new_infinite_scroll(28);
+    let options = RenderOptions {
+        scroll_strategy: ScrollStrategy::Beginning,
+        cursor_visibility: CursorVisibility::Hide,
+        width_strategy: WidthStrategy::Fixed(28),
+    };
+
     doc.as_ref()
-        .pretty_print(
-            28,
-            &mut window.pane().unwrap(),
-            doc_pos_spec,
-            CursorVis::Hide,
-        )
+        .pretty_print(&mut window.pane().unwrap(), options)
         .unwrap();
 }
 
@@ -515,8 +521,11 @@ fn test_pane_content() {
 
     let pane_note = PaneNotation::Doc {
         label: DocLabel::ActiveDoc,
-        cursor_visibility: CursorVis::Hide,
-        scroll_strategy: DocPosSpec::Beginning,
+        render_options: RenderOptions {
+            cursor_visibility: CursorVisibility::Hide,
+            scroll_strategy: ScrollStrategy::Beginning,
+            width_strategy: WidthStrategy::Full,
+        },
     };
     let mut pane = window.pane().unwrap();
     pane.render(&pane_note, |_: &DocLabel| Some(doc.as_ref()))
@@ -534,13 +543,19 @@ fn test_pane_horz() {
 
     let content1 = PaneNotation::Doc {
         label: DocLabel::ActiveDoc,
-        cursor_visibility: CursorVis::Hide,
-        scroll_strategy: DocPosSpec::Beginning,
+        render_options: RenderOptions {
+            cursor_visibility: CursorVisibility::Hide,
+            scroll_strategy: ScrollStrategy::Beginning,
+            width_strategy: WidthStrategy::Full,
+        },
     };
     let content2 = PaneNotation::Doc {
         label: DocLabel::KeyHints,
-        cursor_visibility: CursorVis::Hide,
-        scroll_strategy: DocPosSpec::Beginning,
+        render_options: RenderOptions {
+            cursor_visibility: CursorVisibility::Hide,
+            scroll_strategy: ScrollStrategy::Beginning,
+            width_strategy: WidthStrategy::Full,
+        },
     };
 
     let pane_note = PaneNotation::Horz {
@@ -554,7 +569,6 @@ fn test_pane_horz() {
     pane.render(&pane_note, |label: &DocLabel| match label {
         DocLabel::ActiveDoc => Some(doc1.as_ref()),
         DocLabel::KeyHints => Some(doc2.as_ref()),
-        _ => None,
     })
     .unwrap();
     assert_strings_eq(&window.to_string(), "true false");
@@ -570,13 +584,19 @@ fn test_pane_vert() {
 
     let content1 = PaneNotation::Doc {
         label: DocLabel::ActiveDoc,
-        cursor_visibility: CursorVis::Hide,
-        scroll_strategy: DocPosSpec::Beginning,
+        render_options: RenderOptions {
+            cursor_visibility: CursorVisibility::Hide,
+            scroll_strategy: ScrollStrategy::Beginning,
+            width_strategy: WidthStrategy::Full,
+        },
     };
     let content2 = PaneNotation::Doc {
         label: DocLabel::KeyHints,
-        cursor_visibility: CursorVis::Hide,
-        scroll_strategy: DocPosSpec::Beginning,
+        render_options: RenderOptions {
+            cursor_visibility: CursorVisibility::Hide,
+            scroll_strategy: ScrollStrategy::Beginning,
+            width_strategy: WidthStrategy::Full,
+        },
     };
 
     let top_row_note = PaneNotation::Horz {
@@ -604,7 +624,6 @@ fn test_pane_vert() {
     pane.render(&pane_note, |label: &DocLabel| match label {
         DocLabel::ActiveDoc => Some(doc1.as_ref()),
         DocLabel::KeyHints => Some(doc2.as_ref()),
-        _ => None,
     })
     .unwrap();
     assert_strings_eq(&window.to_string(), "truefalse\ntrue false");
@@ -619,8 +638,11 @@ fn test_pane_fill() {
 
     let content1 = PaneNotation::Doc {
         label: DocLabel::ActiveDoc,
-        cursor_visibility: CursorVis::Hide,
-        scroll_strategy: DocPosSpec::Beginning,
+        render_options: RenderOptions {
+            cursor_visibility: CursorVisibility::Hide,
+            scroll_strategy: ScrollStrategy::Beginning,
+            width_strategy: WidthStrategy::Full,
+        },
     };
 
     let fill = PaneNotation::Fill {
@@ -645,8 +667,11 @@ fn assert_proportional(expected: &str, width: Col, hungers: (usize, usize, usize
 
     let content1 = PaneNotation::Doc {
         label: DocLabel::ActiveDoc,
-        cursor_visibility: CursorVis::Hide,
-        scroll_strategy: DocPosSpec::Beginning,
+        render_options: RenderOptions {
+            cursor_visibility: CursorVisibility::Hide,
+            scroll_strategy: ScrollStrategy::Beginning,
+            width_strategy: WidthStrategy::Full,
+        },
     };
 
     let fill1 = PaneNotation::Fill {
@@ -698,8 +723,11 @@ fn test_pane_dyn_height() {
 
     let content1 = PaneNotation::Doc {
         label: DocLabel::ActiveDoc,
-        cursor_visibility: CursorVis::Hide,
-        scroll_strategy: DocPosSpec::Beginning,
+        render_options: RenderOptions {
+            cursor_visibility: CursorVisibility::Hide,
+            scroll_strategy: ScrollStrategy::Beginning,
+            width_strategy: WidthStrategy::Full,
+        },
     };
 
     let fill = PaneNotation::Fill {
@@ -739,8 +767,11 @@ fn test_print_outside() {
 
     let content1 = PaneNotation::Doc {
         label: DocLabel::ActiveDoc,
-        cursor_visibility: CursorVis::Hide,
-        scroll_strategy: DocPosSpec::Beginning,
+        render_options: RenderOptions {
+            cursor_visibility: CursorVisibility::Hide,
+            scroll_strategy: ScrollStrategy::Beginning,
+            width_strategy: WidthStrategy::Full,
+        },
     };
     let content2 = PaneNotation::Fill {
         ch: '-',

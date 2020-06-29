@@ -9,7 +9,6 @@
 // TODO!
 #![allow(dead_code)]
 #![feature(box_patterns)]
-#![feature(slice_patterns)]
 #![feature(step_trait)]
 
 mod geometry;
@@ -22,6 +21,9 @@ mod style;
 
 pub use self::geometry::{Bound, Col, Pos, Rect, Region, Row, MAX_WIDTH};
 pub use self::notation::{Notation, RepeatInner};
-pub use self::pane::{CursorVis, DocLabel, Pane, PaneError, PaneNotation, PaneSize};
-pub use self::pretty::{Bounds, DocPosSpec, PlainText, PrettyDocument, PrettyWindow};
+pub use self::pane::{Pane, PaneError, PaneNotation, PaneSize};
+pub use self::pretty::{
+    Bounds, CursorVisibility, PlainText, PrettyDocument, PrettyWindow, RenderOptions,
+    ScrollStrategy, WidthStrategy,
+};
 pub use self::style::{Color, ColorTheme, Emph, Rgb, Shade, ShadedStyle, Style};

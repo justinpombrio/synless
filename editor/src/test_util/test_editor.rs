@@ -1,6 +1,9 @@
 use crate::{Ast, AstForest, AstRef, Clipboard, Doc, DocError, MetaCommand, NotationSet};
 use language::{ConstructName, Language, LanguageName, LanguageSet};
-use pretty::{Col, CursorVis, DocPosSpec, PlainText, Pos, PrettyDocument, PrettyWindow, Row};
+use pretty::{
+    Col, CursorVisibility, PlainText, Pos, PrettyDocument, PrettyWindow, RenderOptions, Row,
+    ScrollStrategy, WidthStrategy,
+};
 
 /// A simple wrapper around a Doc that makes it more convenient to write tests
 /// that execute commands to edit the document and check if the document
@@ -59,25 +62,26 @@ impl<'l> TestEditor<'l> {
     /// Render the Doc as a string, and assert that it's equal to the `expected`
     /// string. Use a default width and doc position for rendering.
     pub fn assert_render(&self, expected: &str) {
-        self.assert_render_with(expected, 80, DocPosSpec::Fixed(Pos::zero()))
+        self.assert_render_with(expected, 80, ScrollStrategy::Fixed(Pos::zero()))
     }
 
     /// Render the Doc as a string, and assert that it's equal to the `expected`
     /// string. Use the given width and doc position for rendering.
-    pub fn assert_render_with(&self, expected: &str, width: Col, doc_pos_spec: DocPosSpec) {
+    pub fn assert_render_with(&self, expected: &str, width: Col, scroll_strategy: ScrollStrategy) {
         let mut window = PlainText::new(Pos {
             col: width,
             row: Row::max_value() / 2,
         });
 
+        let options = RenderOptions {
+            scroll_strategy,
+            width_strategy: WidthStrategy::Fixed(width),
+            cursor_visibility: CursorVisibility::Hide,
+        };
+
         self.doc
             .ast_ref()
-            .pretty_print(
-                width,
-                &mut window.pane().unwrap(),
-                doc_pos_spec,
-                CursorVis::Hide,
-            )
+            .pretty_print(&mut window.pane().unwrap(), options)
             .unwrap();
         assert_eq!(window.to_string(), expected)
     }

@@ -4,9 +4,9 @@ use editor::{
 };
 use frontends::{Event, Frontend, Key, Terminal};
 use language::LanguageSet;
-use pretty::{ColorTheme, DocLabel};
+use pretty::ColorTheme;
 
-use crate::engine::Engine;
+use crate::engine::{DocLabel, Engine};
 use crate::error::ServerError;
 use crate::keymaps::{AvailableKeys, FilterContext, KeymapManager};
 use crate::prog::{CallStack, DataStack, Value, Word};
