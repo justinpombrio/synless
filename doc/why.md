@@ -56,23 +56,35 @@ statement, but it cannot select the `i` or the `f`. There is no such position.
 
 Considering all of the advantages of text, why might a tree editor still be superior?
 
-### Easier Features and Plugins
+### Higher-Level Editing Commands
 
-When an editor represents documents as text, features such as syntax highlighting, automatic
-indentation, and code completion become a pain to implement. They invariably rely on the structure
-of the code, but all that's available is the text. Typically, they'll be hacked together with
-regexes. This, however, can [quickly get out of
-hand](https://github.com/jrockway/cperl-mode/blob/master/cperl-mode.el#L8230).  And you should
-always remember that [regexps aren't
-parsers](https://stackoverflow.com/questions/1732348/regex-match-open-tags-except-xhtml-self-contained-tags#1732454).
+In Synless, if you want to delete an element in a list, you move your cursor to the element and hit
+"x". This works because Synless knows the structure of your program: it knows you're cursor is on an
+element of a list.
 
-There are of course better approaches than regexes, and editor modes and plugins go to admirable
-lengths to make things work. But they can only go so far because their job is literally impossible:
-what are you supposed to do with a document with an odd number of quotation marks (`"`) in it?
+In Vim, what you must do depends on a few factors:
 
-In a tree editor, by contrast, all of these features become easy, as tools are given the code as a
-tree to start with. And there's no such thing as code with an odd number of quotation marks: the
-tree doesn't even contain quotation marks, it contains string literals.
+- If the element is short you type "d2w", meaning "delete two words", to delete the element and the
+  following comma.
+- Unless, that is, it's the _last_ element of the list. In that case, you have to type "bd2w".
+  "d2w" wouldn't do at all: it would delete the close brakcet "]"!
+- On the other hand, if the element is _long_, you need to manually select it to delete it. If it's
+  all on one line and doesn't contain any nested commas (it probably doesn't), you can use "df,x"
+  meaning "delete until the next comma, then delete the extra space".
+- Finally, if it's long but not all on one line, you type "v" (to begin selecting), then navigate to
+  its end, then "d" to delete.
+
+Whenever you want to delete a list element, you need to figure out which of these four situations
+you're in! These four cases are treated differently because to Vim, your program is a set of words
+and matched brackets. (I'm not picking on Vim here. I'm using Vim as an example because it is such a
+good text editor.)
+
+**A Question for you, the Audience:**
+I *suspect* that tree editing is more efficient than text editing. That is, a Vim-like structure
+editor would require fewer key strokes than Vim, when performing common edits. But I can't test this
+hypothesis without data, and I can't gather data without a representative sample set of program
+edits as a benchmark.  Do you know of any such set?  If you do, would you be so kind as to open a
+github issue for it?
 
 ### No Weird Encoding Details
 
@@ -82,7 +94,7 @@ For example, single quoted strings can contain double quotes, and vice-versa. Fu
 triple-quoted strings can contain newlines, but single- and double-quoted strings cannot. If you
 want one of these forbidden characters, you have to "escape" it by preceding it with a backslash.
 
-Synless makes all of this irrelevant. String literals can contain quote marks and newlines. Why
+Synless will make all of this irrelevant. String literals can contain quote marks and newlines. Why
 shouldn't they be able to?
 
 (If you think I'm making a mountain out of a molehill, I'll point out that Swift went even further
@@ -90,32 +102,40 @@ than this by adding _custom_ string delimiters, and was proud enough to write a 
 post](https://ericasadun.com/2018/12/26/swift-5-gives-us-nice-things-custom-string-delimiters/)
 about them.)
 
-### More Efficient Editing
+### Easier Features and Plugins
 
-I predict that Synless will be more efficient than a text editor for most common edits. That is,
-most of the time if you want to write code or edit code, you will need fewer keystrokes in Synless
-than you would in, say, Vim. For writing code, this shouldn't be surprising: compare typing out
-"`function(){}`" in a text editor to "`if`" for "insert function" in Synless. For editing, it's less
-obvious that a tree editor would be more efficient, because it's potentially possible that the most
-efficient way to make an edit involves going through a syntactically invalid intermediate state,
-which Synless obviously can't do. So part of my prediction is that this isn't often the case.
+When an editor represents documents as text, features such as syntax highlighting, automatic
+indentation, and code completion become a pain to implement. They invariably rely on the structure
+of the code, but all that's available is the text. Often, they're hacked together with
+regexes. This, however, can [quickly get out of
+hand](https://github.com/jrockway/cperl-mode/blob/master/cperl-mode.el#L8230).  And you should
+always remember that [regexps aren't
+parsers](https://stackoverflow.com/questions/1732348/regex-match-open-tags-except-xhtml-self-contained-tags#1732454).
 
-**A Question for the Audience (yes, that's you):** I'd like to test this, rather than just claiming
-it without evidence. Do you know anywhere I could get a set of program edits as a benchmark? If you
-do, would you be so kind as to open a github issue for it?
+There are of course better approaches than regexes, and editor modes and plugins go to admirable
+lengths to make things work. But they will always face an uphill battle because their job is
+_technically_ impossible: what are they supposed to do with a document with an odd number of
+quotation marks (`"`) in it?
 
-<!-- ### Config Files
+In a tree editor, by contrast, all of these features become easy, as tools are given the code as a
+tree to start with. And there's no such thing as code with an odd number of quotation marks: the
+tree doesn't even contain quotation marks, it contains string literals.
 
-One way I expect Synless to be helpful is for defining and editing of specialized configuration
-files. One of the advantages of a tree editor is that you can't make syntax mistakes: there's
-literally no way to enter invalid syntax. Most of the time you're working in a language you're
-familiar with, and I'm sure you'd never forget a semicolon. I certainly never do (**cough**). But
-configuration files by nature all have their own specialized syntax, and it's annoying to have to
-look up what you can write and how you must write it. Synless would make the syntax discoverable.
--->
+### Structured Documents
 
+Developers, as a species, design an endless stream of bespoke varieties of files. Think `.gitignore`
+files, or one of a company's obscure config files. If you tell Synless how to parse these documents,
+it will give you not only syntax highlighting for free, but an editing interface that can never
+create an invalid document. For an obscure, bespoke format, this is a pretty big deal. You won't
+have to look up the obscure syntax you need; the editor will list the possibilities. This is more
+up-front work than required for (say) syntax highlighting in a text editor, but with a bigger
+payoff.
 
-## Beyond Syntax
+And if you surrender the need to have a textual syntax, you can avoid writing a parser entirely. You
+tell Synless how the documents are structured, and how to print them to the screen, and you get an
+editing interface customized to that language.
+
+### Beyond Syntax
 
 I've seen far too many programming discussions get stuck on syntax.  It's visible and very easy to
 [bikeshed](https://en.wikipedia.org/wiki/Law_of_triviality). This isn't just an issue for novice

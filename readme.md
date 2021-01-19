@@ -11,16 +11,16 @@
 Synless is a hypothetical tree editor. It hopes to one day grow up to
 be a real tree editor. It aims to:
 
-- Make features and plugins much easier to write, by always knowing
-  the exact structure of the document. (It can do this because it
-  never has to try in vain to parse an incomplete and syntactically
+- Provide better editing commands, that act directly on the structure of the program, rather than on
+  its textual representation.
+- Eliminate the need for weird encoding details like escape sequences (I'm looking at you, quadruple
+  backslashes).
+- Make features and plugins much easier to write, by always knowing the exact structure of the
+  document. (It can do this because it never has to try to parse an incomplete and syntactically
   invalid program.)
-- End formatting wars by delegating formatting choices to the same
-  status as style files.
-- Make it easy to design new structured document formats, and to
-  provide an editor for them that can never create an invalid document.
-- Eliminate the need for weird encoding details like escape sequences
-  (I'm looking at you, quadruple backslashes).
+- Make it easy to design new structured document formats, and to provide an editor for them that can
+  never create an invalid document.
+- End formatting wars by delegating formatting choices to the same status as style files.
 
 Synless is not:
 
