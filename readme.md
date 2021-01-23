@@ -34,6 +34,8 @@ To learn more:
 
 [Why Synless? And why "Synless"?](doc/why.md)
 
+[Synless Walkthrough](doc/walkthrough.md)
+
 [The Synless Documentation (to come)](doc/readme.md)
 
 [The Synless Design Documentation](doc/design.md) (for developers)
