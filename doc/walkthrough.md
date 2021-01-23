@@ -29,7 +29,7 @@ Synless needs a bunch of information about each kind of node:
 
 - What to call it in help text
 - A one-letter shortcut key for editing
-- The type of the node (called its _sort_)
+- Where the node is allowed to appear (called its _sort_)
 - What children it has
 - How to display it
 
@@ -64,10 +64,10 @@ Let's go through the pieces.
 "insert new node", and expects to be followed by one of these keys. So we're saying that `i` then
 `f` should insert a new function.
 
-**Sort** says what type of node this is. For example, it distinguishes between Expressions and
-Statements.
+**Sort** says where this kind of node is allowed to appear. For example, it distinguishes between
+Expressions and Statements.
 
-**Children** lists the node's children. A function node has three children: the name of the
+**Children** lists the node's children. A function has three children: the name of the
 function, its parameters, and its body. Each of the children has a _sort_ listed after the ':'.
 This matches the `sort` field we just saw, and one node is allowed to be the child of another when
 these two sorts agree.
@@ -77,11 +77,11 @@ can also have type parameters, and a visibility modifier, and other things as we
 them for expediency.)
 
 **Notation** says how to display this node to the screen. In this case, there are three possible
-layouts, depending on whether you need a newline before `$body`, and whether you need a newline
-before `$params`.
+layouts (separated by `|`s) depending on whether you need a newline before `$body`, and whether
+you need a newline before `$params`.
 
 Synless tries to keep the lines shorter than your preferred width (famously 80 characters, but of
-course it's customizable). It will try each of these three layouts in order, and pick the first
+course it's customizable). It will try each of the three layouts in order, and pick the first
 layout whose _first line_ fits in the width.
 
 It would be better for Synless to pick the first layout such that _all_ of its lines fit in the
@@ -110,8 +110,8 @@ An identifier doesn't really have children; it just contains text. Nodes like th
 _texty_. In this declaration, a texty node says `text` for its children, and gives a Regex that the
 text must obey.
 
-And its notation can use $text to refer to its text contents. Identifiers should be displayed as-is,
-with no additional trappings, to `$text` is the entire notation.
+Its notation can then use `$text` to refer to its text contents. Identifiers should be displayed as-is,
+with no additional trappings, so `$text` is the entire notation.
 
 ### Block Nodes
 
@@ -135,21 +135,21 @@ The body of a function is a list of statements separated by semicolons. This is 
 This node has yet another kind of children: it contains a list of zero or more nodes of sort
 Statement. Nodes like this are called _listy_. So altogether, there are three kinds of nodes:
 
-- **Fixed**, when there are a fixed number of children, all of (potentially) different sorts.
+- **Fixed**, when there are a fixed number of children, that have (potentially) different sorts.
 - **Listy**, when there is a list of children, all of the same sort.
-- **Texty**, where the node consists of text.
+- **Texty**, where the node just contains text.
 
 How a listy node should be displayed depends on how many elements it has, and its notation reflects
 that. Here, we're saying that:
 
-- if there are no statements, don't print anything;
-- if there is exactly one statement, print it; and
-- if there are two or more statements, separate them by semicolons and newlines.
+- `zero`: if there are no statements, don't print anything;
+- `one`: if there is exactly one statement, print it; and
+- `many`: if there are two or more statements, separate them by semicolons and newlines.
 
 ### String, Macro, and Args Nodes
 
-Those nodes have introduced all the concepts. If you're curious, here are the rest of the node types
-we'll need to write "hello world" (and if not, you can skip this section):
+Those nodes have introduced all the important concepts. If you're curious, here are the rest of the
+node types we'll need to write "hello world". And if you're not curious, you can skip this section.
 
     node string {
         name: "string constant"
@@ -203,8 +203,8 @@ The program starts as a simple empty hole:
 
     ?
 
-_Insert a function with `if`._ `i` for "inert", and `f` for "function" because we declared function
-nodes to have `key: f`.
+_Insert a function with `if`._ `i` for "insert", and `f` for "function" because we declared function
+nodes to have `key: f` above.
 
     fn ?() {}
 
@@ -218,11 +218,13 @@ _Name the function by typing `main [Enter]`._ Enter means "finish text".
     fn main() {}
 
 _Insert a statement into the function body with `jjo`._ `j` means "go to right sibling", and `o`
-means "insert a hole into the list". The cursor is on the new hole.
+means "insert a hole into the list". 
 
     fn main() {
         ?
     }
+
+The cursor is now on the new hole.
 
 _Insert a macro call with `im`._
 
@@ -250,9 +252,9 @@ _Insert a string literal with `is [Enter] Hello world! [Enter]`._
 
 There's the program!
 
-It took 38 key strokes, which is pretty much the same as typing it out in a text editor.  (The
-program text is 40 characters total; you might be able to enter it with fewer key strokes depending
-on the text editor.)
+It took 38 key strokes, which is about the same as typing it out in a text editor.  (The program
+text is 40 characters total; you might be able to enter it with fewer key strokes depending on the
+text editor.)
 
 ## Searching
 
@@ -262,8 +264,7 @@ You might expect that if a string of characters appears on the screen (or _would
 screen if you scrolled to a different part of the program), then you could search for this string
 and find it. But that's not how search works! There are two reasons it doesn't work like this:
 
-- Synless literally does not store the text of the whole document. (And we worry that doing so would
-  destroy its performance.)
+- Synless does not store the text of the whole document.
 - While Synless won't have screen reader support any time soon, it will one day. And on that day,
   the navigation and editing commands with a screen reader will be exactly the same as those
   without. Since the way a document is _rendered_ may be quite different with a screen reader, the
@@ -285,14 +286,15 @@ Instead of containing text, it contains a _text search_. There are a few differe
 you can put here, depending on whether you want to search for a perfect match, or for a substring,
 or search by regex.
 
-_Type `is` to insert a substring search._ (The letter than comes after `i` is context sensitive.
-Previously `s` meant "Rust string literal". Now it means "substring search".)
+_Type `is` to insert a substring search._ Previously `s` meant "Rust string literal". Now it means
+"substring search". This happened because the letter that comes after `i` is context sensitive: it
+depends on the _sort_ of the hole you are replacing.
 
-    "[substring]?"
+    "[substr]?"
 
 _Type `l [Enter] Hello [Enter]` to fill in the substring to search for._
 
-    "[substring]Hello"
+    "[substr]Hello"
 
 _Type `/` to actually do the search._
 
