@@ -20,7 +20,8 @@ Undo               u - undo
                  C-r - redo
 Search             / - search
                 n, N - next, prev
-                 f _ - goto next node
+                 f _ - go to next node of type _
+                 F _ - go to prev node of type _
 Text             Ent - append text
                S-Ent - prepend text
                    t - replace text
@@ -34,6 +35,11 @@ Remaining letters: b
 
     [ 1 , >[ 2 ]< , 3 ]
      I  i   O o   a  A
+
+------------
+
+Michael Sloan says: "I bet some users like me would get by with *only* using next hole / prev hole +
+[avy jumps](https://www.youtube.com/watch?v=UZkpmegySnc&feature=emb_logo)".
 
 ------------
 
