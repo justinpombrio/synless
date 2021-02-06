@@ -1,6 +1,3 @@
-use slab::Slab;
-use std::ops::{Index, IndexMut};
-use std::sync::atomic::{AtomicUsize, Ordering};
 use uuid::Uuid;
 
 use self::NodeContents::*;
@@ -91,16 +88,6 @@ impl<D, L> Node<D, L> {
         match &mut self.contents {
             Leaf(_) => panic!("Forest - leaf node has no children!"),
             Branch(_, children) => children,
-        }
-    }
-
-    pub fn child(&self, index: usize) -> Key {
-        match &self.contents {
-            Leaf(_) => panic!("Forest - leaf node has no children!"),
-            Branch(_, children) => match children.get(index) {
-                Some(child) => *child,
-                None => panic!("Forest - child index out of bounds. index={}", index),
-            },
         }
     }
 }

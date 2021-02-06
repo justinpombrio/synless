@@ -1,28 +1,10 @@
-use std::cell::{Ref, RefCell, RefMut};
+use super::node::{Bookmark, Key};
+use super::node_slab::NodeSlab;
+use super::tree_ref::TreeRef;
+use std::cell::RefCell;
 use std::mem;
-use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 use std::thread;
-
-use crate::forest::{Id, RawForest};
-use utility::expect;
-
-/// All [Trees](Tree) belong to a Forest.
-///
-/// It is your responsibility to ensure that Trees are kept with the
-/// Forest they came from. The methods on Trees will panic if you use
-/// them on a different Forest.
-pub struct Forest<D, L> {
-    pub(super) lock: Rc<RefCell<RawForest<D, L>>>,
-}
-
-impl<D, L> Clone for Forest<D, L> {
-    fn clone(&self) -> Forest<D, L> {
-        Forest {
-            lock: self.lock.clone(),
-        }
-    }
-}
 
 /// A mutable reference to a node in a tree, that owns the tree.
 ///
@@ -40,119 +22,69 @@ impl<D, L> Clone for Forest<D, L> {
 /// being mutated, or when some of its data is mutably borrowed (e.g. with
 /// `leaf_mut()`), _no other tree in the forest can be accessed_.
 pub struct Tree<D, L> {
-    pub(super) forest: Forest<D, L>,
-    pub(super) root: Id, // INVARIANT: This root remains valid despite edits
-    pub(super) id: Id,   // TODO: Rename to loc or current
-}
-
-impl<D, L> Clone for Tree<D, L>
-where
-    D: Clone,
-    L: Clone,
-{
-    fn clone(&self) -> Tree<D, L> {
-        let new_id = self.raw_forest_mut().clone_tree(self.id);
-        Tree::new(&self.forest, new_id)
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct Bookmark {
-    pub(super) id: Id,
-}
-
-impl<D, L> Forest<D, L> {
-    /// Construct a new forest.
-    pub fn new() -> Forest<D, L> {
-        Forest {
-            lock: Rc::new(RefCell::new(RawForest::new())),
-        }
-    }
-
-    /// Construct a new leaf.
-    pub fn new_leaf(&self, leaf: L) -> Tree<D, L> {
-        let leaf_id = self.write_lock().create_leaf(leaf);
-        Tree::new(self, leaf_id)
-    }
-
-    /// Construct a new branch.
-    pub fn new_branch(&self, data: D, children: Vec<Tree<D, L>>) -> Tree<D, L> {
-        let child_ids = children
-            .into_iter()
-            .map(|tree| {
-                let id = tree.id;
-                mem::forget(tree);
-                id
-            })
-            .collect();
-        let branch_id = self.write_lock().create_branch(data, child_ids);
-        Tree::new(self, branch_id)
-    }
-
-    pub(super) fn write_lock(&self) -> RefMut<RawForest<D, L>> {
-        expect!(
-            self.lock.try_borrow_mut(),
-            "Failed to obtain write lock for forest."
-        )
-    }
-
-    pub(super) fn read_lock(&self) -> Ref<RawForest<D, L>> {
-        expect!(
-            self.lock.try_borrow(),
-            "Failed to obtain read lock for forest."
-        )
-    }
-}
-
-impl<D, L> Default for Forest<D, L> {
-    fn default() -> Self {
-        Self::new()
-    }
+    slab: Rc<RefCell<NodeSlab<D, L>>>,
+    pub(super) key: Key,
 }
 
 impl<D, L> Tree<D, L> {
+    pub(super) fn new(slab: &Rc<RefCell<NodeSlab<D, L>>>, key: Key) -> Tree<D, L> {
+        Tree {
+            slab: slab.clone(),
+            key,
+        }
+    }
+
+    /// Obtain an _immutable_ reference to this Tree.
+    ///
+    /// An Operation on the borrowed tree will **panic** if it happens
+    /// concurrently with a mutable operation on any other tree in the forest.
+    pub fn borrow(&self) -> TreeRef<D, L> {
+        TreeRef {
+            slab: &self.slab,
+            key: self.key,
+        }
+    }
+
     /// Returns `true` if this is a leaf node, and `false` if this is
     /// a branch node.
     pub fn is_leaf(&self) -> bool {
-        self.raw_forest().is_leaf(self.id)
+        self.slab.borrow_mut()[self.key].is_leaf()
     }
 
-    /// Obtain a shared reference to the data value at this node.
+    /// Calls the closure, giving it read access to the data value at this node.
     ///
     /// # Panics
     ///
     /// Panics if this is not a branch node. (Leaves do not have data.)
-    pub fn data(&self) -> ReadData<D, L> {
-        ReadData {
-            guard: self.raw_forest(),
-            id: self.id,
-        }
+    pub fn with_data<R>(&self, func: impl FnOnce(&D) -> R) -> R {
+        func(&self.slab.borrow()[self.key].data())
     }
 
-    /// Calls the closure, giving it read-access to this leaf node.
+    /// Calls the closure, giving it write access to the data value at this node.
+    ///
+    /// # Panics
+    ///
+    /// Panics if this is not a branch node. (Leaves do not have data.)
+    pub fn with_data_mut<R>(&mut self, func: impl FnOnce(&mut D) -> R) -> R {
+        func(self.slab.borrow_mut()[self.key].data_mut())
+    }
+
+    /// Calls the closure, giving it read access to this leaf node.
     ///
     /// # Panics
     ///
     /// Panics if this is a branch node.
-    pub fn leaf<F, T>(&self, f: F) -> T
-    where
-        F: FnOnce(&L) -> T,
-    {
-        f(self.raw_forest().leaf(self.id))
+    pub fn with_leaf<R>(&self, func: impl FnOnce(&L) -> R) -> R {
+        func(&self.slab.borrow()[self.key].leaf())
     }
 
-    /// Calls the closure, giving it read-access to the leaf value which is the sole child of this node.
+    /// Calls the closure, giving it write access to this leaf node.
     ///
     /// # Panics
     ///
-    /// Panics if this is not a branch node with one leaf child.
-    pub fn child_leaf<F, T>(&self, f: F) -> T
-    where
-        F: FnOnce(&L) -> T,
-    {
-        assert_eq!(self.num_children(), 1);
-        let child_id = self.raw_forest().child(self.id, 0);
-        f(self.raw_forest().leaf(child_id))
+    /// Panics if this is a branch node.
+    pub fn with_leaf_mut<R>(&mut self, func: impl FnOnce(&mut L) -> R) -> R {
+        func(&mut self.slab.borrow_mut()[self.key].leaf_mut())
     }
 
     /// Returns the number of children this node has.
@@ -161,45 +93,7 @@ impl<D, L> Tree<D, L> {
     ///
     /// Panics if this is a leaf node.
     pub fn num_children(&self) -> usize {
-        self.raw_forest().children(self.id).count()
-    }
-
-    /// Obtain a mutable reference to the data value at this node.
-    ///
-    /// # Panics
-    ///
-    /// Panics if this is not a branch node. (Leaves do not have data.)
-    pub fn data_mut(&mut self) -> WriteData<D, L> {
-        WriteData {
-            guard: self.raw_forest_mut(),
-            id: self.id,
-        }
-    }
-
-    /// Calls the closure, giving it write-access to this leaf node.
-    ///
-    /// # Panics
-    ///
-    /// Panics if this is a branch node.
-    pub fn leaf_mut<F, T>(&mut self, f: F) -> T
-    where
-        F: FnOnce(&mut L) -> T,
-    {
-        f(self.raw_forest_mut().leaf_mut(self.id))
-    }
-
-    /// Calls the closure, giving it read-access to the leaf value which is the sole child of this node.
-    ///
-    /// # Panics
-    ///
-    /// Panics if this is not a branch node with one leaf child.
-    pub fn child_leaf_mut<F, T>(&mut self, f: F) -> T
-    where
-        F: FnOnce(&mut L) -> T,
-    {
-        assert_eq!(self.num_children(), 1);
-        let child_id = self.raw_forest().child(self.id, 0);
-        f(self.raw_forest_mut().leaf_mut(child_id))
+        self.slab.borrow()[self.key].children().len()
     }
 
     /// Replace the `i`th child of this node with `tree`.
@@ -208,10 +102,21 @@ impl<D, L> Tree<D, L> {
     /// # Panics
     ///
     /// Panics if this is a leaf node, or if `i` is out of bounds.
-    pub fn replace_child(&mut self, i: usize, tree: Tree<D, L>) -> Tree<D, L> {
-        let old_tree_id = self.raw_forest_mut().replace_child(self.id, i, tree.id);
-        mem::forget(tree);
-        Tree::new(&self.forest, old_tree_id)
+    pub fn replace_child(&mut self, i: usize, new_child: Tree<D, L>) -> Tree<D, L> {
+        // Need to make these changes:
+        //   new_child.parent = self;
+        //   old_child.parent = None;
+        //   self.child[i] = new_child;
+        let mut slab = self.slab.borrow_mut();
+        slab[new_child.key].parent = Some(self.key);
+        let old_child_key = slab[self.key].children()[i];
+        slab[old_child_key].parent = None;
+        slab[self.key].children_mut()[i] = new_child.key;
+
+        // Don't drop the tree, or it will delete itself from the slab!
+        mem::forget(new_child);
+
+        Tree::new(&self.slab, old_child_key)
     }
 
     /// Insert `tree` as the `i`th child of this node.
@@ -219,10 +124,16 @@ impl<D, L> Tree<D, L> {
     /// # Panics
     ///
     /// Panics if this is a leaf node, or if `i` is out of bounds.
-    pub fn insert_child(&mut self, i: usize, tree: Tree<D, L>) {
-        let id = tree.id;
-        mem::forget(tree);
-        self.raw_forest_mut().insert_child(self.id, i, id);
+    pub fn insert_child(&mut self, i: usize, child: Tree<D, L>) {
+        // Need to make these changes:
+        //   child.parent = self;
+        //   self.children.insert_at(i, child)
+        let mut slab = self.slab.borrow_mut();
+        slab[self.key].children_mut().insert(i, child.key);
+        slab[child.key].parent = Some(self.key);
+
+        // Don't drop the tree, or it will delete itself from the slab!
+        mem::forget(child);
     }
 
     /// Remove and return the `i`th child of this node.
@@ -231,13 +142,23 @@ impl<D, L> Tree<D, L> {
     ///
     /// Panics if this is a leaf node, or if `i` is out of bounds.
     pub fn remove_child(&mut self, i: usize) -> Tree<D, L> {
-        let old_tree_id = self.raw_forest_mut().remove_child(self.id, i);
-        Tree::new(&self.forest, old_tree_id)
+        // Need to make these changes:
+        //   child = self.children.remove_at(i);
+        //   child.parent = None;
+        let mut slab = self.slab.borrow_mut();
+        let child_key = slab[self.key].children_mut().remove(i);
+        slab[child_key].parent = None;
+
+        Tree::new(&self.slab, child_key)
     }
 
     /// Save a bookmark to return to later.
-    pub fn bookmark(&mut self) -> Bookmark {
-        Bookmark { id: self.id }
+    pub fn bookmark(&self) -> Bookmark {
+        let uuid = self.slab.borrow()[self.key].uuid;
+        Bookmark {
+            key: self.key,
+            uuid,
+        }
     }
 
     /// Jump to a previously saved bookmark, as long as that
@@ -247,48 +168,55 @@ impl<D, L> Tree<D, L> {
     /// has since been deleted, or if it is currently located in a
     /// different tree.
     pub fn goto_bookmark(&mut self, mark: Bookmark) -> bool {
-        if self.raw_forest().is_valid(mark.id) && self.raw_forest().root(mark.id) == self.root {
-            self.id = mark.id;
-            true
-        } else {
-            false
+        let slab = self.slab.borrow();
+        if !slab.contains(mark.key) {
+            // The bookmark has been deleted.
+            return false;
         }
+        if slab[mark.key].uuid != mark.uuid {
+            // The bookmark has been deleted, and its space reused.
+            return false;
+        }
+        if slab.root(mark.key).uuid != slab.root(self.key).uuid {
+            // The bookmark exists, but is in a different tree.
+            return false;
+        }
+        // The bookmark exists, and is in this tree. Thus we can safely jump to it.
+        self.key = mark.key;
+        true
     }
 
     /// Returns `true` if this is the root of the tree, and `false` if
     /// it isn't (and thus this node has a parent).
     pub fn is_at_root(&self) -> bool {
-        self.raw_forest().parent(self.id).is_none()
-    }
-
-    /// Returns `true` if this node is a child of the root of the tree, and `false` otherwise.
-    pub fn is_parent_at_root(&self) -> bool {
-        match self.raw_forest().parent(self.id) {
-            None => false,
-            Some(parent_id) => self.raw_forest().parent(parent_id).is_none(),
-        }
+        self.slab.borrow()[self.key].parent.is_none()
     }
 
     /// Determine this node's index among its siblings. Returns `0` when at the
     /// root.
     pub fn index(&self) -> usize {
-        self.raw_forest().index(self.id)
+        let slab = self.slab.borrow();
+        match slab[self.key].parent {
+            None => return 0,
+            Some(parent_key) => {
+                for (index, child_key) in slab[parent_key].children().iter().enumerate() {
+                    if *child_key == self.key {
+                        return index;
+                    }
+                }
+            }
+        }
+        panic!("Forest::index - not found");
     }
 
     /// Determine the number of siblings that this node has, including itself.
     /// When at the root, returns 1.
     pub fn num_siblings(&self) -> usize {
-        if let Some(parent_id) = self.raw_forest().parent(self.id) {
-            self.raw_forest().children(parent_id).count()
-        } else {
-            // at root
-            1
+        let slab = self.slab.borrow();
+        match slab[self.key].parent {
+            None => return 1,
+            Some(parent_key) => slab[parent_key].children().len(),
         }
-    }
-
-    /// Go to the root of this tree.
-    pub fn goto_root(&mut self) {
-        self.id = self.root;
     }
 
     /// Go to the parent of this node. Returns this node's index among its
@@ -298,13 +226,19 @@ impl<D, L> Tree<D, L> {
     ///
     /// Panics if this is the root of the tree, and there is no parent.
     pub fn goto_parent(&mut self) -> usize {
-        let index = self.raw_forest().index(self.id);
-        let id = self
-            .raw_forest()
-            .parent(self.id)
-            .expect("Forest - root node has no parent!");
-        self.id = id;
-        index
+        let slab = self.slab.borrow();
+        match slab[self.key].parent {
+            None => panic!("Forest::goto_parent - root node has no parent"),
+            Some(parent_key) => {
+                for (index, child_key) in slab[parent_key].children().iter().enumerate() {
+                    if *child_key == self.key {
+                        self.key = parent_key;
+                        return index;
+                    }
+                }
+            }
+        }
+        panic!("Forest::goto_parent - not found");
     }
 
     /// Go to the `i`th child of this branch node.
@@ -313,72 +247,24 @@ impl<D, L> Tree<D, L> {
     ///
     /// Panics if this is a leaf node, or if `i` is out of bounds.
     pub fn goto_child(&mut self, i: usize) {
-        let id = self.raw_forest().child(self.id, i);
-        self.id = id;
+        let slab = self.slab.borrow();
+        self.key = slab[self.key].children()[i];
     }
 
-    /// Obtain a mutable reference to the [Forest] this tree belongs to.
-    pub fn forest_mut(&mut self) -> &mut Forest<D, L> {
-        &mut self.forest
-    }
-
-    // Private //
-
-    pub(super) fn new(forest: &Forest<D, L>, id: Id) -> Tree<D, L> {
-        Tree {
-            forest: forest.clone(),
-            root: id,
-            id,
-        }
-    }
-
-    fn raw_forest(&self) -> Ref<RawForest<D, L>> {
-        self.forest.read_lock()
-    }
-
-    fn raw_forest_mut(&self) -> RefMut<RawForest<D, L>> {
-        self.forest.write_lock()
+    /// Go to the root of this tree.
+    pub fn goto_root(&mut self) {
+        self.key = self.slab.borrow().root_key(self.key);
     }
 }
 
 impl<D, L> Drop for Tree<D, L> {
     fn drop(&mut self) {
-        if !thread::panicking() {
-            // If it's already panicking, let's not worry too much about cleanup up the hashmap.
-            self.forest.write_lock().delete_tree(self.id);
+        if thread::panicking() {
+            // If it's already panicking, let's not worry too much about cleaning up the hashmap.
+            return;
         }
-    }
-}
-
-// Derefs //
-
-/// Provides read access to a tree's data. Released on drop.
-pub struct ReadData<'f, D, L> {
-    pub(super) guard: Ref<'f, RawForest<D, L>>,
-    pub(super) id: Id,
-}
-
-/// Provides write access to a tree's data. Released on drop.
-pub struct WriteData<'f, D, L> {
-    pub(super) guard: RefMut<'f, RawForest<D, L>>,
-    pub(super) id: Id,
-}
-
-impl<'f, D, L> Deref for ReadData<'f, D, L> {
-    type Target = D;
-    fn deref(&self) -> &D {
-        self.guard.data(self.id)
-    }
-}
-impl<'f, D, L> Deref for WriteData<'f, D, L> {
-    type Target = D;
-    fn deref(&self) -> &D {
-        self.guard.data(self.id)
-    }
-}
-
-impl<'f, D, L> DerefMut for WriteData<'f, D, L> {
-    fn deref_mut(&mut self) -> &mut D {
-        self.guard.data_mut(self.id)
+        // If we did nothing, then the slab would retain the tree. We must call `slab.remove()` on
+        // each node in the tree.
+        self.slab.borrow_mut().free_tree(self.key);
     }
 }

@@ -1,279 +1,63 @@
-use std::collections::HashMap;
+use super::node::Node;
+use super::node_slab::NodeSlab;
+use super::tree::Tree;
+use std::cell::RefCell;
 use std::mem;
-use uuid::Uuid;
-
-use self::NodeContents::*;
+use std::rc::Rc;
 
 // INVARIANTS:
 // - children and parents agree
 
-pub type Id = Uuid;
-fn fresh() -> Uuid {
-    Uuid::new_v4()
+/// All [Trees](Tree) belong to a Forest.
+///
+/// It is your responsibility to ensure that Trees are kept with the Forest they came from. The
+/// methods on Trees may panic if you use them on a different Forest.
+pub struct Forest<D, L>(pub(super) Rc<RefCell<NodeSlab<D, L>>>);
+
+impl<D, L> Clone for Forest<D, L> {
+    fn clone(&self) -> Forest<D, L> {
+        Forest(self.0.clone())
+    }
 }
 
-pub struct RawForest<Data, Leaf> {
-    map: HashMap<Id, Node<Data, Leaf>>,
-    #[cfg(test)]
-    refcount: usize,
-}
+impl<D, L> Forest<D, L> {
+    /// Construct a new forest.
+    pub fn new() -> Forest<D, L> {
+        Forest(Rc::new(RefCell::new(NodeSlab::new())))
+    }
 
-struct Node<Data, Leaf> {
-    parent: Option<Id>,
-    contents: NodeContents<Data, Leaf>,
-}
+    /// Construct a new leaf.
+    pub fn new_leaf(&self, leaf: L) -> Tree<D, L> {
+        let node = Node::new_leaf(leaf);
 
-enum NodeContents<Data, Leaf> {
-    Leaf(Leaf),
-    Branch(Data, Vec<Id>),
-}
+        let mut slab = self.0.borrow_mut();
+        let leaf_key = slab.insert(node);
 
-impl<D, L> RawForest<D, L> {
-    pub fn new() -> RawForest<D, L> {
-        RawForest {
-            map: HashMap::new(),
-            #[cfg(test)]
-            refcount: 0,
+        Tree::new(&self.0, leaf_key)
+    }
+
+    /// Construct a new branch.
+    pub fn new_branch(&self, data: D, children: Vec<Tree<D, L>>) -> Tree<D, L> {
+        let child_keys = children.iter().map(|tree| tree.key).collect::<Vec<_>>();
+        let node = Node::new_branch(data, child_keys);
+
+        // Need to make these changes:
+        //   parent = new node(children);
+        //   for each child: child.parent = parent;
+        let mut slab = self.0.borrow_mut();
+        let parent_key = slab.insert(node);
+        for tree in children.into_iter() {
+            let key = tree.key;
+            // Don't let `Drop` get called, or it will delete the tree from under us!
+            mem::forget(tree);
+            slab[key].parent = Some(parent_key);
         }
+
+        Tree::new(&self.0, parent_key)
     }
 
-    // Navigation //
-
-    pub fn parent(&self, id: Id) -> Option<Id> {
-        self.get(id).parent
-    }
-
-    pub fn children<'a>(&'a self, id: Id) -> impl Iterator<Item = Id> + 'a {
-        match &self.get(id).contents {
-            Leaf(_) => panic!("Forest - leaf node has no children!"),
-            Branch(_, children) => children.iter().cloned(),
-        }
-    }
-
-    pub fn child(&self, id: Id, index: usize) -> Id {
-        match self.children(id).nth(index) {
-            None => panic!("Forest - child index out of bounds. id={}, i={}", id, index),
-            Some(child) => child,
-        }
-    }
-
-    pub fn root(&self, mut id: Id) -> Id {
-        loop {
-            match self.get(id).parent {
-                None => return id,
-                Some(parent) => {
-                    id = parent;
-                }
-            }
-        }
-    }
-
-    pub fn index(&self, id: Id) -> usize {
-        match self.get(id).parent {
-            None => return 0,
-            Some(parent_id) => {
-                for (index, child_id) in self.children(parent_id).enumerate() {
-                    if child_id == id {
-                        return index;
-                    }
-                }
-            }
-        }
-        panic!("Forest::index - id {} not found", id)
-    }
-
-    pub fn is_valid(&self, id: Id) -> bool {
-        self.map.get(&id).is_some()
-    }
-
-    // Data Access //
-
-    pub fn is_leaf(&self, id: Id) -> bool {
-        match &self.get(id).contents {
-            Leaf(_) => true,
-            Branch(_, _) => false,
-        }
-    }
-
-    pub fn data(&self, id: Id) -> &D {
-        match &self.get(id).contents {
-            Leaf(_) => panic!("Forest - leaf node has no data!"),
-            Branch(data, _) => data,
-        }
-    }
-
-    pub fn leaf(&self, id: Id) -> &L {
-        match &self.get(id).contents {
-            Leaf(leaf) => leaf,
-            Branch(_, _) => panic!("Forest - branch node has no leaf!"),
-        }
-    }
-
-    // Data Mutation //
-
-    pub fn data_mut(&mut self, id: Id) -> &mut D {
-        match &mut self.get_mut(id).contents {
-            Leaf(_) => panic!("Forest - leaf node has no data!"),
-            Branch(data, _) => data,
-        }
-    }
-
-    pub fn leaf_mut(&mut self, id: Id) -> &mut L {
-        match &mut self.get_mut(id).contents {
-            Leaf(leaf) => leaf,
-            Branch(_, _) => panic!("Forest - branch node has no leaf!"),
-        }
-    }
-
-    pub fn children_mut(&mut self, id: Id) -> &mut Vec<Id> {
-        match &mut self.get_mut(id).contents {
-            Leaf(_) => panic!("Forest - leaf node has no children!"),
-            Branch(_, children) => children,
-        }
-    }
-
-    // Forest Mutation //
-
-    pub fn create_branch(&mut self, data: D, children: Vec<Id>) -> Id {
-        let id = fresh();
-        #[cfg(test)]
-        (self.refcount += 1);
-        for child in &children {
-            self.get_mut(*child).parent = Some(id);
-        }
-        let node = Node {
-            parent: None,
-            contents: Branch(data, children),
-        };
-        self.map.insert(id, node);
-        id
-    }
-
-    pub fn create_leaf(&mut self, leaf: L) -> Id {
-        let id = fresh();
-        #[cfg(test)]
-        (self.refcount += 1);
-        let node = Node {
-            parent: None,
-            contents: Leaf(leaf),
-        };
-        self.map.insert(id, node);
-        id
-    }
-
-    pub fn replace_child(&mut self, parent: Id, index: usize, new_child: Id) -> Id {
-        self.get_mut(new_child).parent = Some(parent);
-        let old_child = match self.children_mut(parent).get_mut(index) {
-            None => panic!(
-                "Forest::replace - child index out of bounds. id={}, i={}",
-                parent, index
-            ),
-            Some(child) => {
-                let old_child = *child;
-                *child = new_child;
-                old_child
-            }
-        };
-        self.get_mut(old_child).parent = None;
-        old_child
-    }
-
-    pub fn insert_child(&mut self, parent: Id, index: usize, new_child: Id) {
-        self.get_mut(new_child).parent = Some(parent);
-        let children = self.children_mut(parent);
-        if index > children.len() {
-            panic!(
-                "Forest::insert - child index out of bounds. id={}, i={}",
-                parent, index
-            );
-        }
-        children.insert(index, new_child);
-    }
-
-    pub fn remove_child(&mut self, parent: Id, index: usize) -> Id {
-        let child = {
-            let children = self.children_mut(parent);
-            if index >= children.len() {
-                panic!(
-                    "Forest::remove - child index out of bounds. id={}, i={}",
-                    parent, index
-                );
-            }
-            children.remove(index)
-        };
-        self.get_mut(child).parent = None;
-        child
-    }
-
-    pub fn delete_tree(&mut self, id: Id) {
-        let node = self.remove(id);
-        #[cfg(test)]
-        (self.refcount -= 1);
-        match node.contents {
-            Leaf(leaf) => {
-                mem::drop(leaf);
-            }
-            Branch(data, children) => {
-                mem::drop(data);
-                children
-                    .into_iter()
-                    .for_each(|child| self.delete_tree(child));
-            }
-        };
-    }
-
-    pub fn clone_tree(&mut self, id: Id) -> Id
-    where
-        D: Clone,
-        L: Clone,
-    {
-        if self.is_leaf(id) {
-            self.create_leaf(self.leaf(id).to_owned())
-        } else {
-            let new_child_ids: Vec<_> = self.children(id).collect();
-            let new_children: Vec<_> = new_child_ids
-                .into_iter()
-                .map(|id| self.clone_tree(id))
-                .collect();
-            let data = self.data(id).to_owned();
-            self.create_branch(data, new_children)
-        }
-    }
-
-    // Private //
-
-    fn get(&self, id: Id) -> &Node<D, L> {
-        match self.map.get(&id) {
-            Some(node) => node,
-            None => panic!("Forest - id {} not found!", id),
-        }
-    }
-
-    fn get_mut(&mut self, id: Id) -> &mut Node<D, L> {
-        match self.map.get_mut(&id) {
-            Some(node) => node,
-            None => panic!("Forest - id {} not found!", id),
-        }
-    }
-
-    fn remove(&mut self, id: Id) -> Node<D, L> {
-        match self.map.remove(&id) {
-            Some(node) => node,
-            None => panic!("Forest - id {} not found!", id),
-        }
-    }
-
-    // For Testing //
-
-    #[cfg(test)]
-    pub fn tree_count(&self) -> usize {
-        if self.refcount != self.map.len() {
-            panic!(
-                "Forest - lost track of trees! Refcount: {}, Hashcount: {}",
-                self.refcount,
-                self.map.len()
-            );
-        }
-        self.refcount
+    /// The total number of live nodes, in all trees everywhere.
+    pub fn node_count(&self) -> usize {
+        self.0.borrow().len()
     }
 }

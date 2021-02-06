@@ -1,74 +1,38 @@
-use std::cell::Ref;
-use std::iter::Iterator;
-
-use crate::forest::{Id, RawForest};
-use crate::tree::{Bookmark, Forest, ReadData, Tree};
+use super::node::{Bookmark, Key};
+use super::node_slab::NodeSlab;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 /// An immutable reference to a node in a tree.
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct TreeRef<'f, D, L> {
-    pub(super) forest: &'f Forest<D, L>,
-    pub(super) root: Id,
-    pub(super) id: Id,
-}
-
-impl<D, L> Tree<D, L> {
-    /// Obtain an _immutable_ reference to this Tree.
-    ///
-    /// An Operation on the borrowed tree will **panic** if it happens
-    /// concurrently with a mutable operation on any other tree in the forest.
-    pub fn borrow(&self) -> TreeRef<D, L> {
-        TreeRef {
-            forest: &self.forest,
-            root: self.root,
-            id: self.id,
-        }
-    }
+    pub(super) slab: &'f Rc<RefCell<NodeSlab<D, L>>>,
+    pub(super) key: Key,
 }
 
 impl<'f, D, L> TreeRef<'f, D, L> {
     /// Returns `true` if this is a leaf node, and `false` if this is
     /// a branch node.
-    pub fn is_leaf(&self) -> bool {
-        self.forest().is_leaf(self.id)
+    pub fn is_leaf(self) -> bool {
+        self.slab.borrow()[self.key].is_leaf()
     }
 
-    /// Obtain a shared reference to the data value at this node.
+    /// Calls the closure, giving it read access to the data value at this node.
     ///
     /// # Panics
     ///
     /// Panics if this is not a branch node. (Leaves do not have data.)
-    pub fn data(&self) -> ReadData<'f, D, L> {
-        ReadData {
-            guard: self.forest(),
-            id: self.id,
-        }
+    pub fn with_data<R>(self, func: impl FnOnce(&D) -> R) -> R {
+        func(&self.slab.borrow()[self.key].data())
     }
 
-    /// Calls the closure, giving it read-access to this leaf node.
+    /// Calls the closure, giving it read access to this leaf node.
     ///
     /// # Panics
     ///
     /// Panics if this is a branch node.
-    pub fn leaf<F, T>(&self, f: F) -> T
-    where
-        F: FnOnce(&L) -> T,
-    {
-        f(self.forest().leaf(self.id))
-    }
-
-    /// Calls the closure, giving it read-access to the leaf value which is the sole child of this node.
-    ///
-    /// # Panics
-    ///
-    /// Panics if this is not a branch node with one leaf child.
-    pub fn child_leaf<F, T>(&self, f: F) -> T
-    where
-        F: FnOnce(&L) -> T,
-    {
-        assert_eq!(self.num_children(), 1);
-        let child_id = self.forest().child(self.id, 0);
-        f(self.forest().leaf(child_id))
+    pub fn with_leaf<R>(self, func: impl FnOnce(&L) -> R) -> R {
+        func(&self.slab.borrow()[self.key].leaf())
     }
 
     /// Returns the number of children this node has.
@@ -76,13 +40,17 @@ impl<'f, D, L> TreeRef<'f, D, L> {
     /// # Panics
     ///
     /// Panics if this is a leaf node.
-    pub fn num_children(&self) -> usize {
-        self.forest().children(self.id).count()
+    pub fn num_children(self) -> usize {
+        self.slab.borrow()[self.key].children().len()
     }
 
     /// Save a bookmark to return to later.
     pub fn bookmark(&self) -> Bookmark {
-        Bookmark { id: self.id }
+        let uuid = self.slab.borrow()[self.key].uuid;
+        Bookmark {
+            key: self.key,
+            uuid,
+        }
     }
 
     /// Return to a previously saved bookmark, as long as that
@@ -91,29 +59,35 @@ impl<'f, D, L> TreeRef<'f, D, L> {
     /// created. However, it will return `None` if the bookmark's node
     /// has since been deleted, or if it is currently located in a
     /// different tree.
-    pub fn lookup_bookmark(&self, mark: Bookmark) -> Option<TreeRef<'f, D, L>> {
-        if self.forest().is_valid(mark.id) && self.forest().root(mark.id) == self.root {
-            Some(TreeRef {
-                forest: self.forest,
-                root: self.root,
-                id: mark.id,
-            })
-        } else {
-            None
+    pub fn lookup_bookmark(self, mark: Bookmark) -> Option<TreeRef<'f, D, L>> {
+        let slab = self.slab.borrow();
+        if !slab.contains(mark.key) {
+            // The bookmark has been deleted.
+            return None;
         }
+        if slab[mark.key].uuid != mark.uuid {
+            // The bookmark has been deleted, and its space reused.
+            return None;
+        }
+        if slab.root(mark.key).uuid != slab.root(self.key).uuid {
+            // The bookmark exists, but is in a different tree.
+            return None;
+        }
+        // The bookmark exists, and is in this tree. Thus we can safely return to it.
+        Some(TreeRef {
+            slab: self.slab,
+            key: mark.key,
+        })
     }
 
     /// Get the parent node. Returns `None` if we're already at the
     /// root of the tree.
-    pub fn parent(&self) -> Option<TreeRef<'f, D, L>> {
-        match self.forest().parent(self.id) {
-            None => None,
-            Some(parent) => Some(TreeRef {
-                forest: self.forest,
-                root: self.root,
-                id: parent,
-            }),
-        }
+    pub fn parent(self) -> Option<TreeRef<'f, D, L>> {
+        let slab = self.slab.borrow();
+        slab[self.key].parent.map(|parent_key| TreeRef {
+            key: parent_key,
+            slab: self.slab,
+        })
     }
 
     /// Get the `i`th child of this branch node.
@@ -121,41 +95,45 @@ impl<'f, D, L> TreeRef<'f, D, L> {
     /// # Panics
     ///
     /// Panics if this is a leaf node, or if `i` is out of bounds.
-    pub fn child(&self, i: usize) -> TreeRef<'f, D, L> {
-        let child = self.forest().child(self.id, i);
+    pub fn child(self, i: usize) -> TreeRef<'f, D, L> {
+        let slab = self.slab.borrow();
+        let child_key = slab[self.key].children()[i];
         TreeRef {
-            forest: self.forest,
-            root: self.root,
-            id: child,
+            key: child_key,
+            slab: self.slab,
         }
     }
 
-    /// Obtain an iterator over all of the (direct) children of this node.
+    /// Obtain a list of all of the (direct) children of this node.
     ///
     /// # Panics
     ///
     /// Panics if this is a leaf node.
-    pub fn children(&self) -> impl Iterator<Item = TreeRef<'f, D, L>> {
-        self.forest()
-            .children(self.id)
-            .map(|child_id| TreeRef {
-                forest: self.forest,
-                root: self.root,
-                id: child_id,
+    pub fn children<'a>(&'a self) -> Vec<TreeRef<'f, D, L>> {
+        self.slab.borrow()[self.key]
+            .children()
+            .iter()
+            .map(|child_key| TreeRef {
+                key: *child_key,
+                slab: self.slab,
             })
-            .collect::<Vec<_>>()
-            .into_iter()
+            .collect()
     }
 
     /// Determine this node's index among its siblings. Returns `0` when at the
     /// root.
     pub fn index(&self) -> usize {
-        self.forest().index(self.id)
-    }
-
-    // Private //
-
-    fn forest(&self) -> Ref<'f, RawForest<D, L>> {
-        self.forest.read_lock()
+        let slab = self.slab.borrow();
+        match slab[self.key].parent {
+            None => return 0,
+            Some(parent_key) => {
+                for (index, child_key) in slab[parent_key].children().iter().enumerate() {
+                    if *child_key == self.key {
+                        return index;
+                    }
+                }
+            }
+        }
+        panic!("Forest::index - not found");
     }
 }
