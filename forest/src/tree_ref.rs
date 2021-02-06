@@ -13,6 +13,7 @@ pub struct TreeRef<'f, D, L> {
 impl<'f, D, L> TreeRef<'f, D, L> {
     /// Returns `true` if this is a leaf node, and `false` if this is
     /// a branch node.
+    #[allow(clippy::wrong_self_convention)]
     pub fn is_leaf(self) -> bool {
         self.slab.borrow()[self.key].is_leaf()
     }

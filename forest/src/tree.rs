@@ -214,7 +214,7 @@ impl<D, L> Tree<D, L> {
     pub fn num_siblings(&self) -> usize {
         let slab = self.slab.borrow();
         match slab[self.key].parent {
-            None => return 1,
+            None => 1,
             Some(parent_key) => slab[parent_key].children().len(),
         }
     }

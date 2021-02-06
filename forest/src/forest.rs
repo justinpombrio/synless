@@ -20,6 +20,12 @@ impl<D, L> Clone for Forest<D, L> {
     }
 }
 
+impl<D, L> Default for Forest<D, L> {
+    fn default() -> Forest<D, L> {
+        Forest::new()
+    }
+}
+
 impl<D, L> Forest<D, L> {
     /// Construct a new forest.
     pub fn new() -> Forest<D, L> {
