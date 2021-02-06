@@ -8,5 +8,4 @@ edition = "2018"
 [dependencies]
 termion = "1.5"
 thiserror = "1.0"
-pretty = { path = "../pretty" }
 

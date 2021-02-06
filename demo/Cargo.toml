@@ -7,7 +7,6 @@ edition = "2018"
 [dependencies]
 editor = { path = "../editor" }
 forest = { path = "../forest" }
-pretty = { path = "../pretty" }
 language = { path  = "../language" }
 frontends = { path = "../frontends"}
 utility = { path = "../utility"}
