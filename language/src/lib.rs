@@ -1,5 +1,6 @@
+#![allow(unused)]
 mod construct;
 mod language;
 
-pub use self::construct::{Arity, ArityType, Construct, ConstructName, Sort, BUILTIN_CONSTRUCTS};
-pub use self::language::{Language, LanguageName, LanguageSet};
+pub use construct::{Arity, ArityType, Construct, Sort, SortId};
+pub use language::{ConstructId, Language, LanguageId, LanguageSet};

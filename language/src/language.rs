@@ -1,107 +1,123 @@
 //! An editable language.
 
+use crate::construct::{Arity, Construct, Sort, SortId};
 use std::collections::HashMap;
 use std::fmt;
 use std::iter::Iterator;
+use utility::spanic;
 
-use crate::construct::{Construct, ConstructName, Sort, BUILTIN_CONSTRUCTS};
-use utility::GrowOnlyMap;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ConstructId(u32);
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct LanguageName(String);
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct LanguageId(u32);
 
 pub struct Language {
-    name: LanguageName,
-    constructs: HashMap<ConstructName, Construct>,
-    sorts: HashMap<Sort, Vec<ConstructName>>,
-    keymap: HashMap<char, ConstructName>,
+    name: String,
+    // SortId -> Sort
+    sorts: Vec<Sort>,
+    // ConstructId -> Construct
+    constructs: Vec<Construct>,
+    // SortId -> Vec<ConstructId>
+    constructs_of_sort: Vec<Vec<ConstructId>>,
+    keymap: HashMap<char, ConstructId>,
 }
 
-pub type LanguageSet = GrowOnlyMap<LanguageName, Language>;
+pub struct LanguageSet {
+    // LanguageId -> Language
+    languages: Vec<&'static Language>,
+    languages_by_name: HashMap<String, LanguageId>,
+}
+
+impl LanguageSet {
+    fn new() -> LanguageSet {
+        LanguageSet {
+            languages: vec![],
+            languages_by_name: HashMap::new(),
+        }
+    }
+
+    fn add_language(&mut self, language: Language) -> LanguageId {
+        let language_id = LanguageId(self.languages.len() as u32);
+        self.languages_by_name
+            .insert(language.name.clone(), language_id);
+        self.languages.push(Box::leak(Box::new(language)));
+        language_id
+    }
+}
 
 impl Language {
-    pub fn new(name: LanguageName) -> Language {
+    pub fn new(name: String) -> Language {
         Language {
             name,
-            sorts: HashMap::new(),
-            constructs: HashMap::new(),
+            sorts: vec![],
+            constructs: vec![],
+            constructs_of_sort: vec![],
             keymap: HashMap::new(),
         }
     }
 
-    pub fn name(&self) -> &LanguageName {
+    pub fn name(&self) -> &str {
         &self.name
     }
 
-    pub fn add(&mut self, construct: Construct) {
-        // Insert sort
-        if !self.sorts.contains_key(&construct.sort) {
-            self.sorts.insert(construct.sort.clone(), vec![]);
-        }
-        self.sorts
-            .get_mut(&construct.sort)
-            .unwrap()
-            .push(construct.name.clone());
-        // Insert key
-        if let Some(key) = construct.key {
-            self.keymap.insert(key, construct.name.clone());
-        }
-        // Insert construct
-        self.constructs.insert(construct.name.clone(), construct);
+    pub fn lookup_key(&self, key: char) -> Option<&Construct> {
+        Some(&self.constructs[self.keymap.get(&key)?.0 as usize])
     }
 
-    pub fn lookup_key(&self, key: char) -> Option<&ConstructName> {
-        self.keymap.get(&key)
+    pub fn lookup_construct(&self, construct_id: ConstructId) -> &Construct {
+        &self.constructs[construct_id.0 as usize]
     }
 
-    pub fn lookup_construct(&self, construct_name: &ConstructName) -> &Construct {
-        match self.constructs.get(construct_name) {
-            Some(con) => con,
-            None => match BUILTIN_CONSTRUCTS.get(construct_name) {
-                None => panic!(
-                    "Could not find construct named {:?} in language.",
-                    construct_name
-                ),
-                Some(con) => con,
-            },
-        }
+    pub fn keymap(&self) -> impl Iterator<Item = (char, &str)> {
+        self.keymap
+            .iter()
+            .map(move |(ch, con)| (*ch, self.lookup_construct(*con).name.as_ref()))
     }
 
     pub fn constructs(&self) -> impl Iterator<Item = &Construct> {
-        self.constructs.values()
+        self.constructs.iter()
     }
 
-    pub fn keymap(&self) -> &HashMap<char, ConstructName> {
-        &self.keymap
+    fn add_sort(&mut self, sort: Sort) -> SortId {
+        if let Some(sort_id) = self.sorts.iter().position(|s| s == &sort) {
+            SortId(sort_id as u32)
+        } else {
+            let sort_id = SortId(self.sorts.len() as u32);
+            self.sorts.push(sort);
+            self.constructs_of_sort.push(vec![]);
+            sort_id
+        }
     }
-}
 
-impl fmt::Display for LanguageName {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
+    pub fn add_construct(&mut self, name: String, sort: Sort, arity: Arity, key: Option<char>) {
+        let construct_id = ConstructId(self.constructs.len() as u32);
 
-impl From<String> for LanguageName {
-    fn from(s: String) -> LanguageName {
-        LanguageName(s)
-    }
-}
+        // Add the sort
+        let sort_id = self.add_sort(sort);
 
-impl<'a> From<&'a str> for LanguageName {
-    fn from(s: &'a str) -> LanguageName {
-        LanguageName(s.to_string())
-    }
-}
+        // Add the construct
+        let construct = Construct {
+            name,
+            sort_id,
+            arity,
+            key,
+        };
+        let construct_id = ConstructId(self.constructs.len() as u32);
+        self.constructs.push(construct);
 
-impl From<LanguageName> for String {
-    fn from(m: LanguageName) -> String {
-        m.0
-    }
-}
+        // Extend the keymap
+        if let Some(key) = key {
+            let duplicate = self.keymap.insert(key, construct_id);
+            if duplicate.is_some() {
+                spanic!("Duplicate key '{}'", key);
+            }
+        }
 
-impl<'a> From<&'a LanguageName> for String {
-    fn from(m: &'a LanguageName) -> String {
-        m.0.to_owned()
+        // Extend the construct list for the sort
+        let mut cons_list = &mut self.constructs_of_sort[sort_id.0 as usize];
+        if !cons_list.contains(&construct_id) {
+            cons_list.push(construct_id);
+        }
     }
 }

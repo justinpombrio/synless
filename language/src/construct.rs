@@ -1,123 +1,88 @@
-// TODO: fix example
-// TODO: use or remove commented code
-
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::fmt;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ConstructName(String);
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct SortId(pub(crate) u32);
 
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct Sort(String); // "Any" is special
-
-impl Sort {
-    /// Construct a new "Any" sort.
-    pub fn any() -> Sort {
-        "Any".into()
-    }
-
-    /// Return true if a hole with this sort can accept a child with the given sort.
-    pub fn accepts(&self, child: &Sort) -> bool {
-        &self.0 == "Any" || &child.0 == "Any" || self == child
-    }
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum Sort {
+    Any,
+    Named(String),
 }
 
-impl From<String> for Sort {
-    fn from(s: String) -> Sort {
-        Sort(s)
-    }
-}
-
-impl<'a> From<&'a str> for Sort {
-    fn from(s: &'a str) -> Sort {
-        Sort(s.to_owned())
-    }
-}
-
-/// A syntactic construct.
-#[derive(Debug, PartialEq, Eq)]
+/// A kind of node that can appear in a document.
+#[derive(Debug)]
 pub struct Construct {
-    pub name: ConstructName,
-    pub sort: Sort,
+    pub name: String,
+    pub sort_id: SortId,
     pub arity: Arity,
     pub key: Option<char>,
-}
-
-impl Construct {
-    pub fn new<T>(name: &str, sort: T, arity: Arity, key: Option<char>) -> Construct
-    where
-        T: Into<Sort>,
-    {
-        Construct {
-            name: name.into(),
-            sort: sort.into(),
-            arity,
-            key,
-        }
-    }
-
-    pub fn hole() -> &'static Construct {
-        BUILTIN_CONSTRUCTS
-            .get(&"hole".into())
-            .expect("no builtin 'hole' construct found")
-    }
 }
 
 /// The sorts of children that a node is allowed to contain.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Arity {
     /// Designates a pure text node.
-    Text,
-    /// Designates a node containing mixed text and trees.
-    /// `Sort` is the sort of trees it may contain.
-    Mixed(Sort),
+    Texty,
     /// Designates a node containing a fixed number of tree children.
     /// `Vec<Sort>` contains the `Sort`s of each of its children respectively.
     Fixed(Vec<Sort>),
     /// Designates a node containing any number of tree children,
     /// all of the same `Sort`.
-    Flexible(Sort),
+    Listy(Sort),
+}
+
+/// Like `Arity`, but without any data in the variants.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ArityType {
+    Texty,
+    Fixed,
+    Listy,
+}
+
+impl Sort {
+    /// Construct a new "Any" sort.
+    pub fn any() -> Sort {
+        Sort::Any
+    }
+
+    pub fn named(sort_name: String) -> Sort {
+        Sort::Named(sort_name)
+    }
+
+    /// Return true if a hole with this sort can accept a node with the given sort.
+    pub fn accepts(&self, candidate: &Sort) -> bool {
+        match (self, candidate) {
+            (Sort::Any, _) => true,
+            (_, Sort::Any) => true,
+            (Sort::Named(x), Sort::Named(y)) => x == y,
+        }
+    }
 }
 
 impl Arity {
-    pub fn is_text(&self) -> bool {
-        match self {
-            Arity::Text => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_mixed(&self) -> bool {
-        match self {
-            Arity::Mixed(_) => true,
-            _ => false,
-        }
+    pub fn is_texty(&self) -> bool {
+        matches!(self, Arity::Texty)
     }
 
     pub fn is_fixed(&self) -> bool {
-        match self {
-            Arity::Fixed(_) => true,
-            _ => false,
-        }
+        matches!(self, Arity::Fixed(_))
     }
 
-    pub fn is_flexible(&self) -> bool {
-        match self {
-            Arity::Flexible(_) => true,
-            _ => false,
-        }
+    pub fn is_listy(&self) -> bool {
+        matches!(self, Arity::Listy(_))
     }
 
-    /// Get the `Sort` of the `i`th child. For flexible-arity and mixed-arity nodes, get the `Sort`
-    /// required of all tree children, ignoring `i`.
+    /// Get the `Sort` of the `i`th child. For listy nodes, get the `Sort` required of all tree
+    /// children, ignoring `i`.
     ///
     /// # Panics
     ///
     /// Panics if nodes of this arity cannot have an `i`th child.
     pub fn child_sort(&self, i: usize) -> &Sort {
         match self {
-            Arity::Flexible(sort) | Arity::Mixed(sort) => sort, // all tree children have the same Sort
+            Arity::Listy(sort) => sort,
             Arity::Fixed(sorts) => sorts.get(i).unwrap_or_else(|| {
                 panic!("child_sort - fixed node has only {} children", sorts.len())
             }),
@@ -125,107 +90,11 @@ impl Arity {
         }
     }
 
-    /// Get the `Sort` of all children of this flexible or mixed node.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the arity is not flexible or mixed.
-    pub fn uniform_child_sort(&self) -> &Sort {
+    pub fn arity_type(&self) -> ArityType {
         match self {
-            Arity::Flexible(sort) | Arity::Mixed(sort) => sort, // all tree children have the same Sort
-            _ => panic!("uniform_child_sort - node is not flexible or mixed"),
+            Arity::Texty => ArityType::Texty,
+            Arity::Fixed(_) => ArityType::Fixed,
+            Arity::Listy(_) => ArityType::Listy,
         }
     }
 }
-
-impl fmt::Display for Arity {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-/// Like `Arity`, but without any data in the variants.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum ArityType {
-    Text,
-    Fixed,
-    Flexible,
-    Mixed,
-}
-
-impl From<Arity> for ArityType {
-    fn from(arity: Arity) -> ArityType {
-        match arity {
-            Arity::Flexible(..) => ArityType::Flexible,
-            Arity::Fixed(..) => ArityType::Fixed,
-            Arity::Text => ArityType::Text,
-            Arity::Mixed(..) => ArityType::Mixed,
-        }
-    }
-}
-
-impl fmt::Display for ConstructName {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl From<String> for ConstructName {
-    fn from(s: String) -> ConstructName {
-        ConstructName(s)
-    }
-}
-
-impl<'a> From<&'a str> for ConstructName {
-    fn from(s: &'a str) -> ConstructName {
-        ConstructName(s.to_string())
-    }
-}
-
-impl From<ConstructName> for String {
-    fn from(m: ConstructName) -> String {
-        m.0
-    }
-}
-
-impl<'a> From<&'a ConstructName> for String {
-    fn from(m: &'a ConstructName) -> String {
-        m.0.to_owned()
-    }
-}
-
-lazy_static! {
-    /// Built-in constructs that can appear in any document.
-    pub static ref BUILTIN_CONSTRUCTS: HashMap<ConstructName, Construct> = vec![
-        (
-            "hole".into(),
-            Construct::new("hole", Sort::any(), Arity::Fixed(vec!()), Some('?'))
-        ),
-        (
-            "root".into(),
-            Construct::new("root", "root", Arity::Fixed(vec![Sort::any()]), None)
-        )
-    ].into_iter().collect();
-}
-
-/*
-#[cfg(test)]
-lazy_static! {
-    pub static ref TEST_FOREST: Construct = {
-        let syntax = literal("TEST_FOREST", Style::plain());
-        Construct::new("TEST_FOREST",
-                       Arity::Forest{ arity: 0, flexible: false },
-                       syntax)
-    };
-
-    pub static ref TEST_TEXT: Construct = {
-        let syntax = literal("TEST_TEXT", Style::plain());
-        Construct::new("TEST_TEXT", Arity::Text, syntax)
-    };
-
-    pub static ref TEST_MIXED: Construct = {
-        let syntax = literal("TEST_MIXED", Style::plain());
-        Construct::new("TEST_MIXED", Arity::Mixed
-    };
-}
-*/
