@@ -1,3 +1,4 @@
+use utility::spanic;
 use uuid::Uuid;
 
 use self::NodeContents::*;
@@ -51,14 +52,14 @@ impl<D, L> Node<D, L> {
 
     pub fn data(&self) -> &D {
         match &self.contents {
-            Leaf(_) => panic!("Forest - leaf node has no data!"),
+            Leaf(_) => spanic!("Forest - leaf node has no data!"),
             Branch(data, _) => data,
         }
     }
 
     pub fn data_mut(&mut self) -> &mut D {
         match &mut self.contents {
-            Leaf(_) => panic!("Forest - leaf node has no data!"),
+            Leaf(_) => spanic!("Forest - leaf node has no data!"),
             Branch(data, _) => data,
         }
     }
@@ -66,27 +67,27 @@ impl<D, L> Node<D, L> {
     pub fn leaf(&self) -> &L {
         match &self.contents {
             Leaf(leaf) => leaf,
-            Branch(_, _) => panic!("Forest - branch node has no leaf!"),
+            Branch(_, _) => spanic!("Forest - branch node has no leaf!"),
         }
     }
 
     pub fn leaf_mut(&mut self) -> &mut L {
         match &mut self.contents {
             Leaf(leaf) => leaf,
-            Branch(_, _) => panic!("Forest - branch node has no leaf!"),
+            Branch(_, _) => spanic!("Forest - branch node has no leaf!"),
         }
     }
 
     pub fn children(&self) -> &[Key] {
         match &self.contents {
-            Leaf(_) => panic!("Forest - leaf node has no children!"),
+            Leaf(_) => spanic!("Forest - leaf node has no children!"),
             Branch(_, children) => children,
         }
     }
 
     pub fn children_mut(&mut self) -> &mut Vec<Key> {
         match &mut self.contents {
-            Leaf(_) => panic!("Forest - leaf node has no children!"),
+            Leaf(_) => spanic!("Forest - leaf node has no children!"),
             Branch(_, children) => children,
         }
     }

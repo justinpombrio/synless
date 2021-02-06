@@ -5,6 +5,7 @@ use std::cell::RefCell;
 use std::mem;
 use std::rc::Rc;
 use std::thread;
+use utility::spanic;
 
 /// A mutable reference to a node in a tree, that owns the tree.
 ///
@@ -206,7 +207,7 @@ impl<D, L> Tree<D, L> {
                 }
             }
         }
-        panic!("Forest::index - not found");
+        spanic!("Forest::index - not found");
     }
 
     /// Determine the number of siblings that this node has, including itself.
@@ -228,7 +229,7 @@ impl<D, L> Tree<D, L> {
     pub fn goto_parent(&mut self) -> usize {
         let slab = self.slab.borrow();
         match slab[self.key].parent {
-            None => panic!("Forest::goto_parent - root node has no parent"),
+            None => spanic!("Forest::goto_parent - root node has no parent"),
             Some(parent_key) => {
                 for (index, child_key) in slab[parent_key].children().iter().enumerate() {
                     if *child_key == self.key {
@@ -238,7 +239,7 @@ impl<D, L> Tree<D, L> {
                 }
             }
         }
-        panic!("Forest::goto_parent - not found");
+        spanic!("Forest::goto_parent - not found");
     }
 
     /// Go to the `i`th child of this branch node.

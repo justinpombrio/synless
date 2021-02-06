@@ -2,6 +2,7 @@ use super::node::{Bookmark, Key};
 use super::node_slab::NodeSlab;
 use std::cell::RefCell;
 use std::rc::Rc;
+use utility::spanic;
 
 /// An immutable reference to a node in a tree.
 #[derive(Clone, Copy)]
@@ -135,6 +136,6 @@ impl<'f, D, L> TreeRef<'f, D, L> {
                 }
             }
         }
-        panic!("Forest::index - not found");
+        spanic!("Forest::index - not found");
     }
 }

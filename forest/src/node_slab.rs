@@ -1,6 +1,7 @@
 use super::node::{Key, Node};
 use slab::Slab;
 use std::ops::{Index, IndexMut};
+use utility::spanic;
 
 pub struct NodeSlab<D, L> {
     slab: Slab<Node<D, L>>,
@@ -12,7 +13,7 @@ impl<D, L> Index<Key> for NodeSlab<D, L> {
     fn index(&self, key: Key) -> &Node<D, L> {
         match self.slab.get(key) {
             Some(node) => node,
-            None => panic!("Forest - key {} not found!", key),
+            None => spanic!("Forest - key {} not found!", key),
         }
     }
 }
@@ -21,7 +22,7 @@ impl<D, L> IndexMut<Key> for NodeSlab<D, L> {
     fn index_mut(&mut self, key: Key) -> &mut Node<D, L> {
         match self.slab.get_mut(key) {
             Some(node) => node,
-            None => panic!("Forest - key {} not found!", key),
+            None => spanic!("Forest - key {} not found!", key),
         }
     }
 }
@@ -37,7 +38,7 @@ impl<D, L> NodeSlab<D, L> {
 
     pub fn remove(&mut self, key: Key) -> Node<D, L> {
         if !self.slab.contains(key) {
-            panic!("Forest - key {} not found!", key);
+            spanic!("Forest - key {} not found!", key);
         }
         self.slab.remove(key)
     }
