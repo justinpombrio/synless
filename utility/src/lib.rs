@@ -3,7 +3,7 @@ macro_rules! spanic {
     ($msg:expr) => ({
         spanic!($msg,)
     });
-    ($fmt:expr, $($arg:tt),*) => ({
+    ($fmt:expr, $($arg:expr),*) => ({
         panic!(
             concat!("Internal error in Synless!\n", $fmt),
             $($arg),*);

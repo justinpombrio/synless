@@ -3,7 +3,6 @@
 use super::construct::{Arity, Construct, Sort, SortId};
 use partial_pretty_printer::Notation;
 use std::collections::HashMap;
-use std::default::Default;
 use std::iter::Iterator;
 use typed_arena::Arena;
 use utility::spanic;
@@ -11,17 +10,21 @@ use utility::spanic;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ConstructId(u32);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct LanguageId(u32);
-
 pub struct LanguageSet<'l> {
-    storage: &'l mut LanguageStorage,
-    /// LanguageId -> Language
-    languages: Vec<Language<'l>>,
-    languages_by_name: HashMap<String, LanguageId>,
+    grammar_storage: &'l Arena<Grammar>,
+    notation_storage: &'l Arena<NotationSet>,
+    /// Language name -> Language
+    languages: HashMap<String, Language<'l>>,
+}
+
+struct Language<'l> {
+    grammar: &'l Grammar,
+    current_notation: &'l NotationSet,
+    all_notations: HashMap<String, &'l NotationSet>,
 }
 
 pub struct Grammar {
+    language_name: String,
     /// SortId -> Sort
     sorts: Vec<Sort>,
     /// ConstructId -> Construct
@@ -36,18 +39,6 @@ pub struct LanguageStorage {
     notations: Arena<NotationSet>,
 }
 
-pub struct Language<'l> {
-    name: String,
-    grammar: &'l Grammar,
-    current_notation_set: &'l NotationSet,
-    alternative_notation_sets: HashMap<String, &'l NotationSet>,
-}
-
-pub struct NotationConfig {
-    name: String,
-    notations: Vec<(String, Notation)>,
-}
-
 pub struct NotationSet {
     name: String,
     /// Construct id -> Notation
@@ -56,73 +47,94 @@ pub struct NotationSet {
 
 impl<'l> LanguageSet<'l> {
     pub fn new(storage: &'l mut LanguageStorage) -> LanguageSet<'l> {
-        LanguageSet {
-            storage,
-            languages: vec![],
-            languages_by_name: HashMap::new(),
-        }
+        let (builtins_grammar, builtins_notation) = make_builtins_language();
+        let mut langs = LanguageSet {
+            grammar_storage: &storage.grammars,
+            notation_storage: &storage.notations,
+            languages: HashMap::new(),
+        };
+        langs.add_language(builtins_grammar, "Default", builtins_notation);
+        langs
     }
 
-    pub fn add_language(&mut self, language: Language<'l>) -> LanguageId {
-        let language_id = LanguageId(self.languages.len() as u32);
-        self.languages_by_name
-            .insert(language.name.clone(), language_id);
-        self.languages.push(language);
-        language_id
+    pub fn add_language(
+        &mut self,
+        grammar: Grammar,
+        default_notation_name: &str,
+        default_notation: Vec<(String, Notation)>,
+    ) {
+        let grammar: &'l Grammar = self.grammar_storage.alloc(grammar);
+        let default_notation =
+            NotationSet::new(default_notation_name.to_owned(), &grammar, default_notation);
+        let default_notation: &'l NotationSet = self.notation_storage.alloc(default_notation);
+        let mut all_notations = HashMap::new();
+        all_notations.insert(grammar.language_name.clone(), default_notation);
+        self.languages.insert(
+            grammar.language_name.clone(),
+            Language {
+                grammar,
+                current_notation: default_notation,
+                all_notations,
+            },
+        );
     }
 
-    pub fn storage(&mut self) -> &mut LanguageStorage {
-        self.storage
+    pub fn add_notation_set(
+        &mut self,
+        language_name: &str,
+        name: &str,
+        notations: Vec<(String, Notation)>,
+    ) {
+        let language = self.languages.get_mut(language_name).unwrap();
+        let notation_set = NotationSet::new(name.to_owned(), language.grammar, notations);
+        let notation_set: &'l NotationSet = self.notation_storage.alloc(notation_set);
+        language.all_notations.insert(name.to_owned(), notation_set);
+    }
+
+    pub fn current_notation_set(&self, language_name: &str) -> &'l NotationSet {
+        self.languages[language_name].current_notation
+    }
+
+    pub fn all_notation_sets(&self, language_name: &str) -> impl Iterator<Item = &NotationSet> {
+        self.languages[language_name]
+            .all_notations
+            .values()
+            .copied()
+    }
+
+    pub fn switch_notation_set(&mut self, language_name: &str, notation_set_name: &str) {
+        let mut language = self.languages.get_mut(language_name).unwrap();
+        language.current_notation = language.all_notations[notation_set_name];
     }
 }
 
-impl<'l> Language<'l> {
-    pub fn new(
-        name: String,
-        grammar: Grammar,
-        default_notation_set: NotationConfig,
-        storage: &'l mut LanguageStorage,
-    ) -> Language<'l> {
-        let notation_set = NotationSet::new(
-            default_notation_set.name,
-            &grammar,
-            default_notation_set.notations,
-        );
-        let grammar: &'l Grammar = storage.grammars.alloc(grammar);
-        let notation_set: &'l NotationSet = storage.notations.alloc(notation_set);
-        let mut alternative_notation_sets = HashMap::new();
-        alternative_notation_sets.insert(notation_set.name.clone(), notation_set);
-        Language {
-            name,
-            grammar,
-            current_notation_set: notation_set,
-            alternative_notation_sets,
-        }
-    }
+fn make_builtins_language() -> (Grammar, Vec<(String, Notation)>) {
+    use partial_pretty_printer::notation_constructors::{child, lit};
+    use partial_pretty_printer::{Color, Style};
 
-    pub fn add_notation_set(&mut self, notation_set: NotationConfig) {
-        let notation_set =
-            NotationSet::new(notation_set.name, &self.grammar, notation_set.notations);
-        let notation_set: &'l NotationSet = Box::leak(Box::new(notation_set));
-        self.alternative_notation_sets
-            .insert(notation_set.name.to_owned(), notation_set);
-    }
-
-    pub fn grammar(&self) -> &'l Grammar {
-        self.grammar
-    }
-
-    pub fn current_notation_set(&self) -> &'l NotationSet {
-        self.current_notation_set
-    }
-
-    pub fn alternative_notation_sets(&self) -> impl Iterator<Item = &NotationSet> {
-        self.alternative_notation_sets.values().copied()
-    }
-
-    pub fn switch_notation_set(&mut self, notation_set_name: &str) {
-        self.current_notation_set = self.alternative_notation_sets[notation_set_name]
-    }
+    let mut grammar = Grammar::new("SynlessBuiltins");
+    grammar.add_construct("Hole", Sort::any(), Arity::Fixed(vec![]), Some('?'));
+    grammar.add_construct(
+        "Root",
+        Sort::named("Root"),
+        Arity::Fixed(vec![Sort::any()]),
+        None,
+    );
+    let hole_notation = lit(
+        "?",
+        Style {
+            color: Color::Base0C,
+            bold: true,
+            underlined: false,
+            reversed: true,
+        },
+    );
+    let root_notation = child(0);
+    let notations = vec![
+        ("Hole".to_owned(), hole_notation),
+        ("Root".to_owned(), root_notation),
+    ];
+    (grammar, notations)
 }
 
 impl NotationSet {
@@ -136,20 +148,19 @@ impl NotationSet {
         NotationSet { name, notations }
     }
 
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
     pub fn lookup(&self, construct_id: ConstructId) -> &Notation {
         &self.notations[construct_id.0 as usize]
     }
 }
 
-impl Default for Grammar {
-    fn default() -> Grammar {
-        Grammar::new()
-    }
-}
-
 impl Grammar {
-    pub fn new() -> Grammar {
+    pub fn new(language_name: &str) -> Grammar {
         Grammar {
+            language_name: language_name.to_owned(),
             sorts: vec![],
             constructs: vec![],
             constructs_of_sort: vec![],
@@ -186,13 +197,13 @@ impl Grammar {
         }
     }
 
-    pub fn add_construct(&mut self, name: String, sort: Sort, arity: Arity, key: Option<char>) {
+    pub fn add_construct(&mut self, name: &str, sort: Sort, arity: Arity, key: Option<char>) {
         // Add the sort
         let sort_id = self.add_sort(sort);
 
         // Add the construct
         let construct = Construct {
-            name,
+            name: name.to_owned(),
             sort_id,
             arity,
             key,

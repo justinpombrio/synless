@@ -52,6 +52,14 @@ impl<D, L> Tree<D, L> {
         self.slab.borrow_mut()[self.key].is_leaf()
     }
 
+    /// Provides a copy of the data value at this node, when the data implements `Copy`.
+    pub fn data(&self) -> D
+    where
+        D: Copy,
+    {
+        self.slab.borrow()[self.key].data().clone()
+    }
+
     /// Calls the closure, giving it read access to the data value at this node.
     pub fn with_data<R>(&self, func: impl FnOnce(&D) -> R) -> R {
         func(&self.slab.borrow()[self.key].data())

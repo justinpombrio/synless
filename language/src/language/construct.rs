@@ -1,3 +1,5 @@
+use utility::spanic;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SortId(pub(crate) u32);
 
@@ -43,8 +45,8 @@ impl Sort {
         Sort::Any
     }
 
-    pub fn named(sort_name: String) -> Sort {
-        Sort::Named(sort_name)
+    pub fn named(sort_name: &str) -> Sort {
+        Sort::Named(sort_name.to_owned())
     }
 
     /// Return true if a hole with this sort can accept a node with the given sort.
@@ -80,9 +82,9 @@ impl Arity {
         match self {
             Arity::Listy(sort) => sort,
             Arity::Fixed(sorts) => sorts.get(i).unwrap_or_else(|| {
-                panic!("child_sort - fixed node has only {} children", sorts.len())
+                spanic!("child_sort - fixed node has only {} children", sorts.len())
             }),
-            _ => panic!("child_sort - node has no children"),
+            _ => spanic!("child_sort - node has no children"),
         }
     }
 
