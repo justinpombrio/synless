@@ -5,6 +5,7 @@ use partial_pretty_printer::Notation;
 use std::collections::HashMap;
 use std::default::Default;
 use std::iter::Iterator;
+use typed_arena::Arena;
 use utility::spanic;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -13,9 +14,10 @@ pub struct ConstructId(u32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct LanguageId(u32);
 
-pub struct LanguageSet {
+pub struct LanguageSet<'l> {
+    storage: &'l mut LanguageStorage,
     /// LanguageId -> Language
-    languages: Vec<Language>,
+    languages: Vec<Language<'l>>,
     languages_by_name: HashMap<String, LanguageId>,
 }
 
@@ -29,11 +31,16 @@ pub struct Grammar {
     keymap: HashMap<char, ConstructId>,
 }
 
-pub struct Language {
+pub struct LanguageStorage {
+    grammars: Arena<Grammar>,
+    notations: Arena<NotationSet>,
+}
+
+pub struct Language<'l> {
     name: String,
-    grammar: &'static Grammar,
-    current_notation_set: &'static NotationSet,
-    alternative_notation_sets: HashMap<String, &'static NotationSet>,
+    grammar: &'l Grammar,
+    current_notation_set: &'l NotationSet,
+    alternative_notation_sets: HashMap<String, &'l NotationSet>,
 }
 
 pub struct NotationConfig {
@@ -47,42 +54,47 @@ pub struct NotationSet {
     notations: Vec<Notation>,
 }
 
-impl Default for LanguageSet {
-    fn default() -> LanguageSet {
-        LanguageSet::new()
-    }
-}
-
-impl LanguageSet {
-    pub fn new() -> LanguageSet {
+impl<'l> LanguageSet<'l> {
+    pub fn new(storage: &'l mut LanguageStorage) -> LanguageSet<'l> {
         LanguageSet {
+            storage,
             languages: vec![],
             languages_by_name: HashMap::new(),
         }
     }
 
-    pub fn add_language(&mut self, language: Language) -> LanguageId {
+    pub fn add_language(&mut self, language: Language<'l>) -> LanguageId {
         let language_id = LanguageId(self.languages.len() as u32);
         self.languages_by_name
             .insert(language.name.clone(), language_id);
         self.languages.push(language);
         language_id
     }
+
+    pub fn storage(&mut self) -> &mut LanguageStorage {
+        self.storage
+    }
 }
 
-impl Language {
-    pub fn new(name: String, grammar: Grammar, default_notation_set: NotationConfig) -> Language {
+impl<'l> Language<'l> {
+    pub fn new(
+        name: String,
+        grammar: Grammar,
+        default_notation_set: NotationConfig,
+        storage: &'l mut LanguageStorage,
+    ) -> Language<'l> {
         let notation_set = NotationSet::new(
             default_notation_set.name,
             &grammar,
             default_notation_set.notations,
         );
-        let notation_set: &'static NotationSet = Box::leak(Box::new(notation_set));
+        let grammar: &'l Grammar = storage.grammars.alloc(grammar);
+        let notation_set: &'l NotationSet = storage.notations.alloc(notation_set);
         let mut alternative_notation_sets = HashMap::new();
         alternative_notation_sets.insert(notation_set.name.clone(), notation_set);
         Language {
             name,
-            grammar: Box::leak(Box::new(grammar)),
+            grammar,
             current_notation_set: notation_set,
             alternative_notation_sets,
         }
@@ -91,16 +103,16 @@ impl Language {
     pub fn add_notation_set(&mut self, notation_set: NotationConfig) {
         let notation_set =
             NotationSet::new(notation_set.name, &self.grammar, notation_set.notations);
-        let notation_set: &'static NotationSet = Box::leak(Box::new(notation_set));
+        let notation_set: &'l NotationSet = Box::leak(Box::new(notation_set));
         self.alternative_notation_sets
             .insert(notation_set.name.to_owned(), notation_set);
     }
 
-    pub fn grammar(&self) -> &'static Grammar {
+    pub fn grammar(&self) -> &'l Grammar {
         self.grammar
     }
 
-    pub fn current_notation_set(&self) -> &'static NotationSet {
+    pub fn current_notation_set(&self) -> &'l NotationSet {
         self.current_notation_set
     }
 
