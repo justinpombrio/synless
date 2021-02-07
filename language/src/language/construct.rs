@@ -1,7 +1,3 @@
-use lazy_static::lazy_static;
-use std::collections::HashMap;
-use std::fmt;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SortId(pub(crate) u32);
 
