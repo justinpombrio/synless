@@ -33,8 +33,8 @@ impl<D, L> Forest<D, L> {
     }
 
     /// Construct a new leaf.
-    pub fn new_leaf(&self, leaf: L) -> Tree<D, L> {
-        let node = Node::new_leaf(leaf);
+    pub fn new_leaf(&self, data: D, leaf: L) -> Tree<D, L> {
+        let node = Node::new_leaf(data, leaf);
 
         let mut slab = self.0.borrow_mut();
         let leaf_key = slab.insert(node);

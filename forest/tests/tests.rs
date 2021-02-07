@@ -1,13 +1,16 @@
 use forest::{Forest, Tree, TreeRef};
 
 fn make_family(forest: &Forest<&'static str, &'static str>) -> Tree<&'static str, &'static str> {
-    let leaves = vec![forest.new_leaf("elder"), forest.new_leaf("younger")];
+    let leaves = vec![
+        forest.new_leaf("sister", "elder"),
+        forest.new_leaf("sister", "younger"),
+    ];
     forest.new_branch("parent", leaves)
 }
 
 fn make_mirror(forest: &Forest<u32, u32>, height: u32, id: u32) -> Tree<u32, u32> {
     if height == 0 {
-        forest.new_leaf(id)
+        forest.new_leaf(42, id)
     } else {
         let mut children = vec![];
         for i in 0..height {
@@ -31,15 +34,18 @@ fn sum(tree_ref: TreeRef<u32, u32>) -> u32 {
 
 #[test]
 fn test_leaves() {
-    let forest: Forest<(), u32> = Forest::new();
+    let forest: Forest<u32, u32> = Forest::new();
     // Begin with a leaf of 2
-    let mut tree = forest.new_leaf(2);
+    let mut tree = forest.new_leaf(4, 2);
     assert!(tree.is_leaf());
     assert_eq!(tree.with_leaf(|l| *l), 2);
+    assert_eq!(tree.borrow().with_data(|d| *d), 4);
     // Mutate it to be 3
     tree.with_leaf_mut(|l| *l = 3);
+    tree.with_data_mut(|d| *d = 5);
     assert!(tree.borrow().is_leaf());
     assert_eq!(tree.borrow().with_leaf(|l| *l), 3);
+    assert_eq!(tree.borrow().with_data(|d| *d), 5);
 }
 
 #[test]
@@ -59,9 +65,9 @@ fn test_data() {
 fn test_num_children() {
     let forest: Forest<(), ()> = Forest::new();
     let leaves = vec![
-        forest.new_leaf(()),
-        forest.new_leaf(()),
-        forest.new_leaf(()),
+        forest.new_leaf((), ()),
+        forest.new_leaf((), ()),
+        forest.new_leaf((), ()),
     ];
     println!("before");
     let tree = forest.new_branch((), leaves);
@@ -118,7 +124,7 @@ fn test_navigation_mut() {
 fn test_bookmark_ref() {
     let forest: Forest<&'static str, &'static str> = Forest::new();
     let mut tree = make_family(&forest);
-    let mut other_tree = forest.new_leaf("stranger");
+    let mut other_tree = forest.new_leaf("mister", "stranger");
     let bookmark = tree.borrow().child(1).bookmark();
     assert!(other_tree.borrow().lookup_bookmark(bookmark).is_none());
     assert!(!other_tree.goto_bookmark(bookmark));
@@ -138,7 +144,7 @@ fn test_bookmark_ref() {
 fn test_bookmark_mut() {
     let forest: Forest<&'static str, &'static str> = Forest::new();
     let mut tree = make_family(&forest);
-    let mut other_tree = forest.new_leaf("stranger");
+    let mut other_tree = forest.new_leaf("mister", "stranger");
     tree.goto_child(1);
     let bookmark = tree.bookmark();
     tree.goto_parent();
@@ -171,15 +177,17 @@ fn test_bookmark_deleted() {
 fn test_replace_child() {
     let forest: Forest<&'static str, &'static str> = Forest::new();
     let mut tree = make_family(&forest);
-    let old_imposter = forest.new_leaf("oldImposter");
-    let young_imposter = forest.new_leaf("youngImposter");
+    let old_imposter = forest.new_leaf("imposter", "old");
+    let young_imposter = forest.new_leaf("imposter", "young");
     let elder = tree.replace_child(0, old_imposter);
     let younger = tree.replace_child(1, young_imposter);
     assert_eq!(elder.borrow().with_leaf(|l| *l), "elder");
     assert_eq!(younger.borrow().with_leaf(|l| *l), "younger");
     assert_eq!(tree.borrow().num_children(), 2);
-    assert_eq!(tree.borrow().child(0).with_leaf(|l| *l), "oldImposter");
-    assert_eq!(tree.borrow().child(1).with_leaf(|l| *l), "youngImposter");
+    assert_eq!(tree.borrow().child(0).with_leaf(|l| *l), "old");
+    assert_eq!(tree.borrow().child(0).with_data(|d| *d), "imposter");
+    assert_eq!(tree.borrow().child(1).with_leaf(|l| *l), "young");
+    assert_eq!(tree.borrow().child(1).with_data(|d| *d), "imposter");
 }
 
 #[test]
@@ -207,9 +215,9 @@ fn test_remove_child() {
 fn test_insert_child() {
     let forest: Forest<&'static str, &'static str> = Forest::new();
     let mut tree = make_family(&forest);
-    let malcolm = forest.new_leaf("Malcolm");
-    let reese = forest.new_leaf("Reese");
-    let dewey = forest.new_leaf("Dewey");
+    let malcolm = forest.new_leaf("Middle", "Malcolm");
+    let reese = forest.new_leaf("Middle", "Reese");
+    let dewey = forest.new_leaf("Middle", "Dewey");
     tree.insert_child(1, malcolm); // Malcolm is in the middle
     tree.insert_child(0, reese);
     tree.insert_child(4, dewey);
@@ -240,7 +248,7 @@ fn comprehensive_exam() {
     {
         let mut tree = make_mirror(&forest, 3, 0);
         let mut canada = forest.new_branch(721, vec![]);
-        let mut mexico = forest.new_leaf(3767);
+        let mut mexico = forest.new_leaf(1430, 3767);
         assert_eq!(forest.node_count(), 8 + 1 + 1);
         // tree:
         //       0
@@ -440,19 +448,8 @@ fn comprehensive_exam() {
 #[should_panic(expected = "leaf node has no children")]
 fn test_num_chilren_panic() {
     let forest: Forest<(), ()> = Forest::new();
-    let tree = forest.new_leaf(());
+    let tree = forest.new_leaf((), ());
     tree.borrow().num_children();
-}
-
-#[test]
-#[should_panic(expected = "leaf node has no data")]
-// The useless-looking dereference on the last line is important, that's
-// what should panic.
-#[allow(clippy::unnecessary_operation)]
-fn test_data_panic() {
-    let forest: Forest<(), ()> = Forest::new();
-    let tree = forest.new_leaf(());
-    tree.borrow().with_data(|d| *d);
 }
 
 #[test]
@@ -467,7 +464,7 @@ fn test_leaf_panic() {
 #[should_panic(expected = "leaf node has no children")]
 fn test_navigation_panic_leaf_ref() {
     let forest: Forest<(), ()> = Forest::new();
-    let tree = forest.new_leaf(());
+    let tree = forest.new_leaf((), ());
     tree.borrow().child(0);
 }
 
@@ -475,7 +472,7 @@ fn test_navigation_panic_leaf_ref() {
 #[should_panic(expected = "leaf node has no children")]
 fn test_navigation_panic_leaf_mut() {
     let forest: Forest<(), ()> = Forest::new();
-    let mut tree = forest.new_leaf(());
+    let mut tree = forest.new_leaf((), ());
     tree.goto_child(0);
 }
 
@@ -500,7 +497,7 @@ fn test_navigation_panic_oob_mut() {
 fn test_insert_panic_oob() {
     let forest: Forest<&'static str, &'static str> = Forest::new();
     let mut tree = make_family(&forest);
-    let leaf = forest.new_leaf("");
+    let leaf = forest.new_leaf("", "");
     tree.insert_child(3, leaf);
 }
 
@@ -517,7 +514,7 @@ fn test_remove_panic_oob() {
 fn test_replace_panic_oob() {
     let forest: Forest<&'static str, &'static str> = Forest::new();
     let mut tree = make_family(&forest);
-    let leaf = forest.new_leaf("");
+    let leaf = forest.new_leaf("", "");
     tree.replace_child(2, leaf);
 }
 

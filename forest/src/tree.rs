@@ -53,19 +53,11 @@ impl<D, L> Tree<D, L> {
     }
 
     /// Calls the closure, giving it read access to the data value at this node.
-    ///
-    /// # Panics
-    ///
-    /// Panics if this is not a branch node. (Leaves do not have data.)
     pub fn with_data<R>(&self, func: impl FnOnce(&D) -> R) -> R {
         func(&self.slab.borrow()[self.key].data())
     }
 
     /// Calls the closure, giving it write access to the data value at this node.
-    ///
-    /// # Panics
-    ///
-    /// Panics if this is not a branch node. (Leaves do not have data.)
     pub fn with_data_mut<R>(&mut self, func: impl FnOnce(&mut D) -> R) -> R {
         func(self.slab.borrow_mut()[self.key].data_mut())
     }

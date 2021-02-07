@@ -18,19 +18,21 @@ fn fresh_uuid() -> Uuid {
 pub struct Node<D, L> {
     pub uuid: Uuid,
     pub parent: Option<Key>,
-    contents: NodeContents<D, L>,
+    data: D,
+    contents: NodeContents<L>,
 }
 
-enum NodeContents<D, L> {
+enum NodeContents<L> {
     Leaf(L),
-    Branch(D, Vec<Key>),
+    Branch(Vec<Key>),
 }
 
 impl<D, L> Node<D, L> {
-    pub fn new_leaf(leaf: L) -> Node<D, L> {
+    pub fn new_leaf(data: D, leaf: L) -> Node<D, L> {
         Node {
             uuid: fresh_uuid(),
             parent: None,
+            data,
             contents: Leaf(leaf),
         }
     }
@@ -39,56 +41,51 @@ impl<D, L> Node<D, L> {
         Node {
             uuid: fresh_uuid(),
             parent: None,
-            contents: Branch(data, child_keys),
+            data,
+            contents: Branch(child_keys),
         }
     }
 
     pub fn is_leaf(&self) -> bool {
         match &self.contents {
             Leaf(_) => true,
-            Branch(_, _) => false,
+            Branch(_) => false,
         }
     }
 
     pub fn data(&self) -> &D {
-        match &self.contents {
-            Leaf(_) => spanic!("Forest - leaf node has no data!"),
-            Branch(data, _) => data,
-        }
+        &self.data
     }
 
     pub fn data_mut(&mut self) -> &mut D {
-        match &mut self.contents {
-            Leaf(_) => spanic!("Forest - leaf node has no data!"),
-            Branch(data, _) => data,
-        }
+        &mut self.data
     }
 
     pub fn leaf(&self) -> &L {
         match &self.contents {
             Leaf(leaf) => leaf,
-            Branch(_, _) => spanic!("Forest - branch node has no leaf!"),
+            Branch(_) => spanic!("Forest - branch node has no leaf!"),
         }
     }
 
     pub fn leaf_mut(&mut self) -> &mut L {
         match &mut self.contents {
             Leaf(leaf) => leaf,
-            Branch(_, _) => spanic!("Forest - branch node has no leaf!"),
+            Branch(_) => spanic!("Forest - branch node has no leaf!"),
         }
     }
 
     pub fn children(&self) -> &[Key] {
         match &self.contents {
             Leaf(_) => spanic!("Forest - leaf node has no children!"),
-            Branch(_, children) => children,
+            Branch(children) => children,
         }
     }
 
     pub fn children_mut(&mut self) -> &mut Vec<Key> {
         match &mut self.contents {
             Leaf(_) => spanic!("Forest - leaf node has no children!"),
-            Branch(_, children) => children,
+            Branch(children) => children,
         }
     }
 }
