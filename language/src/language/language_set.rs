@@ -1,6 +1,6 @@
 //! An editable language.
 
-use super::construct::{Arity, Construct, Sort, SortId};
+use super::construct::{Arity, Construct, Sort};
 use partial_pretty_printer::Notation;
 use std::collections::HashMap;
 use std::iter::Iterator;
@@ -25,12 +25,10 @@ struct Language<'l> {
 
 pub struct Grammar {
     language_name: String,
-    /// SortId -> Sort
     sorts: Vec<Sort>,
     /// ConstructId -> Construct
     constructs: Vec<Construct>,
-    /// SortId -> Vec<ConstructId>
-    constructs_of_sort: Vec<Vec<ConstructId>>,
+    constructs_of_sort: HashMap<Sort, Vec<ConstructId>>,
     keymap: HashMap<char, ConstructId>,
 }
 
@@ -106,6 +104,17 @@ impl<'l> LanguageSet<'l> {
         let mut language = self.languages.get_mut(language_name).unwrap();
         language.current_notation = language.all_notations[notation_set_name];
     }
+
+    pub fn builtin_hole_info(&self) -> (&'l Grammar, ConstructId) {
+        // TODO: Avoid magic constants?
+        let language = &self.languages["SynlessBuiltins"];
+        (language.grammar, ConstructId(0))
+    }
+
+    pub fn builtin_root_info(&self) -> (&'l Grammar, ConstructId) {
+        let language = &self.languages["SynlessBuiltins"];
+        (language.grammar, ConstructId(1))
+    }
 }
 
 fn make_builtins_language() -> (Grammar, Vec<(String, Notation)>) {
@@ -163,48 +172,48 @@ impl Grammar {
             language_name: language_name.to_owned(),
             sorts: vec![],
             constructs: vec![],
-            constructs_of_sort: vec![],
+            constructs_of_sort: HashMap::new(),
             keymap: HashMap::new(),
         }
+    }
+
+    pub fn language_name(&self) -> &str {
+        &self.language_name
     }
 
     pub fn lookup_key(&self, key: char) -> Option<&Construct> {
         Some(&self.constructs[self.keymap.get(&key)?.0 as usize])
     }
 
-    pub fn lookup_construct(&self, construct_id: ConstructId) -> &Construct {
+    pub fn construct(&self, construct_id: ConstructId) -> &Construct {
         &self.constructs[construct_id.0 as usize]
     }
 
     pub fn keymap(&self) -> impl Iterator<Item = (char, &str)> {
         self.keymap
             .iter()
-            .map(move |(ch, con)| (*ch, self.lookup_construct(*con).name.as_ref()))
+            .map(move |(ch, con)| (*ch, self.construct(*con).name.as_ref()))
     }
 
     pub fn constructs(&self) -> impl Iterator<Item = &Construct> {
         self.constructs.iter()
     }
 
-    fn add_sort(&mut self, sort: Sort) -> SortId {
-        if let Some(sort_id) = self.sorts.iter().position(|s| s == &sort) {
-            SortId(sort_id as u32)
-        } else {
-            let sort_id = SortId(self.sorts.len() as u32);
-            self.sorts.push(sort);
-            self.constructs_of_sort.push(vec![]);
-            sort_id
+    fn add_sort(&mut self, sort: &Sort) {
+        if !self.sorts.contains(&sort) {
+            self.sorts.push(sort.to_owned());
+            self.constructs_of_sort.insert(sort.to_owned(), vec![]);
         }
     }
 
     pub fn add_construct(&mut self, name: &str, sort: Sort, arity: Arity, key: Option<char>) {
         // Add the sort
-        let sort_id = self.add_sort(sort);
+        self.add_sort(&sort);
 
         // Add the construct
         let construct = Construct {
             name: name.to_owned(),
-            sort_id,
+            sort: sort.clone(),
             arity,
             key,
         };
@@ -220,7 +229,7 @@ impl Grammar {
         }
 
         // Extend the construct list for the sort
-        let cons_list = &mut self.constructs_of_sort[sort_id.0 as usize];
+        let cons_list = self.constructs_of_sort.get_mut(&sort).unwrap();
         if !cons_list.contains(&construct_id) {
             cons_list.push(construct_id);
         }

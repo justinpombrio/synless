@@ -1,8 +1,5 @@
 use utility::spanic;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct SortId(pub(crate) u32);
-
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum Sort {
     Any,
@@ -13,7 +10,7 @@ pub enum Sort {
 #[derive(Debug)]
 pub struct Construct {
     pub name: String,
-    pub sort_id: SortId,
+    pub sort: Sort,
     pub arity: Arity,
     pub key: Option<char>,
 }
