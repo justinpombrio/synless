@@ -35,15 +35,24 @@ impl<D, L> Tree<D, L> {
         }
     }
 
+    /*
     /// Obtain an _immutable_ reference to this Tree.
     ///
     /// An Operation on the borrowed tree will **panic** if it happens
     /// concurrently with a mutable operation on any other tree in the forest.
     pub fn borrow(&self) -> TreeRef<D, L> {
         TreeRef {
-            slab: &self.slab,
+            slab: &self.slab.borrow(),
             key: self.key,
         }
+    }
+    */
+
+    pub fn borrow<R>(&self, func: impl FnOnce(TreeRef<D, L>) -> R) -> R {
+        func(TreeRef {
+            slab: &self.slab.borrow(),
+            key: self.key,
+        })
     }
 
     /// Returns `true` if this is a leaf node, and `false` if this is
