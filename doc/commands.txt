@@ -4,12 +4,13 @@ Navigation      h, H - left, first sibling
                 l, L - right, last sibling
                    j - child
                 k, K - parent, root
+          Tab, S-Tab - go to next/prev leaf (and exit text mode)
                    v - continguous selection
 Clipboard          y - copy
                    p - paste
-Deletion           d - cursor -> hole
+Deletion      Bsp, d - cursor -> hole
                    x - delete list element
-                   c - clear (delete all children)
+                   c - clear (delete all children / clear text)
 Hole Insertion  i, I - left, first
                 a, A - right, last
                 o, O - append child, prepend child
@@ -24,12 +25,17 @@ Search             / - search
                  F _ - go to prev node of type _
 Text             Ent - append text
                S-Ent - prepend text
-                   t - replace text
+                   t - replace text (maybe c Enter instead?)
+                 Esc - exit text mode (maybe Ent/S-Ent also?)
 Misc               m - mark
                    q - macro
                    z - screen center
                    e - extended commands
                    g - mode-specific commands
+Arrows         right - tab (or maybe in-order traversal)
+                left - S-tab
+                down - child
+                  up - parent
 
 Remaining letters: b
 
