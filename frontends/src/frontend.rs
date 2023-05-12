@@ -1,6 +1,8 @@
-use pretty::{ColorTheme, Pane, PaneError, Pos, PrettyWindow};
+use partial_pretty_printer::pane::{PaneError, PrettyWindow};
+use partial_pretty_printer::Pos;
 
 pub use super::key::Key;
+pub use super::ColorTheme;
 
 // TODO: mouse events
 

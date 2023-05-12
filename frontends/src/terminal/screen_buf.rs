@@ -1,5 +1,5 @@
-use pretty::{Pos, Region};
-use pretty::{Shade, ShadedStyle, Style};
+use partial_pretty_printer::pane::PrettyWindow;
+use partial_pretty_printer::{Pos, Shade, ShadedStyle, Style, Width};
 
 use super::TermError;
 
@@ -106,7 +106,12 @@ impl ScreenBuf {
     /// No newlines allowed. If the string doesn't fit between the starting
     /// column position and the right edge of the screen, it's truncated and
     /// and an OutOfBounds error is returned.
-    pub fn write_str(&mut self, mut pos: Pos, s: &str, style: Style) -> Result<(), TermError> {
+    pub fn write_str(
+        &mut self,
+        mut pos: Pos,
+        s: &str,
+        style: ShadedStyle,
+    ) -> Result<(), TermError> {
         for ch in s.chars() {
             self.set_char_with_style(pos, ch, style)?;
             pos.col += 1;
@@ -114,25 +119,26 @@ impl ScreenBuf {
         Ok(())
     }
 
-    pub fn highlight(
+    pub fn fill(
         &mut self,
-        region: Region,
-        shade: Option<Shade>,
-        reverse: bool,
-    ) -> Result<(), TermError> {
-        for pos in region.positions() {
-            let cell = self.get_mut(pos)?;
-            if let Some(s) = shade {
-                cell.set_shade(s);
-            }
-            if reverse {
-                cell.reverse();
-            }
+        mut pos: Pos,
+        ch: char,
+        len: Width,
+        style: ShadedStyle,
+    ) -> Result<(), Self::Error> {
+        for _ in 0..len {
+            self.set_char_with_style(pos, ch, style)?;
+            pos.col += 1;
         }
         Ok(())
     }
 
-    fn set_char_with_style(&mut self, pos: Pos, ch: char, style: Style) -> Result<(), TermError> {
+    fn set_char_with_style(
+        &mut self,
+        pos: Pos,
+        ch: char,
+        style: ShadedStyle,
+    ) -> Result<(), TermError> {
         let cell = self.get_mut(pos)?;
         cell.set_char(ch);
         cell.set_style(style);
@@ -189,12 +195,8 @@ impl DoubleCharCell {
         self.new.ch = ch;
     }
 
-    fn set_style(&mut self, style: Style) {
+    fn set_style(&mut self, style: ShadedStyle) {
         self.new.style = style;
-    }
-
-    fn set_shade(&mut self, shade: Shade) {
-        self.new.shade = shade;
     }
 
     /// Toggle whether the foreground and background are reversed

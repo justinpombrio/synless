@@ -17,12 +17,11 @@ use termion::raw::{IntoRawMode, RawTerminal};
 use termion::screen::AlternateScreen;
 use termion::style::{Bold, NoBold, NoUnderline, Reset, Underline};
 
-use pretty::{
-    Col, ColorTheme, Pane, PaneError, Pos, PrettyWindow, Region, Rgb, Row, Shade, ShadedStyle,
-    Style,
-};
+use partial_pretty_printer::pane::{PaneError, PrettyWindow};
+use partial_pretty_printer::{Col, Line, Pos, ShadedStyle, Size, Width};
 
 use crate::frontend::{Event, Frontend, Key};
+use crate::{ColorTheme, Rgb};
 
 use self::Event::{KeyEvent, MouseEvent};
 
@@ -39,10 +38,10 @@ pub struct Terminal {
 impl Terminal {
     /// Update the screen buffer size to match the actual terminal window size.
     fn update_size(&mut self) -> Result<(), TermError> {
-        let (col, row) = termion::terminal_size()?;
+        let (col, line) = termion::terminal_size()?;
         let size = Pos {
             col: col as u16,
-            row: row as u32,
+            line: line as u32,
         };
 
         if size != self.buf.size() {
@@ -105,21 +104,22 @@ impl PrettyWindow for Terminal {
 
     /// Return the current size of the screen buffer, without checking the
     /// actual size of the terminal window (which might have changed recently).
-    fn size(&self) -> Result<Pos, Self::Error> {
+    fn size(&self) -> Result<Size, Self::Error> {
         Ok(self.buf.size())
     }
 
-    fn print(&mut self, pos: Pos, text: &str, style: Style) -> Result<(), Self::Error> {
-        self.buf.write_str(pos, text, style)
+    fn print(&mut self, pos: Pos, string: &str, style: ShadedStyle) -> Result<(), Self::Error> {
+        self.buf.write_str(pos, string, style)
     }
 
-    fn highlight(
+    fn fill(
         &mut self,
-        region: Region,
-        shade: Option<Shade>,
-        reverse: bool,
+        pos: Pos,
+        ch: char,
+        len: Width,
+        style: ShadedStyle,
     ) -> Result<(), Self::Error> {
-        self.buf.highlight(region, shade, reverse)
+        self.buf.fill(pos, ch, len, style)
     }
 }
 
@@ -185,14 +185,14 @@ fn to_termion_rgb(synless_rgb: Rgb) -> TermionRgb {
 
 /// Convert a synless Pos into termion's XY coordinates.
 fn pos_to_coords(pos: Pos) -> (u16, u16) {
-    (pos.col as u16 + 1, pos.row as u16 + 1)
+    (pos.col as u16 + 1, pos.line as u16 + 1)
 }
 
 /// Convert termion's XY coordinates into a synless Pos.
 fn coords_to_pos(x: u16, y: u16) -> Pos {
     Pos {
         col: x as Col - 1,
-        row: y as Row - 1,
+        line: y as Line - 1,
     }
 }
 
