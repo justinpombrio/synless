@@ -48,14 +48,16 @@ pub struct Node<D, L>(Index, PhantomData<(D, L)>);
 struct NodeContents<D, L> {
     parent: Option<Node<D, L>>,
     data: D,
-    children: NodeChildren<D, L>,
+    leaf_or_children: LeafOrChildren<D, L>,
 }
 
 #[derive(Debug)]
-enum NodeChildren<D, L> {
+enum LeafOrChildren<D, L> {
     Leaf(L),
-    Branch(Vec<Node<D, L>>),
+    Children(Vec<Node<D, L>>),
 }
+
+use LeafOrChildren::{Leaf, Children};
 
 impl<D, L> Default for Forest<D, L> {
     fn default() -> Forest<D, L> {
@@ -93,7 +95,7 @@ impl<D, L> Forest<D, L> {
         let node = Node::new(self.arena.insert(NodeContents {
             parent: None,
             data,
-            children: NodeChildren::Leaf(leaf),
+            leaf_or_children: Leaf(leaf),
         }));
         self.roots.push(node);
         node
@@ -104,7 +106,7 @@ impl<D, L> Forest<D, L> {
         let node = Node::new(self.arena.insert(NodeContents {
             parent: None,
             data,
-            children: NodeChildren::Branch(Vec::new()),
+            leaf_or_children: Children(Vec::new()),
         }));
         self.roots.push(node);
         node
@@ -135,30 +137,30 @@ impl<D, L> Forest<D, L> {
     }
 
     fn leaf(&self, node: Node<D, L>) -> &L {
-        match &self.get(node).children {
-            NodeChildren::Leaf(leaf) => leaf,
-            NodeChildren::Branch(_) => panic!("Forest - branch nodes do not have leaf data"),
+        match &self.get(node).leaf_or_children {
+            Leaf(leaf) => leaf,
+            Children(_) => panic!("Forest - branch nodes do not have leaf data"),
         }
     }
 
     fn leaf_mut(&mut self, node: Node<D, L>) -> &mut L {
-        match &mut self.get_mut(node).children {
-            NodeChildren::Leaf(leaf) => leaf,
-            NodeChildren::Branch(_) => panic!("Forest - branch nodes do not have leaf data (mut)"),
+        match &mut self.get_mut(node).leaf_or_children {
+            Leaf(leaf) => leaf,
+            Children(_) => panic!("Forest - branch nodes do not have leaf data (mut)"),
         }
     }
 
     fn children(&self, node: Node<D, L>) -> &[Node<D, L>] {
-        match &self.get(node).children {
-            NodeChildren::Leaf(_) => panic!("Forest - leaf nodes do not have children"),
-            NodeChildren::Branch(children) => children,
+        match &self.get(node).leaf_or_children {
+            Leaf(_) => panic!("Forest - leaf nodes do not have children"),
+            Children(children) => children,
         }
     }
 
     fn children_mut(&mut self, node: Node<D, L>) -> &mut Vec<Node<D, L>> {
-        match &mut self.get_mut(node).children {
-            NodeChildren::Leaf(_) => panic!("Forest - leaf nodes do not have children (mut)"),
-            NodeChildren::Branch(children) => children,
+        match &mut self.get_mut(node).leaf_or_children {
+            Leaf(_) => panic!("Forest - leaf nodes do not have children (mut)"),
+            Children(children) => children,
         }
     }
 
@@ -224,7 +226,7 @@ impl<D, L> Node<D, L> {
     /// Return `true` if this is a leaf node (containing `L`), or `false` if it's
     /// a branch node (containing children).
     pub fn is_leaf(self, f: &Forest<D, L>) -> bool {
-        matches!(f.get(self).children, NodeChildren::Leaf(_))
+        matches!(f.get(self).leaf_or_children, Leaf(_))
     }
 
     /// Get the leaf data at this leaf node.
@@ -314,7 +316,7 @@ impl<D, L> Node<D, L> {
         let mut to_delete = vec![self];
         while let Some(node) = to_delete.pop() {
             let contents = &mut f.get_mut(node);
-            if let NodeChildren::Branch(children) = &mut contents.children {
+            if let Children(children) = &mut contents.leaf_or_children {
                 to_delete.append(children);
             }
             f.arena.remove(node.0);
