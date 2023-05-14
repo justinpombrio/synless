@@ -1,4 +1,4 @@
-use partial_pretty_printer::{Color, Shade, Style};
+use partial_pretty_printer::{Color, Shade, ShadedStyle};
 
 /// A color theme.
 ///
@@ -82,22 +82,22 @@ impl ColorTheme {
 
     fn color(&self, color: Color) -> Rgb {
         match color {
-            Base00 => self.base00,
-            Base01 => self.base01,
-            Base02 => self.base02,
-            Base03 => self.base03,
-            Base04 => self.base04,
-            Base05 => self.base05,
-            Base06 => self.base06,
-            Base07 => self.base07,
-            Base08 => self.base08,
-            Base09 => self.base09,
-            Base0A => self.base0A,
-            Base0B => self.base0B,
-            Base0C => self.base0C,
-            Base0D => self.base0D,
-            Base0E => self.base0E,
-            Base0F => self.base0F,
+            Color::Base00 => self.base00,
+            Color::Base01 => self.base01,
+            Color::Base02 => self.base02,
+            Color::Base03 => self.base03,
+            Color::Base04 => self.base04,
+            Color::Base05 => self.base05,
+            Color::Base06 => self.base06,
+            Color::Base07 => self.base07,
+            Color::Base08 => self.base08,
+            Color::Base09 => self.base09,
+            Color::Base0A => self.base0A,
+            Color::Base0B => self.base0B,
+            Color::Base0C => self.base0C,
+            Color::Base0D => self.base0D,
+            Color::Base0E => self.base0E,
+            Color::Base0F => self.base0F,
         }
     }
 
@@ -107,31 +107,22 @@ impl ColorTheme {
     }
 
     /// The foreground color for a given style, in this color theme, as a terminal256-color.
-    pub fn foreground(&self, style: Style, shade: Shade) -> Rgb {
+    pub fn foreground(&self, style: ShadedStyle) -> Rgb {
         if style.reversed {
-            self.shade(shade)
+            self.shade(style.shade)
         } else {
             self.color(style.color)
         }
     }
 
     /// The background color for a given style, in this color theme, as a terminal256-color.
-    pub fn background(&self, style: Style, shade: Shade) -> Rgb {
+    pub fn background(&self, style: ShadedStyle) -> Rgb {
         if style.reversed {
             self.color(style.color)
         } else {
-            self.shade(shade)
+            self.shade(style.shade)
         }
     }
-
-    // TODO: This belongs in the Terminal frontend.
-    /*
-    pub fn emph(&self, style: Style) -> rustbox::Style {
-        let ul = if style.emph.underlined { RB_UNDERLINE } else { RB_NORMAL };
-        let bd = if style.emph.bold { RB_BOLD } else { RB_NORMAL };
-        ul | bd
-    }
-     */
 }
 
 impl Rgb {

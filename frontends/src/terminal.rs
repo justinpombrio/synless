@@ -38,10 +38,10 @@ pub struct Terminal {
 impl Terminal {
     /// Update the screen buffer size to match the actual terminal window size.
     fn update_size(&mut self) -> Result<(), TermError> {
-        let (col, line) = termion::terminal_size()?;
-        let size = Pos {
-            col: col as u16,
-            line: line as u32,
+        let (width, height) = termion::terminal_size()?;
+        let size = Size {
+            width: width as u16,
+            height: height as u32,
         };
 
         if size != self.buf.size() {
@@ -60,13 +60,13 @@ impl Terminal {
     }
 
     fn apply_style(&mut self, style: ShadedStyle) -> Result<(), io::Error> {
-        if style.emph.bold {
+        if style.bold {
             self.write(Bold)?;
         } else {
             self.write(NoBold)?;
         }
 
-        if style.emph.underlined {
+        if style.underlined {
             self.write(Underline)?;
         } else {
             self.write(NoUnderline)?;
@@ -158,16 +158,16 @@ impl Frontend for Terminal {
         }
     }
 
-    fn draw_frame<F>(&mut self, draw: F) -> Result<(), PaneError>
-    where
-        F: Fn(Pane<Self>) -> Result<(), PaneError>,
-    {
-        self.start_frame().map_err(PaneError::from_pretty_window)?;
-        let pane = self.pane().map_err(PaneError::from_pretty_window)?;
-        let result = draw(pane);
-        self.show_frame().map_err(PaneError::from_pretty_window)?;
-        result
-    }
+    // fn draw_frame<F>(&mut self, draw: F) -> Result<(), PaneError>
+    // where
+    //     F: Fn(Pane<Self>) -> Result<(), PaneError>,
+    // {
+    //     self.start_frame().map_err(PaneError::from_pretty_window)?;
+    //     let pane = self.pane().map_err(PaneError::from_pretty_window)?;
+    //     let result = draw(pane);
+    //     self.show_frame().map_err(PaneError::from_pretty_window)?;
+    //     result
+    // }
 }
 
 impl Drop for Terminal {
