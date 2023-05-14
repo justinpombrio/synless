@@ -5,7 +5,6 @@ authors = ["justinpombrio <zallambo@gmail.com>", "e-matteson <e.r.matteson@gmail
 
 [workspace]
 members = [
-  "utility",
   "forest",
   "language",
   "frontends",

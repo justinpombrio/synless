@@ -7,7 +7,6 @@ edition = "2018"
 [dependencies]
 forest = { path = "../forest" }
 language = { path  = "../language" }
-utility = { path  = "../utility" }
 
 lazy_static = "*"
 thiserror = "1.0"

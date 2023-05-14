@@ -44,9 +44,6 @@ pub struct Forest<D, L> {
 #[derive(Debug)]
 pub struct Node<D, L>(Index, PhantomData<(D, L)>);
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct Bookmark<D, L>(Index, PhantomData<(D, L)>);
-
 #[derive(Debug)]
 struct NodeContents<D, L> {
     parent: Option<Node<D, L>>,
@@ -55,9 +52,15 @@ struct NodeContents<D, L> {
 }
 
 #[derive(Debug)]
-pub enum NodeChildren<D, L> {
+enum NodeChildren<D, L> {
     Leaf(L),
     Branch(Vec<Node<D, L>>),
+}
+
+impl<D, L> Default for Forest<D, L> {
+    fn default() -> Forest<D, L> {
+        Forest::new()
+    }
 }
 
 impl<D, L> PartialEq for Node<D, L> {
