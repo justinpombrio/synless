@@ -17,7 +17,7 @@ use termion::raw::{IntoRawMode, RawTerminal};
 use termion::screen::AlternateScreen;
 use termion::style::{Bold, NoBold, NoUnderline, Reset, Underline};
 
-use partial_pretty_printer::pane::{PaneError, PrettyWindow};
+use partial_pretty_printer::pane::PrettyWindow;
 use partial_pretty_printer::{Col, Line, Pos, ShadedStyle, Size, Width};
 
 use crate::frontend::{Event, Frontend, Key};
@@ -127,7 +127,12 @@ impl Frontend for Terminal {
     type Error = TermError;
     type Window = Self;
 
-    fn new(theme: ColorTheme) -> Result<Terminal, Self::Error> {
+    fn new(theme: ColorTheme) -> Result<Terminal, <Self as Frontend>::Error> {
+        // TODO there's something weird here about the picking the size. The buf
+        // size defaults to 0. term.size() returns the buf size, so 0. I assume
+        // this code was meant to check the actual terminal window size, but it
+        // doesn't. We should first check the terminal window size and pass it
+        // in when creating the ScreenBuf.
         let mut term = Terminal {
             stdout: AlternateScreen::from(MouseTerminal::from(stdout().into_raw_mode()?)),
             events: stdin().events(),
@@ -140,7 +145,7 @@ impl Frontend for Terminal {
         Ok(term)
     }
 
-    fn next_event(&mut self) -> Option<Result<Event, Self::Error>> {
+    fn next_event(&mut self) -> Option<Result<Event, <Self as Frontend>::Error>> {
         match self.events.next() {
             Some(Ok(event::Event::Key(termion_key))) => Some(match Key::try_from(termion_key) {
                 Ok(key) => Ok(KeyEvent(key)),
@@ -157,17 +162,6 @@ impl Frontend for Terminal {
             None => None,
         }
     }
-
-    // fn draw_frame<F>(&mut self, draw: F) -> Result<(), PaneError>
-    // where
-    //     F: Fn(Pane<Self>) -> Result<(), PaneError>,
-    // {
-    //     self.start_frame().map_err(PaneError::from_pretty_window)?;
-    //     let pane = self.pane().map_err(PaneError::from_pretty_window)?;
-    //     let result = draw(pane);
-    //     self.show_frame().map_err(PaneError::from_pretty_window)?;
-    //     result
-    // }
 }
 
 impl Drop for Terminal {
