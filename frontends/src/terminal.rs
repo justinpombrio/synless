@@ -75,28 +75,6 @@ impl Terminal {
         self.write(Fg(to_termion_rgb(self.color_theme.foreground(style))))?;
         self.write(Bg(to_termion_rgb(self.color_theme.background(style))))
     }
-
-    /// Prepare to start modifying a fresh new frame.
-    fn start_frame(&mut self) -> Result<(), TermError> {
-        self.update_size()
-    }
-
-    /// Show the modified frame to the user.
-    fn show_frame(&mut self) -> Result<(), TermError> {
-        // Reset terminal's style
-        self.write(Reset)?;
-        // Update the screen from the old frame to the new frame.
-        let changes: Vec<_> = self.buf.drain_changes().collect();
-        for op in changes {
-            match op {
-                ScreenOp::Goto(pos) => self.go_to(pos)?,
-                ScreenOp::Apply(style) => self.apply_style(style)?,
-                ScreenOp::Print(ch) => self.write(ch)?,
-            }
-        }
-        self.stdout.flush()?;
-        Ok(())
-    }
 }
 
 impl PrettyWindow for Terminal {
@@ -127,7 +105,7 @@ impl Frontend for Terminal {
     type Error = TermError;
     type Window = Self;
 
-    fn new(theme: ColorTheme) -> Result<Terminal, <Self as Frontend>::Error> {
+    fn new(theme: ColorTheme) -> Result<Terminal, TermError> {
         // TODO there's something weird here about the picking the size. The buf
         // size defaults to 0. term.size() returns the buf size, so 0. I assume
         // this code was meant to check the actual terminal window size, but it
@@ -145,7 +123,7 @@ impl Frontend for Terminal {
         Ok(term)
     }
 
-    fn next_event(&mut self) -> Option<Result<Event, <Self as Frontend>::Error>> {
+    fn next_event(&mut self) -> Option<Result<Event, TermError>> {
         match self.events.next() {
             Some(Ok(event::Event::Key(termion_key))) => Some(match Key::try_from(termion_key) {
                 Ok(key) => Ok(KeyEvent(key)),
@@ -161,6 +139,26 @@ impl Frontend for Terminal {
             Some(Err(err)) => Some(Err(err.into())),
             None => None,
         }
+    }
+
+    fn start_frame(&mut self) -> Result<(), TermError> {
+        self.update_size()
+    }
+
+    fn show_frame(&mut self) -> Result<(), TermError> {
+        // Reset terminal's style
+        self.write(Reset)?;
+        // Update the screen from the old frame to the new frame.
+        let changes: Vec<_> = self.buf.drain_changes().collect();
+        for op in changes {
+            match op {
+                ScreenOp::Goto(pos) => self.go_to(pos)?,
+                ScreenOp::Apply(style) => self.apply_style(style)?,
+                ScreenOp::Print(ch) => self.write(ch)?,
+            }
+        }
+        self.stdout.flush()?;
+        Ok(())
     }
 }
 

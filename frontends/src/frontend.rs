@@ -26,4 +26,10 @@ pub trait Frontend: Sized + PrettyWindow {
 
     /// Block until an event (eg. keypress) occurs, then return it. None means the event stream ended.
     fn next_event(&mut self) -> Option<Result<Event, <Self as Frontend>::Error>>;
+
+    /// Prepare to start modifying a fresh new frame. This should be called before pretty-printing.
+    fn start_frame(&mut self) -> Result<(), <Self as Frontend>::Error>;
+
+    /// Show the modified frame to the user. This should be called after pretty-printing.
+    fn show_frame(&mut self) -> Result<(), <Self as Frontend>::Error>;
 }
