@@ -1,5 +1,5 @@
 use super::TermError;
-use partial_pretty_printer::{Pos, ShadedStyle, Size, Width};
+use partial_pretty_printer::{pane::PrettyWindow, Pos, ShadedStyle, Size, Width};
 
 /// Represents a screen full of characters. It buffers changes to the
 /// characters, and can produce a set of instructions for efficiently updating
@@ -99,40 +99,6 @@ impl ScreenBuf {
         self.size = size;
     }
 
-    pub fn size(&self) -> Size {
-        self.size
-    }
-
-    /// No newlines allowed. If the string doesn't fit between the starting
-    /// column position and the right edge of the screen, it's truncated and
-    /// and an OutOfBounds error is returned.
-    pub fn write_str(
-        &mut self,
-        mut pos: Pos,
-        s: &str,
-        style: ShadedStyle,
-    ) -> Result<(), TermError> {
-        for ch in s.chars() {
-            self.set_char_with_style(pos, ch, style)?;
-            pos.col += 1;
-        }
-        Ok(())
-    }
-
-    pub fn fill(
-        &mut self,
-        mut pos: Pos,
-        ch: char,
-        len: Width,
-        style: ShadedStyle,
-    ) -> Result<(), TermError> {
-        for _ in 0..len {
-            self.set_char_with_style(pos, ch, style)?;
-            pos.col += 1;
-        }
-        Ok(())
-    }
-
     fn set_char_with_style(
         &mut self,
         pos: Pos,
@@ -161,10 +127,9 @@ impl ScreenBuf {
     }
 
     fn next_pos(&self, old_pos: Pos) -> Option<Pos> {
-        let size = self.size();
-        if old_pos.col >= (size.width - 1) {
+        if old_pos.col >= (self.size.width - 1) {
             // At the last column of a line
-            if old_pos.line >= (size.height - 1) {
+            if old_pos.line >= (self.size.height - 1) {
                 // At the last line too, that's the last position on the the screen!
                 None
             } else {
@@ -181,6 +146,41 @@ impl ScreenBuf {
                 col: old_pos.col + 1,
             })
         }
+    }
+}
+
+impl PrettyWindow for ScreenBuf {
+    type Error = TermError;
+
+    /// Return the current size of the screen buffer, without checking the
+    /// actual size of the terminal window (which might have changed recently).
+    fn size(&self) -> Result<Size, Self::Error> {
+        Ok(self.size)
+    }
+
+    /// No newlines allowed. If the string doesn't fit between the starting
+    /// column position and the right edge of the screen, it's truncated and
+    /// and an OutOfBounds error is returned.
+    fn print(&mut self, mut pos: Pos, string: &str, style: ShadedStyle) -> Result<(), Self::Error> {
+        for ch in string.chars() {
+            self.set_char_with_style(pos, ch, style)?;
+            pos.col += 1;
+        }
+        Ok(())
+    }
+
+    fn fill(
+        &mut self,
+        mut pos: Pos,
+        ch: char,
+        len: Width,
+        style: ShadedStyle,
+    ) -> Result<(), Self::Error> {
+        for _ in 0..len {
+            self.set_char_with_style(pos, ch, style)?;
+            pos.col += 1;
+        }
+        Ok(())
     }
 }
 
@@ -341,7 +341,7 @@ mod screen_buf_tests {
 
     fn assert_resized(buf: &mut ScreenBuf, size: Size, good_pos: &[Pos], bad_pos: &[Pos]) {
         buf.resize(size);
-        assert_eq!(buf.size(), size);
+        assert_eq!(buf.size().unwrap(), size);
         for &pos in good_pos {
             buf.set_char_with_style(pos, 'x', ShadedStyle::plain())
                 .unwrap_or_else(|_| panic!("pos {} out-of-bounds of buf with size {}", pos, size));
@@ -364,7 +364,7 @@ mod screen_buf_tests {
 
         let mut buf = ScreenBuf::new();
         assert_eq!(
-            buf.size(),
+            buf.size().unwrap(),
             Size {
                 height: 0,
                 width: 0,
@@ -429,7 +429,7 @@ mod screen_buf_tests {
         });
 
         let pos = Pos { col: 2, line: 0 };
-        buf.write_str(pos, "x", style1).unwrap();
+        buf.print(pos, "x", style1).unwrap();
         let mut actual_ops: Vec<_> = buf.drain_changes().collect();
         assert_eq!(
             actual_ops,
@@ -467,7 +467,7 @@ mod screen_buf_tests {
         });
 
         let pos = Pos { col: 2, line: 0 };
-        buf.write_str(pos, "x", style1).unwrap();
+        buf.print(pos, "x", style1).unwrap();
         let mut actual_ops: Vec<_> = buf.drain_changes().collect();
 
         assert_eq!(
@@ -487,7 +487,7 @@ mod screen_buf_tests {
         );
 
         // Print same thing as before
-        buf.write_str(pos, "x", style1).unwrap();
+        buf.print(pos, "x", style1).unwrap();
         actual_ops = buf.drain_changes().collect();
         assert_eq!(actual_ops, vec![]);
     }
@@ -502,7 +502,7 @@ mod screen_buf_tests {
             height: 1,
         });
 
-        buf.write_str(Pos::zero(), "xyz", style1).unwrap();
+        buf.print(Pos::zero(), "xyz", style1).unwrap();
         let mut actual_ops: Vec<_> = buf.drain_changes().collect();
         assert_eq!(
             actual_ops,
@@ -515,7 +515,7 @@ mod screen_buf_tests {
             ]
         );
 
-        buf.write_str(Pos::zero(), "xy", style1).unwrap();
+        buf.print(Pos::zero(), "xy", style1).unwrap();
         actual_ops = buf.drain_changes().collect();
         assert_eq!(
             actual_ops,
@@ -526,7 +526,7 @@ mod screen_buf_tests {
             ]
         );
 
-        buf.write_str(Pos::zero(), "x", style1).unwrap();
+        buf.print(Pos::zero(), "x", style1).unwrap();
         actual_ops = buf.drain_changes().collect();
         assert_eq!(
             actual_ops,
@@ -537,7 +537,7 @@ mod screen_buf_tests {
             ]
         );
 
-        buf.write_str(Pos::zero(), "xy", style1).unwrap();
+        buf.print(Pos::zero(), "xy", style1).unwrap();
         actual_ops = buf.drain_changes().collect();
         assert_eq!(
             actual_ops,
@@ -560,16 +560,13 @@ mod screen_buf_tests {
             height: 4,
         });
 
-        buf.write_str(Pos { col: 1, line: 0 }, "fo", style1)
-            .unwrap();
-        buf.write_str(Pos { col: 0, line: 1 }, "oba", style1)
-            .unwrap();
-        buf.write_str(Pos { col: 0, line: 2 }, "r", style1).unwrap();
+        buf.print(Pos { col: 1, line: 0 }, "fo", style1).unwrap();
+        buf.print(Pos { col: 0, line: 1 }, "oba", style1).unwrap();
+        buf.print(Pos { col: 0, line: 2 }, "r", style1).unwrap();
 
-        buf.write_str(Pos { col: 0, line: 1 }, "OB", style2)
-            .unwrap();
+        buf.print(Pos { col: 0, line: 1 }, "OB", style2).unwrap();
 
-        buf.write_str(Pos { col: 2, line: 3 }, "$", ShadedStyle::plain())
+        buf.print(Pos { col: 2, line: 3 }, "$", ShadedStyle::plain())
             .unwrap();
 
         let mut actual_ops: Vec<_> = buf.drain_changes().collect();

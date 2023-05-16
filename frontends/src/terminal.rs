@@ -44,7 +44,7 @@ impl Terminal {
             height: height as u32,
         };
 
-        if size != self.buf.size() {
+        if size != self.buf.size()? {
             self.buf.resize(size);
         }
         Ok(())
@@ -82,12 +82,12 @@ impl PrettyWindow for Terminal {
 
     /// Return the current size of the screen buffer, without checking the
     /// actual size of the terminal window (which might have changed recently).
-    fn size(&self) -> Result<Size, Self::Error> {
-        Ok(self.buf.size())
+    fn size(&self) -> Result<Size, TermError> {
+        self.buf.size()
     }
 
     fn print(&mut self, pos: Pos, string: &str, style: ShadedStyle) -> Result<(), Self::Error> {
-        self.buf.write_str(pos, string, style)
+        self.buf.print(pos, string, style)
     }
 
     fn fill(
