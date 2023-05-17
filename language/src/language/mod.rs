@@ -3,9 +3,6 @@ use std::fmt;
 mod grammar;
 mod language;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct ConstructId(usize);
-
 #[derive(thiserror::Error, fmt::Debug)]
 pub enum LanguageError {
     #[error("Missing notation for construct '{0}'")]
@@ -15,4 +12,6 @@ pub enum LanguageError {
 }
 
 pub use self::language::{Language, LanguageSet, LanguageStorage, NotationSet};
-pub use grammar::{Arity, AritySpec, Construct, ConstructSpec, Grammar, Sort};
+pub use grammar::{
+    Arity, AritySpec, Construct, ConstructSpec, Grammar, GrammarBuilder, Sort, SortList, SortSpec,
+};

@@ -1,5 +1,5 @@
-use super::grammar::{AritySpec, ConstructSpec, Grammar, GrammarBuilder, Sort};
-use super::{ConstructId, LanguageError};
+use super::grammar::{AritySpec, Construct, ConstructSpec, Grammar, GrammarBuilder, SortSpec};
+use super::LanguageError;
 use partial_pretty_printer::Notation;
 use std::collections::HashMap;
 use std::ops::Index;
@@ -14,6 +14,7 @@ pub struct LanguageSet<'l> {
 }
 
 /// Backing storage for all languages. Borrowed to create a [LanguageSet].
+#[derive(Default)]
 pub struct LanguageStorage {
     grammars: Arena<Grammar>,
     notations: Arena<NotationSet>,
@@ -65,10 +66,11 @@ impl NotationSet {
     }
 }
 
-impl Index<ConstructId> for NotationSet {
+impl<'l> Index<Construct<'l>> for NotationSet {
     type Output = Notation;
-    fn index(&self, id: ConstructId) -> &Notation {
-        &self.notations[id.0]
+
+    fn index(&self, construct: Construct<'l>) -> &Notation {
+        &self.notations[construct.id()]
     }
 }
 
@@ -80,7 +82,7 @@ fn make_builtin_language() -> (Grammar, NotationSet) {
     builder
         .add_construct(ConstructSpec {
             name: "Hole".to_owned(),
-            sort: Sort::Any,
+            sort: SortSpec::Any,
             arity: AritySpec::Fixed(Vec::new()),
             key: Some('?'),
         })
@@ -88,8 +90,8 @@ fn make_builtin_language() -> (Grammar, NotationSet) {
     builder
         .add_construct(ConstructSpec {
             name: "Root".to_owned(),
-            sort: Sort::Named("root".to_owned()),
-            arity: AritySpec::Fixed(vec![Sort::Any]),
+            sort: SortSpec::Named("root".to_owned()),
+            arity: AritySpec::Fixed(vec![SortSpec::Any]),
             key: None,
         })
         .unwrap();
@@ -151,14 +153,14 @@ impl<'l> LanguageSet<'l> {
         self.languages.get(language_name)
     }
 
-    pub fn builtin_hole_info(&self) -> (&'l Grammar, ConstructId) {
+    pub fn builtin_hole_info(&self) -> Construct<'l> {
         // TODO: Avoid magic constants?
         let lang = &self.languages["Synless Builtins"];
-        (lang.grammar, ConstructId(0))
+        lang.grammar.all_constructs().nth(0).unwrap()
     }
 
-    pub fn builtin_root_info(&self) -> (&'l Grammar, ConstructId) {
+    pub fn builtin_root_info(&self) -> Construct<'l> {
         let lang = &self.languages["Synless Builtins"];
-        (lang.grammar, ConstructId(1))
+        lang.grammar.all_constructs().nth(1).unwrap()
     }
 }
