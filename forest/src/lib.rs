@@ -4,7 +4,7 @@
 //! Both kinds of nodes have data D. In addition:
 //!
 //! - Branch nodes have zero or more children
-//! - Leaf nodes have _additional_ data L
+//! - Leaf nodes have _additional_ leaf data L
 //!
 //! **Every method on `Node` may panic, if that node was deleted.**
 //! Deleting the ancestor of a node will delete the node. The one exception
@@ -33,6 +33,7 @@
 // - Every node is a descandant of one of the roots
 
 use generational_arena::{Arena, Index};
+use std::iter;
 use std::marker::PhantomData;
 
 #[derive(Debug)]
@@ -57,7 +58,7 @@ enum LeafOrChildren<D, L> {
     Children(Vec<Node<D, L>>),
 }
 
-use LeafOrChildren::{Leaf, Children};
+use LeafOrChildren::{Children, Leaf};
 
 impl<D, L> Default for Forest<D, L> {
     fn default() -> Forest<D, L> {
@@ -164,6 +165,7 @@ impl<D, L> Forest<D, L> {
         }
     }
 
+    // If a root node, count the other roots as siblings, unlike the pub method!
     fn siblings(&self, node: Node<D, L>) -> &[Node<D, L>] {
         let parent = self.get(node).parent;
         match parent {
@@ -172,6 +174,7 @@ impl<D, L> Forest<D, L> {
         }
     }
 
+    // If a root node, count the other roots as siblings, unlike the pub method!
     fn siblings_mut(&mut self, node: Node<D, L>) -> &mut Vec<Node<D, L>> {
         let parent = self.get(node).parent;
         match parent {
@@ -180,11 +183,35 @@ impl<D, L> Forest<D, L> {
         }
     }
 
+    // If a root node, count the other roots as siblings, unlike the pub method!
     fn sibling_index(&self, node: Node<D, L>) -> usize {
         self.siblings(node)
             .iter()
             .position(|t| *t == node)
             .expect("Forest - missing child")
+    }
+
+    // Check if either tree is a descendant of the other
+    fn overlaps(&self, node_1: Node<D, L>, node_2: Node<D, L>) -> bool {
+        node_1.ancestors(self).any(|n| n == node_2) || node_2.ancestors(self).any(|n| n == node_1)
+    }
+}
+
+struct AncestorIter<'f, D, L> {
+    forest: &'f Forest<D, L>,
+    node: Option<Node<D, L>>,
+}
+
+impl<'f, D, L> iter::Iterator for AncestorIter<'f, D, L> {
+    type Item = Node<D, L>;
+
+    fn next(&mut self) -> Option<Node<D, L>> {
+        if let Some(node) = self.node {
+            self.node = node.parent(self.forest);
+            Some(node)
+        } else {
+            None
+        }
     }
 }
 
@@ -201,6 +228,15 @@ impl<D, L> Node<D, L> {
     /// Get this node's parent. Returns `None` if already at the root.
     pub fn parent(self, f: &Forest<D, L>) -> Option<Node<D, L>> {
         f.get(self).parent
+    }
+
+    /// Iterate over all ancestors (recursive parents) of this node,
+    /// including itself.
+    pub fn ancestors(self, f: &Forest<D, L>) -> impl Iterator<Item = Node<D, L>> + '_ {
+        AncestorIter {
+            forest: f,
+            node: Some(self),
+        }
     }
 
     /// Get the root of the tree containing this node. (This is the same as
@@ -238,7 +274,7 @@ impl<D, L> Node<D, L> {
         f.leaf(self)
     }
 
-    /// Mutably get the data at this leaf node.
+    /// Mutably get the leaf data at this leaf node.
     ///
     /// # Panics
     ///
@@ -263,6 +299,7 @@ impl<D, L> Node<D, L> {
     }
 
     /// Determine this node’s index among its siblings.
+    /// If this is a root node, its siblings are the roots.
     pub fn sibling_index(self, f: &Forest<D, L>) -> usize {
         f.sibling_index(self)
     }
@@ -280,14 +317,19 @@ impl<D, L> Node<D, L> {
     }
 
     /// Insert `node` as this node's i'th child, after removing it from any
-    /// previous parent it may have had.
+    /// previous parent it may have had. `node` must be a root node; if it might
+    /// not be, detach() it first.
     ///
     /// # Panics
     ///
-    /// Panics if `child_index` is out of bounds, or if this node isn't a branch,
-    /// or if you're trying to make a cycle like a douchebag.
+    /// Panics if `self` isn't a branch, or if `child_index` is out of bounds,
+    /// or if `node` isn't a root, or if you attempt to create a cycle.
     pub fn insert_child(self, f: &mut Forest<D, L>, child_index: usize, node: Node<D, L>) {
-        if self.root(f) == node.root(f) {
+        if node.parent(f).is_some() {
+            // This eliminates the tricky case of moving list element #2 to position #4!
+            panic!("Forest - insert_child can only insert a root node");
+        }
+        if self.ancestors(f).any(|n| n == node) {
             panic!("Forest - attempt to create cycle using `insert_child` thwarted");
         }
         let i = f.sibling_index(node);
@@ -297,7 +339,14 @@ impl<D, L> Node<D, L> {
     }
 
     /// Swap the locations of nodes `self` and `other`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if either node contains (is an ancestor of) the other.
     pub fn swap(self, f: &mut Forest<D, L>, other: Node<D, L>) {
+        if f.overlaps(self, other) {
+            panic!("Forest - swap can only be called on non-overlapping nodes");
+        }
         let i = f.sibling_index(self);
         let j = f.sibling_index(other);
         let self_parent = f.get(self).parent;
@@ -350,7 +399,7 @@ mod forest_tests {
         fn verify(mut self) -> String {
             // Walk each tree
             for (i, root) in self.forest.roots().iter().copied().enumerate() {
-                self.verify_tree(root, None, root);
+                self.verify_tree(root, Vec::new(), root);
                 assert_eq!(root.sibling_index(&self.forest), i);
                 assert_eq!(root.siblings(&self.forest), self.forest.roots());
             }
@@ -362,10 +411,13 @@ mod forest_tests {
         fn verify_tree(
             &mut self,
             node: Node<D, L>,
-            expected_parent: Option<Node<D, L>>,
+            expected_ancestors: Vec<Node<D, L>>,
             expected_root: Node<D, L>,
         ) {
-            assert_eq!(node.parent(&self.forest), expected_parent);
+            assert_eq!(
+                node.parent(&self.forest),
+                expected_ancestors.first().copied()
+            );
             assert_eq!(node.root(&self.forest), expected_root);
             assert!(node.is_valid(&self.forest));
             self.display.push('(');
@@ -378,7 +430,9 @@ mod forest_tests {
             } else {
                 for (i, child) in node.children(&self.forest).iter().copied().enumerate() {
                     self.display.push(' ');
-                    self.verify_tree(child, Some(node), expected_root);
+                    let mut new_ancestors = vec![node];
+                    new_ancestors.extend_from_slice(&expected_ancestors);
+                    self.verify_tree(child, new_ancestors, expected_root);
                     assert_eq!(child.sibling_index(&self.forest), i);
                     assert_eq!(child.siblings(&self.forest), node.children(&self.forest));
                 }
@@ -478,6 +532,7 @@ mod forest_tests {
             "(kid (papa (ogramp 80) (ogram 79)))(mama (gramp 100) (gram 99))"
         );
 
+        gramp.detach(&mut f);
         kid.insert_child(&mut f, 0, gramp);
         assert_eq!(
             verify_and_print(&f),
@@ -543,7 +598,18 @@ mod forest_tests {
     }
 
     #[test]
-    #[should_panic(expected = "thwarted")]
+    #[should_panic(expected = "Forest - insert_child can only insert a root node")]
+    fn test_insert_non_root_panic() {
+        let mut f = Forest::<(), ()>::new();
+        let parent = f.new_branch(());
+        let child = f.new_leaf((), ());
+        parent.insert_child(&mut f, 0, child);
+        let parent_2 = f.new_branch(());
+        parent_2.insert_child(&mut f, 0, child);
+    }
+
+    #[test]
+    #[should_panic(expected = "Forest - attempt to create cycle using `insert_child` thwarted")]
     fn test_cycle() {
         let mut f = Forest::<u32, u32>::new();
         let tree = f.new_branch(0);
@@ -551,17 +617,11 @@ mod forest_tests {
     }
 
     #[test]
-    #[should_panic(expected = "thwarted")]
-    fn test_deeper_cycle() {
+    #[should_panic(expected = "Forest - swap can only be called on non-overlapping nodes")]
+    fn test_swap_cycle() {
         let mut f = Forest::<u32, u32>::new();
-        let n1 = f.new_branch(1);
-        let n2 = f.new_branch(2);
-        let n3 = f.new_branch(3);
-        let n4 = f.new_branch(4);
-        n1.insert_child(&mut f, 0, n2);
-        n2.insert_child(&mut f, 0, n3);
-        n3.insert_child(&mut f, 0, n4);
-        n3.insert_child(&mut f, 0, n2);
+        let tree = f.new_branch(0);
+        tree.swap(&mut f, tree);
     }
 
     #[test]
@@ -573,33 +633,3 @@ mod forest_tests {
         tree.data(&f);
     }
 }
-
-/*
- TODO: This belongs in ast now
-
-/// Save a bookmark to return to later.
-pub fn bookmark(self) -> Bookmark<D, L> {
-    Bookmark(self.0, self.1)
-}
-
-/// Jump to a previously saved bookmark, as long as that bookmark’s
-/// node is present somewhere in this tree. This will work even if
-/// the Tree has been modified since the bookmark was created.
-/// However, it will return false if the bookmark’s node has since
-/// been deleted, or if it is currently located in a different tree.
-pub fn lookup_bookmark(self, f: &Forest<D, L>, bookmark: Bookmark<D, L>) -> Option<Node<D, L>> {
-    if f.arena.contains(bookmark.0) {
-        let bookmark_node = Node(bookmark.0, bookmark.1);
-        if bookmark_node.root(f).0 == self.root(f).0 {
-            // The bookmark exists, and is in this tree.
-            Some(bookmark_node)
-        } else {
-            // The bookmark exists, but is in a different tree.
-            None
-        }
-    } else {
-        // The bookmark has been deleted.
-        None
-    }
-}
-*/
