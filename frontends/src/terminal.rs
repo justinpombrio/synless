@@ -107,9 +107,6 @@ impl PrettyWindow for Terminal {
 }
 
 impl Frontend for Terminal {
-    type Error = TermError;
-    type Window = Self;
-
     fn new(theme: ColorTheme) -> Result<Terminal, TermError> {
         let mut term = Terminal {
             stdout: AlternateScreen::from(MouseTerminal::from(stdout().into_raw_mode()?)),
