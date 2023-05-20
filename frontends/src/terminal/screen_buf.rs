@@ -70,14 +70,17 @@ enum FindDirtyResult {
 }
 
 impl ScreenBuf {
-    pub fn new() -> Self {
-        ScreenBuf {
+    /// Create a new ScreenBuf with the given number of rows and columns of character cells
+    pub fn new(size: Size) -> Self {
+        let mut buf = ScreenBuf {
             cells: Vec::new(),
             size: Size {
                 width: 0,
                 height: 0,
             },
-        }
+        };
+        buf.resize(size);
+        buf
     }
 
     /// Get `ScreenOp` instructions that describe all changes to the screen buffer since the last time this method was called.
@@ -91,6 +94,7 @@ impl ScreenBuf {
         }
     }
 
+    /// Clear the screen buffer and change the number of rows and columns of character cells
     pub fn resize(&mut self, size: Size) {
         self.cells = Vec::new();
         let mut line = Vec::new();
@@ -362,24 +366,16 @@ mod screen_buf_tests {
         let c4r7 = Pos { col: 4, line: 7 };
         let c4r8 = Pos { col: 4, line: 8 };
 
-        let mut buf = ScreenBuf::new();
+        let mut buf = ScreenBuf::new(Size {
+            height: 1,
+            width: 1,
+        });
         assert_eq!(
             buf.size().unwrap(),
             Size {
-                height: 0,
-                width: 0,
+                height: 1,
+                width: 1,
             },
-        );
-        assert_out_of_bounds(buf.set_char_with_style(c0r0, 'x', ShadedStyle::plain()));
-
-        assert_resized(
-            &mut buf,
-            Size {
-                height: 0,
-                width: 0,
-            },
-            &[],
-            &[c0r0, c1r0, c0r1],
         );
         assert_resized(
             &mut buf,
@@ -422,8 +418,7 @@ mod screen_buf_tests {
     #[test]
     fn test_simple() {
         let style1 = ShadedStyle::new(Style::color(Color::Base09), Shade::background());
-        let mut buf = ScreenBuf::new();
-        buf.resize(Size {
+        let mut buf = ScreenBuf::new(Size {
             width: 3,
             height: 2,
         });
@@ -460,8 +455,7 @@ mod screen_buf_tests {
     #[test]
     fn test_no_change() {
         let style1 = ShadedStyle::new(Style::color(Color::Base09), Shade::background());
-        let mut buf = ScreenBuf::new();
-        buf.resize(Size {
+        let mut buf = ScreenBuf::new(Size {
             width: 3,
             height: 2,
         });
@@ -496,8 +490,7 @@ mod screen_buf_tests {
     fn test_shorten() {
         let style1 = ShadedStyle::new(Style::color(Color::Base09), Shade::background());
 
-        let mut buf = ScreenBuf::new();
-        buf.resize(Size {
+        let mut buf = ScreenBuf::new(Size {
             width: 3,
             height: 1,
         });
@@ -554,8 +547,7 @@ mod screen_buf_tests {
         let style1 = ShadedStyle::new(Style::color(Color::Base09), Shade::background());
         let style2 = ShadedStyle::new(Style::color(Color::Base0C), Shade::background());
 
-        let mut buf = ScreenBuf::new();
-        buf.resize(Size {
+        let mut buf = ScreenBuf::new(Size {
             width: 3,
             height: 4,
         });

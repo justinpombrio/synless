@@ -36,14 +36,19 @@ pub struct Terminal {
 }
 
 impl Terminal {
-    /// Update the screen buffer size to match the actual terminal window size.
-    fn update_size(&mut self) -> Result<(), TermError> {
+    /// Get the current size of the actual terminal window, which might be different than the current size of the ScreenBuf.
+    fn terminal_window_size() -> Result<Size, TermError> {
         let (width, height) = termion::terminal_size()?;
-        let size = Size {
+        Ok(Size {
             width: width as u16,
             height: height as u32,
-        };
+        })
+    }
 
+    /// Update the screen buffer size to match the actual terminal window size.
+    /// If the screen buffer changes size as a result, its contents will be cleared.
+    fn update_size(&mut self) -> Result<(), TermError> {
+        let size = Self::terminal_window_size()?;
         if size != self.buf.size()? {
             self.buf.resize(size);
         }
@@ -106,19 +111,12 @@ impl Frontend for Terminal {
     type Window = Self;
 
     fn new(theme: ColorTheme) -> Result<Terminal, TermError> {
-        // TODO there's something weird here about the picking the size. The buf
-        // size defaults to 0. term.size() returns the buf size, so 0. I assume
-        // this code was meant to check the actual terminal window size, but it
-        // doesn't. We should first check the terminal window size and pass it
-        // in when creating the ScreenBuf.
         let mut term = Terminal {
             stdout: AlternateScreen::from(MouseTerminal::from(stdout().into_raw_mode()?)),
             events: stdin().events(),
             color_theme: theme,
-            buf: ScreenBuf::new(),
+            buf: ScreenBuf::new(Terminal::terminal_window_size()?),
         };
-        let size = term.size()?;
-        term.buf.resize(size);
         term.write(cursor::Hide)?;
         Ok(term)
     }
