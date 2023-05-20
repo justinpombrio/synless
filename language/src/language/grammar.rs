@@ -1,16 +1,19 @@
 use super::LanguageError;
 use std::collections::HashMap;
-use std::ops::Deref;
-use std::ops::Index;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-struct SortId(usize);
+// NOTE: Why all the wrapper types, instead of using indexes? Two reasons:
+//
+// 1. It simplifies the caller. For example, instead of having to pass around a
+//    pair of `(&'l Grammar, ConstructId)`, they can pass around a `Construct<'l>`.
+// 2. It's safer. It disallows `grammar[construct_id]` where `grammar` and
+//    `construct_id` are from different languages. This bug would be both easy
+//    to introduce, and bewildering.
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-struct ConstructId(usize);
+type SortId = usize;
+type ConstructId = usize;
 
 /// The "type" of a construct. Used to determine which constructs are
-/// allowed to be children of other constructs (see [Arity]).
+/// allowed to be children of other constructs (see [AritySpec]).
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum SortSpec {
     Any,
@@ -60,11 +63,14 @@ enum ArityCompiled {
     Listy(SortId),
 }
 
+/// Used to construct a Grammar
 pub struct GrammarBuilder {
     grammar: Grammar,
     sort_map: HashMap<SortSpec, SortId>,
 }
 
+/// Describes the structure of a language, e.g. which constructs can appear
+/// in which positions.
 pub struct Grammar {
     language_name: String,
     /// SortId -> SortSpec
@@ -83,37 +89,23 @@ impl Grammar {
     }
 
     pub fn all_sorts(&self) -> impl ExactSizeIterator<Item = Sort> + '_ {
-        (0..self.sorts.len()).map(move |id| Sort::new(self, SortId(id)))
+        (0..self.sorts.len()).map(move |id| Sort::new(self, id))
     }
 
     pub fn all_constructs(&self) -> impl ExactSizeIterator<Item = Construct> + '_ {
-        (0..self.constructs.len()).map(move |id| Construct::new(self, ConstructId(id)))
+        (0..self.constructs.len()).map(move |id| Construct::new(self, id))
     }
 
+    /// All (key, construct) pairs in the key map.
     pub fn keymap(&self) -> impl ExactSizeIterator<Item = (char, Construct)> + '_ {
         self.keymap
             .iter()
             .map(move |(key, c)| (*key, Construct::new(self, *c)))
     }
 
-    pub fn construct_of_key(&self, key: char) -> Option<Construct> {
+    /// Look up one key in the keymap.
+    pub fn lookup_key(&self, key: char) -> Option<Construct> {
         self.keymap.get(&key).map(|id| Construct::new(self, *id))
-    }
-}
-
-impl Index<ConstructId> for Grammar {
-    type Output = ConstructCompiled;
-
-    fn index(&self, id: ConstructId) -> &ConstructCompiled {
-        &self.constructs[id.0]
-    }
-}
-
-impl Index<SortId> for Grammar {
-    type Output = SortSpec;
-
-    fn index(&self, id: SortId) -> &SortSpec {
-        &self.sorts[id.0]
     }
 }
 
@@ -140,16 +132,16 @@ impl GrammarBuilder {
             arity,
             key: construct.key,
         };
-        let construct_id = ConstructId(self.grammar.constructs.len());
+        let construct_id = self.grammar.constructs.len();
         self.grammar.constructs.push(compiled_construct);
-        self.grammar.constructs_of_sort[sort_id.0].push(construct_id);
+        self.grammar.constructs_of_sort[sort_id].push(construct_id);
         if let Some(key) = construct.key {
             let duplicate = self.grammar.keymap.insert(key, construct_id);
             if let Some(prev_construct) = duplicate {
                 return Err(LanguageError::DuplicateKey(
                     key,
-                    self.grammar[prev_construct].name.clone(),
-                    self.grammar[construct_id].name.clone(),
+                    self.grammar.constructs[prev_construct].name.clone(),
+                    self.grammar.constructs[construct_id].name.clone(),
                 ));
             }
         }
@@ -174,7 +166,7 @@ impl GrammarBuilder {
         if let Some(id) = self.sort_map.get(&sort) {
             *id
         } else {
-            let id = SortId(self.grammar.sorts.len());
+            let id = self.grammar.sorts.len();
             self.sort_map.insert(sort.clone(), id);
             self.grammar.sorts.push(sort);
             self.grammar.constructs_of_sort.push(Vec::new());
@@ -183,24 +175,28 @@ impl GrammarBuilder {
     }
 }
 
-// TODO: move these?
-
+/// The "type" of a construct. Used to determine which constructs are
+/// allowed to be children of other constructs (see [Arity]).
 pub struct Sort<'l> {
     grammar: &'l Grammar,
     id: SortId,
 }
 
+/// A kind of node that can appear in a document.
 pub struct Construct<'l> {
     grammar: &'l Grammar,
     id: ConstructId,
 }
 
+/// The sorts of children that a node is allowed to contain.
 pub enum Arity<'l> {
     Texty,
     Fixed(SortList<'l>),
     Listy(Sort<'l>),
 }
 
+/// Essentially a slice of [Sort]s. (The only reason this isn't literally a slice
+/// is because there are wrapper types involved.)
 pub struct SortList<'l> {
     grammar: &'l Grammar,
     ids: &'l [SortId],
@@ -215,6 +211,7 @@ impl<'l> SortList<'l> {
         self.ids.len()
     }
 
+    /// Get the i'th [Sort], or **panic** if out of bounds.
     pub fn get(&self, i: usize) -> Sort<'l> {
         Sort::new(self.grammar, self.ids[i])
     }
@@ -225,30 +222,27 @@ impl<'l> Sort<'l> {
         Sort { grammar, id }
     }
 
+    /// The grammar that this sort is a part of.
     pub fn grammar(&self) -> &'l Grammar {
         self.grammar
     }
 
-    /// Return true if a hole with this sort can accept a node with the given sort.
+    /// Return whether a hole with this sort can accept a node with the `candidate` sort.
     pub fn accepts(&self, candidate: Sort) -> bool {
-        match (self.deref(), candidate.deref()) {
+        match (
+            &self.grammar.sorts[self.id],
+            &candidate.grammar.sorts[candidate.id],
+        ) {
             (_, SortSpec::Any) | (SortSpec::Any, _) => true,
             (SortSpec::Named(x), SortSpec::Named(y)) => x == y,
         }
     }
 
+    /// All [Construct]s whose sort is this sort.
     pub fn matching_constructs(&self) -> impl ExactSizeIterator<Item = Construct> + '_ {
-        self.grammar.constructs_of_sort[self.id.0]
+        self.grammar.constructs_of_sort[self.id]
             .iter()
             .map(move |id| Construct::new(self.grammar, *id))
-    }
-}
-
-impl<'l> Deref for Sort<'l> {
-    type Target = SortSpec;
-
-    fn deref(&self) -> &SortSpec {
-        &self.grammar[self.id]
     }
 }
 
@@ -257,20 +251,27 @@ impl<'l> Construct<'l> {
         Construct { grammar, id }
     }
 
+    /// The grammar that this construct is a part of.
     pub fn grammar(&self) -> &'l Grammar {
         self.grammar
     }
 
     pub fn name(&self) -> &str {
-        &self.grammar[self.id].name
+        &self.grammar.constructs[self.id].name
     }
 
+    /// Determines where this construct is allowed to be placed:
+    /// it's allowed if the `sort()` of the parent [Sort::accepts]
+    /// the [Construct::arity] of the child.
     pub fn sort(&self) -> Sort {
-        Sort::new(self.grammar, self.grammar[self.id].sort)
+        Sort::new(self.grammar, self.grammar.constructs[self.id].sort)
     }
 
+    /// Determines what children this construct is allowed to have:
+    /// it's allowed if the [Construct::sort] of the parent [Sort::accepts]
+    /// the [Construct::arity] of the child.
     pub fn arity(&self) -> Arity {
-        match &self.grammar[self.id].arity {
+        match &self.grammar.constructs[self.id].arity {
             ArityCompiled::Texty => Arity::Texty,
             ArityCompiled::Fixed(sort_ids) => Arity::Fixed(SortList {
                 grammar: self.grammar,
@@ -281,11 +282,11 @@ impl<'l> Construct<'l> {
     }
 
     pub fn key(&self) -> Option<char> {
-        self.grammar[self.id].key
+        self.grammar.constructs[self.id].key
     }
 
     // Used to index into NotationSets
     pub(super) fn id(&self) -> usize {
-        self.id.0
+        self.id
     }
 }
