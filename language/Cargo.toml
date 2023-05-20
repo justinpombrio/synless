@@ -6,7 +6,6 @@ authors = ["Justin Pombrio <justinpombrio@cs.brown.edu>"]
 edition = "2018"
 
 [dependencies]
-utility = { path = "../utility" }
 forest = { path = "../forest" }
 partial-pretty-printer = { git = "https://github.com/justinpombrio/partial-pretty-printer" }
 lazy_static = "*"

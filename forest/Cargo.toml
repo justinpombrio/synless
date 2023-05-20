@@ -6,6 +6,4 @@ authors = ["Justin Pombrio <justinpombrio@cs.brown.edu>"]
 edition = "2018"
 
 [dependencies]
-uuid = { version = "*", features = ["v4"] }
-utility = { path = "../utility" }
-slab = "0.4.2"
+generational-arena = "0.2"
