@@ -1,7 +1,7 @@
 //! An editable language.
 
 use super::construct::{Arity, Construct, Sort};
-use partial_pretty_printer::Notation;
+use partial_pretty_printer::ValidNotation;
 use std::collections::HashMap;
 use std::iter::Iterator;
 use typed_arena::Arena;
@@ -39,8 +39,8 @@ pub struct LanguageStorage {
 
 pub struct NotationSet {
     name: String,
-    /// Construct id -> Notation
-    notations: Vec<Notation>,
+    /// Construct id -> ValidNotation
+    notations: Vec<ValidNotation>,
 }
 
 impl<'l> LanguageSet<'l> {
@@ -59,7 +59,7 @@ impl<'l> LanguageSet<'l> {
         &mut self,
         grammar: Grammar,
         default_notation_name: &str,
-        default_notation: Vec<(String, Notation)>,
+        default_notation: Vec<(String, ValidNotation)>,
     ) {
         let grammar: &'l Grammar = self.grammar_storage.alloc(grammar);
         let default_notation =
@@ -81,7 +81,7 @@ impl<'l> LanguageSet<'l> {
         &mut self,
         language_name: &str,
         name: &str,
-        notations: Vec<(String, Notation)>,
+        notations: Vec<(String, ValidNotation)>,
     ) {
         let language = self.languages.get_mut(language_name).unwrap();
         let notation_set = NotationSet::new(name.to_owned(), language.grammar, notations);
@@ -101,7 +101,7 @@ impl<'l> LanguageSet<'l> {
     }
 
     pub fn switch_notation_set(&mut self, language_name: &str, notation_set_name: &str) {
-        let mut language = self.languages.get_mut(language_name).unwrap();
+        let language = self.languages.get_mut(language_name).unwrap();
         language.current_notation = language.all_notations[notation_set_name];
     }
 
@@ -117,7 +117,7 @@ impl<'l> LanguageSet<'l> {
     }
 }
 
-fn make_builtins_language() -> (Grammar, Vec<(String, Notation)>) {
+fn make_builtins_language() -> (Grammar, Vec<(String, ValidNotation)>) {
     use partial_pretty_printer::notation_constructors::{child, lit};
     use partial_pretty_printer::{Color, Style};
 
@@ -129,6 +129,7 @@ fn make_builtins_language() -> (Grammar, Vec<(String, Notation)>) {
         Arity::Fixed(vec![Sort::any()]),
         None,
     );
+
     let hole_notation = lit(
         "?",
         Style {
@@ -137,8 +138,14 @@ fn make_builtins_language() -> (Grammar, Vec<(String, Notation)>) {
             underlined: false,
             reversed: true,
         },
-    );
-    let root_notation = child(0);
+    )
+    .validate()
+    .expect("builtin hole notation is not valid");
+
+    let root_notation = child(0)
+        .validate()
+        .expect("builtin root notation is not valid");
+
     let notations = vec![
         ("Hole".to_owned(), hole_notation),
         ("Root".to_owned(), root_notation),
@@ -147,7 +154,11 @@ fn make_builtins_language() -> (Grammar, Vec<(String, Notation)>) {
 }
 
 impl NotationSet {
-    pub fn new(name: String, grammar: &Grammar, notations: Vec<(String, Notation)>) -> NotationSet {
+    pub fn new(
+        name: String,
+        grammar: &Grammar,
+        notations: Vec<(String, ValidNotation)>,
+    ) -> NotationSet {
         let mut notations_map = notations.into_iter().collect::<HashMap<_, _>>();
         let notations = grammar
             .constructs
@@ -161,7 +172,7 @@ impl NotationSet {
         &self.name
     }
 
-    pub fn lookup(&self, construct_id: ConstructId) -> &Notation {
+    pub fn lookup(&self, construct_id: ConstructId) -> &ValidNotation {
         &self.notations[construct_id.0 as usize]
     }
 }

@@ -2,7 +2,7 @@ use super::ast::{Id, NodeData};
 use super::text::Text;
 use crate::language::{Arity, LanguageSet};
 use forest::{Bookmark, TreeRef};
-use partial_pretty_printer::{Notation, PrettyDoc};
+use partial_pretty_printer::{PrettyDoc, ValidNotation};
 
 /// An immutable reference to a node in an AST.
 #[derive(Clone, Copy)]
@@ -43,7 +43,7 @@ impl<'d> PrettyDoc<'d> for AstRef<'d, 'd> {
         self.tree_ref.data().id
     }
 
-    fn notation(self) -> &'d Notation {
+    fn notation(self) -> &'d ValidNotation {
         let node = self.tree_ref.data();
         // TODO: No HashMap lookups while pretty printing!
         let lang_name = &node.grammar.language_name();

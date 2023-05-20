@@ -6,6 +6,7 @@ authors = ["Justin Pombrio <justinpombrio@cs.brown.edu>", "e-matteson <e.r.matte
 edition = "2018"
 
 [dependencies]
+partial-pretty-printer = { git = "https://github.com/justinpombrio/partial-pretty-printer" }
 termion = "1.5"
 thiserror = "1.0"
 
