@@ -165,7 +165,6 @@ impl<D, L> Forest<D, L> {
         }
     }
 
-    // If a root node, count the other roots as siblings, unlike the pub method!
     fn siblings(&self, node: Node<D, L>) -> &[Node<D, L>] {
         let parent = self.get(node).parent;
         match parent {
@@ -174,7 +173,6 @@ impl<D, L> Forest<D, L> {
         }
     }
 
-    // If a root node, count the other roots as siblings, unlike the pub method!
     fn siblings_mut(&mut self, node: Node<D, L>) -> &mut Vec<Node<D, L>> {
         let parent = self.get(node).parent;
         match parent {
@@ -183,7 +181,6 @@ impl<D, L> Forest<D, L> {
         }
     }
 
-    // If a root node, count the other roots as siblings, unlike the pub method!
     fn sibling_index(&self, node: Node<D, L>) -> usize {
         self.siblings(node)
             .iter()
@@ -231,7 +228,7 @@ impl<D, L> Node<D, L> {
     }
 
     /// Iterate over all ancestors (recursive parents) of this node,
-    /// including itself.
+    /// starting with itself and going to the root.
     pub fn ancestors(self, f: &Forest<D, L>) -> impl Iterator<Item = Node<D, L>> + '_ {
         AncestorIter {
             forest: f,
@@ -316,9 +313,8 @@ impl<D, L> Node<D, L> {
         }
     }
 
-    /// Insert `node` as this node's i'th child, after removing it from any
-    /// previous parent it may have had. `node` must be a root node; if it might
-    /// not be, detach() it first.
+    /// Insert `node` as this node's i'th child. `node` must be a root node;
+    /// if it might not be you must detach() it first.
     ///
     /// # Panics
     ///
@@ -329,7 +325,7 @@ impl<D, L> Node<D, L> {
             // This eliminates the tricky case of moving list element #2 to position #4!
             panic!("Forest - insert_child can only insert a root node");
         }
-        if self.ancestors(f).any(|n| n == node) {
+        if self.root(f) == node {
             panic!("Forest - attempt to create cycle using `insert_child` thwarted");
         }
         let i = f.sibling_index(node);
