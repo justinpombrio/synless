@@ -5,7 +5,6 @@ use partial_pretty_printer::ValidNotation;
 use std::collections::HashMap;
 use std::iter::Iterator;
 use typed_arena::Arena;
-use utility::spanic;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ConstructId(u32);
@@ -235,7 +234,7 @@ impl Grammar {
         if let Some(key) = key {
             let duplicate = self.keymap.insert(key, construct_id);
             if duplicate.is_some() {
-                spanic!("Duplicate key '{}'", key);
+                panic!("Duplicate key '{}'", key);
             }
         }
 

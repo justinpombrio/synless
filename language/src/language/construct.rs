@@ -1,5 +1,3 @@
-use utility::spanic;
-
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum Sort {
     Any,
@@ -79,9 +77,9 @@ impl Arity {
         match self {
             Arity::Listy(sort) => sort,
             Arity::Fixed(sorts) => sorts.get(i).unwrap_or_else(|| {
-                spanic!("child_sort - fixed node has only {} children", sorts.len())
+                panic!("child_sort - fixed node has only {} children", sorts.len())
             }),
-            _ => spanic!("child_sort - node has no children"),
+            _ => panic!("child_sort - node has no children"),
         }
     }
 
