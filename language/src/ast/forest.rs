@@ -1,4 +1,6 @@
-use generational_arena::{Arena, Index};
+use generational_arena::Arena;
+
+pub use generational_arena::Index;
 
 pub struct Forest<D>(Arena<Node<D>>);
 

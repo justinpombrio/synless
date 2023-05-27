@@ -1,29 +1,47 @@
+use super::ast_forest::AstForest;
+use super::forest::{Forest, Index};
 use super::text::Text;
 use crate::language::{Arity, Construct, ConstructId, Grammar};
-use forest::{Bookmark, Tree};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Id(pub(super) usize);
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct NodeData<'l> {
     pub(super) id: Id,
     pub(super) grammar: &'l Grammar,
     pub(super) construct_id: ConstructId,
+    pub(super) text: Option<Text>,
 }
 
 /// An Abstract Syntax Tree.
 ///
 /// More specifically, this is a mutable reference _to a node_ in an AST.
 ///
-/// This value owns the entire tree. When it is dropped, the tree is deleted.
+/// This value owns the entire tree. You must not drop it, or it will panic;
+/// call delete() instead.
 ///
 /// It also grants write access to the tree. Use [`borrow`](#method.borrow) to
 /// obtain a shared reference with read-only access.
-pub struct Ast<'l> {
-    pub(super) tree: Tree<NodeData<'l>, Text>,
+pub struct Ast(pub(super) Index);
+
+// methods:
+// - get arity, lang, construct, notation
+// - text, text_mut
+// - delete, detach, insert_first_child, insert_before, insert_after, replace
+// - navigation (parent, root, child, prev, next)
+// - nav preds (num_children, is_at_root, is_parent_at_root)
+// - bookmarks (bookmark, goto_bookmark)
+
+impl<'l> Ast {
+    /// Get the arity of this node, or `None` if this is a leaf node.
+    fn arity(&self, f: &AstForest<'l>) -> &'l Arity {
+        let data = f.forest.data(self.0);
+        &data.grammar.construct(data.construct_id).arity
+    }
 }
 
+/*
 pub enum AstCase<'a, 'l> {
     Texty(TextyAst<'a, 'l>),
     Fixed(FixedAst<'a, 'l>),
@@ -254,3 +272,4 @@ impl<'a, 'l> ListyAst<'a, 'l> {
         Ast::new(self.0.tree.remove_child(i))
     }
 }
+*/

@@ -1,9 +1,9 @@
 use super::ast::{Ast, Id, NodeData};
-use super::ast_ref::AstRef;
+//use super::ast_ref::AstRef;
+use super::forest::Forest;
 use super::text::Text;
 use crate::language::LanguageSet;
 use crate::language::{Arity, ConstructId, Grammar};
-use forest::Forest;
 
 /// All [`Asts`] belong to an `AstForest`.
 ///
@@ -11,7 +11,7 @@ use forest::Forest;
 /// methods on `Ast`s may panic or worse if you use them on a different forest.
 pub struct AstForest<'l> {
     pub(super) lang: LanguageSet<'l>,
-    forest: Forest<NodeData<'l>, Text>,
+    pub(super) forest: Forest<NodeData<'l>>,
     next_id: Id,
 }
 
@@ -25,44 +25,43 @@ impl<'l> AstForest<'l> {
         }
     }
 
-    /// Create a new `hole` node in this forest.
-    // TODO: 'cept for Id, this can take &self! Is that useful?
-    pub fn new_hole(&mut self) -> Ast<'l> {
+    /// Create a new `hole` tree in this forest.
+    pub fn new_hole(&mut self) -> Ast {
         let (grammar, construct_id) = self.lang.builtin_hole_info();
         let node = NodeData {
             grammar,
             construct_id,
+            text: None,
             id: self.next_id(),
         };
-        Ast::new(self.forest.new_branch(node, vec![]))
+        Ast(self.forest.new_node(node))
     }
 
-    pub fn new_tree(&mut self, grammar: &'l Grammar, construct_id: ConstructId) -> Ast<'l> {
+    /// Create a new ast tree with no children. If it has `Fixed` arity,
+    /// it will come with Holes for children.
+    pub fn new_tree(&mut self, grammar: &'l Grammar, construct_id: ConstructId) -> Ast {
         let construct = grammar.construct(construct_id);
-        let node = NodeData {
+        let mut node = NodeData {
             grammar,
             construct_id,
+            text: None,
             id: self.next_id(),
         };
         match &construct.arity {
-            Arity::Texty => Ast::new(self.forest.new_leaf(node, Text::new_inactive())),
-            Arity::Fixed(sorts) => {
-                let children = (0..sorts.len())
-                    .map(|_| self.new_hole().tree)
-                    .collect::<Vec<_>>();
-                Ast::new(self.forest.new_branch(node, children))
+            Arity::Texty => {
+                node.text = Some(Text::new_inactive());
+                Ast(self.forest.new_node(node))
             }
-            Arity::Listy(_) => Ast::new(self.forest.new_branch(node, vec![])),
+            Arity::Fixed(sorts) => {
+                let index = self.forest.new_node(node);
+                for _ in 0..sorts.len() {
+                    let child = self.new_hole().0;
+                    self.forest.insert_last_child(index, child);
+                }
+                Ast(index)
+            }
+            Arity::Listy(_) => Ast(self.forest.new_node(node)),
         }
-    }
-
-    pub fn borrow<R>(&self, ast: &Ast<'l>, func: impl FnOnce(AstRef<'_, 'l>) -> R) -> R {
-        ast.tree.borrow(|tree_ref| {
-            func(AstRef {
-                lang: &self.lang,
-                tree_ref: tree_ref,
-            })
-        })
     }
 
     /*
