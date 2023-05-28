@@ -64,7 +64,7 @@ enum ArityCompiled {
     Listy(SortId),
 }
 
-/// Used to construct a Grammar
+/// Used to construct a [Grammar].
 pub struct GrammarBuilder {
     grammar: Grammar,
     sort_map: HashMap<SortSpec, SortId>,
@@ -284,6 +284,7 @@ impl<'l> Construct<'l> {
         }
     }
 
+    /// The keymap key for this construct, if any.
     pub fn key(&self) -> Option<char> {
         self.grammar.constructs[self.id].key
     }

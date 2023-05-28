@@ -199,7 +199,7 @@ impl<'l> Language<'l> {
     }
 
     pub fn notation_sets(&self) -> impl ExactSizeIterator<Item = &'l NotationSet> + '_ {
-        self.notation_sets.iter().map(|(_, ns)| *ns)
+        self.notation_sets.values().copied()
     }
 
     pub fn current_notation_set(&self) -> &'l NotationSet {
