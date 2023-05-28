@@ -1,4 +1,6 @@
-use super::grammar::{AritySpec, Construct, ConstructSpec, Grammar, GrammarBuilder, SortSpec};
+use super::grammar::{
+    AritySpec, Construct, ConstructSpec, Grammar, GrammarBuilder, LanguageId, SortSpec,
+};
 use super::LanguageError;
 use partial_pretty_printer::Notation;
 use std::collections::HashMap;
@@ -9,23 +11,26 @@ use typed_arena::Arena;
 pub struct LanguageSet<'l> {
     grammar_storage: &'l Arena<Grammar>,
     notation_storage: &'l Arena<NotationSet>,
-    /// Language name -> Language
-    languages: HashMap<String, Language<'l>>,
+    builtins_language_id: LanguageId,
+    languages_by_name: HashMap<String, LanguageId>,
+    languages: Vec<Language<'l>>,
 }
 
 /// Backing storage for all languages. Borrowed to create a [LanguageSet].
 #[derive(Default)]
 pub struct LanguageStorage {
     grammars: Arena<Grammar>,
-    notations: Arena<NotationSet>,
+    notation_sets: Arena<NotationSet>,
 }
 
 /// A single language in which documents can be written. Consists of a
-/// [Grammar] describing the structure of the language, and a set of
-/// [NotationSet]s each giving one way of displaying the language.
+/// [Grammar] describing the structure of the language, a set of
+/// [NotationSet]s each giving one way of displaying the language, and
+/// the currently selected [NotationSet].
 pub struct Language<'l> {
-    pub grammar: &'l Grammar,
-    pub notations: Vec<&'l NotationSet>,
+    grammar: &'l Grammar,
+    notation_sets: HashMap<String, &'l NotationSet>,
+    current_notation_set: &'l NotationSet,
 }
 
 pub struct NotationSet {
@@ -38,7 +43,7 @@ impl LanguageStorage {
     pub fn new() -> LanguageStorage {
         LanguageStorage {
             grammars: Arena::new(),
-            notations: Arena::new(),
+            notation_sets: Arena::new(),
         }
     }
 }
@@ -79,6 +84,7 @@ fn make_builtin_language() -> (Grammar, NotationSet) {
     use partial_pretty_printer::{Color, Style};
 
     let mut builder = GrammarBuilder::new("Synless Builtins".to_owned());
+    // Method get_hole_construct() relies on this being at index 0!
     builder
         .add_construct(ConstructSpec {
             name: "Hole".to_owned(),
@@ -87,6 +93,7 @@ fn make_builtin_language() -> (Grammar, NotationSet) {
             key: Some('?'),
         })
         .unwrap();
+    // Method get_root_construct() relies on this being at index 1!
     builder
         .add_construct(ConstructSpec {
             name: "Root".to_owned(),
@@ -120,47 +127,87 @@ impl<'l> LanguageSet<'l> {
     pub fn new(storage: &'l mut LanguageStorage) -> LanguageSet<'l> {
         let mut lang_set = LanguageSet {
             grammar_storage: &storage.grammars,
-            notation_storage: &storage.notations,
-            languages: HashMap::new(),
+            notation_storage: &storage.notation_sets,
+            languages_by_name: HashMap::new(),
+            languages: Vec::new(),
+            builtins_language_id: 0, // depends on the `add_language()` call below!
         };
 
         let (grammar, notation) = make_builtin_language();
-        let lang_name = grammar.language_name().to_owned();
-        lang_set.add_language(grammar);
-        lang_set.add_notations(&lang_name, notation);
+        lang_set.add_language(grammar, notation);
         lang_set
     }
 
-    pub fn add_language(&mut self, grammar: Grammar) {
-        // TODO: check for duplicate lang name
+    pub fn add_language(&mut self, mut grammar: Grammar, default_notation_set: NotationSet) {
+        let lang_id = self.languages.len();
+        grammar.language_id = lang_id;
         let grammar = self.grammar_storage.alloc(grammar);
+        let default_notation_set = self.notation_storage.alloc(default_notation_set);
         let language = Language {
             grammar,
-            notations: Vec::new(),
+            notation_sets: {
+                let mut notation_sets = HashMap::<String, &NotationSet>::new();
+                notation_sets.insert(default_notation_set.name.to_owned(), default_notation_set);
+                notation_sets
+            },
+            current_notation_set: default_notation_set,
         };
-        self.languages
-            .insert(grammar.language_name().to_owned(), language);
+        // TODO: check for languages with same name
+        self.languages_by_name
+            .insert(grammar.language_name().to_owned(), lang_id);
+        self.languages.push(language);
     }
 
-    pub fn add_notations(&mut self, language_name: &str, notation_set: NotationSet) {
-        // TODO: Err on no such language name
-        let lang = self.languages.get_mut(language_name).unwrap();
+    pub fn add_notation_set(&mut self, language_id: LanguageId, notation_set: NotationSet) {
+        let lang = &mut self.languages[language_id];
         let notation_set = self.notation_storage.alloc(notation_set);
-        lang.notations.push(notation_set);
+        // TODO: check for duplicate name
+        lang.notation_sets
+            .insert(notation_set.name.to_owned(), notation_set);
     }
 
-    pub fn get_language(&self, language_name: &str) -> Option<&Language<'l>> {
-        self.languages.get(language_name)
+    pub fn all_languages(&self) -> impl ExactSizeIterator<Item = &Language<'l>> + '_ {
+        self.languages.iter()
     }
 
-    pub fn builtin_hole_info(&self) -> Construct<'l> {
-        // TODO: Avoid magic constants?
-        let lang = &self.languages["Synless Builtins"];
-        lang.grammar.all_constructs().nth(0).unwrap()
+    pub fn get_langauge(&self, language_name: &str) -> Option<&Language<'l>> {
+        Some(&self.languages[*self.languages_by_name.get(language_name)?])
     }
 
-    pub fn builtin_root_info(&self) -> Construct<'l> {
-        let lang = &self.languages["Synless Builtins"];
-        lang.grammar.all_constructs().nth(1).unwrap()
+    pub fn get_langauge_mut(&mut self, language_name: &str) -> Option<&mut Language<'l>> {
+        Some(&mut self.languages[*self.languages_by_name.get(language_name)?])
+    }
+
+    pub fn get_notation(&self, construct: Construct<'l>) -> &'l Notation {
+        &self.languages[construct.grammar().language_id].current_notation_set[construct]
+    }
+
+    pub fn builtin_hole_construct(&self) -> Construct<'l> {
+        let builtins = &self.languages[self.builtins_language_id];
+        builtins.grammar.all_constructs().nth(0).unwrap()
+    }
+
+    pub fn builtin_root_construct(&self) -> Construct<'l> {
+        let builtins = &self.languages[self.builtins_language_id];
+        builtins.grammar.all_constructs().nth(1).unwrap()
+    }
+}
+
+impl<'l> Language<'l> {
+    pub fn grammar(&self) -> &'l Grammar {
+        self.grammar
+    }
+
+    pub fn notation_sets(&self) -> impl ExactSizeIterator<Item = &'l NotationSet> + '_ {
+        self.notation_sets.iter().map(|(_, ns)| *ns)
+    }
+
+    pub fn current_notation_set(&self) -> &'l NotationSet {
+        self.current_notation_set
+    }
+
+    pub fn set_current_notation_set(&mut self, notation_set_name: &str) -> Option<()> {
+        self.current_notation_set = self.notation_sets.get(notation_set_name)?;
+        Some(())
     }
 }

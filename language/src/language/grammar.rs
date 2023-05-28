@@ -9,6 +9,7 @@ use std::collections::HashMap;
 //    `construct_id` are from different languages. This bug would be both easy
 //    to introduce, and bewildering.
 
+pub(super) type LanguageId = usize;
 type SortId = usize;
 type ConstructId = usize;
 
@@ -73,6 +74,7 @@ pub struct GrammarBuilder {
 /// in which positions.
 pub struct Grammar {
     language_name: String,
+    pub(super) language_id: LanguageId,
     /// SortId -> SortSpec
     sorts: Vec<SortSpec>,
     /// ConstructId -> ConstructCompiled
@@ -113,6 +115,7 @@ impl GrammarBuilder {
     pub fn new(language_name: String) -> GrammarBuilder {
         GrammarBuilder {
             grammar: Grammar {
+                language_id: 0, // to be set when added to LanguageSet!
                 language_name,
                 sorts: Vec::new(),
                 constructs: Vec::new(),
