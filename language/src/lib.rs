@@ -1,6 +1,5 @@
 // Disable stupid warnings
 #![allow(clippy::iter_nth_zero)]
-#![allow(clippy::module_inception)]
 
 //mod ast;
 mod language;

@@ -1,7 +1,7 @@
 use std::fmt;
 
 mod grammar;
-mod language;
+mod language_set;
 
 #[derive(thiserror::Error, fmt::Debug)]
 pub enum LanguageError {
@@ -11,7 +11,7 @@ pub enum LanguageError {
     DuplicateKey(char, String, String),
 }
 
-pub use self::language::{Language, LanguageSet, LanguageStorage, NotationSet};
+pub use self::language_set::{Language, LanguageSet, LanguageStorage, NotationSet};
 pub use grammar::{
     Arity, AritySpec, Construct, ConstructSpec, Grammar, GrammarBuilder, Sort, SortList, SortSpec,
 };
