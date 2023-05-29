@@ -2,7 +2,7 @@ use super::grammar::{
     AritySpec, Construct, ConstructSpec, Grammar, GrammarBuilder, LanguageId, SortSpec,
 };
 use super::LanguageError;
-use partial_pretty_printer::Notation;
+use partial_pretty_printer::ValidNotation;
 use std::collections::HashMap;
 use std::ops::Index;
 use typed_arena::Arena;
@@ -35,8 +35,8 @@ pub struct Language<'l> {
 
 pub struct NotationSet {
     name: String,
-    /// Construct id -> Notation
-    notations: Vec<Notation>,
+    /// Construct id -> ValidNotation
+    notations: Vec<ValidNotation>,
 }
 
 impl LanguageStorage {
@@ -52,7 +52,7 @@ impl NotationSet {
     pub fn new(
         name: String,
         grammar: &Grammar,
-        mut notation_map: HashMap<String, Notation>,
+        mut notation_map: HashMap<String, ValidNotation>,
     ) -> Result<NotationSet, LanguageError> {
         // TODO: further notation validation (e.g. check arity)
         let mut notations = Vec::with_capacity(grammar.all_constructs().len());
@@ -72,9 +72,9 @@ impl NotationSet {
 }
 
 impl<'l> Index<Construct<'l>> for NotationSet {
-    type Output = Notation;
+    type Output = ValidNotation;
 
-    fn index(&self, construct: Construct<'l>) -> &Notation {
+    fn index(&self, construct: Construct<'l>) -> &ValidNotation {
         &self.notations[construct.id()]
     }
 }
@@ -104,20 +104,22 @@ fn make_builtin_language() -> (Grammar, NotationSet) {
         .unwrap();
     let grammar = builder.finish();
 
+    let hole_notation = lit(
+        "?",
+        Style {
+            color: Color::Base0C,
+            bold: true,
+            underlined: false,
+            reversed: true,
+        },
+    )
+    .validate()
+    .expect("Builtin hole notation invalid");
+    let root_notation = child(0).validate().expect("Builtin root notation invalid");
+
     let mut notations = HashMap::new();
-    notations.insert(
-        "Hole".to_owned(),
-        lit(
-            "?",
-            Style {
-                color: Color::Base0C,
-                bold: true,
-                underlined: false,
-                reversed: true,
-            },
-        ),
-    );
-    notations.insert("Root".to_owned(), child(0));
+    notations.insert("Hole".to_owned(), hole_notation);
+    notations.insert("Root".to_owned(), root_notation);
     let notation_set = NotationSet::new("Default".to_owned(), &grammar, notations).unwrap();
 
     (grammar, notation_set)
@@ -178,7 +180,7 @@ impl<'l> LanguageSet<'l> {
         Some(&mut self.languages[*self.languages_by_name.get(language_name)?])
     }
 
-    pub fn get_notation(&self, construct: Construct<'l>) -> &'l Notation {
+    pub fn get_notation(&self, construct: Construct<'l>) -> &'l ValidNotation {
         &self.languages[construct.grammar().language_id].current_notation_set[construct]
     }
 
