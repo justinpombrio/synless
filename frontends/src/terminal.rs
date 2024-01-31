@@ -18,7 +18,7 @@ use termion::screen::AlternateScreen;
 use termion::style::{Bold, NoBold, NoUnderline, Reset, Underline};
 
 use partial_pretty_printer::pane::PrettyWindow;
-use partial_pretty_printer::{Col, Line, Pos, ShadedStyle, Size, Width};
+use partial_pretty_printer::{Col, Pos, Row, ShadedStyle, Size, Width};
 
 use crate::frontend::{Event, Frontend, Key};
 use crate::{ColorTheme, Rgb};
@@ -40,7 +40,7 @@ impl Terminal {
     fn terminal_window_size() -> Result<Size, TermError> {
         let (width, height) = termion::terminal_size()?;
         Ok(Size {
-            width: width as u16,
+            width,
             height: height as u32,
         })
     }
@@ -148,7 +148,7 @@ impl Frontend for Terminal {
         for op in changes {
             match op {
                 ScreenOp::Goto(pos) => self.go_to(pos)?,
-                ScreenOp::Apply(style) => self.apply_style(style)?,
+                ScreenOp::Style(style) => self.apply_style(style)?,
                 ScreenOp::Print(ch) => self.write(ch)?,
             }
         }
@@ -172,14 +172,14 @@ fn to_termion_rgb(synless_rgb: Rgb) -> TermionRgb {
 
 /// Convert a synless Pos into termion's XY coordinates.
 fn pos_to_coords(pos: Pos) -> (u16, u16) {
-    (pos.col as u16 + 1, pos.line as u16 + 1)
+    (pos.col + 1, pos.row as u16 + 1)
 }
 
 /// Convert termion's XY coordinates into a synless Pos.
 fn coords_to_pos(x: u16, y: u16) -> Pos {
     Pos {
         col: x as Col - 1,
-        line: y as Line - 1,
+        row: y as Row - 1,
     }
 }
 
