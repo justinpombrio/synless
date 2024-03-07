@@ -1,3 +1,5 @@
+mod infra;
+
 fn main() {
-    unimplemented!();
+    bug!("not yet implemented");
 }

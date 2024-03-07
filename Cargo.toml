@@ -1,12 +1,16 @@
 [package]
 name = "synless"
 version = "0.0.1"
+edition = "2021"
 authors = ["justinpombrio <zallambo@gmail.com>", "e-matteson <e.r.matteson@gmail.com>"]
 
-[workspace]
-members = [
-  "forest",
-  "language",
-  "frontends",
-  "editor",
-  "demo"]
+[dependencies]
+generational-arena = "0.2"
+[dependencies.no-nonsense-flamegraphs]
+    version = "0.2.*"
+    git = "https://github.com/justinpombrio/no-nonsense-flamegraphs"
+    optional = true
+
+[features]
+default = []
+profile = ["no-nonsense-flamegraphs"]
