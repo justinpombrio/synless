@@ -1,5 +1,6 @@
-use crate::bug;
 use std::fmt;
+
+pub use crate::bug;
 
 #[doc(hidden)]
 #[macro_export]
