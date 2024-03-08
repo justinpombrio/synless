@@ -23,8 +23,9 @@ pub type NodeIndex = generational_arena::Index;
 ///   Along the same lines, preventing cycles at compile time.
 /// - Removing the need to pass the `Forest` in to every method call.
 pub struct Forest<D> {
-    roots: Vec<NodeIndex>,
+    // TODO: Try making roots linked in a cycle internally
     arena: Arena<Node<D>>,
+    swap_dummy: NodeIndex,
 }
 
 /// A node in a doubly-linked-list representation of a tree that can store some
@@ -44,12 +45,17 @@ struct Node<D> {
 }
 
 impl<D> Forest<D> {
-    /// Create a new empty forest.
-    pub fn new() -> Forest<D> {
-        Forest {
-            roots: Vec::new(),
-            arena: Arena::new(),
-        }
+    /// Create a new empty forest. The `dummy_data` will never be used (don't worry about it).
+    pub fn new(dummy_data: D) -> Forest<D> {
+        let mut arena = Arena::new();
+        let swap_dummy = arena.insert_with(|idx| Node {
+            parent: None,
+            child: None,
+            prev: idx,
+            next: idx,
+            data: dummy_data,
+        });
+        Forest { arena, swap_dummy }
     }
 
     /// Create a new root node containing the given data.
@@ -61,7 +67,6 @@ impl<D> Forest<D> {
             child: None,
             data,
         });
-        self.roots.push(index);
         index
     }
 
@@ -149,8 +154,6 @@ impl<D> Forest<D> {
             }
             self.arena.remove(node);
         }
-
-        self.remove_from_root_set(root);
     }
 
     /// True if the forest still contains this node (i.e. its tree hasn't been deleted).
@@ -176,11 +179,14 @@ impl<D> Forest<D> {
             bug!("Forest - can't swap overlapping nodes");
         }
 
-        // TODO: Fix bug
         let crack_1 = Crack::new_remove(self, node_1);
+        crack_1.fill(self, self.swap_dummy);
+
         let crack_2 = Crack::new_remove(self, node_2);
-        crack_1.fill(self, node_2);
         crack_2.fill(self, node_1);
+
+        let crack_1_again = Crack::new_remove(self, self.swap_dummy);
+        crack_1_again.fill(self, node_2);
     }
 
     /// Insert the root node `node` before `at`, so that `node` becomes its previous sibling.
@@ -226,11 +232,6 @@ impl<D> Forest<D> {
         crack.fill(self, node);
     }
 
-    fn remove_from_root_set(&mut self, root: NodeIndex) {
-        let i = self.roots.iter().position(|r| *r == root).bug();
-        self.roots.swap_remove(i);
-    }
-
     fn overlaps(&self, node_1: NodeIndex, node_2: NodeIndex) -> bool {
         self.is_ancestor_of(node_1, node_2) || self.is_ancestor_of(node_2, node_1)
     }
@@ -261,15 +262,11 @@ impl<D> Forest<D> {
     }
 
     #[cfg(test)]
-    fn all_roots(&self) -> &[NodeIndex] {
-        &self.roots
-        /*
+    fn all_roots(&self) -> impl Iterator<Item = NodeIndex> + '_ {
         self.arena
             .iter()
             .filter(|(_, node)| node.parent.is_none())
             .map(|(i, _)| i)
-            .collect()
-            */
     }
 
     #[cfg(test)]
@@ -358,7 +355,6 @@ impl Crack {
             };
 
             f.arena[node].parent = None;
-            f.roots.push(node);
             f.link(node, node);
 
             crack
@@ -398,7 +394,6 @@ impl Crack {
                 f.arena[node].parent = Some(parent);
                 f.arena[parent].child = Some(node);
                 f.link(node, node);
-                f.remove_from_root_set(node);
             }
             Crack::WithSiblings {
                 parent,
@@ -412,7 +407,6 @@ impl Crack {
                 }
                 f.link(prev, node);
                 f.link(node, next);
-                f.remove_from_root_set(node);
             }
         }
     }
@@ -447,9 +441,13 @@ mod forest_tests {
         fn verify(mut self) -> String {
             // Walk each tree
             for root in self.forest.all_roots() {
-                self.verify_tree(*root, None, *root);
+                if root == self.forest.swap_dummy {
+                    self.node_count += 1;
+                } else {
+                    self.verify_tree(root, None, root);
+                }
             }
-            // Check that every node has been accounted for
+            // Check that every node has been accounted for.
             assert_eq!(self.node_count, self.forest.num_nodes());
             self.display
         }
@@ -517,14 +515,14 @@ mod forest_tests {
 
     #[test]
     fn test_leaf() {
-        let mut forest = Forest::new();
+        let mut forest = Forest::new("");
         forest.new_node("leaf");
         assert_eq!(verify_and_print(&forest), "(leaf)");
     }
 
     #[test]
     fn test_branch() {
-        let mut forest = Forest::new();
+        let mut forest = Forest::new("");
         make_sisters(&mut forest);
         assert_eq!(
             verify_and_print(&forest),
@@ -534,7 +532,7 @@ mod forest_tests {
 
     #[test]
     fn test_swap() {
-        let mut forest = Forest::new();
+        let mut forest = Forest::new("");
         let parent = make_sisters(&mut forest);
         let elder = forest.first_child(parent).unwrap();
         let younger = forest.next(elder).unwrap();
@@ -574,7 +572,7 @@ mod forest_tests {
 
     #[test]
     fn test_mirror() {
-        let mut f = Forest::new();
+        let mut f = Forest::new(0);
         make_mirror(&mut f, 3, 0);
         assert_eq!(verify_and_print(&f), "(0 (1) (2 (3)) (4 (5) (6 (7))))");
     }
@@ -589,7 +587,7 @@ mod forest_tests {
             child
         }
 
-        let mut f = Forest::new();
+        let mut f = Forest::new(0);
         let root = make_mirror(&mut f, 3, 0);
         *f.data_mut(root) = 100;
         *f.data_mut(nth_child(&f, 0, nth_child(&f, 1, root))) = 33;
@@ -601,7 +599,7 @@ mod forest_tests {
 
     #[test]
     fn test_modification() {
-        let mut f = Forest::<&'static str>::new();
+        let mut f = Forest::<&'static str>::new("");
 
         let kid = f.new_node("kid");
         let mama = f.new_node("mama");
@@ -658,7 +656,7 @@ mod forest_tests {
     #[test]
     #[should_panic(expected = "Forest - can only delete whole trees")]
     fn test_delete_child_panic() {
-        let mut f = Forest::<()>::new();
+        let mut f = Forest::<()>::new(());
         let parent = f.new_node(());
         let child = f.new_node(());
         f.insert_first_child(parent, child);
@@ -668,7 +666,7 @@ mod forest_tests {
     #[test]
     #[should_panic(expected = "Forest - can't insert before a root")]
     fn test_insert_before_root_panic() {
-        let mut f = Forest::<()>::new();
+        let mut f = Forest::<()>::new(());
         let root = f.new_node(());
         let child = f.new_node(());
         f.insert_before(root, child);
@@ -677,7 +675,7 @@ mod forest_tests {
     #[test]
     #[should_panic(expected = "Forest - can't insert after a root")]
     fn test_insert_after_root_panic() {
-        let mut f = Forest::<()>::new();
+        let mut f = Forest::<()>::new(());
         let root = f.new_node(());
         let child = f.new_node(());
         f.insert_after(root, child);
@@ -686,7 +684,7 @@ mod forest_tests {
     #[test]
     #[should_panic(expected = "No element at index")]
     fn test_use_after_free_panic() {
-        let mut f = Forest::<()>::new();
+        let mut f = Forest::<()>::new(());
         let root = f.new_node(());
         f.delete_root(root);
         f.new_node(());
@@ -696,7 +694,7 @@ mod forest_tests {
     #[test]
     #[should_panic(expected = "Forest - attempt to create cycle using `insert_child` thwarted")]
     fn test_cycle() {
-        let mut f = Forest::<u32>::new();
+        let mut f = Forest::<u32>::new(0);
         let tree = f.new_node(0);
         f.insert_first_child(tree, tree);
     }
@@ -704,7 +702,7 @@ mod forest_tests {
     #[test]
     #[should_panic(expected = "Forest - can't swap overlapping nodes")]
     fn test_swap_cycle() {
-        let mut f = Forest::<u32>::new();
+        let mut f = Forest::<u32>::new(0);
         let parent = f.new_node(0);
         let child = f.new_node(0);
         f.insert_first_child(parent, child);
