@@ -1,4 +1,5 @@
 use std::fmt;
+use std::panic::Location;
 
 pub use crate::bug;
 
@@ -23,39 +24,57 @@ pub trait SynlessBug<T>: Sized {
 }
 
 impl<T> SynlessBug<T> for Option<T> {
+    #[track_caller]
     fn bug(self) -> T {
         match self {
             Some(val) => val,
-            None => bug!("Tried to unwrap a `None` value"),
+            None => {
+                panic!(
+                    "{}",
+                    format_bug_at(Location::caller(), "Tried to unwrap a `None` value")
+                );
+            }
         }
     }
 
+    #[track_caller]
     fn bug_msg(self, msg: &str) -> T {
         match self {
             Some(val) => val,
-            None => bug!("{}", msg),
+            None => {
+                panic!("{}", format_bug_at(Location::caller(), msg));
+            }
         }
     }
 }
 
 impl<T, E: fmt::Display> SynlessBug<T> for Result<T, E> {
+    #[track_caller]
     fn bug(self) -> T {
         match self {
             Ok(ok) => ok,
-            Err(err) => bug!("{}", err),
+            Err(err) => panic!("{}", format_bug_at(Location::caller(), &format!("{}", err))),
         }
     }
 
+    #[track_caller]
     fn bug_msg(self, msg: &str) -> T {
         match self {
             Ok(ok) => ok,
-            Err(err) => bug!("{}\n{}", msg, err),
+            Err(err) => panic!(
+                "{}",
+                format_bug_at(Location::caller(), &format!("{}\n{}", msg, err))
+            ),
         }
     }
 }
 
-#[track_caller]
-pub(crate) fn format_bug(location: String, message: String) -> String {
+pub(crate) fn format_bug_at(loc: &Location, message: &str) -> String {
+    let loc_str = format!("{}:{}:{}", loc.file(), loc.line(), loc.column());
+    format_bug(loc_str, message)
+}
+
+pub(crate) fn format_bug(location: String, message: &str) -> String {
     let mut output = "\n*** Bug in Synless.".to_owned();
     output
         .push_str("\n*** Please open an issue at https://github.com/justinpombrio/synless/issues.");
@@ -82,7 +101,7 @@ macro_rules! bug {
         panic!("{}",
             $crate::infra::format_bug(
                 format!("{}:{}:{}", file!(), line!(), column!()),
-                format!($message, $( $arg ),*)
+                &format!($message, $( $arg ),*)
             )
         )
     };
