@@ -5,6 +5,9 @@ edition = "2021"
 authors = ["justinpombrio <zallambo@gmail.com>", "e-matteson <e.r.matteson@gmail.com>"]
 
 [dependencies]
+thiserror = "1.0"
+bit-set = "0.5"
+typed-arena = "2.0"
 generational-arena = "0.2"
 [dependencies.no-nonsense-flamegraphs]
     version = "0.2.*"

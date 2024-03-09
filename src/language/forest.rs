@@ -25,6 +25,7 @@ pub type NodeIndex = generational_arena::Index;
 pub struct Forest<D> {
     // TODO: Try making roots linked in a cycle internally
     arena: Arena<Node<D>>,
+    /// Exists solely for the swap() method. Avoids messiness when swapping adjacent siblings.
     swap_dummy: NodeIndex,
 }
 
@@ -275,6 +276,7 @@ impl<D> Forest<D> {
     }
 }
 
+// NOTE: Never create two adjacent cracks. It'll be like that episode of The Good Place.
 enum Crack {
     Root,
     WithoutSiblings {
