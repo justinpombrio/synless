@@ -9,6 +9,8 @@ thiserror = "1.0"
 bit-set = "0.5"
 typed-arena = "2.0"
 generational-arena = "0.2"
+[dependencies.partial-pretty-printer]
+    git = "https://github.com/justinpombrio/partial-pretty-printer"
 [dependencies.no-nonsense-flamegraphs]
     version = "0.2.*"
     git = "https://github.com/justinpombrio/no-nonsense-flamegraphs"

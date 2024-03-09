@@ -1,5 +1,5 @@
 mod forest;
-mod grammar;
+mod language_set;
 
 use std::fmt;
 
