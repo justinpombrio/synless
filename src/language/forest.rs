@@ -61,14 +61,13 @@ impl<D> Forest<D> {
 
     /// Create a new root node containing the given data.
     pub fn new_node(&mut self, data: D) -> NodeIndex {
-        let index = self.arena.insert_with(|idx| Node {
+        self.arena.insert_with(|idx| Node {
             parent: None,
             prev: idx,
             next: idx,
             child: None,
             data,
-        });
-        index
+        })
     }
 
     /// Get the parent of `node`, or `None` if it's a root.

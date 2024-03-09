@@ -1,6 +1,3 @@
-// TODO: temporary
-#![allow(unused)]
-
 mod forest;
 mod grammar;
 
