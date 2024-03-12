@@ -92,14 +92,9 @@ struct LanguageCompiled {
     grammar: GrammarCompiled,
     notation_sets_by_name: HashMap<String, NotationSetId>,
     current_notation_set: NotationSetId,
-    /// NotationSetId -> NotationSet
-    notation_sets: Vec<NotationSet>,
+    /// NotationSetId -> NotationSetCompiled
+    notation_sets: Vec<NotationSetCompiled>,
 }
-
-// TODO: These will need more data.
-type StyleLabel = u32;
-type DocCondition = ();
-type ValidNotation = ppp::ValidNotation<StyleLabel, DocCondition>;
 
 struct NotationSetCompiled {
     /// ConstructId -> ValidNotation
@@ -109,6 +104,11 @@ struct NotationSetCompiled {
 /********************************************
  *         Public Interface                 *
  ********************************************/
+
+// TODO: These will need more data, and should be moved somewhere.
+pub type StyleLabel = u32;
+pub type DocCondition = ();
+pub type ValidNotation = ppp::ValidNotation<StyleLabel, DocCondition>;
 
 /// The (unique) collection of all loaded [`Language`]s.
 pub struct LanguageSet {
@@ -210,6 +210,22 @@ impl Language {
                 notation_set: *id,
             })
     }
+
+    pub fn current_notation_set(self, l: &LanguageSet) -> NotationSet {
+        NotationSet {
+            language: self.language,
+            notation_set: l.languages[self.language].current_notation_set,
+        }
+    }
+}
+
+impl NotationSet {
+    pub fn notation(self, l: &LanguageSet, construct: Construct) -> &ValidNotation {
+        if self.language != construct.language {
+            bug!("NotationSet::notation - language mismatch");
+        }
+        &l.languages[self.language].notation_sets[self.notation_set].notations[construct.construct]
+    }
 }
 
 impl Sort {
@@ -267,6 +283,10 @@ impl Construct {
                 sort: sort_id,
             }),
         }
+    }
+
+    pub fn notation(self, l: &LanguageSet) -> &ValidNotation {
+        self.language().current_notation_set(l).notation(l, self)
     }
 }
 

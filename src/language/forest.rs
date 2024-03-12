@@ -108,6 +108,24 @@ impl<D> Forest<D> {
         }
     }
 
+    /// Get the `node`'s leftmost sibling (which could be itself).
+    pub fn first_sibling(&self, node: NodeIndex) -> NodeIndex {
+        if let Some(parent) = self.arena[node].parent {
+            self.arena[parent].child.bug()
+        } else {
+            node
+        }
+    }
+
+    /// Get the `node`'s rightmost sibling (which could be itself).
+    pub fn last_sibling(&self, node: NodeIndex) -> NodeIndex {
+        if let Some(parent) = self.arena[node].parent {
+            self.arena[self.arena[parent].child.bug()].prev
+        } else {
+            node
+        }
+    }
+
     /// Whether this node is first among its siblings. (True if there's one sibling.)
     pub fn is_first(&self, node: NodeIndex) -> bool {
         if let Some(parent) = self.arena[node].parent {
@@ -123,6 +141,20 @@ impl<D> Forest<D> {
             self.arena[parent].child.bug() == self.arena[node].next
         } else {
             true
+        }
+    }
+
+    pub fn num_children(&self, node: NodeIndex) -> usize {
+        if let Some(child) = self.arena[node].child {
+            let mut num_children = 1;
+            let mut other_child = self.arena[child].next;
+            while other_child != child {
+                num_children += 1;
+                other_child = self.arena[other_child].next;
+            }
+            num_children
+        } else {
+            0
         }
     }
 
@@ -469,6 +501,7 @@ mod forest_tests {
             self.display
                 .push_str(&format!("{}", self.forest.data(node)));
             self.node_count += 1;
+            let mut num_children = 0;
             if let Some(first_child) = self.forest.first_child(node) {
                 let mut child = first_child;
                 assert!(self.forest.is_first(child));
@@ -478,12 +511,14 @@ mod forest_tests {
                 loop {
                     self.display.push(' ');
                     self.verify_tree(child, Some(node), expected_root);
+                    num_children += 1;
                     match self.forest.next(child) {
                         None => break,
                         Some(c) => child = c,
                     }
                 }
             }
+            assert_eq!(self.forest.num_children(node), num_children);
             self.display.push(')');
         }
     }
@@ -529,6 +564,19 @@ mod forest_tests {
             verify_and_print(&forest),
             "(parent (elderSister) (youngerSister))"
         );
+    }
+
+    #[test]
+    fn test_siblings() {
+        let mut forest = Forest::new("");
+        let parent = make_sisters(&mut forest);
+        let elder = forest.first_child(parent).unwrap();
+        let younger = forest.next(elder).unwrap();
+
+        assert_eq!(forest.first_sibling(younger), elder);
+        assert_eq!(forest.first_sibling(elder), elder);
+        assert_eq!(forest.last_sibling(younger), younger);
+        assert_eq!(forest.last_sibling(elder), younger);
     }
 
     #[test]
