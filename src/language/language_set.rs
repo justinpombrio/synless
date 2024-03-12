@@ -4,6 +4,8 @@ use bit_set::BitSet;
 use partial_pretty_printer as ppp;
 use std::collections::HashMap;
 
+const HOLE_NAME: &str = "$hole";
+
 // NOTE: Why all the wrapper types, instead of using indexes? Two reasons:
 //
 // 1. It simplifies the caller. For example, instead of having to pass around a
@@ -49,6 +51,7 @@ pub struct GrammarSpec {
     pub language_name: String,
     pub constructs: Vec<ConstructSpec>,
     pub sorts: Vec<(String, SortSpec)>,
+    pub root_sort: SortSpec,
 }
 
 /********************************************
@@ -84,6 +87,8 @@ struct GrammarCompiled {
     constructs: Vec<ConstructCompiled>,
     /// SortId -> SortCompiled
     sorts: Vec<SortCompiled>,
+    /// Which constructs are allowed at the top level
+    root_sort: SortId,
     /// Key -> ConstructId
     keymap: HashMap<char, ConstructId>,
 }
@@ -329,11 +334,31 @@ struct GrammarBuilder {
     language_name: String,
     constructs: HashMap<String, (ConstructId, ConstructSpec)>,
     sorts: HashMap<String, SortSpec>,
+    root_sort: SortSpec,
 }
 
 impl GrammarSpec {
-    fn compile(self) -> Result<GrammarCompiled, LanguageError> {
-        let mut builder = GrammarBuilder::new(self.language_name);
+    fn inject_builtins(&mut self) {
+        // Allow all fixed children to be holes
+        for construct in &mut self.constructs {
+            if let AritySpec::Fixed(children) = &mut construct.arity {
+                for sort_spec in children {
+                    sort_spec.0.push(HOLE_NAME.to_owned());
+                }
+            }
+        }
+        // Add the hole construct
+        self.constructs.push(ConstructSpec {
+            name: HOLE_NAME.to_owned(),
+            arity: AritySpec::Fixed(Vec::new()),
+            key: None,
+        });
+    }
+
+    fn compile(mut self) -> Result<GrammarCompiled, LanguageError> {
+        self.inject_builtins();
+
+        let mut builder = GrammarBuilder::new(self.language_name, self.root_sort);
         for construct in self.constructs {
             builder.add_construct(construct)?;
         }
@@ -345,11 +370,12 @@ impl GrammarSpec {
 }
 
 impl GrammarBuilder {
-    fn new(language_name: String) -> GrammarBuilder {
+    fn new(language_name: String, root_sort: SortSpec) -> GrammarBuilder {
         GrammarBuilder {
             language_name,
             constructs: HashMap::new(),
             sorts: HashMap::new(),
+            root_sort,
         }
     }
 
@@ -384,9 +410,11 @@ impl GrammarBuilder {
             language_name: self.language_name.clone(),
             constructs: Vec::new(),
             sorts: Vec::new(),
+            root_sort: 0,
             keymap: HashMap::new(),
         };
 
+        grammar.root_sort = self.compile_sort(&mut grammar, &self.root_sort)?;
         for sort in self.sorts.values() {
             self.compile_sort(&mut grammar, sort)?;
         }
