@@ -89,6 +89,7 @@ struct GrammarCompiled {
     sorts: Vec<SortCompiled>,
     /// Which constructs are allowed at the top level
     root_sort: SortId,
+    hole_construct: ConstructId,
     /// Key -> ConstructId
     keymap: HashMap<char, ConstructId>,
 }
@@ -222,6 +223,13 @@ impl Language {
             notation_set: l.languages[self.language].current_notation_set,
         }
     }
+
+    pub fn hole_construct(self, l: &LanguageSet) -> Construct {
+        Construct {
+            language: self.language,
+            construct: l.grammar(self.language).hole_construct,
+        }
+    }
 }
 
 impl NotationSet {
@@ -338,26 +346,7 @@ struct GrammarBuilder {
 }
 
 impl GrammarSpec {
-    fn inject_builtins(&mut self) {
-        // Allow all fixed children to be holes
-        for construct in &mut self.constructs {
-            if let AritySpec::Fixed(children) = &mut construct.arity {
-                for sort_spec in children {
-                    sort_spec.0.push(HOLE_NAME.to_owned());
-                }
-            }
-        }
-        // Add the hole construct
-        self.constructs.push(ConstructSpec {
-            name: HOLE_NAME.to_owned(),
-            arity: AritySpec::Fixed(Vec::new()),
-            key: None,
-        });
-    }
-
     fn compile(mut self) -> Result<GrammarCompiled, LanguageError> {
-        self.inject_builtins();
-
         let mut builder = GrammarBuilder::new(self.language_name, self.root_sort);
         for construct in self.constructs {
             builder.add_construct(construct)?;
@@ -379,7 +368,7 @@ impl GrammarBuilder {
         }
     }
 
-    fn add_construct(&mut self, construct: ConstructSpec) -> Result<(), LanguageError> {
+    fn add_construct(&mut self, construct: ConstructSpec) -> Result<ConstructId, LanguageError> {
         if self.constructs.contains_key(&construct.name) {
             return Err(LanguageError::DuplicateConstruct(construct.name.clone()));
         } else if self.sorts.contains_key(&construct.name) {
@@ -391,7 +380,7 @@ impl GrammarBuilder {
         let id = self.constructs.len();
         self.constructs
             .insert(construct.name.clone(), (id, construct));
-        Ok(())
+        Ok(id)
     }
 
     fn add_sort(&mut self, name: String, sort: SortSpec) -> Result<(), LanguageError> {
@@ -405,12 +394,33 @@ impl GrammarBuilder {
         Ok(())
     }
 
+    /// Adds the $hole construct to the grammar. Returns its id.
+    fn inject_builtins(&mut self) -> Result<ConstructId, LanguageError> {
+        // Allow all fixed children to be holes
+        for (_, (_, construct_spec)) in &mut self.constructs {
+            if let AritySpec::Fixed(children) = &mut construct_spec.arity {
+                for sort_spec in children {
+                    sort_spec.0.push(HOLE_NAME.to_owned());
+                }
+            }
+        }
+        // Add the hole construct
+        self.add_construct(ConstructSpec {
+            name: HOLE_NAME.to_owned(),
+            arity: AritySpec::Fixed(Vec::new()),
+            key: None,
+        })
+    }
+
     fn finish(mut self) -> Result<GrammarCompiled, LanguageError> {
+        let hole_id = self.inject_builtins()?;
+
         let mut grammar = GrammarCompiled {
             language_name: self.language_name.clone(),
             constructs: Vec::new(),
             sorts: Vec::new(),
             root_sort: 0,
+            hole_construct: hole_id,
             keymap: HashMap::new(),
         };
 

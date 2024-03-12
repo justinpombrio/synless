@@ -90,6 +90,22 @@ impl<D> Forest<D> {
         self.arena[node].child
     }
 
+    /// Get the `node`'s n'th child, if any.
+    pub fn nth_child(&self, node: NodeIndex, n: usize) -> Option<NodeIndex> {
+        if let Some(first_child) = self.arena[node].child {
+            let mut child = first_child;
+            for _ in 0..n {
+                child = self.arena[child].next;
+                if child == first_child {
+                    return None;
+                }
+            }
+            Some(child)
+        } else {
+            None
+        }
+    }
+
     /// Get the `node`'s previous sibling, if any.
     pub fn prev(&self, node: NodeIndex) -> Option<NodeIndex> {
         if self.is_first(node) {
@@ -158,6 +174,16 @@ impl<D> Forest<D> {
         }
     }
 
+    pub fn sibling_index(&self, node: NodeIndex) -> usize {
+        let mut sibling = self.first_sibling(node);
+        let mut sibling_index = 0;
+        while sibling != node {
+            sibling = self.arena[sibling].next;
+            sibling_index += 1;
+        }
+        sibling_index
+    }
+
     /// Borrows the data stored inside `node`.
     pub fn data(&self, node: NodeIndex) -> &D {
         &self.arena[node].data
@@ -203,12 +229,13 @@ impl<D> Forest<D> {
     /// Swap the positions of two nodes (and their descendants). The two nodes may be part
     /// of the same tree or different trees, but they must not overlap - i.e. one node must
     /// not be an ancestor of the other. Unless they're the same node, which is a no-op.
-    pub fn swap(&mut self, node_1: NodeIndex, node_2: NodeIndex) {
+    /// If the nodes do overlap, returns `false` and does nothing.
+    pub fn swap(&mut self, node_1: NodeIndex, node_2: NodeIndex) -> bool {
         if node_1 == node_2 {
-            return;
+            return true;
         }
         if self.overlaps(node_1, node_2) {
-            bug!("Forest - can't swap overlapping nodes");
+            return false;
         }
 
         let crack_1 = Crack::new_remove(self, node_1);
@@ -219,6 +246,8 @@ impl<D> Forest<D> {
 
         let crack_1_again = Crack::new_remove(self, self.swap_dummy);
         crack_1_again.fill(self, node_2);
+
+        true
     }
 
     /// Insert the root node `node` before `at`, so that `node` becomes its previous sibling.
