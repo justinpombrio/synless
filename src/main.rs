@@ -3,6 +3,7 @@
 
 mod infra;
 mod language;
+mod style;
 
 fn main() {
     bug!("not yet implemented");
