@@ -400,7 +400,7 @@ impl GrammarBuilder {
     /// Adds the $hole construct to the grammar. Returns its id.
     fn inject_builtins(&mut self) -> Result<ConstructId, LanguageError> {
         // Allow all fixed children to be holes
-        for (_, (_, construct_spec)) in &mut self.constructs {
+        for (_, construct_spec) in self.constructs.values_mut() {
             if let AritySpec::Fixed(children) = &mut construct_spec.arity {
                 for sort_spec in children {
                     sort_spec.0.push(HOLE_NAME.to_owned());
