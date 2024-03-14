@@ -141,6 +141,15 @@ fn prioritize<T>(
     }
 }
 
+impl Style {
+    pub fn cursor(cursor_half: CursorHalf) -> Style {
+        Style {
+            cursor: Some(cursor_half),
+            ..Style::default()
+        }
+    }
+}
+
 impl ppp::Style for Style {
     fn combine(outer: &Self, inner: &Self) -> Self {
         Style {

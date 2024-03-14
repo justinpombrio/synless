@@ -13,6 +13,10 @@ impl Text {
         self.0.as_str()
     }
 
+    pub fn as_split_str(&self, char_index: usize) -> (&str, &str) {
+        self.0.as_str().split_at(self.byte_index(char_index))
+    }
+
     /// Return the length of the text in characters.
     pub fn num_chars(&self) -> usize {
         self.0.chars().count()

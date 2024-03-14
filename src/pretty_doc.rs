@@ -1,10 +1,17 @@
-use crate::infra::SynlessBug;
+use crate::infra::{bug, SynlessBug};
 use crate::language::{DocStorage, Location, Node, NodeId};
 use crate::style::{Condition, CursorHalf, Style, StyleLabel, ValidNotation};
 use partial_pretty_printer as ppp;
 use std::fmt;
+use std::sync::OnceLock;
 
-// TODO: handle text char highlighting
+fn get_text_notation() -> &'static ValidNotation {
+    static TEXT_NOTATION: OnceLock<ValidNotation> = OnceLock::new();
+    TEXT_NOTATION.get_or_init(|| {
+        let notation = ppp::Notation::Text;
+        notation.validate().bug()
+    })
+}
 
 #[derive(Clone, Copy)]
 pub struct DocRef<'d> {
@@ -13,6 +20,7 @@ pub struct DocRef<'d> {
     left_cursor: Option<Node>,
     right_cursor: Option<Node>,
     node: Node,
+    text_pos: Option<CursorHalf>,
 }
 
 impl<'d> DocRef<'d> {
@@ -24,32 +32,48 @@ impl<'d> DocRef<'d> {
             left_cursor,
             right_cursor,
             node,
+            text_pos: None,
         }
     }
 
-    fn with_node(self, node: Node) -> Self {
-        DocRef {
-            storage: self.storage,
-            cursor_pos: self.cursor_pos,
-            left_cursor: self.left_cursor,
-            right_cursor: self.right_cursor,
-            node,
+    fn on_virtual_text_parent(&self) -> bool {
+        self.node.text(self.storage).is_some() && self.text_pos.is_none()
+    }
+
+    /// Char index to split this node's text at
+    fn text_index(&self) -> usize {
+        if let Location::InText(node, i) = self.cursor_pos {
+            if node == self.node {
+                i
+            } else {
+                0
+            }
+        } else {
+            0
         }
     }
 }
 
 impl<'d> ppp::PrettyDoc<'d> for DocRef<'d> {
-    type Id = NodeId;
+    type Id = (NodeId, u16);
     type Style = Style;
     type StyleLabel = StyleLabel;
     type Condition = Condition;
 
-    fn id(self) -> NodeId {
-        self.node.id(self.storage)
+    fn id(self) -> (NodeId, u16) {
+        let id = self.node.id(self.storage);
+        match self.text_pos {
+            None => (id, 0),
+            Some(CursorHalf::Left) => (id, 1),
+            Some(CursorHalf::Right) => (id, 2),
+        }
     }
 
     fn notation(self) -> &'d ValidNotation {
-        self.node.notation(self.storage)
+        match self.text_pos {
+            None => self.node.notation(self.storage),
+            Some(_) => get_text_notation(),
+        }
     }
 
     fn condition(self, condition: &Condition) -> bool {
@@ -118,41 +142,93 @@ impl<'d> ppp::PrettyDoc<'d> for DocRef<'d> {
     }
 
     fn node_style(self) -> Style {
-        let mut style = Style::default();
-        if self.left_cursor == Some(self.node) {
-            style.cursor = Some(CursorHalf::Left);
+        if self.text_pos.is_some() {
+            Style::default()
+        } else if self.left_cursor == Some(self.node) {
+            Style::cursor(CursorHalf::Left)
         } else if self.right_cursor == Some(self.node) {
-            style.cursor = Some(CursorHalf::Right);
+            Style::cursor(CursorHalf::Right)
+        } else {
+            Style::default()
         }
-        style
     }
 
     fn num_children(self) -> Option<usize> {
-        self.node.num_children(self.storage)
+        if self.on_virtual_text_parent() {
+            Some(2)
+        } else {
+            self.node.num_children(self.storage)
+        }
     }
 
     fn unwrap_text(self) -> &'d str {
-        self.node.text(self.storage).bug().as_str()
+        let text = &self.node.text(self.storage).bug();
+        match self.text_pos {
+            None => bug!("DocRef::unwrap_text non-virtual text"),
+            Some(CursorHalf::Left) => text.as_split_str(self.text_index()).0,
+            Some(CursorHalf::Right) => text.as_split_str(self.text_index()).1,
+        }
     }
 
     fn unwrap_child(self, i: usize) -> Self {
-        let child = self.node.nth_child(self.storage, i).bug();
-        self.with_node(child)
+        if self.on_virtual_text_parent() {
+            let cursor_half = match i {
+                0 => CursorHalf::Left,
+                1 => CursorHalf::Right,
+                _ => bug!("DocRef::unwrap_child virtual text child OOB"),
+            };
+            DocRef {
+                text_pos: Some(cursor_half),
+                ..self
+            }
+        } else {
+            let child = self.node.nth_child(self.storage, i).bug();
+            DocRef {
+                node: child,
+                ..self
+            }
+        }
     }
 
     fn unwrap_last_child(self) -> Self {
-        let last_child = self.node.last_child(self.storage).bug();
-        self.with_node(last_child)
+        if self.on_virtual_text_parent() {
+            DocRef {
+                text_pos: Some(CursorHalf::Right),
+                ..self
+            }
+        } else {
+            let last_child = self.node.last_child(self.storage).bug();
+            DocRef {
+                node: last_child,
+                ..self
+            }
+        }
     }
 
     fn unwrap_prev_sibling(self, _: Self, _: usize) -> Self {
-        let sibling = self.node.prev_sibling(self.storage).bug();
-        self.with_node(sibling)
+        match self.text_pos {
+            Some(CursorHalf::Left) => bug!("unwrap_prev_sibling: virtual text OOB"),
+            Some(CursorHalf::Right) => DocRef {
+                text_pos: Some(CursorHalf::Left),
+                ..self
+            },
+            None => {
+                let sibling = self.node.prev_sibling(self.storage).bug();
+                DocRef {
+                    node: sibling,
+                    ..self
+                }
+            }
+        }
     }
 }
 
 impl<'d> fmt::Debug for DocRef<'d> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "DocRef({:?}, {:?})", self.node, self.cursor_pos)
+        write!(
+            f,
+            "DocRef({:?}, {:?}, {:?})",
+            self.node, self.cursor_pos, self.text_pos
+        )
     }
 }
