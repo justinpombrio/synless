@@ -1,11 +1,13 @@
-mod ast;
 mod forest;
 mod language_set;
+mod location;
+mod node;
 mod text;
 
 use std::fmt;
 
-pub use ast::{Ast, AstId, DocStorage, Location};
+pub use location::Location;
+pub use node::{DocStorage, Node, NodeId};
 
 #[derive(thiserror::Error, fmt::Debug)]
 pub enum LanguageError {

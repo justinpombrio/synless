@@ -230,6 +230,7 @@ impl<D> Forest<D> {
     /// of the same tree or different trees, but they must not overlap - i.e. one node must
     /// not be an ancestor of the other. Unless they're the same node, which is a no-op.
     /// If the nodes do overlap, returns `false` and does nothing.
+    #[must_use]
     pub fn swap(&mut self, node_1: NodeIndex, node_2: NodeIndex) -> bool {
         if node_1 == node_2 {
             return true;
@@ -251,46 +252,59 @@ impl<D> Forest<D> {
     }
 
     /// Insert the root node `node` before `at`, so that `node` becomes its previous sibling.
-    /// Panics if `node` _is not_ a root, or if `at` _is_ a root.
-    pub fn insert_before(&mut self, at: NodeIndex, node: NodeIndex) {
+    /// Returns false and does nothing if `node` is not a root, or if `at` is_ a root.
+    #[must_use]
+    pub fn insert_before(&mut self, at: NodeIndex, node: NodeIndex) -> bool {
         if self.arena[node].parent.is_some() {
-            bug!("Forest - can only insert whole trees (before)");
+            return false;
         }
-        let crack = Crack::new_before(self, at);
-        crack.fill(self, node);
+        if let Some(crack) = Crack::new_before(self, at) {
+            crack.fill(self, node);
+            true
+        } else {
+            false
+        }
     }
 
     /// Insert the root node `node` after `at`, so that `node` becomes its next sibling.
-    /// Panics if `node` _is not_ a root, or if `at` _is_ a root.
-    pub fn insert_after(&mut self, at: NodeIndex, node: NodeIndex) {
+    /// Returns false and does nothing if `node` is not a root, or if `at` is_ a root.
+    #[must_use]
+    pub fn insert_after(&mut self, at: NodeIndex, node: NodeIndex) -> bool {
         if self.arena[node].parent.is_some() {
-            bug!("Forest - can only insert whole trees (after)");
+            return false;
         }
-        let crack = Crack::new_after(self, at);
-        crack.fill(self, node);
+        if let Some(crack) = Crack::new_after(self, at) {
+            crack.fill(self, node);
+            true
+        } else {
+            false
+        }
     }
 
     /// Insert the root node `node` as the first child of `parent`.
-    /// Panics if `node` _is not_ a root.
-    pub fn insert_first_child(&mut self, parent: NodeIndex, node: NodeIndex) {
-        if self.arena[node].parent.is_some() {
-            bug!("Forest - can only insert whole trees (first_child)");
-        }
-        if self.root(parent) == node {
-            bug!("Forest - attempt to create cycle using `insert_child` thwarted");
+    /// Returns false and does nothing if `node` is not a root, or if `node` is the root of
+    /// `parent`.
+    #[must_use]
+    pub fn insert_first_child(&mut self, parent: NodeIndex, node: NodeIndex) -> bool {
+        if self.arena[node].parent.is_some() || self.root(parent) == node {
+            return false;
         }
         let crack = Crack::new_first_child(self, parent);
         crack.fill(self, node);
+        true
     }
 
     /// Insert the root node `node` as the last child of `parent`.
-    /// Panics if `node` _is not_ a root.
-    pub fn insert_last_child(&mut self, parent: NodeIndex, node: NodeIndex) {
-        if self.arena[node].parent.is_some() {
-            bug!("Forest - can only insert whole trees (last_child)");
+    /// Returns false and does nothing if `node` is not a root, or if `node` is the root of
+    /// `parent`.
+    #[must_use]
+    pub fn insert_last_child(&mut self, parent: NodeIndex, node: NodeIndex) -> bool {
+        if self.arena[node].parent.is_some() || self.root(parent) == node {
+            return false;
         }
         let crack = Crack::new_last_child(self, parent);
         crack.fill(self, node);
+        true
     }
 
     fn overlaps(&self, node_1: NodeIndex, node_2: NodeIndex) -> bool {
@@ -351,30 +365,22 @@ enum Crack {
 }
 
 impl Crack {
-    fn new_before<D>(f: &Forest<D>, node: NodeIndex) -> Crack {
-        if let Some(parent) = f.arena[node].parent {
-            Crack::WithSiblings {
-                parent,
-                prev: f.arena[node].prev,
-                next: node,
-                is_first: f.arena[parent].child == Some(node),
-            }
-        } else {
-            bug!("Forest - can't insert before a root");
-        }
+    fn new_before<D>(f: &Forest<D>, node: NodeIndex) -> Option<Crack> {
+        f.arena[node].parent.map(|parent| Crack::WithSiblings {
+            parent,
+            prev: f.arena[node].prev,
+            next: node,
+            is_first: f.arena[parent].child == Some(node),
+        })
     }
 
-    fn new_after<D>(f: &Forest<D>, node: NodeIndex) -> Crack {
-        if let Some(parent) = f.arena[node].parent {
-            Crack::WithSiblings {
-                parent,
-                prev: node,
-                next: f.arena[node].next,
-                is_first: false,
-            }
-        } else {
-            bug!("Forest - can't insert after a root");
-        }
+    fn new_after<D>(f: &Forest<D>, node: NodeIndex) -> Option<Crack> {
+        f.arena[node].parent.map(|parent| Crack::WithSiblings {
+            parent,
+            prev: node,
+            next: f.arena[node].next,
+            is_first: false,
+        })
     }
 
     fn new_first_child<D>(f: &Forest<D>, parent: NodeIndex) -> Crack {
@@ -563,7 +569,7 @@ mod forest_tests {
             let parent = forest.new_node(id);
             for i in 0..height {
                 let child = make_mirror(forest, i, id + 2_u32.pow(i));
-                forest.insert_last_child(parent, child);
+                assert!(forest.insert_last_child(parent, child));
             }
             parent
         }
@@ -573,8 +579,8 @@ mod forest_tests {
         let parent = forest.new_node("parent");
         let elder_sister = forest.new_node("elderSister");
         let younger_sister = forest.new_node("youngerSister");
-        forest.insert_first_child(parent, younger_sister);
-        forest.insert_first_child(parent, elder_sister);
+        assert!(forest.insert_first_child(parent, younger_sister));
+        assert!(forest.insert_first_child(parent, elder_sister));
         parent
     }
 
@@ -634,7 +640,7 @@ mod forest_tests {
         );
 
         let middle = forest.new_node("middleSister");
-        forest.insert_after(elder, middle);
+        assert!(forest.insert_after(elder, middle));
         forest.swap(elder, middle);
         assert_eq!(
             verify_and_print(&forest),
@@ -681,19 +687,19 @@ mod forest_tests {
 
         let kid = f.new_node("kid");
         let mama = f.new_node("mama");
-        f.insert_first_child(kid, mama);
+        assert!(f.insert_first_child(kid, mama));
         let papa = f.new_node("papa");
-        f.insert_last_child(kid, papa);
+        assert!(f.insert_last_child(kid, papa));
 
         let gram = f.new_node("gram");
-        f.insert_last_child(mama, gram);
+        assert!(f.insert_last_child(mama, gram));
         let gramp = f.new_node("gramp");
-        f.insert_first_child(mama, gramp);
+        assert!(f.insert_first_child(mama, gramp));
 
         let ogramp = f.new_node("ogramp");
-        f.insert_last_child(papa, ogramp);
+        assert!(f.insert_last_child(papa, ogramp));
         let ogram = f.new_node("ogram");
-        f.insert_last_child(papa, ogram);
+        assert!(f.insert_last_child(papa, ogram));
 
         assert_eq!(
             verify_and_print(&f),
@@ -708,7 +714,7 @@ mod forest_tests {
         );
 
         f.detach(gramp);
-        f.insert_first_child(kid, gramp);
+        assert!(f.insert_first_child(kid, gramp));
         assert_eq!(
             verify_and_print(&f),
             "(kid (gramp) (papa (ogramp) (ogram)))(mama (gram))"
@@ -732,31 +738,29 @@ mod forest_tests {
     // Error Testing //
 
     #[test]
+    fn test_insert_before_root_fails() {
+        let mut f = Forest::<()>::new(());
+        let root = f.new_node(());
+        let child = f.new_node(());
+        assert!(!f.insert_before(root, child));
+    }
+
+    #[test]
+    fn test_insert_after_root_fails() {
+        let mut f = Forest::<()>::new(());
+        let root = f.new_node(());
+        let child = f.new_node(());
+        assert!(!f.insert_after(root, child));
+    }
+
+    #[test]
     #[should_panic(expected = "Forest - can only delete whole trees")]
     fn test_delete_child_panic() {
         let mut f = Forest::<()>::new(());
         let parent = f.new_node(());
         let child = f.new_node(());
-        f.insert_first_child(parent, child);
+        assert!(f.insert_first_child(parent, child));
         f.delete_root(child);
-    }
-
-    #[test]
-    #[should_panic(expected = "Forest - can't insert before a root")]
-    fn test_insert_before_root_panic() {
-        let mut f = Forest::<()>::new(());
-        let root = f.new_node(());
-        let child = f.new_node(());
-        f.insert_before(root, child);
-    }
-
-    #[test]
-    #[should_panic(expected = "Forest - can't insert after a root")]
-    fn test_insert_after_root_panic() {
-        let mut f = Forest::<()>::new(());
-        let root = f.new_node(());
-        let child = f.new_node(());
-        f.insert_after(root, child);
     }
 
     #[test]
@@ -770,11 +774,17 @@ mod forest_tests {
     }
 
     #[test]
-    #[should_panic(expected = "Forest - attempt to create cycle using `insert_child` thwarted")]
-    fn test_cycle() {
+    fn test_first_child_cycle() {
         let mut f = Forest::<u32>::new(0);
         let tree = f.new_node(0);
-        f.insert_first_child(tree, tree);
+        assert!(!f.insert_first_child(tree, tree));
+    }
+
+    #[test]
+    fn test_last_child_cycle() {
+        let mut f = Forest::<u32>::new(0);
+        let tree = f.new_node(0);
+        assert!(!f.insert_last_child(tree, tree));
     }
 
     #[test]
@@ -782,7 +792,7 @@ mod forest_tests {
         let mut f = Forest::<u32>::new(0);
         let parent = f.new_node(0);
         let child = f.new_node(0);
-        f.insert_first_child(parent, child);
+        assert!(f.insert_first_child(parent, child));
         assert!(!f.swap(parent, child));
     }
 }
