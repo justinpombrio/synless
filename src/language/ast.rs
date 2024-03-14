@@ -52,8 +52,11 @@ impl Location {
     }
 }
 
-// TODO: put these methods in any order whatsoever
 impl Ast {
+    /****************
+     * Constructors *
+     ****************/
+
     pub fn new_hole(s: &mut DocStorage, lang: Language) -> Ast {
         Ast::new(s, lang.hole_construct(&s.language_set))
     }
@@ -93,8 +96,47 @@ impl Ast {
         }
     }
 
+    /*************
+     * Node Data *
+     *************/
+
     pub fn id(self, s: &DocStorage) -> AstId {
         s.forest.data(self.0).id
+    }
+
+    pub fn arity(self, s: &DocStorage) -> Arity {
+        s.forest.data(self.0).construct.arity(&s.language_set)
+    }
+
+    pub fn is_comment_or_ws(self, s: &DocStorage) -> bool {
+        s.forest
+            .data(self.0)
+            .construct
+            .is_comment_or_ws(&s.language_set)
+    }
+
+    pub fn notation(self, s: &DocStorage) -> &ValidNotation {
+        s.forest.data(self.0).construct.notation(&s.language_set)
+    }
+
+    /// Borrow the text of a texty node.
+    pub fn text(self, s: &DocStorage) -> Option<&Text> {
+        s.forest.data(self.0).text.as_ref()
+    }
+
+    /// Mutably borrow the text of a texty node.
+    pub fn text_mut(self, s: &mut DocStorage) -> Option<&mut Text> {
+        s.forest.data_mut(self.0).text.as_mut()
+    }
+
+    /*************
+     * Relatives *
+     *************/
+
+    /// Returns `true` if this is the root of the tree, and `false` if
+    /// it isn't (and thus this node has a parent).
+    pub fn is_at_root(self, s: &DocStorage) -> bool {
+        s.forest.parent(self.0).is_none()
     }
 
     /// Determine the number of siblings that this node has, including itself.
@@ -111,12 +153,6 @@ impl Ast {
         s.forest.sibling_index(self.0)
     }
 
-    /// Returns `true` if this is the root of the tree, and `false` if
-    /// it isn't (and thus this node has a parent).
-    pub fn is_at_root(self, s: &DocStorage) -> bool {
-        s.forest.parent(self.0).is_none()
-    }
-
     /// Return the number of children this node has. For a Fixed node, this is
     /// its arity. For a Listy node, this is its current number of children.
     /// For text, this is None.
@@ -127,6 +163,10 @@ impl Ast {
             Some(s.forest.num_children(self.0))
         }
     }
+
+    /**************
+     * Navigation *
+     **************/
 
     pub fn parent(self, s: &DocStorage) -> Option<Ast> {
         s.forest.parent(self.0).map(Ast)
@@ -140,6 +180,12 @@ impl Ast {
         s.forest
             .first_child(self.0)
             .map(|n| Ast(s.forest.last_sibling(n)))
+    }
+
+    /// Go to this node's `n`'th child.
+    /// Panics if `n` is out of bounds, or if this node is texty.
+    pub fn nth_child(self, s: &DocStorage, n: usize) -> Ast {
+        Ast(s.forest.nth_child(self.0, n).bug_msg("Ast::nth_child"))
     }
 
     pub fn next_sibling(self, s: &DocStorage) -> Option<Ast> {
@@ -181,6 +227,10 @@ impl Ast {
         }
     }
 
+    /**************
+     * Acceptance *
+     **************/
+
     /// Check if `other` is allowed where `self` currently is, according to its parent's arity.
     fn accepts_replacement(self, s: &DocStorage, other: Ast) -> bool {
         if let Some(parent) = s.forest.parent(self.0) {
@@ -205,6 +255,10 @@ impl Ast {
         }
     }
 
+    /************
+     * Mutation *
+     ************/
+
     // TODO: doc
     pub fn swap(self, s: &mut DocStorage, other: Ast) -> bool {
         if self.accepts_replacement(s, other) && other.accepts_replacement(s, self) {
@@ -212,37 +266,6 @@ impl Ast {
         } else {
             false
         }
-    }
-
-    pub fn arity(self, s: &DocStorage) -> Arity {
-        s.forest.data(self.0).construct.arity(&s.language_set)
-    }
-
-    pub fn is_comment_or_ws(self, s: &DocStorage) -> bool {
-        s.forest
-            .data(self.0)
-            .construct
-            .is_comment_or_ws(&s.language_set)
-    }
-
-    pub fn notation(self, s: &DocStorage) -> &ValidNotation {
-        s.forest.data(self.0).construct.notation(&s.language_set)
-    }
-
-    /// Borrow the text of a texty node.
-    pub fn text(self, s: &DocStorage) -> Option<&Text> {
-        s.forest.data(self.0).text.as_ref()
-    }
-
-    /// Mutably borrow the text of a texty node.
-    pub fn text_mut(self, s: &mut DocStorage) -> Option<&mut Text> {
-        s.forest.data_mut(self.0).text.as_mut()
-    }
-
-    /// Go to this node's `n`'th child.
-    /// Panics if `n` is out of bounds, or if this node is texty.
-    pub fn nth_child(self, s: &DocStorage, n: usize) -> Ast {
-        Ast(s.forest.nth_child(self.0, n).bug_msg("Ast::nth_child"))
     }
 
     // TODO: doc (new_sibling must be root)
