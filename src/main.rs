@@ -3,6 +3,7 @@
 
 mod infra;
 mod language;
+mod pretty_doc;
 mod style;
 
 fn main() {

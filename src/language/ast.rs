@@ -1,14 +1,13 @@
 use super::forest::{Forest, NodeIndex};
-use super::language_set::{
-    Arity, Construct, DocCondition, Language, LanguageSet, StyleLabel, ValidNotation,
-};
+use super::language_set::{Arity, Construct, Language, LanguageSet};
 use super::text::Text;
 use crate::infra::{bug, SynlessBug};
+use crate::style::{Condition, StyleLabel, ValidNotation};
 use partial_pretty_printer as ppp;
 use std::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-struct AstId(usize);
+pub struct AstId(usize);
 
 struct AstNode {
     id: AstId,
@@ -22,11 +21,18 @@ pub struct DocStorage {
     next_id: AstId,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Ast(NodeIndex);
 
 // TODO: doc
 pub struct Bookmark(NodeIndex);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Location {
+    InText(Ast, usize),
+    After(Ast),
+    BeforeFirstChild(Ast),
+}
 
 impl DocStorage {
     fn next_id(&mut self) -> AstId {
@@ -36,6 +42,17 @@ impl DocStorage {
     }
 }
 
+impl Location {
+    pub fn cursor_halves(self, s: &DocStorage) -> (Option<Ast>, Option<Ast>) {
+        match self {
+            Location::InText(..) => (None, None),
+            Location::After(left_sibling) => (Some(left_sibling), left_sibling.next_sibling(s)),
+            Location::BeforeFirstChild(parent) => (None, parent.first_child(s)),
+        }
+    }
+}
+
+// TODO: put these methods in any order whatsoever
 impl Ast {
     pub fn new_hole(s: &mut DocStorage, lang: Language) -> Ast {
         Ast::new(s, lang.hole_construct(&s.language_set))
@@ -76,6 +93,10 @@ impl Ast {
         }
     }
 
+    pub fn id(self, s: &DocStorage) -> AstId {
+        s.forest.data(self.0).id
+    }
+
     /// Determine the number of siblings that this node has, including itself.
     pub fn num_siblings(&self, s: &DocStorage) -> usize {
         if let Some(parent) = s.forest.parent(self.0) {
@@ -98,13 +119,27 @@ impl Ast {
 
     /// Return the number of children this node has. For a Fixed node, this is
     /// its arity. For a Listy node, this is its current number of children.
-    /// For text, this is considered 0.
-    fn num_children(self, s: &DocStorage) -> usize {
-        s.forest.num_children(self.0)
+    /// For text, this is None.
+    pub fn num_children(self, s: &DocStorage) -> Option<usize> {
+        if s.forest.data(self.0).text.is_some() {
+            None
+        } else {
+            Some(s.forest.num_children(self.0))
+        }
     }
 
     pub fn parent(self, s: &DocStorage) -> Option<Ast> {
         s.forest.parent(self.0).map(Ast)
+    }
+
+    pub fn first_child(self, s: &DocStorage) -> Option<Ast> {
+        s.forest.first_child(self.0).map(Ast)
+    }
+
+    pub fn last_child(self, s: &DocStorage) -> Option<Ast> {
+        s.forest
+            .first_child(self.0)
+            .map(|n| Ast(s.forest.last_sibling(n)))
     }
 
     pub fn next_sibling(self, s: &DocStorage) -> Option<Ast> {
@@ -183,22 +218,25 @@ impl Ast {
         s.forest.data(self.0).construct.arity(&s.language_set)
     }
 
-    /// Borrow the text of a texty node. Panics if not texty.
-    pub fn text(self, s: &DocStorage) -> &Text {
+    pub fn is_comment_or_ws(self, s: &DocStorage) -> bool {
         s.forest
             .data(self.0)
-            .text
-            .as_ref()
-            .bug_msg("Ast::text() - not texty")
+            .construct
+            .is_comment_or_ws(&s.language_set)
     }
 
-    /// Mutably borrow the text of a texty node. Panics if not texty.
-    pub fn text_mut(self, s: &mut DocStorage) -> &mut Text {
-        s.forest
-            .data_mut(self.0)
-            .text
-            .as_mut()
-            .bug_msg("Ast::text_mut() - not texty")
+    pub fn notation(self, s: &DocStorage) -> &ValidNotation {
+        s.forest.data(self.0).construct.notation(&s.language_set)
+    }
+
+    /// Borrow the text of a texty node.
+    pub fn text(self, s: &DocStorage) -> Option<&Text> {
+        s.forest.data(self.0).text.as_ref()
+    }
+
+    /// Mutably borrow the text of a texty node.
+    pub fn text_mut(self, s: &mut DocStorage) -> Option<&mut Text> {
+        s.forest.data_mut(self.0).text.as_mut()
     }
 
     /// Go to this node's `n`'th child.

@@ -1,13 +1,13 @@
 use crate::infra::SynlessBug;
 use partial_pretty_printer as ppp;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Style {
-    color: Option<(Base16Color, Priority)>,
-    bold: Option<(bool, Priority)>,
-    italic: Option<(bool, Priority)>,
-    underlined: Option<(bool, Priority)>,
-    cursor: Option<CursorHalf>,
+    pub color: Option<(Base16Color, Priority)>,
+    pub bold: Option<(bool, Priority)>,
+    pub italic: Option<(bool, Priority)>,
+    pub underlined: Option<(bool, Priority)>,
+    pub cursor: Option<CursorHalf>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -34,6 +34,16 @@ pub enum StyleLabel {
         priority: Priority,
     },
 }
+
+// TODO: doc
+#[derive(Debug, Clone)]
+pub enum Condition {
+    IsEmptyText,
+    IsCommentOrWs,
+    NeedsSeparator,
+}
+
+pub type ValidNotation = ppp::ValidNotation<StyleLabel, Condition>;
 
 /// A 24-bit RGB color.
 #[derive(Debug, Clone, Copy)]

@@ -778,12 +778,11 @@ mod forest_tests {
     }
 
     #[test]
-    #[should_panic(expected = "Forest - can't swap overlapping nodes")]
     fn test_swap_cycle() {
         let mut f = Forest::<u32>::new(0);
         let parent = f.new_node(0);
         let child = f.new_node(0);
         f.insert_first_child(parent, child);
-        f.swap(parent, child);
+        assert!(!f.swap(parent, child));
     }
 }

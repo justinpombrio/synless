@@ -1,5 +1,6 @@
 use super::LanguageError;
 use crate::infra::bug;
+use crate::style::ValidNotation;
 use bit_set::BitSet;
 use partial_pretty_printer as ppp;
 use std::collections::HashMap;
@@ -23,6 +24,7 @@ const HOLE_NAME: &str = "$hole";
 pub struct ConstructSpec {
     pub name: String,
     pub arity: AritySpec,
+    pub is_comment_or_ws: bool,
     // TODO: https://github.com/justinpombrio/synless/issues/88
     pub key: Option<char>,
 }
@@ -67,6 +69,7 @@ type NotationSetId = usize;
 struct ConstructCompiled {
     name: String,
     arity: ArityCompiled,
+    is_comment_or_ws: bool,
     key: Option<char>,
 }
 
@@ -94,6 +97,7 @@ struct GrammarCompiled {
     keymap: HashMap<char, ConstructId>,
 }
 
+// TODO: need to be able to add a NotationSet! It should inject notation for holes.
 struct LanguageCompiled {
     grammar: GrammarCompiled,
     notation_sets_by_name: HashMap<String, NotationSetId>,
@@ -110,11 +114,6 @@ struct NotationSetCompiled {
 /********************************************
  *         Public Interface                 *
  ********************************************/
-
-// TODO: These will need more data, and should be moved somewhere.
-pub type StyleLabel = u32;
-pub type DocCondition = ();
-pub type ValidNotation = ppp::ValidNotation<StyleLabel, DocCondition>;
 
 /// The (unique) collection of all loaded [`Language`]s.
 pub struct LanguageSet {
@@ -301,6 +300,10 @@ impl Construct {
     pub fn notation(self, l: &LanguageSet) -> &ValidNotation {
         self.language().current_notation_set(l).notation(l, self)
     }
+
+    pub fn is_comment_or_ws(self, l: &LanguageSet) -> bool {
+        l.grammar(self.language).constructs[self.construct].is_comment_or_ws
+    }
 }
 
 impl FixedSorts {
@@ -408,6 +411,7 @@ impl GrammarBuilder {
         self.add_construct(ConstructSpec {
             name: HOLE_NAME.to_owned(),
             arity: AritySpec::Fixed(Vec::new()),
+            is_comment_or_ws: false,
             key: None,
         })
     }
@@ -501,6 +505,7 @@ impl GrammarBuilder {
         grammar.constructs.push(ConstructCompiled {
             name: construct.name.clone(),
             arity,
+            is_comment_or_ws: construct.is_comment_or_ws,
             key: construct.key,
         });
         Ok(())

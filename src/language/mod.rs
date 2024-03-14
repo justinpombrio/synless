@@ -5,6 +5,8 @@ mod text;
 
 use std::fmt;
 
+pub use ast::{Ast, AstId, DocStorage, Location};
+
 #[derive(thiserror::Error, fmt::Debug)]
 pub enum LanguageError {
     #[error("Missing notation for construct '{0}'")]
