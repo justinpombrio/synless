@@ -1,11 +1,16 @@
 use super::LanguageError;
 use crate::infra::bug;
-use crate::style::ValidNotation;
+use crate::style::{Notation, StyleLabel, ValidNotation, HOLE_STYLE};
 use bit_set::BitSet;
 use partial_pretty_printer as ppp;
 use std::collections::HashMap;
 
+// TODO: split up this file (language_set.rs)
+
 const HOLE_NAME: &str = "$hole";
+
+// Other options: ✵ ✶ ✦ ✳ ✪ ✺ ⍟ ❂ ★ ◯ ☐ ☉ ◼
+pub const HOLE_LITERAL: &str = "☐";
 
 // NOTE: Why all the wrapper types, instead of using indexes? Two reasons:
 //
@@ -50,10 +55,27 @@ pub enum AritySpec {
 /// in which positions.
 #[derive(Debug, Clone)]
 pub struct GrammarSpec {
-    pub language_name: String,
     pub constructs: Vec<ConstructSpec>,
     pub sorts: Vec<(String, SortSpec)>,
     pub root_sort: SortSpec,
+}
+
+/// Describes how to display every construct in a language.
+#[derive(Debug, Clone)]
+pub struct NotationSetSpec {
+    /// A unqiue name for this set of notations
+    pub name: String,
+    /// Maps `Construct.name` to that construct's notation.
+    pub notations: Vec<(String, Notation)>,
+}
+
+/// A single notation, with a grammar describing its structure and a notation describing how to
+/// display it.
+#[derive(Debug, Clone)]
+pub struct LanguageSpec {
+    pub name: String,
+    pub grammar: GrammarSpec,
+    pub default_notation_set: NotationSetSpec,
 }
 
 /********************************************
@@ -85,7 +107,8 @@ enum ArityCompiled {
 struct SortCompiled(BitSet);
 
 struct GrammarCompiled {
-    language_name: String,
+    /// Construct_name -> ConstructId
+    constructs_by_name: HashMap<String, ConstructId>,
     /// ConstructId -> ConstructCompiled
     constructs: Vec<ConstructCompiled>,
     /// SortId -> SortCompiled
@@ -97,8 +120,8 @@ struct GrammarCompiled {
     keymap: HashMap<char, ConstructId>,
 }
 
-// TODO: need to be able to add a NotationSet! It should inject notation for holes.
 struct LanguageCompiled {
+    name: String,
     grammar: GrammarCompiled,
     notation_sets_by_name: HashMap<String, NotationSetId>,
     current_notation_set: NotationSetId,
@@ -107,6 +130,7 @@ struct LanguageCompiled {
 }
 
 struct NotationSetCompiled {
+    name: String,
     /// ConstructId -> ValidNotation
     notations: Vec<ValidNotation>,
 }
@@ -172,10 +196,8 @@ pub struct NotationSet {
 
 impl Language {
     pub fn name(self, l: &LanguageSet) -> &str {
-        &l.grammar(self.language).language_name
+        &l.languages[self.language].name
     }
-
-    // TODO do we need all_sorts or all_constructs?
 
     pub fn keymap(self, l: &LanguageSet) -> impl ExactSizeIterator<Item = (char, Construct)> + '_ {
         l.grammar(self.language).keymap.iter().map(move |(key, c)| {
@@ -332,17 +354,140 @@ impl FixedSorts {
 }
 
 impl LanguageSet {
+    pub fn new() -> LanguageSet {
+        LanguageSet {
+            languages_by_name: HashMap::new(),
+            languages: Vec::new(),
+        }
+    }
+
+    pub fn add_language(&mut self, language_spec: LanguageSpec) -> Result<(), LanguageError> {
+        let language = language_spec.compile()?;
+        let id = self.languages.len();
+        if self
+            .languages_by_name
+            .insert(language.name.clone(), id)
+            .is_some()
+        {
+            return Err(LanguageError::DuplicateLanguage(language.name));
+        }
+
+        self.languages.push(language);
+        Ok(())
+    }
+
+    pub fn add_notation_set(
+        &mut self,
+        language_name: &str,
+        notation_set: NotationSetSpec,
+    ) -> Result<(), LanguageError> {
+        if let Some(language_id) = self.languages_by_name.get(language_name) {
+            self.languages[*language_id].add_notation_set(notation_set)
+        } else {
+            Err(LanguageError::UndefinedLanguage(language_name.to_owned()))
+        }
+    }
+
     fn grammar(&self, language_id: LanguageId) -> &GrammarCompiled {
         &self.languages[language_id].grammar
     }
 }
 
+impl LanguageCompiled {
+    fn add_notation_set(&mut self, notation_set: NotationSetSpec) -> Result<(), LanguageError> {
+        let notation_set = notation_set.compile(&self.grammar)?;
+        let id = self.notation_sets.len();
+        if self
+            .notation_sets_by_name
+            .insert(notation_set.name.clone(), id)
+            .is_some()
+        {
+            return Err(LanguageError::DuplicateNotationSet(
+                self.name.clone(),
+                notation_set.name.clone(),
+            ));
+        }
+        self.notation_sets.push(notation_set);
+        Ok(())
+    }
+}
+
 /********************************************
- *         Grammar Builder                  *
+ *         Builders                         *
  ********************************************/
 
+impl LanguageSpec {
+    fn compile(self) -> Result<LanguageCompiled, LanguageError> {
+        let grammar = self.grammar.compile()?;
+
+        let notation_set = self.default_notation_set.compile(&grammar)?;
+        let mut notation_sets_by_name = HashMap::new();
+        notation_sets_by_name.insert(notation_set.name.to_owned(), 0);
+
+        Ok(LanguageCompiled {
+            name: self.name,
+            grammar,
+            notation_sets_by_name,
+            current_notation_set: 0,
+            notation_sets: vec![notation_set],
+        })
+    }
+}
+
+impl NotationSetSpec {
+    fn inject_builtins(&mut self) {
+        use ppp::notation_constructors::{lit, style};
+        let hole_notation = style(StyleLabel::Hole, lit(HOLE_LITERAL));
+        self.notations.push((HOLE_NAME.to_owned(), hole_notation));
+    }
+
+    fn compile(mut self, grammar: &GrammarCompiled) -> Result<NotationSetCompiled, LanguageError> {
+        self.inject_builtins();
+
+        // Put notations in a HashMap, checking for duplicate entries.
+        let mut notations_map = HashMap::new();
+        for (construct_name, notation) in self.notations {
+            if notations_map
+                .insert(construct_name.clone(), notation)
+                .is_some()
+            {
+                return Err(LanguageError::DuplicateNotation(
+                    self.name,
+                    construct_name.clone(),
+                ));
+            }
+        }
+
+        // Look up the notation of every construct in the grammar,
+        // putting them in a Vec ordered by ConstructId.
+        let mut notations = Vec::new();
+        for construct in &grammar.constructs {
+            if let Some(notation) = notations_map.remove(&construct.name) {
+                let valid_notation = notation.validate().map_err(|err| {
+                    LanguageError::InvalidNotation(self.name.clone(), construct.name.clone(), err)
+                })?;
+                notations.push(valid_notation);
+            } else {
+                return Err(LanguageError::MissingNotation(
+                    self.name,
+                    construct.name.clone(),
+                ));
+            }
+        }
+
+        // Any remaining notations don't name any construct in the grammar!
+        if let Some(construct_name) = notations_map.into_keys().next() {
+            return Err(LanguageError::UndefinedNotation(self.name, construct_name));
+        }
+
+        Ok(NotationSetCompiled {
+            name: self.name,
+            notations,
+        })
+    }
+}
+
 struct GrammarBuilder {
-    language_name: String,
     constructs: HashMap<String, (ConstructId, ConstructSpec)>,
     sorts: HashMap<String, SortSpec>,
     root_sort: SortSpec,
@@ -350,7 +495,7 @@ struct GrammarBuilder {
 
 impl GrammarSpec {
     fn compile(mut self) -> Result<GrammarCompiled, LanguageError> {
-        let mut builder = GrammarBuilder::new(self.language_name, self.root_sort);
+        let mut builder = GrammarBuilder::new(self.root_sort);
         for construct in self.constructs {
             builder.add_construct(construct)?;
         }
@@ -362,9 +507,8 @@ impl GrammarSpec {
 }
 
 impl GrammarBuilder {
-    fn new(language_name: String, root_sort: SortSpec) -> GrammarBuilder {
+    fn new(root_sort: SortSpec) -> GrammarBuilder {
         GrammarBuilder {
-            language_name,
             constructs: HashMap::new(),
             sorts: HashMap::new(),
             root_sort,
@@ -420,7 +564,7 @@ impl GrammarBuilder {
         let hole_id = self.inject_builtins()?;
 
         let mut grammar = GrammarCompiled {
-            language_name: self.language_name.clone(),
+            constructs_by_name: HashMap::new(),
             constructs: Vec::new(),
             sorts: Vec::new(),
             root_sort: 0,
@@ -483,7 +627,7 @@ impl GrammarBuilder {
                     .map(|sort_spec| {
                         Ok((self.compile_sort(grammar, sort_spec)?, sort_spec.clone()))
                     })
-                    .collect::<Result<Vec<_>, _>>()?,
+                    .collect::<Result<Vec<_>, LanguageError>>()?,
             ),
             AritySpec::Listy(sort_spec) => {
                 ArityCompiled::Listy(self.compile_sort(grammar, sort_spec)?, sort_spec.clone())
@@ -508,6 +652,9 @@ impl GrammarBuilder {
             is_comment_or_ws: construct.is_comment_or_ws,
             key: construct.key,
         });
+        grammar
+            .constructs_by_name
+            .insert(construct.name.clone(), construct_id);
         Ok(())
     }
 }

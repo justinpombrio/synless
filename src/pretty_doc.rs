@@ -1,6 +1,9 @@
 use crate::infra::{bug, SynlessBug};
 use crate::language::{DocStorage, Location, Node, NodeId};
-use crate::style::{Condition, CursorHalf, Style, StyleLabel, ValidNotation};
+use crate::style::{
+    Condition, CursorHalf, Style, StyleLabel, ValidNotation, HOLE_STYLE, LEFT_CURSOR_STYLE,
+    RIGHT_CURSOR_STYLE,
+};
 use partial_pretty_printer as ppp;
 use std::fmt;
 use std::sync::OnceLock;
@@ -102,15 +105,15 @@ impl<'d> ppp::PrettyDoc<'d> for DocRef<'d> {
 
     fn lookup_style(self, style_label: StyleLabel) -> Style {
         match style_label {
+            StyleLabel::Hole => HOLE_STYLE,
             StyleLabel::Open => {
-                let mut style = Style::default();
                 if self.cursor_pos == Location::BeforeFirstChild(self.node) {
-                    style.cursor = Some(CursorHalf::Left)
+                    LEFT_CURSOR_STYLE
+                } else {
+                    Style::default()
                 }
-                style
             }
             StyleLabel::Close => {
-                let mut style = Style::default();
                 let at_end = match self.cursor_pos {
                     Location::InText(..) => todo!(),
                     Location::BeforeFirstChild(parent) => {
@@ -121,22 +124,26 @@ impl<'d> ppp::PrettyDoc<'d> for DocRef<'d> {
                 // TODO: perhaps rewrite as:
                 // if self.node.gap_after_children(self.storage) == self.cursor_pos
                 if at_end {
-                    style.cursor = Some(CursorHalf::Right)
+                    RIGHT_CURSOR_STYLE
+                } else {
+                    Style::default()
                 }
-                style
             }
             StyleLabel::Properties {
-                color,
+                fg_color,
+                bg_color,
                 bold,
                 italic,
                 underlined,
                 priority,
             } => Style {
-                color: color.map(|x| (x, priority)),
+                fg_color: fg_color.map(|x| (x, priority)),
+                bg_color: bg_color.map(|x| (x, priority)),
                 bold: bold.map(|x| (x, priority)),
                 italic: italic.map(|x| (x, priority)),
                 underlined: underlined.map(|x| (x, priority)),
                 cursor: None,
+                is_hole: false,
             },
         }
     }
@@ -145,9 +152,9 @@ impl<'d> ppp::PrettyDoc<'d> for DocRef<'d> {
         if self.text_pos.is_some() {
             Style::default()
         } else if self.left_cursor == Some(self.node) {
-            Style::cursor(CursorHalf::Left)
+            LEFT_CURSOR_STYLE
         } else if self.right_cursor == Some(self.node) {
-            Style::cursor(CursorHalf::Right)
+            RIGHT_CURSOR_STYLE
         } else {
             Style::default()
         }

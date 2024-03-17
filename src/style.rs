@@ -1,13 +1,34 @@
 use crate::infra::SynlessBug;
 use partial_pretty_printer as ppp;
 
+pub const HOLE_STYLE: Style = Style {
+    is_hole: true,
+    fg_color: Some((Base16Color::Base0F, Priority::High)),
+    bold: Some((true, Priority::High)),
+    ..Style::const_default()
+};
+
+pub const LEFT_CURSOR_STYLE: Style = Style {
+    cursor: Some(CursorHalf::Left),
+    bg_color: Some((Base16Color::Base02, Priority::High)),
+    ..Style::const_default()
+};
+
+pub const RIGHT_CURSOR_STYLE: Style = Style {
+    cursor: Some(CursorHalf::Right),
+    bg_color: Some((Base16Color::Base00, Priority::High)),
+    ..Style::const_default()
+};
+
 #[derive(Debug, Clone, Default)]
 pub struct Style {
-    pub color: Option<(Base16Color, Priority)>,
+    pub fg_color: Option<(Base16Color, Priority)>,
+    pub bg_color: Option<(Base16Color, Priority)>,
     pub bold: Option<(bool, Priority)>,
     pub italic: Option<(bool, Priority)>,
     pub underlined: Option<(bool, Priority)>,
     pub cursor: Option<CursorHalf>,
+    pub is_hole: bool,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -26,8 +47,10 @@ pub enum CursorHalf {
 pub enum StyleLabel {
     Open,
     Close,
+    Hole,
     Properties {
-        color: Option<Base16Color>,
+        fg_color: Option<Base16Color>,
+        bg_color: Option<Base16Color>,
         bold: Option<bool>,
         italic: Option<bool>,
         underlined: Option<bool>,
@@ -43,6 +66,7 @@ pub enum Condition {
     NeedsSeparator,
 }
 
+pub type Notation = ppp::Notation<StyleLabel, Condition>;
 pub type ValidNotation = ppp::ValidNotation<StyleLabel, Condition>;
 
 /// A 24-bit RGB color.
@@ -141,23 +165,30 @@ fn prioritize<T>(
     }
 }
 
-impl Style {
-    pub fn cursor(cursor_half: CursorHalf) -> Style {
-        Style {
-            cursor: Some(cursor_half),
-            ..Style::default()
-        }
-    }
-}
-
 impl ppp::Style for Style {
     fn combine(outer: &Self, inner: &Self) -> Self {
         Style {
             cursor: outer.cursor.or(inner.cursor),
-            color: prioritize(outer.color, inner.color),
+            fg_color: prioritize(outer.fg_color, inner.fg_color),
+            bg_color: prioritize(outer.bg_color, inner.bg_color),
             bold: prioritize(outer.bold, inner.bold),
             italic: prioritize(outer.italic, inner.italic),
             underlined: prioritize(outer.underlined, inner.underlined),
+            is_hole: outer.is_hole || inner.is_hole,
+        }
+    }
+}
+
+impl Style {
+    const fn const_default() -> Style {
+        Style {
+            fg_color: None,
+            bg_color: None,
+            bold: None,
+            italic: None,
+            underlined: None,
+            cursor: None,
+            is_hole: false,
         }
     }
 }
