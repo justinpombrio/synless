@@ -1,5 +1,6 @@
+use super::indexed_map::IndexedMap;
 use super::LanguageError;
-use crate::infra::bug;
+use crate::infra::{bug, SynlessBug};
 use crate::style::{Notation, StyleLabel, ValidNotation, HOLE_STYLE};
 use bit_set::BitSet;
 use partial_pretty_printer as ppp;
@@ -107,10 +108,7 @@ enum ArityCompiled {
 struct SortCompiled(BitSet);
 
 struct GrammarCompiled {
-    /// Construct_name -> ConstructId
-    constructs_by_name: HashMap<String, ConstructId>,
-    /// ConstructId -> ConstructCompiled
-    constructs: Vec<ConstructCompiled>,
+    constructs: IndexedMap<ConstructCompiled>,
     /// SortId -> SortCompiled
     sorts: Vec<SortCompiled>,
     /// Which constructs are allowed at the top level
@@ -123,10 +121,8 @@ struct GrammarCompiled {
 struct LanguageCompiled {
     name: String,
     grammar: GrammarCompiled,
-    notation_sets_by_name: HashMap<String, NotationSetId>,
+    notation_sets: IndexedMap<NotationSetCompiled>,
     current_notation_set: NotationSetId,
-    /// NotationSetId -> NotationSetCompiled
-    notation_sets: Vec<NotationSetCompiled>,
 }
 
 struct NotationSetCompiled {
@@ -141,9 +137,7 @@ struct NotationSetCompiled {
 
 /// The (unique) collection of all loaded [`Language`]s.
 pub struct LanguageSet {
-    languages_by_name: HashMap<String, LanguageId>,
-    /// LanguageId -> LanguageCompiled
-    languages: Vec<LanguageCompiled>,
+    languages: IndexedMap<LanguageCompiled>,
 }
 
 /// The "type" of a construct. Used to determine which constructs are
@@ -222,19 +216,16 @@ impl Language {
     }
 
     pub fn notation_set_names(self, l: &LanguageSet) -> impl ExactSizeIterator<Item = &str> + '_ {
-        l.languages[self.language]
-            .notation_sets_by_name
-            .keys()
-            .map(|s| s.as_ref())
+        l.languages[self.language].notation_sets.names()
     }
 
     pub fn get_notation_set(self, l: &LanguageSet, name: &str) -> Option<NotationSet> {
         l.languages[self.language]
-            .notation_sets_by_name
-            .get(name)
+            .notation_sets
+            .id(name)
             .map(|id| NotationSet {
                 language: self.language,
-                notation_set: *id,
+                notation_set: id,
             })
     }
 
@@ -326,6 +317,14 @@ impl Construct {
     pub fn is_comment_or_ws(self, l: &LanguageSet) -> bool {
         l.grammar(self.language).constructs[self.construct].is_comment_or_ws
     }
+
+    /// This construct must never be used!
+    pub(super) fn invalid_dummy() -> Construct {
+        Construct {
+            language: 666,
+            construct: 666,
+        }
+    }
 }
 
 impl FixedSorts {
@@ -354,35 +353,29 @@ impl FixedSorts {
 }
 
 impl LanguageSet {
-    pub fn new() -> LanguageSet {
+    pub(super) fn new() -> LanguageSet {
         LanguageSet {
-            languages_by_name: HashMap::new(),
-            languages: Vec::new(),
+            languages: IndexedMap::new(),
         }
     }
 
-    pub fn add_language(&mut self, language_spec: LanguageSpec) -> Result<(), LanguageError> {
+    pub(super) fn add_language(
+        &mut self,
+        language_spec: LanguageSpec,
+    ) -> Result<(), LanguageError> {
         let language = language_spec.compile()?;
-        let id = self.languages.len();
-        if self
-            .languages_by_name
-            .insert(language.name.clone(), id)
-            .is_some()
-        {
-            return Err(LanguageError::DuplicateLanguage(language.name));
-        }
-
-        self.languages.push(language);
-        Ok(())
+        self.languages
+            .insert(language.name.clone(), language)
+            .map_err(LanguageError::DuplicateLanguage)
     }
 
-    pub fn add_notation_set(
+    pub(super) fn add_notation_set(
         &mut self,
         language_name: &str,
         notation_set: NotationSetSpec,
     ) -> Result<(), LanguageError> {
-        if let Some(language_id) = self.languages_by_name.get(language_name) {
-            self.languages[*language_id].add_notation_set(notation_set)
+        if let Some(language) = self.languages.get_by_name_mut(language_name) {
+            language.add_notation_set(notation_set)
         } else {
             Err(LanguageError::UndefinedLanguage(language_name.to_owned()))
         }
@@ -396,19 +389,9 @@ impl LanguageSet {
 impl LanguageCompiled {
     fn add_notation_set(&mut self, notation_set: NotationSetSpec) -> Result<(), LanguageError> {
         let notation_set = notation_set.compile(&self.grammar)?;
-        let id = self.notation_sets.len();
-        if self
-            .notation_sets_by_name
-            .insert(notation_set.name.clone(), id)
-            .is_some()
-        {
-            return Err(LanguageError::DuplicateNotationSet(
-                self.name.clone(),
-                notation_set.name.clone(),
-            ));
-        }
-        self.notation_sets.push(notation_set);
-        Ok(())
+        self.notation_sets
+            .insert(notation_set.name.clone(), notation_set)
+            .map_err(|name| LanguageError::DuplicateNotationSet(self.name.clone(), name))
     }
 }
 
@@ -421,15 +404,16 @@ impl LanguageSpec {
         let grammar = self.grammar.compile()?;
 
         let notation_set = self.default_notation_set.compile(&grammar)?;
-        let mut notation_sets_by_name = HashMap::new();
-        notation_sets_by_name.insert(notation_set.name.to_owned(), 0);
+        let mut notation_sets = IndexedMap::new();
+        notation_sets
+            .insert(notation_set.name.to_owned(), notation_set)
+            .bug();
 
         Ok(LanguageCompiled {
             name: self.name,
             grammar,
-            notation_sets_by_name,
+            notation_sets,
             current_notation_set: 0,
-            notation_sets: vec![notation_set],
         })
     }
 }
@@ -461,7 +445,8 @@ impl NotationSetSpec {
         // Look up the notation of every construct in the grammar,
         // putting them in a Vec ordered by ConstructId.
         let mut notations = Vec::new();
-        for construct in &grammar.constructs {
+        for id in &grammar.constructs {
+            let construct = &grammar.constructs[id];
             if let Some(notation) = notations_map.remove(&construct.name) {
                 let valid_notation = notation.validate().map_err(|err| {
                     LanguageError::InvalidNotation(self.name.clone(), construct.name.clone(), err)
@@ -488,7 +473,7 @@ impl NotationSetSpec {
 }
 
 struct GrammarBuilder {
-    constructs: HashMap<String, (ConstructId, ConstructSpec)>,
+    constructs: IndexedMap<ConstructSpec>,
     sorts: HashMap<String, SortSpec>,
     root_sort: SortSpec,
 }
@@ -509,31 +494,28 @@ impl GrammarSpec {
 impl GrammarBuilder {
     fn new(root_sort: SortSpec) -> GrammarBuilder {
         GrammarBuilder {
-            constructs: HashMap::new(),
+            constructs: IndexedMap::new(),
             sorts: HashMap::new(),
             root_sort,
         }
     }
 
-    fn add_construct(&mut self, construct: ConstructSpec) -> Result<ConstructId, LanguageError> {
-        if self.constructs.contains_key(&construct.name) {
-            return Err(LanguageError::DuplicateConstruct(construct.name.clone()));
-        } else if self.sorts.contains_key(&construct.name) {
+    fn add_construct(&mut self, construct: ConstructSpec) -> Result<(), LanguageError> {
+        if self.sorts.contains_key(&construct.name) {
             return Err(LanguageError::DuplicateConstructAndSort(
                 construct.name.clone(),
             ));
         }
 
-        let id = self.constructs.len();
         self.constructs
-            .insert(construct.name.clone(), (id, construct));
-        Ok(id)
+            .insert(construct.name.clone(), construct)
+            .map_err(LanguageError::DuplicateConstruct)
     }
 
     fn add_sort(&mut self, name: String, sort: SortSpec) -> Result<(), LanguageError> {
         if self.sorts.contains_key(&name) {
             return Err(LanguageError::DuplicateSort(name));
-        } else if self.constructs.contains_key(&name) {
+        } else if self.constructs.contains_name(&name) {
             return Err(LanguageError::DuplicateConstructAndSort(name));
         }
 
@@ -541,10 +523,11 @@ impl GrammarBuilder {
         Ok(())
     }
 
-    /// Adds the $hole construct to the grammar. Returns its id.
-    fn inject_builtins(&mut self) -> Result<ConstructId, LanguageError> {
+    /// Adds the $hole construct to the grammar.
+    fn inject_builtins(&mut self) -> Result<(), LanguageError> {
         // Allow all fixed children to be holes
-        for (_, construct_spec) in self.constructs.values_mut() {
+        for id in &self.constructs {
+            let construct_spec = &mut self.constructs[id];
             if let AritySpec::Fixed(children) = &mut construct_spec.arity {
                 for sort_spec in children {
                     sort_spec.0.push(HOLE_NAME.to_owned());
@@ -561,14 +544,13 @@ impl GrammarBuilder {
     }
 
     fn finish(mut self) -> Result<GrammarCompiled, LanguageError> {
-        let hole_id = self.inject_builtins()?;
+        self.inject_builtins()?;
 
         let mut grammar = GrammarCompiled {
-            constructs_by_name: HashMap::new(),
-            constructs: Vec::new(),
+            constructs: IndexedMap::new(),
             sorts: Vec::new(),
             root_sort: 0,
-            hole_construct: hole_id,
+            hole_construct: self.constructs.id(HOLE_NAME).bug(),
             keymap: HashMap::new(),
         };
 
@@ -576,8 +558,9 @@ impl GrammarBuilder {
         for sort in self.sorts.values() {
             self.compile_sort(&mut grammar, sort)?;
         }
-        for (id, construct) in self.constructs.values() {
-            self.compile_construct(&mut grammar, *id, construct)?;
+        for id in &self.constructs {
+            let construct = &self.constructs[id];
+            self.compile_construct(&mut grammar, id, construct)?;
         }
 
         Ok(grammar)
@@ -591,8 +574,8 @@ impl GrammarBuilder {
         let mut bitset = BitSet::new();
         let mut names = sort.0.iter().collect::<Vec<_>>();
         while let Some(name) = names.pop() {
-            if let Some((construct_id, _)) = self.constructs.get(name) {
-                bitset.insert(*construct_id);
+            if let Some(construct_id) = self.constructs.id(name) {
+                bitset.insert(construct_id);
             } else if let Some(child_sort) = self.sorts.get(name) {
                 for child_name in &child_sort.0 {
                     names.push(child_name);
@@ -646,15 +629,15 @@ impl GrammarBuilder {
         }
 
         assert_eq!(construct_id, grammar.constructs.len());
-        grammar.constructs.push(ConstructCompiled {
-            name: construct.name.clone(),
-            arity,
-            is_comment_or_ws: construct.is_comment_or_ws,
-            key: construct.key,
-        });
-        grammar
-            .constructs_by_name
-            .insert(construct.name.clone(), construct_id);
+        grammar.constructs.insert(
+            construct.name.clone(),
+            ConstructCompiled {
+                name: construct.name.clone(),
+                arity,
+                is_comment_or_ws: construct.is_comment_or_ws,
+                key: construct.key,
+            },
+        );
         Ok(())
     }
 }

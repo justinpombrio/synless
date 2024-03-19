@@ -1,4 +1,5 @@
 mod forest;
+mod indexed_map;
 mod language_set;
 mod location;
 mod node;
@@ -7,6 +8,9 @@ mod text;
 use partial_pretty_printer as ppp;
 use std::fmt;
 
+pub use language_set::{
+    AritySpec, ConstructSpec, GrammarSpec, LanguageSpec, NotationSetSpec, SortSpec,
+};
 pub use location::Location;
 pub use node::{DocStorage, Node, NodeId};
 

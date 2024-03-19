@@ -1,6 +1,7 @@
 use super::forest::{Forest, NodeIndex};
-use super::language_set::{Arity, Construct, Language, LanguageSet};
+use super::language_set::{Arity, Construct, Language, LanguageSet, LanguageSpec, NotationSetSpec};
 use super::text::Text;
+use super::LanguageError;
 use crate::infra::{bug, SynlessBug};
 use crate::style::{Condition, StyleLabel, ValidNotation};
 use partial_pretty_printer as ppp;
@@ -17,6 +18,7 @@ struct NodeData {
     text: Option<Text>,
 }
 
+// TODO: Move DocStorage into language_set?
 /// Stores all documents and languages.
 pub struct DocStorage {
     language_set: LanguageSet,
@@ -39,6 +41,37 @@ pub struct Node(NodeIndex);
 pub struct Bookmark(NodeIndex);
 
 impl DocStorage {
+    pub fn new() -> DocStorage {
+        let invalid_dummy_node = {
+            let mut text = Text::new();
+            text.set("Dummy node that must never be seen!".to_owned());
+            NodeData {
+                id: NodeId(666),
+                construct: Construct::invalid_dummy(),
+                text: Some(text),
+            }
+        };
+
+        DocStorage {
+            language_set: LanguageSet::new(),
+            forest: Forest::new(invalid_dummy_node),
+            next_id: NodeId(0),
+        }
+    }
+
+    pub fn add_language(&mut self, language_spec: LanguageSpec) -> Result<(), LanguageError> {
+        self.language_set.add_language(language_spec)
+    }
+
+    pub fn add_notation_set(
+        &mut self,
+        language_name: &str,
+        notation_set: NotationSetSpec,
+    ) -> Result<(), LanguageError> {
+        self.language_set
+            .add_notation_set(language_name, notation_set)
+    }
+
     fn next_id(&mut self) -> NodeId {
         let id = self.next_id.0;
         self.next_id.0 += 1;
