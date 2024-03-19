@@ -7,7 +7,6 @@ mod pretty_doc;
 mod style;
 
 pub use language::{
-    AritySpec, ConstructSpec, DocStorage, GrammarSpec, LanguageSpec, Node, NotationSetSpec,
-    SortSpec,
+    AritySpec, ConstructSpec, GrammarSpec, LanguageSpec, Node, NotationSetSpec, SortSpec, Storage,
 };
 pub use pretty_doc::DocRef;

@@ -3,6 +3,7 @@ mod indexed_map;
 mod language_set;
 mod location;
 mod node;
+mod storage;
 mod text;
 
 use partial_pretty_printer as ppp;
@@ -12,7 +13,8 @@ pub use language_set::{
     AritySpec, ConstructSpec, GrammarSpec, LanguageSpec, NotationSetSpec, SortSpec,
 };
 pub use location::Location;
-pub use node::{DocStorage, Node, NodeId};
+pub use node::{Node, NodeId};
+pub use storage::Storage;
 
 #[derive(thiserror::Error, fmt::Debug)]
 pub enum LanguageError {

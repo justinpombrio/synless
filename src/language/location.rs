@@ -1,4 +1,5 @@
-use super::{DocStorage, Node};
+use super::node::Node;
+use super::storage::Storage;
 
 /// A location between nodes, or within text, where a cursor could go.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -9,7 +10,7 @@ pub enum Location {
 }
 
 impl Location {
-    pub fn cursor_halves(self, s: &DocStorage) -> (Option<Node>, Option<Node>) {
+    pub fn cursor_halves(self, s: &Storage) -> (Option<Node>, Option<Node>) {
         match self {
             Location::InText(..) => (None, None),
             Location::After(left_sibling) => (Some(left_sibling), left_sibling.next_sibling(s)),

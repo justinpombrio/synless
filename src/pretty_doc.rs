@@ -1,5 +1,5 @@
 use crate::infra::{bug, SynlessBug};
-use crate::language::{DocStorage, Location, Node, NodeId};
+use crate::language::{Location, Node, NodeId, Storage};
 use crate::style::{
     Condition, CursorHalf, Style, StyleLabel, ValidNotation, HOLE_STYLE, LEFT_CURSOR_STYLE,
     RIGHT_CURSOR_STYLE,
@@ -18,7 +18,7 @@ fn get_text_notation() -> &'static ValidNotation {
 
 #[derive(Clone, Copy)]
 pub struct DocRef<'d> {
-    storage: &'d DocStorage,
+    storage: &'d Storage,
     cursor_pos: Location,
     left_cursor: Option<Node>,
     right_cursor: Option<Node>,
@@ -27,7 +27,7 @@ pub struct DocRef<'d> {
 }
 
 impl<'d> DocRef<'d> {
-    pub fn new(storage: &'d DocStorage, cursor_pos: Location, node: Node) -> DocRef<'d> {
+    pub fn new(storage: &'d Storage, cursor_pos: Location, node: Node) -> DocRef<'d> {
         let (left_cursor, right_cursor) = cursor_pos.cursor_halves(storage);
         DocRef {
             storage,
