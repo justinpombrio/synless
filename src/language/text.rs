@@ -1,4 +1,4 @@
-use crate::infra::SynlessBug;
+use crate::util::SynlessBug;
 use std::iter;
 
 #[derive(Clone, Debug)]

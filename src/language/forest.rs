@@ -1,4 +1,4 @@
-use crate::infra::{bug, SynlessBug};
+use crate::util::{bug, SynlessBug};
 use generational_arena::Arena;
 
 /// An index into a Forest, which represents a node in a tree.

@@ -1,9 +1,9 @@
-use crate::infra::{bug, SynlessBug};
 use crate::language::{Location, Node, NodeId, Storage};
 use crate::style::{
     Condition, CursorHalf, Style, StyleLabel, ValidNotation, HOLE_STYLE, LEFT_CURSOR_STYLE,
     RIGHT_CURSOR_STYLE,
 };
+use crate::util::{bug, SynlessBug};
 use partial_pretty_printer as ppp;
 use std::fmt;
 use std::sync::OnceLock;

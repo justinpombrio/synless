@@ -3,8 +3,8 @@ use super::language_set::{Arity, Construct, Language, LanguageSet, LanguageSpec,
 use super::storage::Storage;
 use super::text::Text;
 use super::LanguageError;
-use crate::infra::{bug, SynlessBug};
 use crate::style::{Condition, StyleLabel, ValidNotation};
+use crate::util::{bug, SynlessBug};
 use partial_pretty_printer as ppp;
 use std::fmt;
 

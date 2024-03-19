@@ -69,12 +69,13 @@ impl<T, E: fmt::Display> SynlessBug<T> for Result<T, E> {
     }
 }
 
-pub(crate) fn format_bug_at(loc: &Location, message: &str) -> String {
+fn format_bug_at(loc: &Location, message: &str) -> String {
     let loc_str = format!("{}:{}:{}", loc.file(), loc.line(), loc.column());
     format_bug(loc_str, message)
 }
 
-pub(crate) fn format_bug(location: String, message: &str) -> String {
+#[doc(hidden)]
+pub fn format_bug(location: String, message: &str) -> String {
     let mut output = "\n*** Bug in Synless.".to_owned();
     output
         .push_str("\n*** Please open an issue at https://github.com/justinpombrio/synless/issues.");
@@ -99,7 +100,7 @@ macro_rules! bug {
     };
     ($message:literal, $( $arg:expr ),*) => {
         panic!("{}",
-            $crate::infra::format_bug(
+            $crate::util::format_bug(
                 format!("{}:{}:{}", file!(), line!(), column!()),
                 &format!($message, $( $arg ),*)
             )

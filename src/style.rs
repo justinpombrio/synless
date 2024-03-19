@@ -1,4 +1,4 @@
-use crate::infra::SynlessBug;
+use crate::util::SynlessBug;
 use partial_pretty_printer as ppp;
 
 pub const HOLE_STYLE: Style = Style {
