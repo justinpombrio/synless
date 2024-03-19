@@ -1,11 +1,14 @@
 use super::forest::Forest;
-use super::language_set::{LanguageSet, LanguageSpec, NotationSetSpec};
+use super::language_set::{
+    compile_language, compile_notation_set, LanguageCompiled, LanguageSpec, NotationSetSpec,
+};
 use super::node::{Node, NodeData, NodeId};
 use super::LanguageError;
+use crate::util::IndexedMap;
 
 /// Stores all documents and languages.
 pub struct Storage {
-    pub(super) language_set: LanguageSet,
+    pub(super) languages: IndexedMap<LanguageCompiled>,
     pub(super) forest: Forest<NodeData>,
     pub(super) next_id: NodeId,
 }
@@ -13,14 +16,17 @@ pub struct Storage {
 impl Storage {
     pub fn new() -> Storage {
         Storage {
-            language_set: LanguageSet::new(),
+            languages: IndexedMap::new(),
             forest: Forest::new(NodeData::invalid_dummy()),
             next_id: NodeId(0),
         }
     }
 
     pub fn add_language(&mut self, language_spec: LanguageSpec) -> Result<(), LanguageError> {
-        self.language_set.add_language(language_spec)
+        let language = compile_language(language_spec)?;
+        self.languages
+            .insert(language.name.clone(), language)
+            .map_err(LanguageError::DuplicateLanguage)
     }
 
     pub fn add_notation_set(
@@ -28,8 +34,15 @@ impl Storage {
         language_name: &str,
         notation_set: NotationSetSpec,
     ) -> Result<(), LanguageError> {
-        self.language_set
-            .add_notation_set(language_name, notation_set)
+        if let Some(language) = self.languages.get_by_name_mut(language_name) {
+            let notation_set = compile_notation_set(notation_set, &language.grammar)?;
+            language
+                .notation_sets
+                .insert(notation_set.name.clone(), notation_set)
+                .map_err(|name| LanguageError::DuplicateNotationSet(language_name.to_owned(), name))
+        } else {
+            Err(LanguageError::UndefinedLanguage(language_name.to_owned()))
+        }
     }
 
     pub(super) fn next_id(&mut self) -> NodeId {

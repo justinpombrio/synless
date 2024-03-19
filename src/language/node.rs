@@ -1,5 +1,5 @@
 use super::forest;
-use super::language_set::{Arity, Construct, Language, LanguageSet, LanguageSpec, NotationSetSpec};
+use super::language_set::{Arity, Construct, Language, LanguageSpec, NotationSetSpec};
 use super::storage::Storage;
 use super::text::Text;
 use super::LanguageError;
@@ -39,13 +39,13 @@ impl Node {
      ****************/
 
     pub fn new_hole(s: &mut Storage, lang: Language) -> Node {
-        Node::new(s, lang.hole_construct(&s.language_set))
+        Node::new(s, lang.hole_construct(s))
     }
 
     /// Creates a new root node.
     pub fn new(s: &mut Storage, construct: Construct) -> Node {
         let id = s.next_id();
-        match construct.arity(&s.language_set) {
+        match construct.arity(s) {
             Arity::Texty => Node(s.forest.new_node(NodeData {
                 id,
                 construct,
@@ -62,8 +62,8 @@ impl Node {
                     construct,
                     text: None,
                 });
-                let num_children = sorts.len(&s.language_set);
-                let hole_construct = construct.language().hole_construct(&s.language_set);
+                let num_children = sorts.len(s);
+                let hole_construct = construct.language().hole_construct(s);
                 for _ in 0..num_children {
                     let child_id = s.next_id();
                     let child = s.forest.new_node(NodeData {
@@ -87,19 +87,16 @@ impl Node {
     }
 
     pub fn arity(self, s: &Storage) -> Arity {
-        s.forest.data(self.0).construct.arity(&s.language_set)
+        s.forest.data(self.0).construct.arity(s)
     }
 
     /// ("ws" means "whitespace")
     pub fn is_comment_or_ws(self, s: &Storage) -> bool {
-        s.forest
-            .data(self.0)
-            .construct
-            .is_comment_or_ws(&s.language_set)
+        s.forest.data(self.0).construct.is_comment_or_ws(s)
     }
 
     pub fn notation(self, s: &Storage) -> &ValidNotation {
-        s.forest.data(self.0).construct.notation(&s.language_set)
+        s.forest.data(self.0).construct.notation(s)
     }
 
     /// Borrow the text of a texty node. `None` if it's not texty.
@@ -215,12 +212,12 @@ impl Node {
     fn accepts_replacement(self, s: &Storage, other: Node) -> bool {
         if let Some(parent) = s.forest.parent(self.0) {
             let sort = match Node(parent).arity(s) {
-                Arity::Fixed(sorts) => sorts.get(&s.language_set, self.sibling_index(s)).bug(),
+                Arity::Fixed(sorts) => sorts.get(s, self.sibling_index(s)).bug(),
                 Arity::Listy(sort) => sort,
                 Arity::Texty => bug!("Texty parent!"),
             };
             let other_construct = s.forest.data(other.0).construct;
-            sort.accepts(&s.language_set, other_construct)
+            sort.accepts(s, other_construct)
         } else {
             true
         }
@@ -230,7 +227,7 @@ impl Node {
         let other_construct = s.forest.data(other.0).construct;
         match self.arity(s) {
             Arity::Fixed(_) => false,
-            Arity::Listy(sort) => sort.accepts(&s.language_set, other_construct),
+            Arity::Listy(sort) => sort.accepts(s, other_construct),
             Arity::Texty => false,
         }
     }

@@ -3,6 +3,7 @@ use super::compiled::{
     LanguageCompiled, LanguageId, NotationSetId, SortId,
 };
 use super::specs::{LanguageSpec, NotationSetSpec};
+use crate::language::storage::Storage;
 use crate::language::LanguageError;
 use crate::style::ValidNotation;
 use crate::util::{bug, IndexedMap};
@@ -14,12 +15,6 @@ use crate::util::{bug, IndexedMap};
 // 2. It's safer. It disallows `grammar[construct_id]` where `grammar` and
 //    `construct_id` are from different languages. This bug would be both easy
 //    to introduce, and bewildering.
-
-// TODO: Eliminate this type. Inline it & its methods into Storage.
-/// The (unique) collection of all loaded [`Language`]s.
-pub struct LanguageSet {
-    languages: IndexedMap<LanguageCompiled>,
-}
 
 /// The "type" of a construct. Used to determine which constructs are
 /// allowed to be children of other constructs (see [`Arity`]).
@@ -69,25 +64,32 @@ pub struct NotationSet {
     notation_set: NotationSetId,
 }
 
+fn grammar(s: &Storage, language_id: LanguageId) -> &GrammarCompiled {
+    &s.languages[language_id].grammar
+}
+
 impl Language {
-    pub fn name(self, l: &LanguageSet) -> &str {
-        &l.languages[self.language].name
+    pub fn name(self, s: &Storage) -> &str {
+        &s.languages[self.language].name
     }
 
-    pub fn keymap(self, l: &LanguageSet) -> impl ExactSizeIterator<Item = (char, Construct)> + '_ {
-        l.grammar(self.language).keymap.iter().map(move |(key, c)| {
-            (
-                *key,
-                Construct {
-                    language: self.language,
-                    construct: *c,
-                },
-            )
-        })
+    pub fn keymap(self, s: &Storage) -> impl ExactSizeIterator<Item = (char, Construct)> + '_ {
+        grammar(s, self.language)
+            .keymap
+            .iter()
+            .map(move |(key, c)| {
+                (
+                    *key,
+                    Construct {
+                        language: self.language,
+                        construct: *c,
+                    },
+                )
+            })
     }
 
-    pub fn lookup_key(self, l: &LanguageSet, key: char) -> Option<Construct> {
-        l.grammar(self.language)
+    pub fn lookup_key(self, s: &Storage, key: char) -> Option<Construct> {
+        grammar(s, self.language)
             .keymap
             .get(&key)
             .map(|id| Construct {
@@ -96,12 +98,12 @@ impl Language {
             })
     }
 
-    pub fn notation_set_names(self, l: &LanguageSet) -> impl ExactSizeIterator<Item = &str> + '_ {
-        l.languages[self.language].notation_sets.names()
+    pub fn notation_set_names(self, s: &Storage) -> impl ExactSizeIterator<Item = &str> + '_ {
+        s.languages[self.language].notation_sets.names()
     }
 
-    pub fn get_notation_set(self, l: &LanguageSet, name: &str) -> Option<NotationSet> {
-        l.languages[self.language]
+    pub fn get_notation_set(self, s: &Storage, name: &str) -> Option<NotationSet> {
+        s.languages[self.language]
             .notation_sets
             .id(name)
             .map(|id| NotationSet {
@@ -110,27 +112,27 @@ impl Language {
             })
     }
 
-    pub fn current_notation_set(self, l: &LanguageSet) -> NotationSet {
+    pub fn current_notation_set(self, s: &Storage) -> NotationSet {
         NotationSet {
             language: self.language,
-            notation_set: l.languages[self.language].current_notation_set,
+            notation_set: s.languages[self.language].current_notation_set,
         }
     }
 
-    pub fn hole_construct(self, l: &LanguageSet) -> Construct {
+    pub fn hole_construct(self, s: &Storage) -> Construct {
         Construct {
             language: self.language,
-            construct: l.grammar(self.language).hole_construct,
+            construct: grammar(s, self.language).hole_construct,
         }
     }
 }
 
 impl NotationSet {
-    pub fn notation(self, l: &LanguageSet, construct: Construct) -> &ValidNotation {
+    pub fn notation(self, s: &Storage, construct: Construct) -> &ValidNotation {
         if self.language != construct.language {
             bug!("NotationSet::notation - language mismatch");
         }
-        &l.languages[self.language].notation_sets[self.notation_set].notations[construct.construct]
+        &s.languages[self.language].notation_sets[self.notation_set].notations[construct.construct]
     }
 }
 
@@ -141,18 +143,18 @@ impl Sort {
         }
     }
 
-    pub fn accepts(self, l: &LanguageSet, candidate: Construct) -> bool {
+    pub fn accepts(self, s: &Storage, candidate: Construct) -> bool {
         if self.language != candidate.language {
             return false;
         }
 
-        l.grammar(self.language).sorts[self.sort]
+        grammar(s, self.language).sorts[self.sort]
             .0
             .contains(candidate.construct)
     }
 
-    pub fn matching_constructs(self, l: &LanguageSet) -> impl Iterator<Item = Construct> + '_ {
-        l.grammar(self.language).sorts[self.sort]
+    pub fn matching_constructs(self, s: &Storage) -> impl Iterator<Item = Construct> + '_ {
+        grammar(s, self.language).sorts[self.sort]
             .0
             .iter()
             .map(move |id| Construct {
@@ -169,16 +171,16 @@ impl Construct {
         }
     }
 
-    pub fn name(self, l: &LanguageSet) -> &str {
-        &l.grammar(self.language).constructs[self.construct].name
+    pub fn name(self, s: &Storage) -> &str {
+        &grammar(s, self.language).constructs[self.construct].name
     }
 
-    pub fn key(self, l: &LanguageSet) -> Option<char> {
-        l.grammar(self.language).constructs[self.construct].key
+    pub fn key(self, s: &Storage) -> Option<char> {
+        grammar(s, self.language).constructs[self.construct].key
     }
 
-    pub fn arity(self, l: &LanguageSet) -> Arity {
-        match l.grammar(self.language).constructs[self.construct].arity {
+    pub fn arity(self, s: &Storage) -> Arity {
+        match grammar(s, self.language).constructs[self.construct].arity {
             ArityCompiled::Texty => Arity::Texty,
             ArityCompiled::Fixed(_) => Arity::Fixed(FixedSorts {
                 language: self.language,
@@ -191,12 +193,12 @@ impl Construct {
         }
     }
 
-    pub fn notation(self, l: &LanguageSet) -> &ValidNotation {
-        self.language().current_notation_set(l).notation(l, self)
+    pub fn notation(self, s: &Storage) -> &ValidNotation {
+        self.language().current_notation_set(s).notation(s, self)
     }
 
-    pub fn is_comment_or_ws(self, l: &LanguageSet) -> bool {
-        l.grammar(self.language).constructs[self.construct].is_comment_or_ws
+    pub fn is_comment_or_ws(self, s: &Storage) -> bool {
+        grammar(s, self.language).constructs[self.construct].is_comment_or_ws
     }
 
     /// This construct must never be used!
@@ -209,9 +211,9 @@ impl Construct {
 }
 
 impl FixedSorts {
-    pub fn len(self, l: &LanguageSet) -> usize {
+    pub fn len(self, s: &Storage) -> usize {
         if let ArityCompiled::Fixed(sorts) =
-            &l.grammar(self.language).constructs[self.construct].arity
+            &grammar(s, self.language).constructs[self.construct].arity
         {
             sorts.len()
         } else {
@@ -219,9 +221,9 @@ impl FixedSorts {
         }
     }
 
-    pub fn get(self, l: &LanguageSet, i: usize) -> Option<Sort> {
+    pub fn get(self, s: &Storage, i: usize) -> Option<Sort> {
         if let ArityCompiled::Fixed(sorts) =
-            &l.grammar(self.language).constructs[self.construct].arity
+            &grammar(s, self.language).constructs[self.construct].arity
         {
             sorts.get(i).map(|(sort_id, _)| Sort {
                 language: self.language,
@@ -230,40 +232,5 @@ impl FixedSorts {
         } else {
             bug!("Language - FixedSort of wrong arity (get)");
         }
-    }
-}
-
-impl LanguageSet {
-    pub fn new() -> LanguageSet {
-        LanguageSet {
-            languages: IndexedMap::new(),
-        }
-    }
-
-    pub fn add_language(&mut self, language_spec: LanguageSpec) -> Result<(), LanguageError> {
-        let language = compile_language(language_spec)?;
-        self.languages
-            .insert(language.name.clone(), language)
-            .map_err(LanguageError::DuplicateLanguage)
-    }
-
-    pub fn add_notation_set(
-        &mut self,
-        language_name: &str,
-        notation_set: NotationSetSpec,
-    ) -> Result<(), LanguageError> {
-        if let Some(language) = self.languages.get_by_name_mut(language_name) {
-            let notation_set = compile_notation_set(notation_set, &language.grammar)?;
-            language
-                .notation_sets
-                .insert(notation_set.name.clone(), notation_set)
-                .map_err(|name| LanguageError::DuplicateNotationSet(language_name.to_owned(), name))
-        } else {
-            Err(LanguageError::UndefinedLanguage(language_name.to_owned()))
-        }
-    }
-
-    fn grammar(&self, language_id: LanguageId) -> &GrammarCompiled {
-        &self.languages[language_id].grammar
     }
 }
