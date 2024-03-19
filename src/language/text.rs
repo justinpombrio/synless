@@ -56,6 +56,12 @@ impl Text {
     }
 }
 
+impl Default for Text {
+    fn default() -> Self {
+        Text::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

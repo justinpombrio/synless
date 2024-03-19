@@ -62,6 +62,12 @@ impl<T> IndexedMap<T> {
     }
 }
 
+impl<T> Default for IndexedMap<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T> Index<&str> for IndexedMap<T> {
     type Output = T;
 

@@ -79,6 +79,12 @@ impl DocStorage {
     }
 }
 
+impl Default for DocStorage {
+    fn default() -> Self {
+        DocStorage::new()
+    }
+}
+
 impl Node {
     /****************
      * Constructors *
