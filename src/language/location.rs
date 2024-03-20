@@ -1,21 +1,58 @@
 use super::node::Node;
 use super::storage::Storage;
 
-// TODO: rejigger the Location type, and maybe move it
 /// A location between nodes, or within text, where a cursor could go.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Location {
-    InText(Node, usize),
-    After(Node),
-    BeforeFirstChild(Node),
+    InText {
+        node: Node,
+        /// Between characters, so it can be equal to the len
+        char_pos: usize,
+    },
+    InTree {
+        parent: Option<Node>,
+        left: Option<Node>,
+        right: Option<Node>,
+    },
 }
 
 impl Location {
-    pub fn cursor_halves(self, s: &Storage) -> (Option<Node>, Option<Node>) {
+    pub fn left(self) -> Option<Node> {
         match self {
-            Location::InText(..) => (None, None),
-            Location::After(left_sibling) => (Some(left_sibling), left_sibling.next_sibling(s)),
-            Location::BeforeFirstChild(parent) => (None, parent.first_child(s)),
+            Location::InText { .. } => None,
+            Location::InTree { left, .. } => left,
+        }
+    }
+
+    pub fn right(self) -> Option<Node> {
+        match self {
+            Location::InText { .. } => None,
+            Location::InTree { left, .. } => left,
+        }
+    }
+
+    pub fn parent(self) -> Option<Node> {
+        match self {
+            Location::InText { .. } => None,
+            Location::InTree { parent, .. } => parent,
+        }
+    }
+}
+
+impl Node {
+    pub fn loc_before(self, s: &Storage) -> Location {
+        Location::InTree {
+            parent: self.parent(s),
+            left: self.prev_sibling(s),
+            right: Some(self),
+        }
+    }
+
+    pub fn loc_after(self, s: &Storage) -> Location {
+        Location::InTree {
+            parent: self.parent(s),
+            left: Some(self),
+            right: self.next_sibling(s),
         }
     }
 }

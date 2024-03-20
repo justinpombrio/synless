@@ -19,21 +19,16 @@ fn get_text_notation() -> &'static ValidNotation {
 #[derive(Clone, Copy)]
 pub struct DocRef<'d> {
     storage: &'d Storage,
-    cursor_pos: Location,
-    left_cursor: Option<Node>,
-    right_cursor: Option<Node>,
+    cursor_loc: Location,
     node: Node,
     text_pos: Option<CursorHalf>,
 }
 
 impl<'d> DocRef<'d> {
-    pub fn new(storage: &'d Storage, cursor_pos: Location, node: Node) -> DocRef<'d> {
-        let (left_cursor, right_cursor) = cursor_pos.cursor_halves(storage);
+    pub fn new(storage: &'d Storage, cursor_loc: Location, node: Node) -> DocRef<'d> {
         DocRef {
             storage,
-            cursor_pos,
-            left_cursor,
-            right_cursor,
+            cursor_loc,
             node,
             text_pos: None,
         }
@@ -45,9 +40,9 @@ impl<'d> DocRef<'d> {
 
     /// Char index to split this node's text at
     fn text_index(&self) -> usize {
-        if let Location::InText(node, i) = self.cursor_pos {
+        if let Location::InText { node, char_pos } = self.cursor_loc {
             if node == self.node {
-                i
+                char_pos
             } else {
                 0
             }
@@ -107,23 +102,15 @@ impl<'d> ppp::PrettyDoc<'d> for DocRef<'d> {
         match style_label {
             StyleLabel::Hole => HOLE_STYLE,
             StyleLabel::Open => {
-                if self.cursor_pos == Location::BeforeFirstChild(self.node) {
+                if self.cursor_loc.parent() == Some(self.node) && self.cursor_loc.left().is_none() {
                     LEFT_CURSOR_STYLE
                 } else {
                     Style::default()
                 }
             }
             StyleLabel::Close => {
-                let at_end = match self.cursor_pos {
-                    Location::InText(..) => todo!(),
-                    Location::BeforeFirstChild(parent) => {
-                        parent == self.node && self.node.first_child(self.storage).is_none()
-                    }
-                    Location::After(sibling) => self.node.last_child(self.storage) == Some(sibling),
-                };
-                // TODO: perhaps rewrite as:
-                // if self.node.gap_after_children(self.storage) == self.cursor_pos
-                if at_end {
+                if self.cursor_loc.parent() == Some(self.node) && self.cursor_loc.right().is_none()
+                {
                     RIGHT_CURSOR_STYLE
                 } else {
                     Style::default()
@@ -151,9 +138,9 @@ impl<'d> ppp::PrettyDoc<'d> for DocRef<'d> {
     fn node_style(self) -> Style {
         if self.text_pos.is_some() {
             Style::default()
-        } else if self.left_cursor == Some(self.node) {
+        } else if self.cursor_loc.left() == Some(self.node) {
             LEFT_CURSOR_STYLE
-        } else if self.right_cursor == Some(self.node) {
+        } else if self.cursor_loc.right() == Some(self.node) {
             RIGHT_CURSOR_STYLE
         } else {
             Style::default()
@@ -235,7 +222,7 @@ impl<'d> fmt::Debug for DocRef<'d> {
         write!(
             f,
             "DocRef({:?}, {:?}, {:?})",
-            self.node, self.cursor_pos, self.text_pos
+            self.node, self.cursor_loc, self.text_pos
         )
     }
 }
