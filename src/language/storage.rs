@@ -1,6 +1,7 @@
 use super::forest::Forest;
 use super::language_set::{
-    compile_language, compile_notation_set, LanguageCompiled, LanguageSpec, NotationSetSpec,
+    compile_language, compile_notation_set, Language, LanguageCompiled, LanguageSpec,
+    NotationSetSpec,
 };
 use super::node::{Node, NodeData, NodeId};
 use super::LanguageError;
@@ -43,6 +44,10 @@ impl Storage {
         } else {
             Err(LanguageError::UndefinedLanguage(language_name.to_owned()))
         }
+    }
+
+    pub fn get_language(&self, name: &str) -> Option<Language> {
+        Some(Language::from_id(self.languages.id(name)?))
     }
 
     pub(super) fn next_id(&mut self) -> NodeId {

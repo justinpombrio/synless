@@ -78,12 +78,69 @@ impl Node {
         }
     }
 
+    pub fn with_text(s: &mut Storage, construct: Construct, text: String) -> Option<Node> {
+        if let Arity::Texty = construct.arity(s) {
+            let id = s.next_id();
+            let mut contents = Text::new();
+            contents.set(text);
+            Some(Node(s.forest.new_node(NodeData {
+                id,
+                construct,
+                text: Some(contents),
+            })))
+        } else {
+            None
+        }
+    }
+
+    pub fn with_children(
+        s: &mut Storage,
+        construct: Construct,
+        children: impl IntoIterator<Item = Node>,
+    ) -> Option<Node> {
+        let children = children.into_iter().collect::<Vec<_>>();
+        let allowed = match construct.arity(s) {
+            Arity::Texty => false,
+            Arity::Listy(sort) => children
+                .iter()
+                .all(|child| sort.accepts(s, child.construct(s))),
+            Arity::Fixed(sorts) => {
+                if sorts.len(s) != children.len() {
+                    false
+                } else {
+                    children
+                        .iter()
+                        .enumerate()
+                        .all(|(i, child)| sorts.get(s, i).bug().accepts(s, child.construct(s)))
+                }
+            }
+        };
+        if allowed {
+            let id = s.next_id();
+            let parent = s.forest.new_node(NodeData {
+                id,
+                construct,
+                text: None,
+            });
+            for child in children {
+                s.forest.insert_last_child(parent, child.0);
+            }
+            Some(Node(parent))
+        } else {
+            None
+        }
+    }
+
     /*************
      * Node Data *
      *************/
 
     pub fn id(self, s: &Storage) -> NodeId {
         s.forest.data(self.0).id
+    }
+
+    pub fn construct(self, s: &Storage) -> Construct {
+        s.forest.data(self.0).construct
     }
 
     pub fn arity(self, s: &Storage) -> Arity {
@@ -321,6 +378,43 @@ impl Node {
         } else {
             false
         }
+    }
+
+    /*************
+     * Debugging *
+     *************/
+
+    pub fn display(self, s: &Storage) -> impl fmt::Display + '_ {
+        NodeDisplay {
+            storage: s,
+            node: self,
+        }
+    }
+}
+
+pub struct NodeDisplay<'s> {
+    storage: &'s Storage,
+    node: Node,
+}
+
+impl<'s> fmt::Display for NodeDisplay<'s> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "(")?;
+        write!(
+            f,
+            "{}",
+            self.node.construct(self.storage).name(self.storage)
+        )?;
+        if let Some(mut child) = self.node.first_child(self.storage) {
+            write!(f, " {}", child.display(self.storage))?;
+            while let Some(next_child) = child.next_sibling(self.storage) {
+                child = next_child;
+                write!(f, " {}", child.display(self.storage))?;
+            }
+        } else if let Some(text) = self.node.text(self.storage) {
+            write!(f, " \"{}\"", text.as_str())?;
+        }
+        write!(f, ")")
     }
 }
 

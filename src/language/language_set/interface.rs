@@ -119,11 +119,24 @@ impl Language {
         }
     }
 
+    pub fn get_construct(self, s: &Storage, construct_name: &str) -> Option<Construct> {
+        let construct = grammar(s, self.language).constructs.id(construct_name)?;
+        Some(Construct {
+            language: self.language,
+            construct,
+        })
+    }
+
     pub fn hole_construct(self, s: &Storage) -> Construct {
         Construct {
             language: self.language,
             construct: grammar(s, self.language).hole_construct,
         }
+    }
+
+    // TODO: this seems hacky
+    pub(crate) fn from_id(id: LanguageId) -> Language {
+        Language { language: id }
     }
 }
 

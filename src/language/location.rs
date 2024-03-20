@@ -1,6 +1,7 @@
 use super::node::Node;
 use super::storage::Storage;
 
+// TODO: rejigger the Location type, and maybe move it
 /// A location between nodes, or within text, where a cursor could go.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Location {
