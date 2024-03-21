@@ -3,8 +3,8 @@ use super::compiled::{
     LanguageCompiled, LanguageId, NotationSetId, SortId,
 };
 use super::specs::{LanguageSpec, NotationSetSpec};
-use crate::language::storage::Storage;
-use crate::language::LanguageError;
+use super::storage::Storage;
+use super::LanguageError;
 use crate::style::ValidNotation;
 use crate::util::{bug, IndexedMap};
 

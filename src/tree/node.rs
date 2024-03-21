@@ -1,18 +1,22 @@
 use super::forest;
-use super::language_set::{Arity, Construct, Language, LanguageSpec, NotationSetSpec};
-use super::storage::Storage;
 use super::text::Text;
-use super::LanguageError;
+use crate::language::{Arity, Construct, Language, LanguageSpec, NotationSetSpec, Storage};
 use crate::style::{Condition, StyleLabel, ValidNotation};
 use crate::util::{bug, SynlessBug};
 use partial_pretty_printer as ppp;
 use std::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct NodeId(pub(super) usize);
+pub struct NodeId(usize);
+
+pub struct NodeForest {
+    forest: forest::Forest<NodeData>,
+    next_id: usize,
+}
 
 /// The data stored inside a document node.
-pub(super) struct NodeData {
+#[derive(Debug)]
+struct NodeData {
     id: NodeId,
     construct: Construct,
     /// Is Some iff the node is texty.
@@ -33,6 +37,16 @@ pub struct Node(forest::NodeIndex);
 /// A long-lived reference to a node that might or might not still exist.
 pub struct Bookmark(forest::NodeIndex);
 
+impl Storage {
+    fn forest(&self) -> &forest::Forest<NodeData> {
+        &self.node_forest.forest
+    }
+
+    fn forest_mut(&mut self) -> &mut forest::Forest<NodeData> {
+        &mut self.node_forest.forest
+    }
+}
+
 impl Node {
     /****************
      * Constructors *
@@ -44,20 +58,20 @@ impl Node {
 
     /// Creates a new root node.
     pub fn new(s: &mut Storage, construct: Construct) -> Node {
-        let id = s.next_id();
+        let id = s.node_forest.next_id();
         match construct.arity(s) {
-            Arity::Texty => Node(s.forest.new_node(NodeData {
+            Arity::Texty => Node(s.forest_mut().new_node(NodeData {
                 id,
                 construct,
                 text: Some(Text::new()),
             })),
-            Arity::Listy(_) => Node(s.forest.new_node(NodeData {
+            Arity::Listy(_) => Node(s.forest_mut().new_node(NodeData {
                 id,
                 construct,
                 text: None,
             })),
             Arity::Fixed(sorts) => {
-                let parent = s.forest.new_node(NodeData {
+                let parent = s.forest_mut().new_node(NodeData {
                     id,
                     construct,
                     text: None,
@@ -65,13 +79,13 @@ impl Node {
                 let num_children = sorts.len(s);
                 let hole_construct = construct.language().hole_construct(s);
                 for _ in 0..num_children {
-                    let child_id = s.next_id();
-                    let child = s.forest.new_node(NodeData {
+                    let child_id = s.node_forest.next_id();
+                    let child = s.forest_mut().new_node(NodeData {
                         id: child_id,
                         construct: hole_construct,
                         text: None,
                     });
-                    s.forest.insert_last_child(parent, child);
+                    s.forest_mut().insert_last_child(parent, child);
                 }
                 Node(parent)
             }
@@ -80,10 +94,10 @@ impl Node {
 
     pub fn with_text(s: &mut Storage, construct: Construct, text: String) -> Option<Node> {
         if let Arity::Texty = construct.arity(s) {
-            let id = s.next_id();
+            let id = s.node_forest.next_id();
             let mut contents = Text::new();
             contents.set(text);
-            Some(Node(s.forest.new_node(NodeData {
+            Some(Node(s.forest_mut().new_node(NodeData {
                 id,
                 construct,
                 text: Some(contents),
@@ -116,14 +130,14 @@ impl Node {
             }
         };
         if allowed {
-            let id = s.next_id();
-            let parent = s.forest.new_node(NodeData {
+            let id = s.node_forest.next_id();
+            let parent = s.forest_mut().new_node(NodeData {
                 id,
                 construct,
                 text: None,
             });
             for child in children {
-                s.forest.insert_last_child(parent, child.0);
+                s.forest_mut().insert_last_child(parent, child.0);
             }
             Some(Node(parent))
         } else {
@@ -136,34 +150,34 @@ impl Node {
      *************/
 
     pub fn id(self, s: &Storage) -> NodeId {
-        s.forest.data(self.0).id
+        s.forest().data(self.0).id
     }
 
     pub fn construct(self, s: &Storage) -> Construct {
-        s.forest.data(self.0).construct
+        s.forest().data(self.0).construct
     }
 
     pub fn arity(self, s: &Storage) -> Arity {
-        s.forest.data(self.0).construct.arity(s)
+        s.forest().data(self.0).construct.arity(s)
     }
 
     /// ("ws" means "whitespace")
     pub fn is_comment_or_ws(self, s: &Storage) -> bool {
-        s.forest.data(self.0).construct.is_comment_or_ws(s)
+        s.forest().data(self.0).construct.is_comment_or_ws(s)
     }
 
     pub fn notation(self, s: &Storage) -> &ValidNotation {
-        s.forest.data(self.0).construct.notation(s)
+        s.forest().data(self.0).construct.notation(s)
     }
 
     /// Borrow the text of a texty node. `None` if it's not texty.
     pub fn text(self, s: &Storage) -> Option<&Text> {
-        s.forest.data(self.0).text.as_ref()
+        s.forest().data(self.0).text.as_ref()
     }
 
     /// Mutably borrow the text of a texty node. `None` if it's not texty.
     pub fn text_mut(self, s: &mut Storage) -> Option<&mut Text> {
-        s.forest.data_mut(self.0).text.as_mut()
+        s.forest_mut().data_mut(self.0).text.as_mut()
     }
 
     /*************
@@ -172,13 +186,13 @@ impl Node {
 
     /// Returns whether this is the root of a tree. Equivalent to `self.parent(s).is_none()`.
     pub fn is_at_root(self, s: &Storage) -> bool {
-        s.forest.parent(self.0).is_none()
+        s.forest().parent(self.0).is_none()
     }
 
     /// Determine the number of siblings that this node has, including itself.
     pub fn num_siblings(&self, s: &Storage) -> usize {
-        if let Some(parent) = s.forest.parent(self.0) {
-            s.forest.num_children(parent)
+        if let Some(parent) = s.forest().parent(self.0) {
+            s.forest().num_children(parent)
         } else {
             1
         }
@@ -186,17 +200,17 @@ impl Node {
 
     /// Determine this node's index among its siblings. Returns `0` when at the root.
     pub fn sibling_index(self, s: &Storage) -> usize {
-        s.forest.sibling_index(self.0)
+        s.forest().sibling_index(self.0)
     }
 
     /// Return the number of children this node has. For a Fixed node, this is
     /// its arity. For a Listy node, this is its current number of children.
     /// For text, this is None.
     pub fn num_children(self, s: &Storage) -> Option<usize> {
-        if s.forest.data(self.0).text.is_some() {
+        if s.forest().data(self.0).text.is_some() {
             None
         } else {
-            Some(s.forest.num_children(self.0))
+            Some(s.forest().num_children(self.0))
         }
     }
 
@@ -205,41 +219,41 @@ impl Node {
      **************/
 
     pub fn parent(self, s: &Storage) -> Option<Node> {
-        s.forest.parent(self.0).map(Node)
+        s.forest().parent(self.0).map(Node)
     }
 
     pub fn first_child(self, s: &Storage) -> Option<Node> {
-        s.forest.first_child(self.0).map(Node)
+        s.forest().first_child(self.0).map(Node)
     }
 
     pub fn last_child(self, s: &Storage) -> Option<Node> {
-        s.forest
+        s.forest()
             .first_child(self.0)
-            .map(|n| Node(s.forest.last_sibling(n)))
+            .map(|n| Node(s.forest().last_sibling(n)))
     }
 
     pub fn nth_child(self, s: &Storage, n: usize) -> Option<Node> {
-        s.forest.nth_child(self.0, n).map(Node)
+        s.forest().nth_child(self.0, n).map(Node)
     }
 
     pub fn next_sibling(self, s: &Storage) -> Option<Node> {
-        s.forest.next(self.0).map(Node)
+        s.forest().next(self.0).map(Node)
     }
 
     pub fn prev_sibling(self, s: &Storage) -> Option<Node> {
-        s.forest.prev(self.0).map(Node)
+        s.forest().prev(self.0).map(Node)
     }
 
     pub fn first_sibling(self, s: &Storage) -> Node {
-        Node(s.forest.first_sibling(self.0))
+        Node(s.forest().first_sibling(self.0))
     }
 
     pub fn last_sibling(self, s: &Storage) -> Node {
-        Node(s.forest.last_sibling(self.0))
+        Node(s.forest().last_sibling(self.0))
     }
 
     pub fn root(self, s: &Storage) -> Node {
-        Node(s.forest.root(self.0))
+        Node(s.forest().root(self.0))
     }
 
     /// Save a bookmark to return to later.
@@ -254,7 +268,7 @@ impl Node {
     /// has since been deleted, or if it is currently located in a
     /// different tree.
     pub fn goto_bookmark(self, mark: Bookmark, s: &Storage) -> Option<Node> {
-        if s.forest.is_valid(mark.0) && s.forest.root(self.0) == s.forest.root(mark.0) {
+        if s.forest().is_valid(mark.0) && s.forest().root(self.0) == s.forest().root(mark.0) {
             Some(Node(mark.0))
         } else {
             None
@@ -267,13 +281,13 @@ impl Node {
 
     /// Check if `other` is allowed where `self` currently is, according to our parent's arity.
     fn accepts_replacement(self, s: &Storage, other: Node) -> bool {
-        if let Some(parent) = s.forest.parent(self.0) {
+        if let Some(parent) = s.forest().parent(self.0) {
             let sort = match Node(parent).arity(s) {
                 Arity::Fixed(sorts) => sorts.get(s, self.sibling_index(s)).bug(),
                 Arity::Listy(sort) => sort,
                 Arity::Texty => bug!("Texty parent!"),
             };
-            let other_construct = s.forest.data(other.0).construct;
+            let other_construct = s.forest().data(other.0).construct;
             sort.accepts(s, other_construct)
         } else {
             true
@@ -281,7 +295,7 @@ impl Node {
     }
 
     fn is_listy_and_accepts_child(self, s: &Storage, other: Node) -> bool {
-        let other_construct = s.forest.data(other.0).construct;
+        let other_construct = s.forest().data(other.0).construct;
         match self.arity(s) {
             Arity::Fixed(_) => false,
             Arity::Listy(sort) => sort.accepts(s, other_construct),
@@ -301,7 +315,7 @@ impl Node {
     #[must_use]
     pub fn swap(self, s: &mut Storage, other: Node) -> bool {
         if self.accepts_replacement(s, other) && other.accepts_replacement(s, self) {
-            s.forest.swap(self.0, other.0)
+            s.forest_mut().swap(self.0, other.0)
         } else {
             false
         }
@@ -316,7 +330,7 @@ impl Node {
     pub fn insert_before(self, s: &mut Storage, new_sibling: Node) -> bool {
         if let Some(parent) = self.parent(s) {
             if parent.is_listy_and_accepts_child(s, new_sibling) {
-                s.forest.insert_before(self.0, new_sibling.0)
+                s.forest_mut().insert_before(self.0, new_sibling.0)
             } else {
                 false
             }
@@ -334,7 +348,7 @@ impl Node {
     pub fn insert_after(self, s: &mut Storage, new_sibling: Node) -> bool {
         if let Some(parent) = self.parent(s) {
             if parent.is_listy_and_accepts_child(s, new_sibling) {
-                s.forest.insert_after(self.0, new_sibling.0)
+                s.forest_mut().insert_after(self.0, new_sibling.0)
             } else {
                 false
             }
@@ -353,7 +367,7 @@ impl Node {
     #[must_use]
     pub fn insert_last_child(self, s: &mut Storage, new_child: Node) -> bool {
         if self.is_listy_and_accepts_child(s, new_child) {
-            s.forest.insert_last_child(self.0, new_child.0)
+            s.forest_mut().insert_last_child(self.0, new_child.0)
         } else {
             false
         }
@@ -371,7 +385,7 @@ impl Node {
                 Arity::Fixed(_) => false,
                 Arity::Texty => false,
                 Arity::Listy(_) => {
-                    s.forest.detach(self.0);
+                    s.forest_mut().detach(self.0);
                     true
                 }
             }
@@ -418,15 +432,28 @@ impl<'s> fmt::Display for NodeDisplay<'s> {
     }
 }
 
-impl NodeData {
-    /// Must never use this node!
-    pub(super) fn invalid_dummy() -> NodeData {
-        let mut text = Text::new();
-        text.set("Dummy node that must never be seen!".to_owned());
-        NodeData {
-            id: NodeId(666),
-            construct: Construct::invalid_dummy(),
-            text: Some(text),
+impl NodeForest {
+    pub fn new() -> NodeForest {
+        // Must never use this node!
+        let invalid_dummy_node = {
+            let mut text = Text::new();
+            text.set("Dummy node that must never be seen!".to_owned());
+            NodeData {
+                id: NodeId(666),
+                construct: Construct::invalid_dummy(),
+                text: Some(text),
+            }
+        };
+
+        NodeForest {
+            forest: forest::Forest::new(invalid_dummy_node),
+            next_id: 0,
         }
+    }
+
+    pub fn next_id(&mut self) -> NodeId {
+        let id = self.next_id;
+        self.next_id += 1;
+        NodeId(id)
     }
 }

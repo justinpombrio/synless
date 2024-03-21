@@ -1,18 +1,13 @@
-mod forest;
-mod language_set;
-mod location;
-mod node;
+mod compiled;
+mod interface;
+mod specs;
 mod storage;
-mod text;
 
 use partial_pretty_printer as ppp;
 use std::fmt;
 
-pub use language_set::{
-    AritySpec, ConstructSpec, GrammarSpec, LanguageSpec, NotationSetSpec, SortSpec,
-};
-pub use location::Location;
-pub use node::{Node, NodeId};
+pub use interface::{Arity, Construct, Language};
+pub use specs::{AritySpec, ConstructSpec, GrammarSpec, LanguageSpec, NotationSetSpec, SortSpec};
 pub use storage::Storage;
 
 #[derive(thiserror::Error, fmt::Debug)]

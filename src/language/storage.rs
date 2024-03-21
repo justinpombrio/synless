@@ -1,25 +1,21 @@
-use super::forest::Forest;
-use super::language_set::{
-    compile_language, compile_notation_set, Language, LanguageCompiled, LanguageSpec,
-    NotationSetSpec,
-};
-use super::node::{Node, NodeData, NodeId};
+use super::compiled::{compile_language, compile_notation_set, LanguageCompiled};
+use super::interface::Language;
+use super::specs::{LanguageSpec, NotationSetSpec};
 use super::LanguageError;
+use crate::tree::NodeForest;
 use crate::util::IndexedMap;
 
 /// Stores all documents and languages.
 pub struct Storage {
     pub(super) languages: IndexedMap<LanguageCompiled>,
-    pub(super) forest: Forest<NodeData>,
-    pub(super) next_id: NodeId,
+    pub(crate) node_forest: NodeForest,
 }
 
 impl Storage {
     pub fn new() -> Storage {
         Storage {
             languages: IndexedMap::new(),
-            forest: Forest::new(NodeData::invalid_dummy()),
-            next_id: NodeId(0),
+            node_forest: NodeForest::new(),
         }
     }
 
@@ -48,12 +44,6 @@ impl Storage {
 
     pub fn get_language(&self, name: &str) -> Option<Language> {
         Some(Language::from_id(self.languages.id(name)?))
-    }
-
-    pub(super) fn next_id(&mut self) -> NodeId {
-        let id = self.next_id.0;
-        self.next_id.0 += 1;
-        NodeId(id)
     }
 }
 

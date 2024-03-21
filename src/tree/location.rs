@@ -1,5 +1,5 @@
 use super::node::Node;
-use super::storage::Storage;
+use crate::language::Storage;
 
 /// A location between nodes, or within text, where a cursor could go.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
