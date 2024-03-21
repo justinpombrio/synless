@@ -20,6 +20,19 @@ pub const RIGHT_CURSOR_STYLE: Style = Style {
     ..Style::const_default()
 };
 
+pub const FG_COLOR: Base16Color = Base16Color::Base05;
+// NOTE: we might want to use Base00 as the default background, to follow the base16 conventions.
+pub const BG_COLOR: Base16Color = Base16Color::Base01;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ConcreteStyle {
+    pub fg_color: Rgb,
+    pub bg_color: Rgb,
+    pub bold: bool,
+    pub italic: bool,
+    pub underlined: bool,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct Style {
     pub fg_color: Option<(Base16Color, Priority)>,
@@ -70,7 +83,7 @@ pub type Notation = ppp::Notation<StyleLabel, Condition>;
 pub type ValidNotation = ppp::ValidNotation<StyleLabel, Condition>;
 
 /// A 24-bit RGB color.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Rgb {
     pub red: u8,
     pub green: u8,
@@ -216,7 +229,22 @@ impl ColorTheme {
         }
     }
 
-    fn color(&self, color: Base16Color) -> Rgb {
+    pub fn concrete_style(&self, style: &Style) -> ConcreteStyle {
+        let unwrap_color = |pair: Option<(Base16Color, Priority)>, default: Base16Color| {
+            self.color(pair.map(|(base16, _)| base16).unwrap_or(default))
+        };
+        let unwrap_bool = |pair: Option<(bool, Priority)>| pair.map(|(b, _)| b).unwrap_or_default();
+
+        ConcreteStyle {
+            fg_color: unwrap_color(style.fg_color, FG_COLOR),
+            bg_color: unwrap_color(style.bg_color, BG_COLOR),
+            bold: unwrap_bool(style.bold),
+            italic: unwrap_bool(style.italic),
+            underlined: unwrap_bool(style.underlined),
+        }
+    }
+
+    pub fn color(&self, color: Base16Color) -> Rgb {
         match color {
             Base16Color::Base00 => self.base00,
             Base16Color::Base01 => self.base01,
