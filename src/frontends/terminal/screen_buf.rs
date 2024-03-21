@@ -131,7 +131,7 @@ impl ScreenBuf {
 
     /// Display a character at the given window position in the given style. `full_width` indicates
     /// whether the character is 1 (`false`) or 2 (`true`) columns wide. The character is guaranteed
-    /// to fit in the window.
+    /// to fit in the window and not overlap or overwrite any other characters.
     fn display_char(
         &mut self,
         ch: char,
@@ -497,6 +497,77 @@ mod screen_buf_tests {
         );
     }
 
+    #[test]
+    fn test_full_width() {
+        let mut buf = ScreenBuf::new(
+            Size {
+                width: 8,
+                height: 1,
+            },
+            STYLE_DEFAULT,
+        );
+        display(&mut buf, "1234567", Pos { col: 1, row: 0 }, STYLE_RED, 1);
+        let actual_ops = buf.drain_changes().collect::<Vec<_>>();
+        assert_eq!(
+            actual_ops,
+            vec![
+                ScreenOp::Goto(Pos::zero()),
+                ScreenOp::Style(STYLE_DEFAULT),
+                ScreenOp::Print(' '),
+                ScreenOp::Style(STYLE_RED),
+                ScreenOp::Print('1'),
+                ScreenOp::Print('2'),
+                ScreenOp::Print('3'),
+                ScreenOp::Print('4'),
+                ScreenOp::Print('5'),
+                ScreenOp::Print('6'),
+                ScreenOp::Print('7'),
+            ]
+        );
+
+        buf.display_char('一', Pos::zero(), STYLE_RED, 2);
+        buf.display_char('二', Pos { col: 2, row: 0 }, STYLE_RED, 2);
+        buf.display_char('*', Pos { col: 4, row: 0 }, STYLE_RED, 1);
+        buf.display_char('三', Pos { col: 5, row: 0 }, STYLE_RED, 2);
+        let actual_ops = buf.drain_changes().collect::<Vec<_>>();
+        assert_eq!(
+            actual_ops,
+            vec![
+                ScreenOp::Goto(Pos::zero()),
+                ScreenOp::Style(STYLE_RED),
+                ScreenOp::Print('一'),
+                ScreenOp::Print('二'),
+                ScreenOp::Print('*'),
+                ScreenOp::Print('三'),
+                ScreenOp::Style(STYLE_DEFAULT),
+                ScreenOp::Print(' '),
+            ]
+        );
+
+        buf.display_char('3', Pos { col: 3, row: 0 }, STYLE_RED, 1);
+        buf.display_char('5', Pos { col: 5, row: 0 }, STYLE_RED, 1);
+        let actual_ops = buf.drain_changes().collect::<Vec<_>>();
+        assert_eq!(
+            actual_ops,
+            vec![
+                ScreenOp::Goto(Pos::zero()),
+                ScreenOp::Style(STYLE_DEFAULT),
+                ScreenOp::Print(' '),
+                // TODO: ScreenBuf thinks this space doesn't need to be re-printed, because it used
+                // to be the empty/ignored space following a full-width char. Should it be
+                // reprinted? How do terminals work?
+                ScreenOp::Print(' '),
+                ScreenOp::Print(' '),
+                ScreenOp::Goto(Pos { col: 3, row: 0 }),
+                ScreenOp::Style(STYLE_RED),
+                ScreenOp::Print('3'),
+                ScreenOp::Goto(Pos { col: 5, row: 0 }),
+                ScreenOp::Print('5'),
+                ScreenOp::Style(STYLE_DEFAULT),
+                ScreenOp::Print(' '),
+            ]
+        );
+    }
     #[test]
     fn test_complex() {
         let mut buf = ScreenBuf::new(
