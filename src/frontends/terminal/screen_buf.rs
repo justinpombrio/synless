@@ -3,6 +3,9 @@ use crate::style::ConcreteStyle;
 use partial_pretty_printer::{pane::PrettyWindow, Height, Pos, Size, Width};
 use std::mem;
 
+// TODO: ScreenBuf thinks you don't need to re-print a space over the second half of a deleted
+// full-width character. Is that true? How do terminals work? (search "reprinted")
+
 /// Represents a screen full of characters. It buffers changes to the
 /// characters, and can produce a set of instructions for efficiently updating
 /// the screen to reflect those changes.
@@ -524,23 +527,41 @@ mod screen_buf_tests {
                 ScreenOp::Goto(Pos::zero()),
                 ScreenOp::Style(STYLE_DEFAULT),
                 ScreenOp::Print(' '),
-                // TODO: ScreenBuf thinks this space doesn't need to be re-printed, because it used
-                // to be the empty/ignored space following a full-width char. Should it be
-                // reprinted? How do terminals work?
+                // Should the space be "reprinted", or should there be the goto instead?
+                // ScreenOp::Print(' '),
+                ScreenOp::Goto(Pos { col: 2, row: 0 }),
                 ScreenOp::Print(' '),
-                ScreenOp::Print(' '),
-                ScreenOp::Goto(Pos { col: 3, row: 0 }),
                 ScreenOp::Style(STYLE_RED),
                 ScreenOp::Print('3'),
-                ScreenOp::Goto(Pos { col: 5, row: 0 }),
-                ScreenOp::Print('5'),
                 ScreenOp::Style(STYLE_DEFAULT),
                 ScreenOp::Print(' '),
+                ScreenOp::Style(STYLE_RED),
+                ScreenOp::Print('5'),
+                // Should the space be "reprinted"?
+                // ScreenOp::Style(STYLE_DEFAULT),
+                // ScreenOp::Print(' '),
             ]
         );
     }
+
     #[test]
+    fn test_replace_full_width_with_space() {
+        let mut buf = new_buf(2, 1);
+        buf.display_char('一', Pos::zero(), STYLE_DEFAULT, 2);
+        buf.drain_changes();
+        buf.display_char(' ', Pos::zero(), STYLE_DEFAULT, 1);
+        let actual_ops = buf.drain_changes().collect::<Vec<_>>();
+        assert_eq!(
+            actual_ops,
+            vec![
+                ScreenOp::Goto(Pos::zero()),
+                ScreenOp::Style(STYLE_DEFAULT),
+                ScreenOp::Print(' '),
+                // Should the space be "reprinted"?
+                // ScreenOp::Print(' '),
+            ]
         );
+    }
 
     #[test]
     fn test_complex() {
