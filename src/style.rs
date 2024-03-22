@@ -29,7 +29,6 @@ pub struct ConcreteStyle {
     pub fg_color: Rgb,
     pub bg_color: Rgb,
     pub bold: bool,
-    pub italic: bool,
     pub underlined: bool,
 }
 
@@ -38,7 +37,6 @@ pub struct Style {
     pub fg_color: Option<(Base16Color, Priority)>,
     pub bg_color: Option<(Base16Color, Priority)>,
     pub bold: Option<(bool, Priority)>,
-    pub italic: Option<(bool, Priority)>,
     pub underlined: Option<(bool, Priority)>,
     pub cursor: Option<CursorHalf>,
     pub is_hole: bool,
@@ -65,7 +63,6 @@ pub enum StyleLabel {
         fg_color: Option<Base16Color>,
         bg_color: Option<Base16Color>,
         bold: Option<bool>,
-        italic: Option<bool>,
         underlined: Option<bool>,
         priority: Priority,
     },
@@ -185,7 +182,6 @@ impl ppp::Style for Style {
             fg_color: prioritize(outer.fg_color, inner.fg_color),
             bg_color: prioritize(outer.bg_color, inner.bg_color),
             bold: prioritize(outer.bold, inner.bold),
-            italic: prioritize(outer.italic, inner.italic),
             underlined: prioritize(outer.underlined, inner.underlined),
             is_hole: outer.is_hole || inner.is_hole,
         }
@@ -198,7 +194,6 @@ impl Style {
             fg_color: None,
             bg_color: None,
             bold: None,
-            italic: None,
             underlined: None,
             cursor: None,
             is_hole: false,
@@ -239,7 +234,6 @@ impl ColorTheme {
             fg_color: unwrap_color(style.fg_color, FG_COLOR),
             bg_color: unwrap_color(style.bg_color, BG_COLOR),
             bold: unwrap_bool(style.bold),
-            italic: unwrap_bool(style.italic),
             underlined: unwrap_bool(style.underlined),
         }
     }

@@ -238,7 +238,6 @@ mod screen_buf_tests {
             blue: 0,
         },
         bold: false,
-        italic: false,
         underlined: false,
     };
 
@@ -254,7 +253,6 @@ mod screen_buf_tests {
             blue: 0,
         },
         bold: false,
-        italic: false,
         underlined: false,
     };
 
@@ -270,7 +268,6 @@ mod screen_buf_tests {
             blue: 0,
         },
         bold: false,
-        italic: false,
         underlined: false,
     };
 
