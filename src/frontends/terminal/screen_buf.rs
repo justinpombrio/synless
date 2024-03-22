@@ -22,9 +22,11 @@ pub struct ScreenBuf {
     blank_style: ConcreteStyle,
 }
 
-// TODO: Make this a 1d vector, using multiplication to access
 #[derive(Debug)]
-struct Buffer(Vec<Vec<CharCell>>);
+struct Buffer {
+    cells: Vec<CharCell>,
+    size: Size,
+}
 
 /// Represents a single character on a screen, with style properties.
 #[derive(Clone, Debug, PartialEq)]
@@ -66,25 +68,27 @@ impl Buffer {
             style: blank_style,
             width: 1,
         };
-        Buffer(vec![
-            vec![blank_cell; size.width as usize];
-            size.height as usize
-        ])
+        Buffer {
+            cells: vec![blank_cell; (size.width as usize) * (size.height as usize)],
+            size,
+        }
+    }
+
+    fn index(&self, pos: Pos) -> Result<usize, TermError> {
+        if pos.col >= self.size.width || pos.row >= self.size.height {
+            Err(TermError::OutOfBounds)
+        } else {
+            Ok((pos.row as usize) * (self.size.width as usize) + (pos.col as usize))
+        }
     }
 
     fn get(&self, pos: Pos) -> Result<CharCell, TermError> {
-        self.0
-            .get(pos.row as usize)
-            .and_then(|line| line.get(pos.col as usize))
-            .cloned()
-            .ok_or(TermError::OutOfBounds)
+        Ok(self.cells[self.index(pos)?].clone())
     }
 
     fn get_mut(&mut self, pos: Pos) -> Result<&mut CharCell, TermError> {
-        self.0
-            .get_mut(pos.row as usize)
-            .and_then(|line| line.get_mut(pos.col as usize))
-            .ok_or(TermError::OutOfBounds)
+        let i = self.index(pos)?;
+        Ok(&mut self.cells[i])
     }
 }
 
