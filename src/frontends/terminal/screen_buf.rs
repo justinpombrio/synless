@@ -1,6 +1,6 @@
 use super::TermError;
 use crate::style::ConcreteStyle;
-use partial_pretty_printer::{pane::PrettyWindow, Pos, Size, Width};
+use partial_pretty_printer::{pane::PrettyWindow, Height, Pos, Size, Width};
 use std::mem;
 
 /// Represents a screen full of characters. It buffers changes to the
@@ -267,6 +267,10 @@ mod screen_buf_tests {
         underlined: false,
     };
 
+    fn new_buf(width: Width, height: Height) -> ScreenBuf {
+        ScreenBuf::new(Size { width, height }, STYLE_DEFAULT)
+    }
+
     // All characters must be the same width, char_width.
     fn display(
         buf: &mut ScreenBuf,
@@ -311,18 +315,12 @@ mod screen_buf_tests {
         let c4r7 = Pos { col: 4, row: 7 };
         let c4r8 = Pos { col: 4, row: 8 };
 
-        let mut buf = ScreenBuf::new(
-            Size {
-                height: 1,
-                width: 1,
-            },
-            STYLE_DEFAULT,
-        );
+        let mut buf = new_buf(1, 1);
         assert_eq!(
             buf.size(),
             Size {
-                height: 1,
                 width: 1,
+                height: 1,
             },
         );
         assert_resized(
@@ -365,14 +363,7 @@ mod screen_buf_tests {
 
     #[test]
     fn test_simple() {
-        let mut buf = ScreenBuf::new(
-            Size {
-                width: 3,
-                height: 2,
-            },
-            STYLE_DEFAULT,
-        );
-
+        let mut buf = new_buf(3, 2);
         let pos = Pos { col: 2, row: 0 };
         buf.display_char('x', pos, STYLE_RED, 1).unwrap();
         let mut actual_ops: Vec<_> = buf.drain_changes().collect();
@@ -405,14 +396,7 @@ mod screen_buf_tests {
 
     #[test]
     fn test_no_change() {
-        let mut buf = ScreenBuf::new(
-            Size {
-                width: 3,
-                height: 2,
-            },
-            STYLE_DEFAULT,
-        );
-
+        let mut buf = new_buf(3, 2);
         let pos = Pos { col: 2, row: 0 };
         buf.display_char('x', pos, STYLE_RED, 1).unwrap();
         let mut actual_ops: Vec<_> = buf.drain_changes().collect();
@@ -442,14 +426,7 @@ mod screen_buf_tests {
 
     #[test]
     fn test_shorten() {
-        let mut buf = ScreenBuf::new(
-            Size {
-                width: 3,
-                height: 1,
-            },
-            STYLE_DEFAULT,
-        );
-
+        let mut buf = new_buf(3, 1);
         display(&mut buf, "xyz", Pos::zero(), STYLE_RED, 1);
         let mut actual_ops: Vec<_> = buf.drain_changes().collect();
         assert_eq!(
@@ -499,13 +476,7 @@ mod screen_buf_tests {
 
     #[test]
     fn test_full_width() {
-        let mut buf = ScreenBuf::new(
-            Size {
-                width: 8,
-                height: 1,
-            },
-            STYLE_DEFAULT,
-        );
+        let mut buf = new_buf(8, 1);
         display(&mut buf, "1234567", Pos { col: 1, row: 0 }, STYLE_RED, 1);
         let actual_ops = buf.drain_changes().collect::<Vec<_>>();
         assert_eq!(
@@ -569,15 +540,11 @@ mod screen_buf_tests {
         );
     }
     #[test]
-    fn test_complex() {
-        let mut buf = ScreenBuf::new(
-            Size {
-                width: 3,
-                height: 4,
-            },
-            STYLE_DEFAULT,
         );
 
+    #[test]
+    fn test_complex() {
+        let mut buf = new_buf(3, 4);
         display(&mut buf, "fo", Pos { col: 1, row: 0 }, STYLE_RED, 1);
         display(&mut buf, "oba", Pos { col: 0, row: 1 }, STYLE_RED, 1);
         display(&mut buf, "r", Pos { col: 0, row: 2 }, STYLE_RED, 1);
