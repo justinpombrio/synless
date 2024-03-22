@@ -132,14 +132,14 @@ impl ScreenBuf {
 
     /// Return the current size of the screen buffer, without checking the
     /// actual size of the terminal window (which might have changed recently).
-    fn size(&self) -> Size {
+    pub fn size(&self) -> Size {
         self.size
     }
 
     /// Display a character at the given window position in the given style. `full_width` indicates
     /// whether the character is 1 (`false`) or 2 (`true`) columns wide. The character is guaranteed
     /// to fit in the window and not overlap or overwrite any other characters.
-    fn display_char(
+    pub fn display_char(
         &mut self,
         ch: char,
         pos: Pos,

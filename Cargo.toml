@@ -10,8 +10,11 @@ bit-set = "0.5"
 typed-arena = "2.0"
 generational-arena = "0.2"
 crossterm = "0.27.0"
+# TODO switch to crossterm
+termion = "1.5"
 [dependencies.partial-pretty-printer]
     git = "https://github.com/justinpombrio/partial-pretty-printer"
+    version = "0.3.0"
 [dependencies.no-nonsense-flamegraphs]
     version = "0.2.*"
     git = "https://github.com/justinpombrio/no-nonsense-flamegraphs"
