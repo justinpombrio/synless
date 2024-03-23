@@ -1,4 +1,3 @@
-use super::TermError;
 use crate::style::ConcreteStyle;
 use partial_pretty_printer::{pane::PrettyWindow, Height, Pos, Size, Width};
 use std::mem;
@@ -6,9 +5,9 @@ use std::mem;
 // TODO: ScreenBuf thinks you don't need to re-print a space over the second half of a deleted
 // full-width character. Is that true? How do terminals work? (search "reprinted")
 
-/// Represents a screen full of characters. It buffers changes to the
-/// characters, and can produce a set of instructions for efficiently updating
-/// the screen to reflect those changes.
+/// Represents a grid of characters on a screen, like a terminal. It buffers changes to the
+/// characters, and can produce a set of instructions for efficiently updating the screen to reflect
+/// those changes.
 #[derive(Debug)]
 pub struct ScreenBuf {
     /// This should always contain the number of lines and cols requested by the
@@ -36,7 +35,7 @@ struct CharCell {
     width: Width,
 }
 
-/// Instructions for how to update a terminal.
+/// Instructions for how to update a screen.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ScreenOp {
     /// Print a character at the current cursor position, and advance the cursor.
@@ -57,7 +56,7 @@ pub struct ScreenBufIter<'a> {
     /// The screen's cursor position. The next printed char will appear at this position.
     screen_pos: Option<Pos>,
     /// Which cell the iterator is considering (NOT the position of the
-    /// terminal's cursor). None means we're past the end / done iterating.
+    /// screen's cursor). None means we're past the end / done iterating.
     buffer_pos: Option<Pos>,
 }
 
@@ -74,21 +73,24 @@ impl Buffer {
         }
     }
 
-    fn index(&self, pos: Pos) -> Result<usize, TermError> {
+    /// Returns None if out of bounds
+    fn index(&self, pos: Pos) -> Option<usize> {
         if pos.col >= self.size.width || pos.row >= self.size.height {
-            Err(TermError::OutOfBounds)
+            None
         } else {
-            Ok((pos.row as usize) * (self.size.width as usize) + (pos.col as usize))
+            Some((pos.row as usize) * (self.size.width as usize) + (pos.col as usize))
         }
     }
 
-    fn get(&self, pos: Pos) -> Result<CharCell, TermError> {
-        Ok(self.cells[self.index(pos)?].clone())
+    /// Returns None if out of bounds
+    fn get(&self, pos: Pos) -> Option<CharCell> {
+        Some(self.cells[self.index(pos)?].clone())
     }
 
-    fn get_mut(&mut self, pos: Pos) -> Result<&mut CharCell, TermError> {
+    /// Returns None if out of bounds
+    fn get_mut(&mut self, pos: Pos) -> Option<&mut CharCell> {
         let i = self.index(pos)?;
-        Ok(&mut self.cells[i])
+        Some(&mut self.cells[i])
     }
 }
 
@@ -131,26 +133,22 @@ impl ScreenBuf {
     }
 
     /// Return the current size of the screen buffer, without checking the
-    /// actual size of the terminal window (which might have changed recently).
+    /// actual size of the screen (which might have changed recently).
     pub fn size(&self) -> Size {
         self.size
     }
 
-    /// Display a character at the given window position in the given style. `full_width` indicates
-    /// whether the character is 1 (`false`) or 2 (`true`) columns wide. The character is guaranteed
-    /// to fit in the window and not overlap or overwrite any other characters.
-    pub fn display_char(
-        &mut self,
-        ch: char,
-        pos: Pos,
-        style: ConcreteStyle,
-        width: Width,
-    ) -> Result<(), TermError> {
-        let cell = self.new_buffer.get_mut(pos)?;
-        cell.ch = ch;
-        cell.style = style;
-        cell.width = width;
-        Ok(())
+    /// Returns false if out of bounds.
+    #[must_use]
+    pub fn display_char(&mut self, ch: char, pos: Pos, style: ConcreteStyle, width: Width) -> bool {
+        if let Some(cell) = self.new_buffer.get_mut(pos) {
+            cell.ch = ch;
+            cell.style = style;
+            cell.width = width;
+            true
+        } else {
+            false
+        }
     }
 }
 
@@ -284,15 +282,8 @@ mod screen_buf_tests {
         char_width: Width,
     ) {
         for ch in s.chars() {
-            buf.display_char(ch, pos, style, char_width).unwrap();
+            assert!(buf.display_char(ch, pos, style, char_width));
             pos.col += char_width;
-        }
-    }
-
-    fn assert_out_of_bounds(result: Result<(), TermError>) {
-        match result {
-            Err(TermError::OutOfBounds) => (),
-            x => panic!("expected OutOfBounds error, got {:?}", x),
         }
     }
 
@@ -300,11 +291,10 @@ mod screen_buf_tests {
         buf.resize(size);
         assert_eq!(buf.size(), size);
         for &pos in good_pos {
-            buf.display_char('x', pos, STYLE_DEFAULT, 1)
-                .unwrap_or_else(|_| panic!("pos {} out-of-bounds of buf with size {}", pos, size));
+            assert!(buf.display_char('x', pos, STYLE_DEFAULT, 1));
         }
         for &pos in bad_pos {
-            assert_out_of_bounds(buf.display_char('x', pos, STYLE_DEFAULT, 1));
+            assert!(!buf.display_char('x', pos, STYLE_DEFAULT, 1));
         }
     }
 
@@ -369,7 +359,7 @@ mod screen_buf_tests {
     fn test_simple() {
         let mut buf = new_buf(3, 2);
         let pos = Pos { col: 2, row: 0 };
-        buf.display_char('x', pos, STYLE_RED, 1).unwrap();
+        assert!(buf.display_char('x', pos, STYLE_RED, 1));
         let mut actual_ops: Vec<_> = buf.drain_changes().collect();
         assert_eq!(
             actual_ops,
@@ -402,7 +392,7 @@ mod screen_buf_tests {
     fn test_no_change() {
         let mut buf = new_buf(3, 2);
         let pos = Pos { col: 2, row: 0 };
-        buf.display_char('x', pos, STYLE_RED, 1).unwrap();
+        assert!(buf.display_char('x', pos, STYLE_RED, 1));
         let mut actual_ops: Vec<_> = buf.drain_changes().collect();
 
         assert_eq!(
@@ -423,7 +413,7 @@ mod screen_buf_tests {
         );
 
         // Print same thing as before
-        buf.display_char('x', pos, STYLE_RED, 1).unwrap();
+        assert!(buf.display_char('x', pos, STYLE_RED, 1));
         actual_ops = buf.drain_changes().collect();
         assert_eq!(actual_ops, vec![]);
     }
@@ -619,8 +609,7 @@ mod screen_buf_tests {
             ]
         );
 
-        buf.display_char('!', Pos { col: 2, row: 3 }, STYLE_DEFAULT, 1)
-            .unwrap();
+        assert!(buf.display_char('!', Pos { col: 2, row: 3 }, STYLE_DEFAULT, 1));
         let actual_ops: Vec<_> = buf.drain_changes().collect();
         assert_eq!(
             actual_ops,

@@ -1,13 +1,8 @@
 //! Render to and receive events from the terminal emulator.
 
-mod screen_buf;
-mod term_error;
-
-pub use term_error::TermError;
-
 use super::frontend::{Event, Frontend, Key, KeyCode, KeyModifiers, MouseButton, MouseEvent};
+use super::screen_buf::{ScreenBuf, ScreenOp};
 use crate::style::{ColorTheme, ConcreteStyle, Rgb, Style};
-use screen_buf::{ScreenBuf, ScreenOp};
 
 use partial_pretty_printer::pane::PrettyWindow;
 use partial_pretty_printer::{Col, Pos, Row, Size, Width};
@@ -36,6 +31,18 @@ pub struct Terminal {
     color_theme: ColorTheme,
     buf: ScreenBuf,
     focus_pos: Option<Pos>,
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum TermError {
+    #[error("Terminal input/output error: {0}")]
+    Io(#[from] io::Error),
+
+    #[error("Position outside window boundary")]
+    OutOfBounds,
+
+    #[error("Unknown key pressed")]
+    UnknownKey,
 }
 
 impl Terminal {
@@ -103,7 +110,11 @@ impl PrettyWindow for Terminal {
     ) -> Result<(), Self::Error> {
         let width = if full_width { 2 } else { 1 };
         let concrete_style = self.color_theme.concrete_style(style);
-        self.buf.display_char(ch, pos, concrete_style, width)
+        if self.buf.display_char(ch, pos, concrete_style, width) {
+            Ok(())
+        } else {
+            Err(TermError::OutOfBounds)
+        }
     }
 
     /// Invoked for each document for which [`PrintingOptions::set_focus`] is true,
