@@ -18,12 +18,21 @@ fn main() -> Result<(), io::Error> {
         // Blocking read!
         let event = read()?;
 
-        println!("{:?}", event);
+        if let Event::Key(key_event) = event {
+            println!(
+                "{:15}{:35}{}",
+                format!("{:?}", key_event.code),
+                format!("{:?}", key_event.modifiers),
+                format!("{:?}", key_event.state),
+            );
+            stdout.execute(MoveLeft(500))?;
+        }
 
         if event == Event::Key(KeyCode::Esc.into()) {
             break;
         }
-        stdout.execute(MoveLeft(500))?;
     }
+
+    stdout.execute(MoveLeft(500))?;
     disable_raw_mode()
 }
