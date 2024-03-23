@@ -23,8 +23,8 @@ pub trait Frontend: Sized + ppp::pane::PrettyWindow {
 
 /// An input event.
 pub enum Event {
-    KeyEvent(Key),
-    MouseEvent(MouseEvent),
+    Key(Key),
+    Mouse(MouseEvent),
     /// The window was resized.
     Resize,
     /// For "bracketed paste", which not all terminal emulators support.

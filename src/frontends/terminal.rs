@@ -184,7 +184,7 @@ impl Frontend for Terminal {
                     }
                     out.queue(SetAttributes(attributes))?;
                     out.queue(SetForegroundColor(style.fg_color.into()))?;
-                    out.queue(SetBackgroundColor((style.bg_color.into())))?;
+                    out.queue(SetBackgroundColor(style.bg_color.into()))?;
                 }
             }
         }
@@ -228,8 +228,8 @@ impl TryInto<Event> for ct_event::Event {
             ct_event::Event::FocusGained | ct_event::Event::FocusLost => Err(()),
             ct_event::Event::Paste(s) => Ok(Event::Paste(s)),
             ct_event::Event::Resize(..) => Ok(Event::Resize),
-            ct_event::Event::Mouse(mouse_event) => Ok(Event::MouseEvent(mouse_event.try_into()?)),
-            ct_event::Event::Key(key_event) => Ok(Event::KeyEvent(key_event.try_into()?)),
+            ct_event::Event::Mouse(mouse_event) => Ok(Event::Mouse(mouse_event.try_into()?)),
+            ct_event::Event::Key(key_event) => Ok(Event::Key(key_event.try_into()?)),
         }
     }
 }
