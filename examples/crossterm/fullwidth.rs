@@ -61,9 +61,6 @@ fn main() -> Result<(), io::Error> {
                     if let Some(digit) = ch.to_digit(10) {
                         write!(stdout, "{}", DIGITS[digit as usize])?;
                         stdout.flush()?;
-                    } else if ch.is_ascii_lowercase() {
-                        write!(stdout, "{}", ch)?;
-                        stdout.flush()?;
                     } else {
                         write!(stdout, "{}", ch)?;
                         stdout.flush()?;

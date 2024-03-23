@@ -47,19 +47,19 @@ fn main() -> Result<(), io::Error> {
 
         if let Event::Key(key_event) = event {
             println!(
-                "{:15}{:35}{}",
+                "{:8}{:12}{:30}{:?}",
+                format!("{:?}", key_event.kind),
                 format!("{:?}", key_event.code),
                 format!("{:?}", key_event.modifiers),
-                format!("{:?}", key_event.state),
+                key_event.state,
             );
             stdout.execute(MoveLeft(500))?;
         } else if let Event::Mouse(mouse_event) = event {
             println!(
-                "{:5},{:5}{:15}{}",
-                format!("{:?}", mouse_event.column),
-                format!("{:?}", mouse_event.row),
+                "{:15}{:8}{:?}",
                 format!("{:?}", mouse_event.kind),
-                format!("{:?}", mouse_event.modifiers),
+                format!("{:?},{:?}", mouse_event.column, mouse_event.row),
+                mouse_event.modifiers,
             );
             stdout.execute(MoveLeft(500))?;
         }
