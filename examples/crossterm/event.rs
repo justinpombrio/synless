@@ -1,5 +1,5 @@
 use crossterm::cursor::MoveLeft;
-use crossterm::event::{read, Event, KeyCode};
+use crossterm::event::{read, DisableMouseCapture, EnableMouseCapture, Event, KeyCode};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 use crossterm::ExecutableCommand;
 use std::io;
@@ -11,9 +11,10 @@ const HELP: &str = r#"Testing the crossterm crate:
 
 fn main() -> Result<(), io::Error> {
     println!("{}", HELP);
+    let mut stdout = io::stdout();
 
     enable_raw_mode()?;
-    let mut stdout = io::stdout();
+    stdout.execute(EnableMouseCapture)?;
     loop {
         // Blocking read!
         let event = read()?;
@@ -26,6 +27,15 @@ fn main() -> Result<(), io::Error> {
                 format!("{:?}", key_event.state),
             );
             stdout.execute(MoveLeft(500))?;
+        } else if let Event::Mouse(mouse_event) = event {
+            println!(
+                "{:5},{:5}{:15}{}",
+                format!("{:?}", mouse_event.column),
+                format!("{:?}", mouse_event.row),
+                format!("{:?}", mouse_event.kind),
+                format!("{:?}", mouse_event.modifiers),
+            );
+            stdout.execute(MoveLeft(500))?;
         }
 
         if event == Event::Key(KeyCode::Esc.into()) {
@@ -34,5 +44,6 @@ fn main() -> Result<(), io::Error> {
     }
 
     stdout.execute(MoveLeft(500))?;
+    stdout.execute(DisableMouseCapture)?;
     disable_raw_mode()
 }
