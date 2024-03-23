@@ -32,3 +32,7 @@ path = "examples/crossterm/style.rs"
 [[example]]
 name = "crossterm_event"
 path = "examples/crossterm/event.rs"
+
+[[example]]
+name = "crossterm_fullwidth"
+path = "examples/crossterm/fullwidth.rs"
