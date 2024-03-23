@@ -65,11 +65,11 @@ fn urllang() -> LanguageSpec {
                         count(Count {
                             zero: empty(),
                             one: lit("?") + child(0),
-                            many: lit("?")
+                            many: (lit("?")
                                 + fold(Fold {
                                     first: child(0),
                                     join: left() + lit("&") + right(),
-                                })
+                                }))
                                 | lit("?")
                                     ^ fold(Fold {
                                         first: child(0),
