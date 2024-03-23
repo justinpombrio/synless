@@ -1,3 +1,2 @@
-mod terminal;
 mod frontend;
-mod key;
+mod terminal;
