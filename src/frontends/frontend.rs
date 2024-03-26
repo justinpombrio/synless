@@ -5,34 +5,37 @@ use std::time::Duration;
 pub use crate::style::ColorTheme;
 
 /// A front end for the editor. It knows how to render a frame and how to
-/// receive keyboard events.
+/// receive keyboard and mouse events.
 pub trait Frontend: Sized + ppp::pane::PrettyWindow {
     /// Construct a new frontend.
     fn new(theme: ColorTheme) -> Result<Self, Self::Error>;
+
+    /// Set the color theme. Must not be called between `start_frame()` and `end_frame()`.
+    fn set_color_theme(&mut self, theme: ColorTheme) -> Result<(), Self::Error>;
 
     /// Block until an event (eg. keypress) occurs, then return it. `None` means that no event
     /// occurred before the timeout elapsed.
     fn next_event(&mut self, timeout: Duration) -> Result<Option<Event>, Self::Error>;
 
-    /// Prepare to start modifying a fresh new frame. This should be called before pretty-printing.
+    /// Prepare to start modifying a fresh new frame. This must be called before pretty-printing.
     fn start_frame(&mut self) -> Result<(), Self::Error>;
 
-    /// Show the modified frame to the user. This should be called after pretty-printing.
-    fn show_frame(&mut self) -> Result<(), Self::Error>;
+    /// Show the modified frame to the user. This must be called after pretty-printing.
+    fn end_frame(&mut self) -> Result<(), Self::Error>;
 }
 
 /// An input event.
 pub enum Event {
     Key(Key),
     Mouse(MouseEvent),
-    /// The window was resized.
+    /// The window was resized. Call `.size()` to get the new size.
     Resize,
     /// For "bracketed paste", which not all terminal emulators support.
     Paste(String),
 }
 
 pub struct MouseEvent {
-    /// A character position, relative to the terminal window.
+    /// A character grid position, relative to the window.
     pub click_pos: ppp::Pos,
     /// Which mouse button was clicked.
     pub button: MouseButton,
@@ -40,10 +43,12 @@ pub struct MouseEvent {
 
 pub enum MouseButton {
     Left,
+    Middle,
     Right,
 }
 
-/// If the code is a capitalized character, the modifiers will NOT include shift.
+/// If the key code can be capitalized, then shift is indicated by capitalizing it and _not_
+/// setting the shift modifier.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Key {
     pub code: KeyCode,
@@ -54,6 +59,7 @@ pub struct Key {
 pub struct KeyModifiers {
     pub ctrl: bool,
     pub alt: bool,
+    /// (See comment about shift on `Key`.)
     pub shift: bool,
 }
 
@@ -72,10 +78,9 @@ pub enum KeyCode {
     Tab,
     Delete,
     Insert,
+    Esc,
     F(u8),
     Char(char),
-    Null,
-    Esc,
 }
 
 impl fmt::Display for Key {
@@ -103,11 +108,10 @@ impl fmt::Display for Key {
             KeyCode::Tab => write!(f, "tab"),
             KeyCode::Delete => write!(f, "del"),
             KeyCode::Insert => write!(f, "ins"),
-            KeyCode::F(num) => write!(f, "f{}", num),
-            KeyCode::Char(' ') => write!(f, "spc"),
-            KeyCode::Char(c) => write!(f, "{}", c),
-            KeyCode::Null => write!(f, "null"),
             KeyCode::Esc => write!(f, "esc"),
+            KeyCode::F(num) => write!(f, "f{}", num),
+            KeyCode::Char(' ') => write!(f, "space"),
+            KeyCode::Char(c) => write!(f, "{}", c),
         }
     }
 }

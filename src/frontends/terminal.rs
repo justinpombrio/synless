@@ -1,11 +1,11 @@
-//! Render to and receive events from the terminal emulator.
+//! Render to and receive events from a terminal emulator.
 
 use super::frontend::{Event, Frontend, Key, KeyCode, KeyModifiers, MouseButton, MouseEvent};
 use super::screen_buf::{ScreenBuf, ScreenOp};
 use crate::style::{ColorTheme, ConcreteStyle, Rgb, Style};
 
 use partial_pretty_printer::pane::PrettyWindow;
-use partial_pretty_printer::{Col, Pos, Row, Size, Width};
+use partial_pretty_printer::{Col, Height, Pos, Row, Size};
 
 use std::convert::TryFrom;
 use std::fmt::Display;
@@ -30,39 +30,28 @@ use crossterm::QueueableCommand;
 pub struct Terminal {
     color_theme: ColorTheme,
     buf: ScreenBuf,
+    /// Where to place the terminal cursor. If `None`, hide the cursor.
     focus_pos: Option<Pos>,
 }
 
 #[derive(thiserror::Error, Debug)]
-pub enum TermError {
+pub enum TerminalError {
     #[error("Terminal input/output error: {0}")]
     Io(#[from] io::Error),
 
-    #[error("Position outside window boundary")]
+    #[error("Character position outside window boundary")]
     OutOfBounds,
-
-    #[error("Unknown key pressed")]
-    UnknownKey,
 }
 
 impl Terminal {
-    /// Get the current size of the actual terminal window, which might be different than the current size of the ScreenBuf.
-    fn terminal_window_size() -> Result<Size, TermError> {
+    /// Get the current size of the actual terminal window in characters. This may be different
+    /// than the current size of the ScreenBuf.
+    fn terminal_window_size() -> Result<Size, TerminalError> {
         let (width, height) = ct_size()?;
         Ok(Size {
             width,
-            height: height as u32,
+            height: height as Height,
         })
-    }
-
-    /// Update the screen buffer size to match the actual terminal window size.
-    /// If the screen buffer changes size as a result, its contents will be cleared.
-    fn update_size(&mut self) -> Result<(), TermError> {
-        let size = Self::terminal_window_size()?;
-        if size != self.buf.size() {
-            self.buf.resize(size);
-        }
-        Ok(())
     }
 
     /// Prepare the terminal for use. This should be run once on startup.
@@ -89,18 +78,15 @@ impl Terminal {
 }
 
 impl PrettyWindow for Terminal {
-    type Error = TermError;
+    type Error = TerminalError;
     type Style = Style;
 
-    /// Return the current size of the screen buffer, without checking the
-    /// actual size of the terminal window (which might have changed recently).
-    fn size(&self) -> Result<Size, TermError> {
+    // Return the current size of the screen buffer, without checking the
+    // actual size of the terminal window (which might have changed recently).
+    fn size(&self) -> Result<Size, TerminalError> {
         Ok(self.buf.size())
     }
 
-    /// Display a character at the given window position in the given style. `full_width` indicates
-    /// whether the character is 1 (`false`) or 2 (`true`) columns wide. The character is guaranteed
-    /// to fit in the window and not overlap or overwrite any other characters.
     fn display_char(
         &mut self,
         ch: char,
@@ -113,12 +99,10 @@ impl PrettyWindow for Terminal {
         if self.buf.display_char(ch, pos, concrete_style, width) {
             Ok(())
         } else {
-            Err(TermError::OutOfBounds)
+            Err(TerminalError::OutOfBounds)
         }
     }
 
-    /// Invoked for each document for which [`PrintingOptions::set_focus`] is true,
-    /// where `pos` is the focal point of the document.
     fn set_focus(&mut self, pos: Pos) -> Result<(), Self::Error> {
         self.focus_pos = Some(pos);
         Ok(())
@@ -126,7 +110,7 @@ impl PrettyWindow for Terminal {
 }
 
 impl Frontend for Terminal {
-    fn new(theme: ColorTheme) -> Result<Terminal, TermError> {
+    fn new(theme: ColorTheme) -> Result<Terminal, TerminalError> {
         let default_concrete_style = theme.concrete_style(&Style::default());
 
         let mut term = Terminal {
@@ -138,15 +122,23 @@ impl Frontend for Terminal {
         Ok(term)
     }
 
-    fn next_event(&mut self, timeout: Duration) -> Result<Option<Event>, TermError> {
+    fn set_color_theme(&mut self, theme: ColorTheme) -> Result<(), Self::Error> {
+        let default_concrete_style = theme.concrete_style(&Style::default());
+        self.color_theme = theme;
+        self.buf.set_blank_style(default_concrete_style);
+        Ok(())
+    }
+
+    fn next_event(&mut self, timeout: Duration) -> Result<Option<Event>, TerminalError> {
         let deadline = Instant::now() + timeout;
         let mut remaining = timeout;
         loop {
             if !ct_event::poll(remaining)? {
                 return Ok(None);
             }
-            if let Ok(event) = ct_event::read()?.try_into() {
-                return Ok(Some(event));
+            let event = ct_event::read()?;
+            if let Ok(relevant_event) = event.try_into() {
+                return Ok(Some(relevant_event));
             }
             if let Some(t) = deadline.checked_duration_since(Instant::now()) {
                 remaining = t;
@@ -156,21 +148,28 @@ impl Frontend for Terminal {
         }
     }
 
-    fn start_frame(&mut self) -> Result<(), TermError> {
-        self.update_size()
+    fn start_frame(&mut self) -> Result<(), TerminalError> {
+        // Update the screen buffer size to match the actual terminal window size.
+        // If the screen buffer changes size as a result, its contents will be cleared.
+        let size = Self::terminal_window_size()?;
+        if size != self.buf.size() {
+            self.buf.resize(size);
+        }
+        Ok(())
     }
 
-    fn show_frame(&mut self) -> Result<(), TermError> {
+    fn end_frame(&mut self) -> Result<(), TerminalError> {
         fn move_to(pos: Pos) -> cursor::MoveTo {
             cursor::MoveTo(pos.col, pos.row as u16)
         }
 
         let mut out = stdout().lock();
         out.queue(BeginSynchronizedUpdate)?;
-        let changes: Vec<_> = self.buf.drain_changes().collect();
-        for op in changes {
+
+        for op in self.buf.drain_changes() {
             match op {
-                ScreenOp::Print(ch) => write!(out, "{}", ch)?,
+                // Assuming that ppp and the terminal agree about char width!
+                ScreenOp::Print(ch, _) => write!(out, "{}", ch)?,
                 ScreenOp::Goto(pos) => {
                     out.queue(move_to(pos))?;
                 }
@@ -222,7 +221,7 @@ impl From<Rgb> for Color {
 impl TryInto<Event> for ct_event::Event {
     type Error = ();
 
-    /// Returns Err if the event is unsupported.
+    /// Returns `Err` if the event is irrelevant to us.
     fn try_into(self) -> Result<Event, ()> {
         match self {
             ct_event::Event::FocusGained | ct_event::Event::FocusLost => Err(()),
@@ -237,15 +236,13 @@ impl TryInto<Event> for ct_event::Event {
 impl TryInto<MouseEvent> for ct_event::MouseEvent {
     type Error = ();
 
-    /// Returns Err if the event is unsupported.
+    /// Returns `Err` if the event is irrelevant to us.
     fn try_into(self) -> Result<MouseEvent, ()> {
         if let ct_event::MouseEventKind::Down(ct_button) = self.kind {
             let button = match ct_button {
                 ct_event::MouseButton::Left => MouseButton::Left,
                 ct_event::MouseButton::Right => MouseButton::Right,
-                ct_event::MouseButton::Middle => {
-                    return Err(());
-                }
+                ct_event::MouseButton::Middle => MouseButton::Middle,
             };
             Ok(MouseEvent {
                 click_pos: Pos {
@@ -263,7 +260,7 @@ impl TryInto<MouseEvent> for ct_event::MouseEvent {
 impl TryInto<Key> for ct_event::KeyEvent {
     type Error = ();
 
-    /// Returns Err if the event is unsupported.
+    /// Returns `Err` if the event is irrelevant to us.
     fn try_into(self) -> Result<Key, ()> {
         if self.kind != ct_event::KeyEventKind::Press {
             return Err(());
