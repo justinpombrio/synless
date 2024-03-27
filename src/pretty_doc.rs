@@ -41,7 +41,7 @@ impl<'d> DocRef<'d> {
 
     /// Char index to split this node's text at
     fn text_index(&self) -> usize {
-        if let Location::InText { node, char_pos } = self.cursor_loc {
+        if let Some((node, char_pos)) = self.cursor_loc.text_pos() {
             if node == self.node {
                 char_pos
             } else {
@@ -103,15 +103,18 @@ impl<'d> ppp::PrettyDoc<'d> for DocRef<'d> {
         match style_label {
             StyleLabel::Hole => HOLE_STYLE,
             StyleLabel::Open => {
-                if self.cursor_loc.parent() == Some(self.node) && self.cursor_loc.left().is_none() {
+                let parent = self.cursor_loc.parent(self.storage);
+                let left = self.cursor_loc.left(self.storage);
+                if parent == Some(self.node) && left.is_none() {
                     LEFT_CURSOR_STYLE
                 } else {
                     Style::default()
                 }
             }
             StyleLabel::Close => {
-                if self.cursor_loc.parent() == Some(self.node) && self.cursor_loc.right().is_none()
-                {
+                let parent = self.cursor_loc.parent(self.storage);
+                let right = self.cursor_loc.right(self.storage);
+                if parent == Some(self.node) && right.is_none() {
                     RIGHT_CURSOR_STYLE
                 } else {
                     Style::default()
@@ -137,9 +140,9 @@ impl<'d> ppp::PrettyDoc<'d> for DocRef<'d> {
     fn node_style(self) -> Style {
         if self.text_pos.is_some() {
             Style::default()
-        } else if self.cursor_loc.left() == Some(self.node) {
+        } else if self.cursor_loc.left(self.storage) == Some(self.node) {
             LEFT_CURSOR_STYLE
-        } else if self.cursor_loc.right() == Some(self.node) {
+        } else if self.cursor_loc.right(self.storage) == Some(self.node) {
             RIGHT_CURSOR_STYLE
         } else {
             Style::default()

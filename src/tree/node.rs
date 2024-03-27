@@ -34,9 +34,6 @@ struct NodeData {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Node(forest::NodeIndex);
 
-/// A long-lived reference to a node that might or might not still exist.
-pub struct Bookmark(forest::NodeIndex);
-
 impl Storage {
     fn forest(&self) -> &forest::Forest<NodeData> {
         &self.node_forest.forest
@@ -256,23 +253,9 @@ impl Node {
         Node(s.forest().root(self.0))
     }
 
-    /// Save a bookmark to return to later.
-    pub fn bookmark(self) -> Bookmark {
-        Bookmark(self.0)
-    }
-
-    /// Jump to a previously saved bookmark, as long as that
-    /// bookmark's node is present somewhere in this tree. This will
-    /// work even if the Tree has been modified since the bookmark was
-    /// created. However, it will return `None` if the bookmark's node
-    /// has since been deleted, or if it is currently located in a
-    /// different tree.
-    pub fn goto_bookmark(self, mark: Bookmark, s: &Storage) -> Option<Node> {
-        if s.forest().is_valid(mark.0) && s.forest().root(self.0) == s.forest().root(mark.0) {
-            Some(Node(mark.0))
-        } else {
-            None
-        }
+    /// Check whether this node has been deleted.
+    pub fn is_valid(self, s: &Storage) -> bool {
+        s.forest().is_valid(self.0)
     }
 
     /**************
