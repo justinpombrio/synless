@@ -2,8 +2,10 @@ use std::fmt;
 use std::panic::Location;
 
 pub use crate::bug;
+pub use crate::bug_assert;
 
-#[doc(hidden)]
+// TODO: replace if(cond){bug!(msg)} with bug_assert!(cond, msg)
+
 #[macro_export]
 /// You can add this to the top of the body of a function to include it in
 /// flamegraphs when `--features profile` is used.
@@ -91,12 +93,11 @@ pub fn format_bug(location: String, message: &str) -> String {
     output
 }
 
-#[doc(hidden)]
 #[macro_export]
 /// Like `panic!()`, but with a better error message.
 macro_rules! bug {
     ($message:literal) => {
-        bug!($message,)
+        $crate::bug!($message,)
     };
     ($message:literal, $( $arg:expr ),*) => {
         panic!("{}",
@@ -105,5 +106,20 @@ macro_rules! bug {
                 &format!($message, $( $arg ),*)
             )
         )
+    };
+}
+
+#[macro_export]
+/// Like `assert!()`, but with a better error message.
+macro_rules! bug_assert {
+    ($condition:expr, $message:literal) => {
+        if !$condition {
+            $crate::bug!($message);
+        }
+    };
+    ($condition:expr, $message:literal, $( $arg:expr ),*) => {
+        if !$condition {
+            $crate::bug!($message, $( $arg ),*)
+        }
     };
 }

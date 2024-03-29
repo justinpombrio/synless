@@ -103,8 +103,8 @@ impl<'d> ppp::PrettyDoc<'d> for DocRef<'d> {
         match style_label {
             StyleLabel::Hole => HOLE_STYLE,
             StyleLabel::Open => {
-                let parent = self.cursor_loc.parent(self.storage);
-                let left = self.cursor_loc.left(self.storage);
+                let parent = self.cursor_loc.parent_node(self.storage);
+                let left = self.cursor_loc.left_node(self.storage);
                 if parent == Some(self.node) && left.is_none() {
                     LEFT_CURSOR_STYLE
                 } else {
@@ -112,8 +112,8 @@ impl<'d> ppp::PrettyDoc<'d> for DocRef<'d> {
                 }
             }
             StyleLabel::Close => {
-                let parent = self.cursor_loc.parent(self.storage);
-                let right = self.cursor_loc.right(self.storage);
+                let parent = self.cursor_loc.parent_node(self.storage);
+                let right = self.cursor_loc.right_node(self.storage);
                 if parent == Some(self.node) && right.is_none() {
                     RIGHT_CURSOR_STYLE
                 } else {
@@ -140,9 +140,9 @@ impl<'d> ppp::PrettyDoc<'d> for DocRef<'d> {
     fn node_style(self) -> Style {
         if self.text_pos.is_some() {
             Style::default()
-        } else if self.cursor_loc.left(self.storage) == Some(self.node) {
+        } else if self.cursor_loc.left_node(self.storage) == Some(self.node) {
             LEFT_CURSOR_STYLE
-        } else if self.cursor_loc.right(self.storage) == Some(self.node) {
+        } else if self.cursor_loc.right_node(self.storage) == Some(self.node) {
             RIGHT_CURSOR_STYLE
         } else {
             Style::default()

@@ -34,6 +34,8 @@ struct NodeData {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Node(forest::NodeIndex);
 
+// TODO: Put Storage arg always first or always last :-(
+
 impl Storage {
     fn forest(&self) -> &forest::Forest<NodeData> {
         &self.node_forest.forest
@@ -150,6 +152,10 @@ impl Node {
         s.forest().data(self.0).id
     }
 
+    pub fn language(self, s: &Storage) -> Language {
+        s.forest().data(self.0).construct.language()
+    }
+
     pub fn construct(self, s: &Storage) -> Construct {
         s.forest().data(self.0).construct
     }
@@ -165,6 +171,10 @@ impl Node {
 
     pub fn notation(self, s: &Storage) -> &ValidNotation {
         s.forest().data(self.0).construct.notation(s)
+    }
+
+    pub fn is_texty(self, s: &Storage) -> bool {
+        s.forest().data(self.0).text.is_some()
     }
 
     /// Borrow the text of a texty node. `None` if it's not texty.
@@ -202,9 +212,9 @@ impl Node {
 
     /// Return the number of children this node has. For a Fixed node, this is
     /// its arity. For a Listy node, this is its current number of children.
-    /// For text, this is None.
+    /// For text, this is None. Requires iterating over all the children.
     pub fn num_children(self, s: &Storage) -> Option<usize> {
-        if s.forest().data(self.0).text.is_some() {
+        if self.is_texty(s) {
             None
         } else {
             Some(s.forest().num_children(self.0))

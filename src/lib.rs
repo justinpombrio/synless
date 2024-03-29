@@ -1,6 +1,7 @@
 // TODO: temporary
 #![allow(unused)]
 
+mod engine;
 mod frontends;
 mod language;
 mod pretty_doc;
