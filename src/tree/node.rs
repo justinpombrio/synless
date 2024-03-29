@@ -34,8 +34,6 @@ struct NodeData {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Node(forest::NodeIndex);
 
-// TODO: Put Storage arg always first or always last :-(
-
 impl Storage {
     fn forest(&self) -> &forest::Forest<NodeData> {
         &self.node_forest.forest

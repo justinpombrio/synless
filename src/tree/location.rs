@@ -36,41 +36,41 @@ impl Location {
      * Constructors *
      ****************/
 
-    pub fn before(node: Node, s: &Storage) -> Location {
+    pub fn before(s: &Storage, node: Node) -> Location {
         Location(LocationInner::BeforeNode(node).normalize(s))
     }
 
-    pub fn after(node: Node, _s: &Storage) -> Location {
+    pub fn after(_s: &Storage, node: Node) -> Location {
         // already normal form
         Location(LocationInner::AfterNode(node))
     }
 
     /// Returns the location at the beginning of the child sequence of the given node.
-    pub fn before_children(node: Node, s: &Storage) -> Option<Location> {
+    pub fn before_children(s: &Storage, node: Node) -> Option<Location> {
         if node.is_texty(s) {
             return None;
         }
         if let Some(first_child) = node.first_child(s) {
-            Some(Location::before(first_child, s))
+            Some(Location::before(s, first_child))
         } else {
             Some(Location(LocationInner::BelowNode(node)))
         }
     }
 
     /// Returns the location at the end of the child sequence of the given node.
-    pub fn after_children(node: Node, s: &Storage) -> Option<Location> {
+    pub fn after_children(s: &Storage, node: Node) -> Option<Location> {
         if node.is_texty(s) {
             return None;
         }
         if let Some(last_child) = node.last_child(s) {
-            Some(Location::after(last_child, s))
+            Some(Location::after(s, last_child))
         } else {
             Some(Location(LocationInner::BelowNode(node)))
         }
     }
 
     /// If the node is texty, returns the location at the start of its text, otherwise returns `None`.
-    pub fn start_of_text(node: Node, s: &Storage) -> Option<Location> {
+    pub fn start_of_text(s: &Storage, node: Node) -> Option<Location> {
         if node.is_texty(s) {
             Some(Location(LocationInner::InText(node, 0)))
         } else {
@@ -79,7 +79,7 @@ impl Location {
     }
 
     /// If the node is texty, returns the location at the end of its text, otherwise returns `None`.
-    pub fn end_of_text(node: Node, s: &Storage) -> Option<Location> {
+    pub fn end_of_text(s: &Storage, node: Node) -> Option<Location> {
         let text_len = node.text(s)?.num_chars();
         Some(Location(LocationInner::InText(node, text_len)))
     }
@@ -119,7 +119,7 @@ impl Location {
         use LocationInner::{AfterNode, BeforeNode, BelowNode, InText};
 
         match self.0 {
-            AfterNode(node) => Some(Location::before(node, s)),
+            AfterNode(node) => Some(Location::before(s, node)),
             InText(_, _) | BeforeNode(_) | BelowNode(_) => None,
         }
     }
@@ -128,8 +128,8 @@ impl Location {
         use LocationInner::{AfterNode, BeforeNode, BelowNode, InText};
 
         match self.0 {
-            AfterNode(node) => Some(Location::after(node.next_sibling(s)?, s)),
-            BeforeNode(node) => Some(Location::after(node, s)),
+            AfterNode(node) => Some(Location::after(s, node.next_sibling(s)?)),
+            BeforeNode(node) => Some(Location::after(s, node)),
             InText(_, _) | BelowNode(_) => None,
         }
     }
@@ -139,7 +139,7 @@ impl Location {
 
         match self.0 {
             InText(_, _) => None,
-            AfterNode(node) => Some(Location::before(node.first_sibling(s), s)),
+            AfterNode(node) => Some(Location::before(s, node.first_sibling(s))),
             BeforeNode(_) | BelowNode(_) => Some(self),
         }
     }
@@ -149,26 +149,26 @@ impl Location {
 
         match self.0 {
             InText(_, _) => None,
-            BeforeNode(node) | AfterNode(node) => Some(Location::after(node.last_sibling(s), s)),
+            BeforeNode(node) | AfterNode(node) => Some(Location::after(s, node.last_sibling(s))),
             BelowNode(_) => Some(self),
         }
     }
 
     pub fn before_parent(self, s: &Storage) -> Option<Location> {
-        Some(Location::before(self.parent_node(s)?, s))
+        Some(Location::before(s, self.parent_node(s)?))
     }
 
     pub fn after_parent(self, s: &Storage) -> Option<Location> {
-        Some(Location::after(self.parent_node(s)?, s))
+        Some(Location::after(s, self.parent_node(s)?))
     }
 
     /// Returns the next location in an inorder tree traversal.
     pub fn inorder_next(self, s: &Storage) -> Option<Location> {
         if let Some(right_node) = self.right_node(s) {
-            if let Some(loc) = Location::before_children(right_node, s) {
+            if let Some(loc) = Location::before_children(s, right_node) {
                 Some(loc)
             } else {
-                Some(Location::after(right_node, s))
+                Some(Location::after(s, right_node))
             }
         } else {
             self.after_parent(s)
@@ -178,10 +178,10 @@ impl Location {
     /// Returns the previous location in an inorder tree traversal.
     pub fn inorder_prev(self, s: &Storage) -> Option<Location> {
         if let Some(left_node) = self.left_node(s) {
-            if let Some(loc) = Location::after_children(left_node, s) {
+            if let Some(loc) = Location::after_children(s, left_node) {
                 Some(loc)
             } else {
-                Some(Location::before(left_node, s))
+                Some(Location::before(s, left_node))
             }
         } else {
             self.before_parent(s)
@@ -251,7 +251,7 @@ impl Location {
     /// - This location is after the last node in a fixed sequence.
     /// - The new node does not match the required sort.
     #[allow(clippy::result_unit_err)]
-    pub fn insert(&mut self, new_node: Node, s: &mut Storage) -> Result<Option<Node>, ()> {
+    pub fn insert(&mut self, s: &mut Storage, new_node: Node) -> Result<Option<Node>, ()> {
         use LocationInner::*;
 
         let parent = self.parent_node(s).ok_or(())?;
@@ -261,7 +261,7 @@ impl Location {
             Arity::Fixed(_) => {
                 let old_node = self.right_node(s).ok_or(())?;
                 if new_node.swap(s, old_node) {
-                    *self = Location::after(new_node, s);
+                    *self = Location::after(s, new_node);
                     Ok(Some(old_node))
                 } else {
                     Err(())
@@ -275,7 +275,7 @@ impl Location {
                     BelowNode(_) => parent.insert_last_child(s, new_node),
                 };
                 if success {
-                    *self = Location::after(new_node, s);
+                    *self = Location::after(s, new_node);
                     Ok(None)
                 } else {
                     Err(())
@@ -288,7 +288,7 @@ impl Location {
     /// replace the node before (after) the cursor with a hole, and move the cursor before (after)
     /// it.
     #[must_use]
-    pub fn delete_neighbor(&mut self, delete_before: bool, s: &mut Storage) -> Option<Node> {
+    pub fn delete_neighbor(&mut self, s: &mut Storage, delete_before: bool) -> Option<Node> {
         let parent = self.parent_node(s)?;
         let node = if delete_before {
             self.left_node(s)?
@@ -303,9 +303,9 @@ impl Location {
                 let hole = Node::new_hole(s, node.language(s));
                 if node.swap(s, hole) {
                     *self = if delete_before {
-                        Location::before(hole, s)
+                        Location::before(s, hole)
                     } else {
-                        Location::after(hole, s)
+                        Location::after(s, hole)
                     };
                     Some(node)
                 } else {
@@ -345,7 +345,7 @@ impl Location {
     /// created. However, it will return `None` if the bookmark's node
     /// has since been deleted, or if it is currently located in a
     /// different tree.
-    pub fn validate_bookmark(self, mark: Bookmark, s: &Storage) -> Option<Location> {
+    pub fn validate_bookmark(self, s: &Storage, mark: Bookmark) -> Option<Location> {
         let mark_node = mark.0.reference_node();
         if mark_node.is_valid(s) && mark_node.root(s) == self.root_node(s) {
             Some(Location(mark.0.normalize(s)))

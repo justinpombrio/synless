@@ -46,9 +46,9 @@ pub struct Doc {
 }
 
 impl Doc {
-    pub fn new(node: Node, s: &Storage) -> Self {
+    pub fn new(s: &Storage, node: Node) -> Self {
         Doc {
-            cursor: Location::before(node, s),
+            cursor: Location::before(s, node),
             recent: None,
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
@@ -65,8 +65,8 @@ impl Doc {
     }
 
     /// Move the cursor to the bookmark's location, if it's in this document.
-    pub fn goto_bookmark(&mut self, bookmark: Bookmark, s: &Storage) -> Result<(), DocError> {
-        if let Some(new_loc) = self.cursor.validate_bookmark(bookmark, s) {
+    pub fn goto_bookmark(&mut self, s: &Storage, bookmark: Bookmark) -> Result<(), DocError> {
+        if let Some(new_loc) = self.cursor.validate_bookmark(s, bookmark) {
             self.cursor = new_loc;
             Ok(())
         } else {
@@ -76,12 +76,12 @@ impl Doc {
 
     /// Executes a single command. Clears the redo stack if it was an editing command (but not if
     /// it was a navigation command).
-    pub fn execute(&mut self, cmd: DocCommand, s: &mut Storage) -> Result<(), DocError> {
+    pub fn execute(&mut self, s: &mut Storage, cmd: DocCommand) -> Result<(), DocError> {
         match cmd {
             DocCommand::Ed(cmd) => {
                 self.redo_stack.clear();
                 let restore_loc = self.cursor;
-                let undos = execute_ed(cmd, &mut self.cursor, s)?;
+                let undos = execute_ed(s, cmd, &mut self.cursor)?;
                 if let Some(recent) = &mut self.recent {
                     recent.commands.extend(undos);
                 } else {
@@ -89,7 +89,7 @@ impl Doc {
                 }
                 Ok(())
             }
-            DocCommand::Nav(cmd) => execute_nav(cmd, &mut self.cursor, s),
+            DocCommand::Nav(cmd) => execute_nav(s, cmd, &mut self.cursor),
         }
     }
 
@@ -110,7 +110,7 @@ impl Doc {
         self.end_undo_group();
 
         if let Some(undo_group) = self.undo_stack.pop() {
-            let redo_group = undo_group.execute(&mut self.cursor, s);
+            let redo_group = undo_group.execute(s, &mut self.cursor);
             self.redo_stack.push(redo_group);
             Ok(())
         } else {
@@ -126,7 +126,7 @@ impl Doc {
                 self.recent.is_none(),
                 "redo: recent edits should have cleared the redo stack"
             );
-            let undo_group = redo_group.execute(&mut self.cursor, s);
+            let undo_group = redo_group.execute(s, &mut self.cursor);
             self.undo_stack.push(undo_group);
             Ok(())
         } else {
@@ -144,52 +144,52 @@ impl UndoGroup {
         }
     }
 
-    fn execute(self, cursor: &mut Location, s: &mut Storage) -> UndoGroup {
+    fn execute(self, s: &mut Storage, cursor: &mut Location) -> UndoGroup {
         let mut redo_restore_loc = None;
         let mut redos = Vec::new();
         for (loc, cmd) in self.commands.into_iter().rev() {
             if redo_restore_loc.is_none() {
                 redo_restore_loc = Some(loc);
             }
-            jump_to(cursor, loc, s);
-            redos.extend(execute_ed(cmd, cursor, s).bug_msg("Failed to undo/redo"));
+            jump_to(s, cursor, loc);
+            redos.extend(execute_ed(s, cmd, cursor).bug_msg("Failed to undo/redo"));
         }
 
-        jump_to(cursor, self.restore_loc, s);
+        jump_to(s, cursor, self.restore_loc);
         UndoGroup::new(redo_restore_loc.bug(), redos)
     }
 }
 
-fn jump_to(cursor: &mut Location, loc: Location, s: &Storage) {
+fn jump_to(s: &Storage, cursor: &mut Location, loc: Location) {
     bug_assert!(
-        cursor.validate_bookmark(loc.bookmark(), s).is_some(),
+        cursor.validate_bookmark(s, loc.bookmark()).is_some(),
         "invalid loc"
     );
     *cursor = loc;
 }
 
 fn execute_ed(
+    s: &mut Storage,
     cmd: EdCommand,
     cursor: &mut Location,
-    s: &mut Storage,
 ) -> Result<Vec<(Location, EdCommand)>, DocError> {
     match cmd {
-        EdCommand::Tree(cmd) => execute_tree_ed(cmd, cursor, s),
-        EdCommand::Text(cmd) => execute_text_ed(cmd, cursor, s),
+        EdCommand::Tree(cmd) => execute_tree_ed(s, cmd, cursor),
+        EdCommand::Text(cmd) => execute_text_ed(s, cmd, cursor),
     }
 }
 
-fn execute_nav(cmd: NavCommand, cursor: &mut Location, s: &Storage) -> Result<(), DocError> {
+fn execute_nav(s: &Storage, cmd: NavCommand, cursor: &mut Location) -> Result<(), DocError> {
     match cmd {
-        NavCommand::Tree(cmd) => execute_tree_nav(cmd, cursor, s),
-        NavCommand::Text(cmd) => execute_text_nav(cmd, cursor, s),
+        NavCommand::Tree(cmd) => execute_tree_nav(s, cmd, cursor),
+        NavCommand::Text(cmd) => execute_text_nav(s, cmd, cursor),
     }
 }
 
 fn execute_tree_ed(
+    s: &mut Storage,
     cmd: TreeEdCommand,
     cursor: &mut Location,
-    s: &mut Storage,
 ) -> Result<Vec<(Location, EdCommand)>, DocError> {
     use TreeEdCommand::*;
 
@@ -198,7 +198,7 @@ fn execute_tree_ed(
     }
 
     match cmd {
-        Insert(node) => match cursor.insert(node, s) {
+        Insert(node) => match cursor.insert(s, node) {
             Ok(None) => Ok(vec![(*cursor, Backspace.into())]),
             Ok(Some(detached_node)) => {
                 Ok(vec![(cursor.prev(s).bug(), Insert(detached_node).into())])
@@ -206,14 +206,14 @@ fn execute_tree_ed(
             Err(()) => Err(DocError::CannotInsertNode),
         },
         Backspace => {
-            if let Some(old_node) = cursor.delete_neighbor(true, s) {
+            if let Some(old_node) = cursor.delete_neighbor(s, true) {
                 Ok(vec![(*cursor, Insert(old_node).into())])
             } else {
                 Err(DocError::CannotDeleteNode)
             }
         }
         Delete => {
-            if let Some(old_node) = cursor.delete_neighbor(false, s) {
+            if let Some(old_node) = cursor.delete_neighbor(s, false) {
                 Ok(vec![(*cursor, Insert(old_node).into())])
             } else {
                 Err(DocError::CannotDeleteNode)
@@ -223,9 +223,9 @@ fn execute_tree_ed(
 }
 
 fn execute_text_ed(
+    s: &mut Storage,
     cmd: TextEdCommand,
     cursor: &mut Location,
-    s: &mut Storage,
 ) -> Result<Vec<(Location, EdCommand)>, DocError> {
     use TextEdCommand::{Backspace, Delete, Insert};
 
@@ -258,9 +258,9 @@ fn execute_text_ed(
 }
 
 fn execute_tree_nav(
+    s: &Storage,
     cmd: TreeNavCommand,
     cursor: &mut Location,
-    s: &Storage,
 ) -> Result<(), DocError> {
     use TreeNavCommand::*;
 
@@ -276,12 +276,12 @@ fn execute_tree_nav(
         Parent => cursor.after_parent(s),
         LastChild => cursor
             .left_node(s)
-            .and_then(|node| Location::after_children(node, s)),
+            .and_then(|node| Location::after_children(s, node)),
         InorderNext => cursor.inorder_next(s),
         InorderPrev => cursor.inorder_prev(s),
         EnterText => cursor
             .left_node(s)
-            .and_then(|node| Location::end_of_text(node, s)),
+            .and_then(|node| Location::end_of_text(s, node)),
     };
 
     if let Some(new_loc) = new_loc {
@@ -293,9 +293,9 @@ fn execute_tree_nav(
 }
 
 fn execute_text_nav(
+    s: &Storage,
     cmd: TextNavCommand,
     cursor: &mut Location,
-    s: &Storage,
 ) -> Result<(), DocError> {
     use TextNavCommand::*;
 

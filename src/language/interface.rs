@@ -134,8 +134,7 @@ impl Language {
         }
     }
 
-    // TODO: this seems hacky
-    pub(crate) fn from_id(id: LanguageId) -> Language {
+    pub(super) fn from_id(id: LanguageId) -> Language {
         Language { language: id }
     }
 }
