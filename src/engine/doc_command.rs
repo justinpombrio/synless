@@ -1,8 +1,10 @@
+use crate::language::Storage;
 use crate::tree::{Bookmark, Node};
 
 #[derive(Debug)]
 pub enum DocCommand {
     Ed(EdCommand),
+    Clipboard(ClipboardCommand),
     Nav(NavCommand),
 }
 
@@ -16,6 +18,7 @@ pub enum EdCommand {
 pub enum NavCommand {
     Tree(TreeNavCommand),
     Text(TextNavCommand),
+    Bookmark(BookmarkCommand),
 }
 
 #[derive(Debug)]
@@ -24,6 +27,8 @@ pub enum TreeEdCommand {
     /// replace the node after the cursor with the given node. Either way, move the cursor after
     /// the new node.
     Insert(Node),
+    /// Replace the node to the left of the cursor with the given node.
+    Replace(Node),
     /// In a listy sequence, delete the node before the cursor. In a fixed sequence,
     /// replace the node before the cursor with a hole, and move the cursor before it.
     Backspace,
@@ -41,6 +46,22 @@ pub enum TextEdCommand {
     Backspace,
     /// Delete the character immediately after the cursor.
     Delete,
+}
+
+// TODO: cut=copy,backspace  paste-copy=dup,paste
+#[derive(Debug)]
+pub enum ClipboardCommand {
+    /// Copy the node to the left of the cursor and push it onto the clipboard stack.
+    Copy,
+    /// Pop the top node from the clipboard stack, and insert it at the cursor (in the same manner
+    /// as [`TreeEdCommand::Insert`]).
+    Paste,
+    /// Swap the top node in the clipboard stack with the node to the left of the cursor.
+    PasteSwap,
+    /// Duplicate the top node in the clipboard stack.
+    Dup,
+    /// Discard the top node in the clipboard stack.
+    Pop,
 }
 
 // TODO: First set of user nav commands to try: down-left & down-right
@@ -81,9 +102,44 @@ pub enum TextNavCommand {
     ExitText,
 }
 
+#[derive(Debug)]
+pub enum BookmarkCommand {
+    /// Save the cursor position as a bookmark.
+    Save(char),
+    /// Move the cursor to the bookmark saved under the given character. The bookmark follows, in
+    /// priority order: (i) the left node, (ii) the right node, (iii) the parent node.
+    Goto(char),
+}
+
+impl EdCommand {
+    pub fn delete_trees(self, s: &mut Storage) {
+        match self {
+            EdCommand::Tree(cmd) => cmd.delete_trees(s),
+            EdCommand::Text(_) => (),
+        }
+    }
+}
+
+impl TreeEdCommand {
+    fn delete_trees(self, s: &mut Storage) {
+        use TreeEdCommand::*;
+
+        match self {
+            Insert(node) | Replace(node) => node.delete_root(s),
+            Backspace | Delete => (),
+        }
+    }
+}
+
 impl From<EdCommand> for DocCommand {
     fn from(cmd: EdCommand) -> DocCommand {
         DocCommand::Ed(cmd)
+    }
+}
+
+impl From<ClipboardCommand> for DocCommand {
+    fn from(cmd: ClipboardCommand) -> DocCommand {
+        DocCommand::Clipboard(cmd)
     }
 }
 
@@ -99,27 +155,15 @@ impl From<TreeEdCommand> for EdCommand {
     }
 }
 
-impl From<TextEdCommand> for EdCommand {
-    fn from(cmd: TextEdCommand) -> EdCommand {
-        EdCommand::Text(cmd)
-    }
-}
-
-impl From<TreeNavCommand> for NavCommand {
-    fn from(cmd: TreeNavCommand) -> NavCommand {
-        NavCommand::Tree(cmd)
-    }
-}
-
-impl From<TextNavCommand> for NavCommand {
-    fn from(cmd: TextNavCommand) -> NavCommand {
-        NavCommand::Text(cmd)
-    }
-}
-
 impl From<TreeEdCommand> for DocCommand {
     fn from(cmd: TreeEdCommand) -> DocCommand {
         DocCommand::Ed(EdCommand::Tree(cmd))
+    }
+}
+
+impl From<TextEdCommand> for EdCommand {
+    fn from(cmd: TextEdCommand) -> EdCommand {
+        EdCommand::Text(cmd)
     }
 }
 
@@ -129,14 +173,38 @@ impl From<TextEdCommand> for DocCommand {
     }
 }
 
+impl From<TreeNavCommand> for NavCommand {
+    fn from(cmd: TreeNavCommand) -> NavCommand {
+        NavCommand::Tree(cmd)
+    }
+}
+
 impl From<TreeNavCommand> for DocCommand {
     fn from(cmd: TreeNavCommand) -> DocCommand {
         DocCommand::Nav(NavCommand::Tree(cmd))
     }
 }
 
+impl From<TextNavCommand> for NavCommand {
+    fn from(cmd: TextNavCommand) -> NavCommand {
+        NavCommand::Text(cmd)
+    }
+}
+
 impl From<TextNavCommand> for DocCommand {
     fn from(cmd: TextNavCommand) -> DocCommand {
         DocCommand::Nav(NavCommand::Text(cmd))
+    }
+}
+
+impl From<BookmarkCommand> for NavCommand {
+    fn from(cmd: BookmarkCommand) -> NavCommand {
+        NavCommand::Bookmark(cmd)
+    }
+}
+
+impl From<BookmarkCommand> for DocCommand {
+    fn from(cmd: BookmarkCommand) -> DocCommand {
+        DocCommand::Nav(NavCommand::Bookmark(cmd))
     }
 }

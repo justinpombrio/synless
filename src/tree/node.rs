@@ -55,7 +55,7 @@ impl Node {
 
     /// Creates a new root node.
     pub fn new(s: &mut Storage, construct: Construct) -> Node {
-        let id = s.node_forest.next_id();
+        let id = inc_id(&mut s.node_forest.next_id);
         match construct.arity(s) {
             Arity::Texty => Node(s.forest_mut().new_node(NodeData {
                 id,
@@ -76,7 +76,7 @@ impl Node {
                 let num_children = sorts.len(s);
                 let hole_construct = construct.language().hole_construct(s);
                 for _ in 0..num_children {
-                    let child_id = s.node_forest.next_id();
+                    let child_id = inc_id(&mut s.node_forest.next_id);
                     let child = s.forest_mut().new_node(NodeData {
                         id: child_id,
                         construct: hole_construct,
@@ -91,7 +91,7 @@ impl Node {
 
     pub fn with_text(s: &mut Storage, construct: Construct, text: String) -> Option<Node> {
         if let Arity::Texty = construct.arity(s) {
-            let id = s.node_forest.next_id();
+            let id = inc_id(&mut s.node_forest.next_id);
             let mut contents = Text::new();
             contents.set(text);
             Some(Node(s.forest_mut().new_node(NodeData {
@@ -127,7 +127,7 @@ impl Node {
             }
         };
         if allowed {
-            let id = s.node_forest.next_id();
+            let id = inc_id(&mut s.node_forest.next_id);
             let parent = s.forest_mut().new_node(NodeData {
                 id,
                 construct,
@@ -386,6 +386,29 @@ impl Node {
     }
 
     /*************
+     * Ownership *
+     *************/
+
+    /// Deletes this node and its descendants. Panics if `self` is not a root.
+    pub fn delete_root(self, s: &mut Storage) {
+        s.forest_mut().delete_root(self.0);
+    }
+
+    /// Make a deep copy of the given node, including its descendants. The copy will become a root
+    /// node.
+    pub fn deep_copy(self, s: &mut Storage) -> Node {
+        let next_id = &mut s.node_forest.next_id;
+        let mut clone_data = |data: &NodeData| -> NodeData {
+            NodeData {
+                id: inc_id(next_id),
+                construct: data.construct.clone(),
+                text: data.text.clone(),
+            }
+        };
+        Node(s.node_forest.forest.deep_copy(self.0, &mut clone_data))
+    }
+
+    /*************
      * Debugging *
      *************/
 
@@ -441,10 +464,10 @@ impl NodeForest {
             next_id: 0,
         }
     }
+}
 
-    pub fn next_id(&mut self) -> NodeId {
-        let id = self.next_id;
-        self.next_id += 1;
-        NodeId(id)
-    }
+fn inc_id(id: &mut usize) -> NodeId {
+    let new_id = *id;
+    *id += 1;
+    NodeId(new_id)
 }

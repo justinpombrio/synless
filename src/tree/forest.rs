@@ -214,6 +214,33 @@ impl<D> Forest<D> {
         }
     }
 
+    /// Make a deep copy of the given node, including its descendants. The copy will become a root
+    /// node.
+    pub fn deep_copy(
+        &mut self,
+        old_node: NodeIndex,
+        clone_data: &mut impl FnMut(&D) -> D,
+    ) -> NodeIndex {
+        let new_node = self.new_node(clone_data(&self.arena[old_node].data));
+        if let Some(old_first_child) = self.arena[old_node].child {
+            let new_first_child = self.deep_copy(old_first_child, clone_data);
+            self.arena[new_first_child].parent = Some(new_node);
+            self.arena[new_node].child = Some(new_first_child);
+
+            let mut new_prev_child = new_first_child;
+            let mut old_child = self.arena[old_first_child].next;
+            while old_child != old_first_child {
+                let new_child = self.deep_copy(old_child, clone_data);
+                self.arena[new_child].parent = Some(new_node);
+                self.link(new_prev_child, new_child);
+                new_prev_child = new_child;
+                old_child = self.arena[old_child].next;
+            }
+            self.link(new_prev_child, new_first_child);
+        }
+        new_node
+    }
+
     /// True if the forest still contains this node (i.e. its tree hasn't been deleted).
     pub fn is_valid(&self, node: NodeIndex) -> bool {
         self.arena.contains(node)
@@ -726,6 +753,11 @@ mod forest_tests {
             verify_and_print(&f),
             "(kid (gram) (papa (ogramp) (ogram)))(mama (gramp))"
         );
+
+        let copy = f.deep_copy(kid, &mut |data| *data);
+        assert_eq!(verify_and_print(&f),
+            "(kid (gram) (papa (ogramp) (ogram)))(mama (gramp))(kid (gram) (papa (ogramp) (ogram)))");
+        f.delete_root(copy);
 
         f.detach(papa);
         f.delete_root(papa);
