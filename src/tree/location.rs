@@ -1,6 +1,7 @@
 use super::node::Node;
 use crate::language::{Arity, Storage};
 use crate::util::{bug, SynlessBug};
+use partial_pretty_printer as ppp;
 
 // The node in this LocationInner may not be valid (may have been deleted!)
 #[derive(Debug, Clone, Copy)]
@@ -109,6 +110,31 @@ impl Location {
         } else {
             None
         }
+    }
+
+    /// Find a path from the root node to a node near this location, together with
+    /// a `FocusTarget` specifying where this location is relative to that node.
+    pub fn path_from_root(self, s: &Storage) -> (Vec<usize>, ppp::FocusTarget) {
+        use LocationInner::*;
+
+        let mut path_to_root = Vec::new();
+        let (mut node, target) = match self.0 {
+            BeforeNode(node) => (node, ppp::FocusTarget::Start),
+            AfterNode(node) => (node, ppp::FocusTarget::End),
+            // NOTE: This relies on the node's notation containing a `Notation::FocusMark`.
+            BelowNode(node) => (node, ppp::FocusTarget::Mark),
+            InText(node, char_pos) => (node, ppp::FocusTarget::Text(char_pos)),
+        };
+        while let Some(parent) = node.parent(s) {
+            path_to_root.push(node.sibling_index(s));
+            node = parent;
+        }
+        let path_from_root = {
+            let mut path = path_to_root;
+            path.reverse();
+            path
+        };
+        (path_from_root, target)
     }
 
     /**************

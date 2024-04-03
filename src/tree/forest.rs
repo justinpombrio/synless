@@ -22,6 +22,7 @@ pub type NodeIndex = generational_arena::Index;
 /// - Preventing "use after free" (see the note on deletion above).
 ///   Along the same lines, preventing cycles at compile time.
 /// - Removing the need to pass the `Forest` in to every method call.
+#[derive(Debug)]
 pub struct Forest<D> {
     // TODO: Try making roots linked in a cycle internally
     arena: Arena<Node<D>>,

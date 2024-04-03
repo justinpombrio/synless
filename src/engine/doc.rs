@@ -3,6 +3,7 @@ use super::doc_command::{
     TextNavCommand, TreeEdCommand, TreeNavCommand,
 };
 use crate::language::Storage;
+use crate::pretty_doc::DocRef;
 use crate::tree::{Bookmark, Location, Mode, Node};
 use crate::util::{bug_assert, SynlessBug};
 use std::collections::HashMap;
@@ -42,6 +43,7 @@ pub enum DocError {
     EmptyClipboard,
 }
 
+#[derive(Debug)]
 pub struct Doc {
     cursor: Location,
     recent: Option<UndoGroup>,
@@ -61,6 +63,18 @@ impl Doc {
         }
     }
 
+    pub fn doc_ref_source<'d>(&self, s: &'d Storage) -> DocRef<'d> {
+        DocRef::new(s, self.cursor, self.cursor.root_node(s), true)
+    }
+
+    pub fn doc_ref_display<'d>(&self, s: &'d Storage) -> DocRef<'d> {
+        DocRef::new(s, self.cursor, self.cursor.root_node(s), false)
+    }
+
+    pub fn cursor(&self) -> Location {
+        self.cursor
+    }
+
     pub fn mode(&self) -> Mode {
         self.cursor.mode()
     }
@@ -78,7 +92,7 @@ impl Doc {
             DocCommand::Ed(cmd) => execute_ed(s, cmd, &mut self.cursor)?,
             DocCommand::Clipboard(cmd) => execute_clipboard(s, cmd, &mut self.cursor, clipboard)?,
             DocCommand::Nav(cmd) => {
-                execute_nav(s, cmd, &mut self.cursor, &mut self.bookmarks, clipboard)?;
+                execute_nav(s, cmd, &mut self.cursor, &mut self.bookmarks)?;
                 Vec::new()
             }
         };
@@ -191,7 +205,6 @@ fn execute_nav(
     cmd: NavCommand,
     cursor: &mut Location,
     bookmarks: &mut HashMap<char, Bookmark>,
-    clipboard: &mut Vec<Node>,
 ) -> Result<(), DocError> {
     match cmd {
         NavCommand::Tree(cmd) => execute_tree_nav(s, cmd, cursor),

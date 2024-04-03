@@ -102,7 +102,7 @@ impl Language {
         s.languages[self.language].notation_sets.names()
     }
 
-    pub fn get_notation_set(self, s: &Storage, name: &str) -> Option<NotationSet> {
+    pub fn notation(self, s: &Storage, name: &str) -> Option<NotationSet> {
         s.languages[self.language]
             .notation_sets
             .id(name)
@@ -112,10 +112,17 @@ impl Language {
             })
     }
 
-    pub fn current_notation_set(self, s: &Storage) -> NotationSet {
+    pub fn source_notation(self, s: &Storage) -> Option<NotationSet> {
+        Some(NotationSet {
+            language: self.language,
+            notation_set: s.languages[self.language].source_notation?,
+        })
+    }
+
+    pub fn display_notation(self, s: &Storage) -> NotationSet {
         NotationSet {
             language: self.language,
-            notation_set: s.languages[self.language].current_notation_set,
+            notation_set: s.languages[self.language].display_notation,
         }
     }
 
@@ -131,6 +138,57 @@ impl Language {
         Construct {
             language: self.language,
             construct: grammar(s, self.language).hole_construct,
+        }
+    }
+
+    pub fn add_notation(
+        self,
+        s: &mut Storage,
+        notation_set: NotationSetSpec,
+    ) -> Result<(), LanguageError> {
+        let notation_set = compile_notation_set(notation_set, grammar(s, self.language))?;
+        s.languages[self.language]
+            .notation_sets
+            .insert(notation_set.name.clone(), notation_set)
+            .map_err(|name| LanguageError::DuplicateNotationSet(self.name(s).to_owned(), name))
+    }
+
+    pub fn set_display_notation(
+        self,
+        s: &mut Storage,
+        notation_set_name: &str,
+    ) -> Result<(), LanguageError> {
+        let notation_set_id = self.notation_set_id(s, notation_set_name)?;
+        s.languages[self.language].display_notation = notation_set_id;
+        Ok(())
+    }
+
+    pub fn set_source_notation(
+        self,
+        s: &mut Storage,
+        notation_set_name: &str,
+    ) -> Result<(), LanguageError> {
+        let notation_set_id = self.notation_set_id(s, notation_set_name)?;
+        s.languages[self.language].source_notation = Some(notation_set_id);
+        Ok(())
+    }
+
+    pub fn unset_source_notation(self, s: &mut Storage) -> Result<(), LanguageError> {
+        s.languages[self.language].source_notation = None;
+        Ok(())
+    }
+
+    fn notation_set_id(self, s: &Storage, notation_set_name: &str) -> Result<usize, LanguageError> {
+        if let Some(id) = s.languages[self.language]
+            .notation_sets
+            .id(notation_set_name)
+        {
+            Ok(id)
+        } else {
+            Err(LanguageError::UndefinedNotationSet(
+                self.name(s).to_owned(),
+                notation_set_name.to_owned(),
+            ))
         }
     }
 
@@ -205,8 +263,12 @@ impl Construct {
         }
     }
 
-    pub fn notation(self, s: &Storage) -> &ValidNotation {
-        self.language().current_notation_set(s).notation(s, self)
+    pub fn display_notation(self, s: &Storage) -> &ValidNotation {
+        self.language().display_notation(s).notation(s, self)
+    }
+
+    pub fn source_notation(self, s: &Storage) -> Option<&ValidNotation> {
+        Some(self.language().source_notation(s)?.notation(s, self))
     }
 
     pub fn is_comment_or_ws(self, s: &Storage) -> bool {

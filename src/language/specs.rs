@@ -1,7 +1,8 @@
 use crate::style::Notation;
+use serde::{Deserialize, Serialize};
 
 /// A kind of node that can appear in a document.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConstructSpec {
     pub name: String,
     pub arity: AritySpec,
@@ -11,11 +12,11 @@ pub struct ConstructSpec {
 }
 
 /// A set of constructs. Can both include and be included by other sorts.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Hash)]
 pub struct SortSpec(pub Vec<String>);
 
 /// The sorts of children that a node is allowed to contain.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum AritySpec {
     /// Designates a pure text node.
     Texty,
@@ -29,7 +30,7 @@ pub enum AritySpec {
 
 /// Describes the structure of a language, e.g. which constructs can appear
 /// in which positions.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GrammarSpec {
     pub constructs: Vec<ConstructSpec>,
     pub sorts: Vec<(String, SortSpec)>,
