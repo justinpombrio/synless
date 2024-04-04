@@ -52,5 +52,5 @@ pub struct NotationSetSpec {
 pub struct LanguageSpec {
     pub name: String,
     pub grammar: GrammarSpec,
-    pub default_notation_set: NotationSetSpec,
+    pub default_notation: NotationSetSpec,
 }

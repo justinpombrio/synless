@@ -43,7 +43,7 @@ type DocIndex = usize;
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum DocLabel {
-    /// A "real" document that the user is viewing and editing.
+    /// The "real" document that the user is viewing and editing.
     Visible,
     /// An auto-generated doc containing info about the `Visible` doc, for use in a status bar.
     Metadata(String),
@@ -123,7 +123,7 @@ impl DocSet {
                     focus_path,
                     focus_target,
                     focus_height: settings.focus_height,
-                    width_strategy: pane::WidthStrategy::NoMoreThan(settings.max_doc_width),
+                    width_strategy: pane::WidthStrategy::NoMoreThan(settings.max_display_width),
                     set_focus: true,
                 };
                 (doc, options)

@@ -45,27 +45,33 @@ impl Engine {
         Ok(())
     }
 
+    pub fn add_notation(
+        &mut self,
+        language_name: &str,
+        notation: NotationSetSpec,
+    ) -> Result<(), EngineError> {
+        let lang = self.storage.language(language_name)?;
+        lang.add_notation(&mut self.storage, notation)?;
+        Ok(())
+    }
+
     pub fn set_display_notation(
         &mut self,
         language_name: &str,
-        notation_set: NotationSetSpec,
+        notation_name: &str,
     ) -> Result<(), EngineError> {
-        let notation_set_name = notation_set.name.clone();
         let lang = self.storage.language(language_name)?;
-        lang.add_notation(&mut self.storage, notation_set)?;
-        lang.set_display_notation(&mut self.storage, &notation_set_name)?;
+        lang.set_display_notation(&mut self.storage, notation_name)?;
         Ok(())
     }
 
     pub fn set_source_notation(
         &mut self,
         language_name: &str,
-        notation_set: NotationSetSpec,
+        notation_name: &str,
     ) -> Result<(), EngineError> {
-        let notation_set_name = notation_set.name.clone();
         let lang = self.storage.language(language_name)?;
-        lang.add_notation(&mut self.storage, notation_set)?;
-        lang.set_source_notation(&mut self.storage, &notation_set_name)?;
+        lang.set_source_notation(&mut self.storage, notation_name)?;
         Ok(())
     }
 
@@ -93,7 +99,7 @@ impl Engine {
             .file_doc(doc_path)
             .ok_or_else(|| EngineError::DocNotFound(doc_path.to_string_lossy().into_owned()))?;
         let doc_ref = doc.doc_ref_source(&self.storage);
-        let source = ppp::pretty_print_to_string(doc_ref, self.settings.source_width)?;
+        let source = ppp::pretty_print_to_string(doc_ref, self.settings.max_source_width)?;
         Ok(source)
     }
 

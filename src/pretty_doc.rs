@@ -24,17 +24,21 @@ pub struct DocRef<'d> {
 }
 
 impl<'d> DocRef<'d> {
-    pub fn new(
-        storage: &'d Storage,
-        cursor_loc: Location,
-        node: Node,
-        use_source_notation: bool,
-    ) -> DocRef<'d> {
+    pub fn new_display(storage: &'d Storage, cursor_loc: Location, node: Node) -> DocRef<'d> {
         DocRef {
             storage,
             cursor_loc,
             node,
-            use_source_notation,
+            use_source_notation: false,
+        }
+    }
+
+    pub fn new_source(storage: &'d Storage, cursor_loc: Location, node: Node) -> DocRef<'d> {
+        DocRef {
+            storage,
+            cursor_loc,
+            node,
+            use_source_notation: true,
         }
     }
 }
@@ -142,26 +146,23 @@ impl<'d> ppp::PrettyDoc<'d> for DocRef<'d> {
         Ok(self.node.text(self.storage).bug().as_str())
     }
 
-    fn unwrap_child(self, i: usize) -> Result<Self, Self::Error> {
-        let child = self.node.nth_child(self.storage, i).bug();
+    fn unwrap_child(self, n: usize) -> Result<Self, Self::Error> {
         Ok(DocRef {
-            node: child,
+            node: self.node.nth_child(self.storage, n).bug(),
             ..self
         })
     }
 
     fn unwrap_last_child(self) -> Result<Self, Self::Error> {
-        let last_child = self.node.last_child(self.storage).bug();
         Ok(DocRef {
-            node: last_child,
+            node: self.node.last_child(self.storage).bug(),
             ..self
         })
     }
 
     fn unwrap_prev_sibling(self, _: Self, _: usize) -> Result<Self, Self::Error> {
-        let sibling = self.node.prev_sibling(self.storage).bug();
         Ok(DocRef {
-            node: sibling,
+            node: self.node.prev_sibling(self.storage).bug(),
             ..self
         })
     }
@@ -169,6 +170,10 @@ impl<'d> ppp::PrettyDoc<'d> for DocRef<'d> {
 
 impl<'d> fmt::Debug for DocRef<'d> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "DocRef({:?}, {:?})", self.node, self.cursor_loc)
+        write!(
+            f,
+            "DocRef({:?}, {:?}, {})",
+            self.node, self.cursor_loc, self.use_source_notation
+        )
     }
 }

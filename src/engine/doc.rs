@@ -64,11 +64,11 @@ impl Doc {
     }
 
     pub fn doc_ref_source<'d>(&self, s: &'d Storage) -> DocRef<'d> {
-        DocRef::new(s, self.cursor, self.cursor.root_node(s), true)
+        DocRef::new_source(s, self.cursor, self.cursor.root_node(s))
     }
 
     pub fn doc_ref_display<'d>(&self, s: &'d Storage) -> DocRef<'d> {
-        DocRef::new(s, self.cursor, self.cursor.root_node(s), false)
+        DocRef::new_display(s, self.cursor, self.cursor.root_node(s))
     }
 
     pub fn cursor(&self) -> Location {

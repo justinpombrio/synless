@@ -68,7 +68,7 @@ pub struct NotationSetCompiled {
 pub fn compile_language(language_spec: LanguageSpec) -> Result<LanguageCompiled, LanguageError> {
     let grammar = language_spec.grammar.compile()?;
 
-    let notation_set = compile_notation_set(language_spec.default_notation_set, &grammar)?;
+    let notation_set = compile_notation_set(language_spec.default_notation, &grammar)?;
     let mut notation_sets = IndexedMap::new();
     notation_sets
         .insert(notation_set.name.to_owned(), notation_set)

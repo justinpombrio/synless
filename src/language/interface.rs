@@ -98,7 +98,7 @@ impl Language {
             })
     }
 
-    pub fn notation_set_names(self, s: &Storage) -> impl ExactSizeIterator<Item = &str> + '_ {
+    pub fn notation_names(self, s: &Storage) -> impl ExactSizeIterator<Item = &str> + '_ {
         s.languages[self.language].notation_sets.names()
     }
 
@@ -158,7 +158,7 @@ impl Language {
         s: &mut Storage,
         notation_set_name: &str,
     ) -> Result<(), LanguageError> {
-        let notation_set_id = self.notation_set_id(s, notation_set_name)?;
+        let notation_set_id = self.notation_id(s, notation_set_name)?;
         s.languages[self.language].display_notation = notation_set_id;
         Ok(())
     }
@@ -168,7 +168,7 @@ impl Language {
         s: &mut Storage,
         notation_set_name: &str,
     ) -> Result<(), LanguageError> {
-        let notation_set_id = self.notation_set_id(s, notation_set_name)?;
+        let notation_set_id = self.notation_id(s, notation_set_name)?;
         s.languages[self.language].source_notation = Some(notation_set_id);
         Ok(())
     }
@@ -178,7 +178,7 @@ impl Language {
         Ok(())
     }
 
-    fn notation_set_id(self, s: &Storage, notation_set_name: &str) -> Result<usize, LanguageError> {
+    fn notation_id(self, s: &Storage, notation_set_name: &str) -> Result<usize, LanguageError> {
         if let Some(id) = s.languages[self.language]
             .notation_sets
             .id(notation_set_name)
