@@ -9,6 +9,7 @@ use std::fmt;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct NodeId(usize);
 
+#[derive(Debug)]
 pub struct NodeForest {
     forest: forest::Forest<NodeData>,
     next_id: usize,
@@ -167,8 +168,12 @@ impl Node {
         s.forest().data(self.0).construct.is_comment_or_ws(s)
     }
 
-    pub fn notation(self, s: &Storage) -> &ValidNotation {
-        s.forest().data(self.0).construct.notation(s)
+    pub fn display_notation(self, s: &Storage) -> &ValidNotation {
+        s.forest().data(self.0).construct.display_notation(s)
+    }
+
+    pub fn source_notation(self, s: &Storage) -> Option<&ValidNotation> {
+        s.forest().data(self.0).construct.source_notation(s)
     }
 
     pub fn is_texty(self, s: &Storage) -> bool {
@@ -401,7 +406,7 @@ impl Node {
         let mut clone_data = |data: &NodeData| -> NodeData {
             NodeData {
                 id: inc_id(next_id),
-                construct: data.construct.clone(),
+                construct: data.construct,
                 text: data.text.clone(),
             }
         };

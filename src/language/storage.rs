@@ -1,4 +1,4 @@
-use super::compiled::{compile_language, compile_notation_set, LanguageCompiled};
+use super::compiled::{compile_language, LanguageCompiled};
 use super::interface::Language;
 use super::specs::{LanguageSpec, NotationSetSpec};
 use super::LanguageError;
@@ -6,6 +6,7 @@ use crate::tree::NodeForest;
 use crate::util::IndexedMap;
 
 /// Stores all documents and languages.
+#[derive(Debug)]
 pub struct Storage {
     pub(super) languages: IndexedMap<LanguageCompiled>,
     pub(crate) node_forest: NodeForest,
@@ -26,24 +27,12 @@ impl Storage {
             .map_err(LanguageError::DuplicateLanguage)
     }
 
-    pub fn add_notation_set(
-        &mut self,
-        language_name: &str,
-        notation_set: NotationSetSpec,
-    ) -> Result<(), LanguageError> {
-        if let Some(language) = self.languages.get_by_name_mut(language_name) {
-            let notation_set = compile_notation_set(notation_set, &language.grammar)?;
-            language
-                .notation_sets
-                .insert(notation_set.name.clone(), notation_set)
-                .map_err(|name| LanguageError::DuplicateNotationSet(language_name.to_owned(), name))
-        } else {
-            Err(LanguageError::UndefinedLanguage(language_name.to_owned()))
-        }
-    }
-
-    pub fn get_language(&self, name: &str) -> Option<Language> {
-        Some(Language::from_id(self.languages.id(name)?))
+    pub fn language(&self, name: &str) -> Result<Language, LanguageError> {
+        let language_id = self
+            .languages
+            .id(name)
+            .ok_or_else(|| LanguageError::UndefinedLanguage(name.to_owned()))?;
+        Ok(Language::from_id(language_id))
     }
 }
 

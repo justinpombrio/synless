@@ -9,14 +9,6 @@ use partial_pretty_printer as ppp;
 use std::fmt;
 use std::sync::OnceLock;
 
-fn get_text_notation() -> &'static ValidNotation {
-    static TEXT_NOTATION: OnceLock<ValidNotation> = OnceLock::new();
-    TEXT_NOTATION.get_or_init(|| {
-        let notation = ppp::Notation::Text;
-        notation.validate().bug()
-    })
-}
-
 #[derive(thiserror::Error, Debug)]
 pub enum PrettyDocError {
     #[error("No source notation available for language '{0}'")]
@@ -28,58 +20,49 @@ pub struct DocRef<'d> {
     storage: &'d Storage,
     cursor_loc: Location,
     node: Node,
-    text_pos: Option<CursorHalf>,
+    use_source_notation: bool,
 }
 
 impl<'d> DocRef<'d> {
-    pub fn new(storage: &'d Storage, cursor_loc: Location, node: Node) -> DocRef<'d> {
+    pub fn new_display(storage: &'d Storage, cursor_loc: Location, node: Node) -> DocRef<'d> {
         DocRef {
             storage,
             cursor_loc,
             node,
-            text_pos: None,
+            use_source_notation: false,
         }
     }
 
-    fn on_virtual_text_parent(&self) -> bool {
-        self.node.text(self.storage).is_some() && self.text_pos.is_none()
-    }
-
-    /// Char index to split this node's text at
-    fn text_index(&self) -> usize {
-        if let Some((node, char_pos)) = self.cursor_loc.text_pos() {
-            if node == self.node {
-                char_pos
-            } else {
-                0
-            }
-        } else {
-            0
+    pub fn new_source(storage: &'d Storage, cursor_loc: Location, node: Node) -> DocRef<'d> {
+        DocRef {
+            storage,
+            cursor_loc,
+            node,
+            use_source_notation: true,
         }
     }
 }
 
 impl<'d> ppp::PrettyDoc<'d> for DocRef<'d> {
-    type Id = (NodeId, u16);
+    type Id = NodeId;
     type Style = Style;
     type StyleLabel = StyleLabel;
     type Condition = Condition;
     type Error = PrettyDocError;
 
-    fn id(self) -> Result<(NodeId, u16), Self::Error> {
-        let id = self.node.id(self.storage);
-        Ok(match self.text_pos {
-            None => (id, 0),
-            Some(CursorHalf::Left) => (id, 1),
-            Some(CursorHalf::Right) => (id, 2),
-        })
+    fn id(self) -> Result<NodeId, Self::Error> {
+        Ok(self.node.id(self.storage))
     }
 
     fn notation(self) -> Result<&'d ValidNotation, Self::Error> {
-        Ok(match self.text_pos {
-            None => self.node.notation(self.storage),
-            Some(_) => get_text_notation(),
-        })
+        if self.use_source_notation {
+            self.node.source_notation(self.storage).ok_or_else(|| {
+                let lang = self.node.language(self.storage);
+                PrettyDocError::NoSourceNotation(lang.name(self.storage).to_owned())
+            })
+        } else {
+            Ok(self.node.display_notation(self.storage))
+        }
     }
 
     fn condition(self, condition: &Condition) -> Result<bool, Self::Error> {
@@ -145,83 +128,42 @@ impl<'d> ppp::PrettyDoc<'d> for DocRef<'d> {
     }
 
     fn node_style(self) -> Result<Style, Self::Error> {
-        Ok(if self.text_pos.is_some() {
-            Style::default()
-        } else if self.cursor_loc.left_node(self.storage) == Some(self.node) {
+        let style = if self.cursor_loc.left_node(self.storage) == Some(self.node) {
             LEFT_CURSOR_STYLE
         } else if self.cursor_loc.right_node(self.storage) == Some(self.node) {
             RIGHT_CURSOR_STYLE
         } else {
             Style::default()
-        })
+        };
+        Ok(style)
     }
 
     fn num_children(self) -> Result<Option<usize>, Self::Error> {
-        Ok(if self.on_virtual_text_parent() {
-            Some(2)
-        } else {
-            self.node.num_children(self.storage)
-        })
+        Ok(self.node.num_children(self.storage))
     }
 
     fn unwrap_text(self) -> Result<&'d str, Self::Error> {
-        let text = &self.node.text(self.storage).bug();
-        Ok(match self.text_pos {
-            None => bug!("DocRef::unwrap_text non-virtual text"),
-            Some(CursorHalf::Left) => text.as_split_str(self.text_index()).0,
-            Some(CursorHalf::Right) => text.as_split_str(self.text_index()).1,
+        Ok(self.node.text(self.storage).bug().as_str())
+    }
+
+    fn unwrap_child(self, n: usize) -> Result<Self, Self::Error> {
+        Ok(DocRef {
+            node: self.node.nth_child(self.storage, n).bug(),
+            ..self
         })
     }
 
-    fn unwrap_child(self, i: usize) -> Result<Self, Self::Error> {
-        if self.on_virtual_text_parent() {
-            let cursor_half = match i {
-                0 => CursorHalf::Left,
-                1 => CursorHalf::Right,
-                _ => bug!("DocRef::unwrap_child virtual text child OOB"),
-            };
-            Ok(DocRef {
-                text_pos: Some(cursor_half),
-                ..self
-            })
-        } else {
-            let child = self.node.nth_child(self.storage, i).bug();
-            Ok(DocRef {
-                node: child,
-                ..self
-            })
-        }
-    }
-
     fn unwrap_last_child(self) -> Result<Self, Self::Error> {
-        if self.on_virtual_text_parent() {
-            Ok(DocRef {
-                text_pos: Some(CursorHalf::Right),
-                ..self
-            })
-        } else {
-            let last_child = self.node.last_child(self.storage).bug();
-            Ok(DocRef {
-                node: last_child,
-                ..self
-            })
-        }
+        Ok(DocRef {
+            node: self.node.last_child(self.storage).bug(),
+            ..self
+        })
     }
 
     fn unwrap_prev_sibling(self, _: Self, _: usize) -> Result<Self, Self::Error> {
-        Ok(match self.text_pos {
-            Some(CursorHalf::Left) => bug!("unwrap_prev_sibling: virtual text OOB"),
-            Some(CursorHalf::Right) => DocRef {
-                text_pos: Some(CursorHalf::Left),
-                ..self
-            },
-            None => {
-                let sibling = self.node.prev_sibling(self.storage).bug();
-                DocRef {
-                    node: sibling,
-                    ..self
-                }
-            }
+        Ok(DocRef {
+            node: self.node.prev_sibling(self.storage).bug(),
+            ..self
         })
     }
 }
@@ -230,8 +172,8 @@ impl<'d> fmt::Debug for DocRef<'d> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "DocRef({:?}, {:?}, {:?})",
-            self.node, self.cursor_loc, self.text_pos
+            "DocRef({:?}, {:?}, {})",
+            self.node, self.cursor_loc, self.use_source_notation
         )
     }
 }

@@ -7,7 +7,7 @@ use synless::{
 // e.g. example.com?p1=v1,p2=v2,p3,p4=v4
 fn urllang() -> LanguageSpec {
     use ppp::notation_constructors::{
-        child, count, empty, fold, indent, left, lit, nl, right, Count, Fold,
+        child, count, empty, fold, indent, left, lit, nl, right, text, Count, Fold,
     };
 
     LanguageSpec {
@@ -51,10 +51,10 @@ fn urllang() -> LanguageSpec {
             )],
             root_sort: SortSpec(vec!["Url".to_owned()]),
         },
-        default_notation_set: NotationSetSpec {
+        default_notation: NotationSetSpec {
             name: "Testlang_notation".to_owned(),
             notations: vec![
-                ("String".to_owned(), child(0) + child(1)),
+                ("String".to_owned(), text()),
                 ("Equals".to_owned(), child(0) + lit("=") + child(1)),
                 ("Url".to_owned(), child(0) + child(1)),
                 (
@@ -84,7 +84,7 @@ fn urllang() -> LanguageSpec {
 }
 
 fn node_with_text(s: &mut Storage, lang_name: &str, construct_name: &str, text: &str) -> Node {
-    let lang = s.get_language(lang_name).unwrap();
+    let lang = s.language(lang_name).unwrap();
     let construct = lang.get_construct(s, construct_name).unwrap();
     Node::with_text(s, construct, text.to_owned()).unwrap()
 }
@@ -95,7 +95,7 @@ fn node_with_children(
     construct_name: &str,
     children: impl IntoIterator<Item = Node>,
 ) -> Node {
-    let lang = s.get_language(lang_name).unwrap();
+    let lang = s.language(lang_name).unwrap();
     let construct = lang.get_construct(s, construct_name).unwrap();
     Node::with_children(s, construct, children).unwrap()
 }
@@ -117,7 +117,7 @@ fn test_doc_ref() {
     let params = node_with_children(&mut s, "urllang", "Params", [eq_1, eq_2, done]);
     let url = node_with_children(&mut s, "urllang", "Url", [domain, params]);
 
-    let doc_ref = DocRef::new(&s, Location::after(&s, url), url);
+    let doc_ref = DocRef::new_display(&s, Location::after(&s, url), url);
 
     let actual = match ppp::pretty_print_to_string(doc_ref, 80) {
         Ok(actual) => actual,

@@ -37,6 +37,7 @@ pub enum ArityCompiled {
 #[derive(Debug)]
 pub struct SortCompiled(pub BitSet);
 
+#[derive(Debug)]
 pub struct GrammarCompiled {
     pub constructs: IndexedMap<ConstructCompiled>,
     /// SortId -> SortCompiled
@@ -48,13 +49,16 @@ pub struct GrammarCompiled {
     pub keymap: HashMap<char, ConstructId>,
 }
 
+#[derive(Debug)]
 pub struct LanguageCompiled {
     pub name: String,
     pub grammar: GrammarCompiled,
     pub notation_sets: IndexedMap<NotationSetCompiled>,
-    pub current_notation_set: NotationSetId,
+    pub source_notation: Option<NotationSetId>,
+    pub display_notation: NotationSetId,
 }
 
+#[derive(Debug)]
 pub struct NotationSetCompiled {
     pub name: String,
     /// ConstructId -> ValidNotation
@@ -64,7 +68,7 @@ pub struct NotationSetCompiled {
 pub fn compile_language(language_spec: LanguageSpec) -> Result<LanguageCompiled, LanguageError> {
     let grammar = language_spec.grammar.compile()?;
 
-    let notation_set = compile_notation_set(language_spec.default_notation_set, &grammar)?;
+    let notation_set = compile_notation_set(language_spec.default_notation, &grammar)?;
     let mut notation_sets = IndexedMap::new();
     notation_sets
         .insert(notation_set.name.to_owned(), notation_set)
@@ -74,7 +78,8 @@ pub fn compile_language(language_spec: LanguageSpec) -> Result<LanguageCompiled,
         name: language_spec.name,
         grammar,
         notation_sets,
-        current_notation_set: 0,
+        source_notation: None,
+        display_notation: 0,
     })
 }
 
@@ -86,7 +91,7 @@ fn inject_notation_set_builtins(notation_set_spec: &mut NotationSetSpec) {
         .push((HOLE_NAME.to_owned(), hole_notation));
 }
 
-pub fn compile_notation_set(
+pub(super) fn compile_notation_set(
     mut notation_set: NotationSetSpec,
     grammar: &GrammarCompiled,
 ) -> Result<NotationSetCompiled, LanguageError> {

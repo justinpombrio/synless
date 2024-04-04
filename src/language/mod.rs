@@ -46,4 +46,6 @@ pub enum LanguageError {
     DuplicateLanguage(String),
     #[error("Name '{0}' is not a known language")]
     UndefinedLanguage(String),
+    #[error("Name '{1}' is not a known notation set for language '{0}'")]
+    UndefinedNotationSet(String, String),
 }

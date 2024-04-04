@@ -1,5 +1,6 @@
 use crate::util::SynlessBug;
 use partial_pretty_printer as ppp;
+use serde::{Deserialize, Serialize};
 
 pub const HOLE_STYLE: Style = Style {
     is_hole: true,
@@ -42,7 +43,7 @@ pub struct Style {
     pub is_hole: bool,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum Priority {
     High,
     Low,
@@ -54,7 +55,7 @@ pub enum CursorHalf {
     Right,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum StyleLabel {
     Open,
     Close,
@@ -69,7 +70,7 @@ pub enum StyleLabel {
 }
 
 // TODO: doc
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Condition {
     IsEmptyText,
     IsCommentOrWs,
@@ -87,7 +88,7 @@ pub struct Rgb {
     pub blue: u8,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum Base16Color {
     /// Default Background
     Base00,
