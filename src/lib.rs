@@ -9,6 +9,9 @@ mod style;
 mod tree;
 mod util;
 
+pub mod parsing;
+
+pub use engine::{Engine, Settings};
 pub use language::{
     AritySpec, ConstructSpec, GrammarSpec, LanguageSpec, NotationSetSpec, SortSpec, Storage,
 };

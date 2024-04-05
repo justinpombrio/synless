@@ -61,6 +61,14 @@ pub struct DocSet {
 }
 
 impl DocSet {
+    pub fn temporary_hacky_new_for_testing() -> DocSet {
+        DocSet {
+            file_path_to_doc: HashMap::new(),
+            label_to_doc: HashMap::new(),
+            docs: Vec::new(),
+        }
+    }
+
     pub fn new(starting_doc: Doc) -> DocSet {
         let mut doc_set = DocSet {
             file_path_to_doc: HashMap::new(),
@@ -72,6 +80,27 @@ impl DocSet {
             .label_to_doc
             .insert(DocLabel::Visible, starting_doc_index);
         doc_set
+    }
+
+    #[must_use]
+    pub fn add_doc(&mut self, doc_name: &Path, doc: Doc) -> bool {
+        if self.file_path_to_doc.contains_key(doc_name) {
+            return false;
+        }
+
+        let doc_index = self.insert_doc(doc);
+        self.file_path_to_doc.insert(doc_name.to_owned(), doc_index);
+        true
+    }
+
+    #[must_use]
+    pub fn set_visible_doc(&mut self, doc_name: &Path) -> bool {
+        if let Some(doc_index) = self.file_path_to_doc.get(doc_name) {
+            self.label_to_doc.insert(DocLabel::Visible, *doc_index);
+            true
+        } else {
+            false
+        }
     }
 
     pub fn visible_doc(&self) -> &Doc {

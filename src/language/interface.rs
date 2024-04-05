@@ -40,7 +40,7 @@ pub struct FixedSorts {
 }
 
 /// A kind of node that can appear in a document.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Construct {
     language: LanguageId,
     construct: ConstructId,
@@ -126,12 +126,19 @@ impl Language {
         }
     }
 
-    pub fn get_construct(self, s: &Storage, construct_name: &str) -> Option<Construct> {
+    pub fn construct(self, s: &Storage, construct_name: &str) -> Option<Construct> {
         let construct = grammar(s, self.language).constructs.id(construct_name)?;
         Some(Construct {
             language: self.language,
             construct,
         })
+    }
+
+    pub fn root_construct(self, s: &Storage) -> Construct {
+        Construct {
+            language: self.language,
+            construct: grammar(s, self.language).root_construct,
+        }
     }
 
     pub fn hole_construct(self, s: &Storage) -> Construct {
@@ -273,6 +280,10 @@ impl Construct {
 
     pub fn is_comment_or_ws(self, s: &Storage) -> bool {
         grammar(s, self.language).constructs[self.construct].is_comment_or_ws
+    }
+
+    pub fn is_root(self, s: &Storage) -> bool {
+        grammar(s, self.language).root_construct == self.construct
     }
 
     /// This construct must never be used!

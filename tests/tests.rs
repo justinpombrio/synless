@@ -49,9 +49,9 @@ fn urllang() -> LanguageSpec {
                 "param".to_owned(),
                 SortSpec(vec!["String".to_owned(), "Equals".to_owned()]),
             )],
-            root_sort: SortSpec(vec!["Url".to_owned()]),
+            root_construct: "Url".to_owned(),
         },
-        default_notation: NotationSetSpec {
+        default_display_notation: NotationSetSpec {
             name: "Testlang_notation".to_owned(),
             notations: vec![
                 ("String".to_owned(), text()),
@@ -85,7 +85,7 @@ fn urllang() -> LanguageSpec {
 
 fn node_with_text(s: &mut Storage, lang_name: &str, construct_name: &str, text: &str) -> Node {
     let lang = s.language(lang_name).unwrap();
-    let construct = lang.get_construct(s, construct_name).unwrap();
+    let construct = lang.construct(s, construct_name).unwrap();
     Node::with_text(s, construct, text.to_owned()).unwrap()
 }
 
@@ -96,7 +96,7 @@ fn node_with_children(
     children: impl IntoIterator<Item = Node>,
 ) -> Node {
     let lang = s.language(lang_name).unwrap();
-    let construct = lang.get_construct(s, construct_name).unwrap();
+    let construct = lang.construct(s, construct_name).unwrap();
     Node::with_children(s, construct, children).unwrap()
 }
 

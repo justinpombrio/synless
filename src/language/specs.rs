@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 pub struct ConstructSpec {
     pub name: String,
     pub arity: AritySpec,
+    #[serde(default)]
     pub is_comment_or_ws: bool,
     // TODO: https://github.com/justinpombrio/synless/issues/88
     pub key: Option<char>,
@@ -34,11 +35,11 @@ pub enum AritySpec {
 pub struct GrammarSpec {
     pub constructs: Vec<ConstructSpec>,
     pub sorts: Vec<(String, SortSpec)>,
-    pub root_sort: SortSpec,
+    pub root_construct: String,
 }
 
 /// Describes how to display every construct in a language.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NotationSetSpec {
     /// A unqiue name for this set of notations
     pub name: String,
@@ -48,9 +49,9 @@ pub struct NotationSetSpec {
 
 /// A single notation, with a grammar describing its structure and a notation describing how to
 /// display it.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LanguageSpec {
     pub name: String,
     pub grammar: GrammarSpec,
-    pub default_notation: NotationSetSpec,
+    pub default_display_notation: NotationSetSpec,
 }

@@ -4,6 +4,9 @@ mod doc_set;
 mod engine;
 
 use partial_pretty_printer as ppp;
+use std::default::Default;
+
+pub use engine::Engine;
 
 #[derive(Debug, Clone)]
 pub struct Settings {
@@ -12,7 +15,7 @@ pub struct Settings {
     focus_height: f32,
 }
 
-impl Settings {
+impl Default for Settings {
     fn default() -> Settings {
         Settings {
             max_source_width: 100,

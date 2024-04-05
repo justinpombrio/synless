@@ -53,14 +53,18 @@ pub struct Doc {
 }
 
 impl Doc {
-    pub fn new(s: &Storage, node: Node) -> Self {
-        Doc {
-            cursor: Location::before(s, node),
+    /// Constructs a new Doc. Returns `None` if the node is not a root with the root construct.
+    pub fn new(s: &Storage, root_node: Node) -> Option<Self> {
+        if !root_node.construct(s).is_root(s) || !root_node.is_root(s) {
+            return None;
+        }
+        Some(Doc {
+            cursor: Location::before_children(s, root_node).bug(),
             recent: None,
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
             bookmarks: HashMap::new(),
-        }
+        })
     }
 
     pub fn doc_ref_source<'d>(&self, s: &'d Storage) -> DocRef<'d> {

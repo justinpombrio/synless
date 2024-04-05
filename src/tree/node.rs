@@ -195,7 +195,7 @@ impl Node {
      *************/
 
     /// Returns whether this is the root of a tree. Equivalent to `self.parent(s).is_none()`.
-    pub fn is_at_root(self, s: &Storage) -> bool {
+    pub fn is_root(self, s: &Storage) -> bool {
         s.forest().parent(self.0).is_none()
     }
 

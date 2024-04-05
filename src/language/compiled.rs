@@ -42,8 +42,8 @@ pub struct GrammarCompiled {
     pub constructs: IndexedMap<ConstructCompiled>,
     /// SortId -> SortCompiled
     pub sorts: Vec<SortCompiled>,
-    /// Which constructs are allowed at the top level
-    pub root_sort: SortId,
+    /// The unique top-level construct.
+    pub root_construct: ConstructId,
     pub hole_construct: ConstructId,
     /// Key -> ConstructId
     pub keymap: HashMap<char, ConstructId>,
@@ -68,7 +68,7 @@ pub struct NotationSetCompiled {
 pub fn compile_language(language_spec: LanguageSpec) -> Result<LanguageCompiled, LanguageError> {
     let grammar = language_spec.grammar.compile()?;
 
-    let notation_set = compile_notation_set(language_spec.default_notation, &grammar)?;
+    let notation_set = compile_notation_set(language_spec.default_display_notation, &grammar)?;
     let mut notation_sets = IndexedMap::new();
     notation_sets
         .insert(notation_set.name.to_owned(), notation_set)
@@ -150,12 +150,12 @@ pub(super) fn compile_notation_set(
 struct GrammarCompiler {
     constructs: IndexedMap<ConstructSpec>,
     sorts: HashMap<String, SortSpec>,
-    root_sort: SortSpec,
+    root_construct: String,
 }
 
 impl GrammarSpec {
     fn compile(mut self) -> Result<GrammarCompiled, LanguageError> {
-        let mut builder = GrammarCompiler::new(self.root_sort);
+        let mut builder = GrammarCompiler::new(self.root_construct);
         for construct in self.constructs {
             builder.add_construct(construct)?;
         }
@@ -167,11 +167,11 @@ impl GrammarSpec {
 }
 
 impl GrammarCompiler {
-    fn new(root_sort: SortSpec) -> GrammarCompiler {
+    fn new(root_construct: String) -> GrammarCompiler {
         GrammarCompiler {
             constructs: IndexedMap::new(),
             sorts: HashMap::new(),
-            root_sort,
+            root_construct,
         }
     }
 
@@ -221,15 +221,26 @@ impl GrammarCompiler {
     fn finish(mut self) -> Result<GrammarCompiled, LanguageError> {
         self.inject_builtins()?;
 
+        let root_construct = self
+            .constructs
+            .id(&self.root_construct)
+            .ok_or_else(|| LanguageError::UndefinedConstruct(self.root_construct.to_owned()))?;
+
+        if matches!(
+            self.constructs.get(root_construct).bug().arity,
+            AritySpec::Texty
+        ) {
+            return Err(LanguageError::TextyRoot(self.root_construct.to_owned()));
+        }
+
         let mut grammar = GrammarCompiled {
             constructs: IndexedMap::new(),
             sorts: Vec::new(),
-            root_sort: 0,
+            root_construct,
             hole_construct: self.constructs.id(HOLE_NAME).bug(),
             keymap: HashMap::new(),
         };
 
-        grammar.root_sort = self.compile_sort(&mut grammar, &self.root_sort)?;
         for sort in self.sorts.values() {
             self.compile_sort(&mut grammar, sort)?;
         }

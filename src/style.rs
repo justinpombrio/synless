@@ -43,10 +43,11 @@ pub struct Style {
     pub is_hole: bool,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub enum Priority {
-    High,
+    #[default]
     Low,
+    High,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -61,10 +62,15 @@ pub enum StyleLabel {
     Close,
     Hole,
     Properties {
+        #[serde(default)]
         fg_color: Option<Base16Color>,
+        #[serde(default)]
         bg_color: Option<Base16Color>,
+        #[serde(default)]
         bold: Option<bool>,
+        #[serde(default)]
         underlined: Option<bool>,
+        #[serde(default)]
         priority: Priority,
     },
 }

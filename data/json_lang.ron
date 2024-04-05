@@ -1,0 +1,172 @@
+// TODO: styles
+
+LanguageSpec(
+    name: "Json",
+    grammar: GrammarSpec(
+        constructs: [
+            ConstructSpec(
+                name: "Root",
+                arity: Fixed([SortSpec(["value"])]),
+                key: None,
+            ),
+            ConstructSpec(
+                name: "Null",
+                arity: Fixed([]),
+                key: Some('x'),
+            ),
+            ConstructSpec(
+                name: "True",
+                arity: Fixed([]),
+                key: Some('t'),
+            ),
+            ConstructSpec(
+                name: "False",
+                arity: Fixed([]),
+                key: Some('f'),
+            ),
+            ConstructSpec(
+                name: "String",
+                arity: Texty,
+                key: Some('s'),
+            ),
+            ConstructSpec(
+                name: "Number",
+                arity: Texty,
+                key: Some('n'),
+            ),
+            ConstructSpec(
+                name: "Array",
+                arity: Listy(SortSpec(["value"])),
+                key: Some('a'),
+            ),
+            ConstructSpec(
+                name: "ObjectPair",
+                arity: Fixed([SortSpec(["String"]), SortSpec(["value"])]),
+                key: None,
+            ),
+            ConstructSpec(
+                name: "Object",
+                arity: Listy(SortSpec(["ObjectPair"])),
+                key: Some('o'),
+            ),
+        ],
+        sorts: [
+            ("value", SortSpec(["Null", "bool", "String", "Number", "Array", "Object"])),
+            ("bool", SortSpec(["True", "False"])),
+        ],
+        root_construct: "Root",
+    ),
+    default_display_notation: NotationSetSpec(
+        name: "DefaultDisplay",
+        notations: [
+            ("Root", Child(0)),
+            ("Null", Literal("null")),
+            ("True", Literal("true")),
+            ("False", Literal("false")),
+            ("String", Concat(Literal("\""), Concat(Text, Literal("\"")))),
+            ("Number", Check(IsEmptyText, Here, Literal("•"), Text)),
+            ("Array",
+                Count(
+                    zero:
+                        Concat(Style(Open, Literal("[")),
+                        Concat(FocusMark,
+                               Style(Close, Literal("]")))),
+                    one: Choice(
+                        // single line
+                        Concat(Style(Open, Literal("[")),
+                        Concat(Flat(Child(0)),
+                               Style(Close, Literal("]")))),
+                        // multi line
+                        Concat(Style(Open, Literal("[")),
+                        Concat(Indent("    ", None, Concat(Newline, Child(0))),
+                        Concat(Newline,
+                               Style(Close, Literal("]"))))),
+                    ),
+                    many: Choice(
+                        // single line
+                        Concat(Style(Open, Literal("[")),
+                        Concat(Fold(
+                                   first: Flat(Child(0)),
+                                   join: Concat(Left, Concat(Literal(", "), Flat(Right))),
+                               ),
+                               Style(Close, Literal("]")))),
+                        // multi line
+                        Concat(Style(Open, Literal("[")),
+                        Concat(
+                            Indent("    ", None,
+                                Concat(
+                                    Newline,
+                                    Fold(
+                                        first: Child(0),
+                                        join: Concat(Left,
+                                              Concat(Literal(","),
+                                              Concat(Newline,
+                                                     Right))),
+                                    ),
+                                )
+                            ),
+                        Concat(Newline,
+                               Style(Close, Literal("]"))))),
+                    ),
+                ),
+            ),
+            ("ObjectPair",
+                Choice(
+                    // single line
+                    Concat(Child(0),
+                    Concat(Literal(": "),
+                           Child(1))),
+                    // multi line
+                    Concat(Child(0),
+                    Concat(Literal(":"),
+                           Indent("    ", None, Concat(Newline, Child(1))))),
+                ),
+            ),
+            ("Object",
+                Count(
+                    zero:
+                        Concat(Style(Open, Literal("{")),
+                        Concat(FocusMark,
+                               Style(Close, Literal("}")))),
+                    one: Choice(
+                        // single line
+                        Concat(Style(Open, Literal("{")),
+                        Concat(Flat(Child(0)),
+                               Style(Close, Literal("}")))),
+                        // multi line
+                        Concat(Style(Open, Literal("{")),
+                        Concat(Indent("    ", None, Concat(Newline, Child(0))),
+                        Concat(Newline,
+                               Style(Close, Literal("}"))))),
+                    ),
+                    many: Choice(
+                        // single line
+                        Concat(Style(Open, Literal("{")),
+                        Concat(Fold(
+                                   first: Flat(Child(0)),
+                                   join: Concat(Left, Concat(Literal(", "), Flat(Right))),
+                               ),
+                               Style(Close, Literal("}")))),
+                        // multi line
+                        Concat(Style(Open, Literal("{")),
+                        Concat(
+                            Indent("    ", None,
+                                Concat(
+                                    Newline,
+                                    Fold(
+                                        first: Child(0),
+                                        join: Concat(Left,
+                                              Concat(Literal(","),
+                                              Concat(Newline,
+                                                     Right))),
+                                    ),
+                                )
+                            ),
+                        Concat(Newline,
+                               Style(Close, Literal("}"))))),
+                    ),
+                )
+            ),
+        ],
+    ),
+)
