@@ -1,6 +1,6 @@
 use super::compiled::{compile_language, LanguageCompiled};
 use super::interface::Language;
-use super::specs::{LanguageSpec, NotationSetSpec};
+use super::specs::LanguageSpec;
 use super::LanguageError;
 use crate::tree::NodeForest;
 use crate::util::IndexedMap;

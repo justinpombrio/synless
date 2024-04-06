@@ -1,12 +1,12 @@
 use super::compiled::{
-    compile_language, compile_notation_set, ArityCompiled, ConstructId, GrammarCompiled,
-    LanguageCompiled, LanguageId, NotationSetId, SortId,
+    compile_notation_set, ArityCompiled, ConstructId, GrammarCompiled, LanguageId, NotationSetId,
+    SortId,
 };
-use super::specs::{LanguageSpec, NotationSetSpec};
+use super::specs::NotationSetSpec;
 use super::storage::Storage;
 use super::LanguageError;
 use crate::style::ValidNotation;
-use crate::util::{bug, IndexedMap};
+use crate::util::bug;
 
 // NOTE: Why all the wrapper types, instead of using indexes? Two reasons:
 //

@@ -2,14 +2,12 @@
 
 use super::frontend::{Event, Frontend, Key, KeyCode, KeyModifiers, MouseButton, MouseEvent};
 use super::screen_buf::{ScreenBuf, ScreenOp};
-use crate::style::{ColorTheme, ConcreteStyle, Rgb, Style};
+use crate::style::{ColorTheme, Rgb, Style};
 
 use partial_pretty_printer::pane::PrettyWindow;
 use partial_pretty_printer::{Col, Height, Pos, Row, Size};
 
-use std::convert::TryFrom;
-use std::fmt::Display;
-use std::io::{self, stdin, stdout, Stdin, Stdout, StdoutLock, Write};
+use std::io::{self, stdout, Write};
 use std::time::{Duration, Instant};
 
 use crossterm::cursor;
@@ -118,7 +116,7 @@ impl Frontend for Terminal {
             buf: ScreenBuf::new(Terminal::terminal_window_size()?, default_concrete_style),
             focus_pos: None,
         };
-        term.enter();
+        term.enter()?;
         Ok(term)
     }
 

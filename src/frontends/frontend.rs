@@ -86,13 +86,13 @@ pub enum KeyCode {
 impl fmt::Display for Key {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.modifiers.ctrl {
-            write!(f, "C-");
+            write!(f, "C-")?;
         }
         if self.modifiers.alt {
-            write!(f, "A-");
+            write!(f, "A-")?;
         }
         if self.modifiers.shift {
-            write!(f, "S-");
+            write!(f, "S-")?;
         }
         match self.code {
             KeyCode::Backspace => write!(f, "bksp"),

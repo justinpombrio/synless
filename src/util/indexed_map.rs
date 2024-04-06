@@ -1,8 +1,5 @@
-use std::borrow::Borrow;
 use std::collections::HashMap;
-use std::hash::Hash;
 use std::ops::{Index, IndexMut};
-use std::vec;
 
 #[derive(Debug, Clone)]
 pub struct IndexedMap<T> {

@@ -1,5 +1,5 @@
 use crate::style::ConcreteStyle;
-use partial_pretty_printer::{pane::PrettyWindow, Height, Pos, Size, Width};
+use partial_pretty_printer::{Height, Pos, Size, Width};
 use std::mem;
 
 /// The width of a single character. Either 1 ("half-width") or 2 ("full-width").

@@ -251,7 +251,7 @@ impl Location {
         use LocationInner::{AfterNode, BeforeNode, BelowNode, InText};
 
         match self.0 {
-            InText(node, _) => None,
+            InText(_, _) => None,
             BeforeNode(node) | AfterNode(node) => node.parent(s),
             BelowNode(node) => Some(node),
         }

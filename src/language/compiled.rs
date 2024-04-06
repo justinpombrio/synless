@@ -154,7 +154,7 @@ struct GrammarCompiler {
 }
 
 impl GrammarSpec {
-    fn compile(mut self) -> Result<GrammarCompiled, LanguageError> {
+    fn compile(self) -> Result<GrammarCompiled, LanguageError> {
         let mut builder = GrammarCompiler::new(self.root_construct);
         for construct in self.constructs {
             builder.add_construct(construct)?;
@@ -315,15 +315,18 @@ impl GrammarCompiler {
         }
 
         assert_eq!(construct_id, grammar.constructs.len());
-        grammar.constructs.insert(
-            construct.name.clone(),
-            ConstructCompiled {
-                name: construct.name.clone(),
-                arity,
-                is_comment_or_ws: construct.is_comment_or_ws,
-                key: construct.key,
-            },
-        );
+        grammar
+            .constructs
+            .insert(
+                construct.name.clone(),
+                ConstructCompiled {
+                    name: construct.name.clone(),
+                    arity,
+                    is_comment_or_ws: construct.is_comment_or_ws,
+                    key: construct.key,
+                },
+            )
+            .bug();
         Ok(())
     }
 }

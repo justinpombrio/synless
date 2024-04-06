@@ -1,5 +1,5 @@
 use crate::language::Storage;
-use crate::tree::{Bookmark, Node};
+use crate::tree::Node;
 
 #[derive(Debug)]
 pub enum DocCommand {

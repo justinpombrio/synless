@@ -112,6 +112,11 @@ macro_rules! bug {
 #[macro_export]
 /// Like `assert!()`, but with a better error message.
 macro_rules! bug_assert {
+    ($condition:expr) => {
+        if !$condition {
+            $crate::bug!("Assertion failed.");
+        }
+    };
     ($condition:expr, $message:literal) => {
         if !$condition {
             $crate::bug!($message);

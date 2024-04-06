@@ -1,9 +1,8 @@
 use super::forest;
 use super::text::Text;
-use crate::language::{Arity, Construct, Language, LanguageSpec, NotationSetSpec, Storage};
-use crate::style::{Condition, StyleLabel, ValidNotation};
-use crate::util::{bug, SynlessBug};
-use partial_pretty_printer as ppp;
+use crate::language::{Arity, Construct, Language, Storage};
+use crate::style::ValidNotation;
+use crate::util::{bug, bug_assert, SynlessBug};
 use std::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -83,7 +82,7 @@ impl Node {
                         construct: hole_construct,
                         text: None,
                     });
-                    s.forest_mut().insert_last_child(parent, child);
+                    bug_assert!(s.forest_mut().insert_last_child(parent, child));
                 }
                 Node(parent)
             }
@@ -111,6 +110,9 @@ impl Node {
         children: impl IntoIterator<Item = Node>,
     ) -> Option<Node> {
         let children = children.into_iter().collect::<Vec<_>>();
+        if children.iter().any(|child| !child.is_root(s)) {
+            return None;
+        }
         let allowed = match construct.arity(s) {
             Arity::Texty => false,
             Arity::Listy(sort) => children
@@ -135,7 +137,10 @@ impl Node {
                 text: None,
             });
             for child in children {
-                s.forest_mut().insert_last_child(parent, child.0);
+                // Requires that:
+                // - Each child is a root, validated above
+                // - No child is the root of `parent`, which was just created
+                bug_assert!(s.forest_mut().insert_last_child(parent, child.0));
             }
             Some(Node(parent))
         } else {

@@ -7,7 +7,6 @@ use crate::pretty_doc::DocRef;
 use crate::tree::{Bookmark, Location, Mode, Node};
 use crate::util::{bug_assert, SynlessBug};
 use std::collections::HashMap;
-use std::mem;
 
 /// A set of changes that can be undone/redone all at once.
 #[derive(Debug)]

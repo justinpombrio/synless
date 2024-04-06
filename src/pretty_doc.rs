@@ -1,13 +1,11 @@
 use crate::language::Storage;
 use crate::style::{
-    Condition, CursorHalf, Style, StyleLabel, ValidNotation, HOLE_STYLE, LEFT_CURSOR_STYLE,
-    RIGHT_CURSOR_STYLE,
+    Condition, Style, StyleLabel, ValidNotation, HOLE_STYLE, LEFT_CURSOR_STYLE, RIGHT_CURSOR_STYLE,
 };
 use crate::tree::{Location, Node, NodeId};
-use crate::util::{bug, SynlessBug};
+use crate::util::SynlessBug;
 use partial_pretty_printer as ppp;
 use std::fmt;
-use std::sync::OnceLock;
 
 #[derive(thiserror::Error, Debug)]
 pub enum PrettyDocError {

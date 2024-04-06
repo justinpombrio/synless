@@ -6,9 +6,7 @@ use super::Settings;
 use crate::language::{Language, LanguageError, LanguageSpec, NotationSetSpec, Storage};
 use crate::parsing::{Parse, ParseError};
 use crate::pretty_doc::{DocRef, PrettyDocError};
-use crate::style::Style;
-use crate::tree::{Bookmark, Node};
-use crate::util::SynlessBug;
+use crate::tree::Node;
 use partial_pretty_printer as ppp;
 use partial_pretty_printer::pane;
 use std::collections::HashMap;
@@ -154,7 +152,6 @@ impl Engine {
         language_name: &str,
         parser: impl Parse + 'static,
     ) -> Result<(), EngineError> {
-        let lang = self.storage.language(language_name)?;
         self.parsers
             .insert(language_name.to_owned(), Box::new(parser));
         Ok(())
@@ -164,7 +161,7 @@ impl Engine {
      * Doc Management *
      ******************/
 
-    pub fn make_empty_doc(&mut self, doc_name: &str, language: Language) {
+    pub fn make_empty_doc(&mut self, _doc_name: &str, _language: Language) {
         todo!()
     }
 
@@ -172,11 +169,11 @@ impl Engine {
      * Doc Loading and Printing *
      ****************************/
 
-    pub fn load_doc_from_sexpr(&self, doc_name: &Path, source: &str) -> Result<(), EngineError> {
+    pub fn load_doc_from_sexpr(&self, _doc_name: &Path, _source: &str) -> Result<(), EngineError> {
         todo!()
     }
 
-    pub fn print_sexpr(&self, doc_name: &Path) -> Result<String, EngineError> {
+    pub fn print_sexpr(&self, _doc_name: &Path) -> Result<String, EngineError> {
         todo!()
     }
 
@@ -186,7 +183,6 @@ impl Engine {
         language_name: &str,
         source: &str,
     ) -> Result<(), EngineError> {
-        let lang = self.storage.language(language_name)?;
         let parser = self
             .parsers
             .get_mut(language_name)
