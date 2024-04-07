@@ -1,6 +1,7 @@
 // TODO: temporary
 #![allow(unused)]
 
+mod editor;
 mod engine;
 mod frontends;
 mod language;
