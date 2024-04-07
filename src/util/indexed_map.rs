@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::ops::{Index, IndexMut};
 
+/// A map from `String` to `T`, that also associates a `usize` with each element for faster
+/// lookups.
 #[derive(Debug, Clone)]
 pub struct IndexedMap<T> {
     map: HashMap<String, usize>,
