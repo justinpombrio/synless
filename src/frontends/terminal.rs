@@ -296,7 +296,7 @@ impl TryInto<Key> for ct_event::KeyEvent {
                 return Err(());
             }
         };
-        Ok(Key { code, modifiers })
+        Key::new(code, modifiers).ok_or(())
     }
 }
 

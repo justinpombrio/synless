@@ -10,9 +10,10 @@ use std::path::{Path, PathBuf};
 
 type DocIndex = usize;
 
-/// Label for documents that might be displayed on the screen.
+/// Label for documents that might be displayed on the screen.  Not every document will have such a
+/// label, and multiple labels may refer to the same document.
 ///
-/// Sample PaneNotation, and its corresponding DocLabels:
+/// Sample PaneNotation, and its corresponding DocDisplayLabels:
 ///
 /// ```text
 /// +----------------------------+
@@ -42,7 +43,7 @@ type DocIndex = usize;
 /// +----------------------------+
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum DocLabel {
+pub enum DocDisplayLabel {
     /// The "real" document that the user is viewing and editing.
     Visible,
     /// An auto-generated doc containing info about the `Visible` doc, for use in a status bar.
@@ -51,89 +52,66 @@ pub enum DocLabel {
     Auxilliary(String),
 }
 
+/// A unique name for a document.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum DocName {
+    File(PathBuf),
+    Metadata(String),
+    Auxilliary(String),
+}
+
 #[derive(Debug)]
 pub struct DocSet {
-    file_path_to_doc: HashMap<PathBuf, DocIndex>,
-    /// INVARIANT: DocLabel::Visible is always present.
-    label_to_doc: HashMap<DocLabel, DocIndex>,
+    name_to_doc: HashMap<DocName, DocIndex>,
+    visible_doc: Option<DocIndex>,
     /// DocIndex -> Doc
     docs: Vec<Doc>,
 }
 
 impl DocSet {
-    pub fn temporary_hacky_new_for_testing() -> DocSet {
+    pub fn new() -> DocSet {
         DocSet {
-            file_path_to_doc: HashMap::new(),
-            label_to_doc: HashMap::new(),
+            name_to_doc: HashMap::new(),
+            visible_doc: None,
             docs: Vec::new(),
         }
-    }
-
-    pub fn new(starting_doc: Doc) -> DocSet {
-        let mut doc_set = DocSet {
-            file_path_to_doc: HashMap::new(),
-            label_to_doc: HashMap::new(),
-            docs: Vec::new(),
-        };
-        let starting_doc_index = doc_set.insert_doc(starting_doc);
-        doc_set
-            .label_to_doc
-            .insert(DocLabel::Visible, starting_doc_index);
-        doc_set
     }
 
     #[must_use]
-    pub fn add_doc(&mut self, doc_name: &Path, doc: Doc) -> bool {
-        if self.file_path_to_doc.contains_key(doc_name) {
+    pub fn add_doc(&mut self, doc_name: DocName, doc: Doc) -> bool {
+        if self.name_to_doc.contains_key(&doc_name) {
             return false;
         }
 
-        let doc_index = self.insert_doc(doc);
-        self.file_path_to_doc.insert(doc_name.to_owned(), doc_index);
+        let doc_index = self.docs.len();
+        self.docs.push(doc);
+        self.name_to_doc.insert(doc_name, doc_index);
         true
     }
 
     #[must_use]
-    pub fn set_visible_doc(&mut self, doc_name: &Path) -> bool {
-        if let Some(doc_index) = self.file_path_to_doc.get(doc_name) {
-            self.label_to_doc.insert(DocLabel::Visible, *doc_index);
+    pub fn set_visible_doc(&mut self, doc_name: &DocName) -> bool {
+        if let Some(doc_index) = self.name_to_doc.get(doc_name) {
+            self.visible_doc = Some(*doc_index);
             true
         } else {
             false
         }
     }
 
-    pub fn visible_doc(&self) -> &Doc {
-        let doc_index = *self
-            .label_to_doc
-            .get(&DocLabel::Visible)
-            .bug_msg("VisibleDoc not found");
-        self.docs.get(doc_index).bug()
+    pub fn visible_doc(&self) -> Option<&Doc> {
+        Some(self.docs.get(self.visible_doc?).bug())
     }
 
-    pub fn metadata_doc(&self, name: &str) -> Option<&Doc> {
-        let doc_index = *self
-            .label_to_doc
-            .get(&DocLabel::Metadata(name.to_owned()))?;
-        Some(self.docs.get(doc_index).bug())
-    }
-
-    pub fn auxilliary_doc(&self, name: &str) -> Option<&Doc> {
-        let doc_index = *self
-            .label_to_doc
-            .get(&DocLabel::Auxilliary(name.to_owned()))?;
-        Some(self.docs.get(doc_index).bug())
-    }
-
-    pub fn file_doc(&self, file_path: &Path) -> Option<&Doc> {
-        let doc_index = *self.file_path_to_doc.get(file_path)?;
+    pub fn get_doc(&self, doc_name: &DocName) -> Option<&Doc> {
+        let doc_index = *self.name_to_doc.get(doc_name)?;
         Some(self.docs.get(doc_index).bug())
     }
 
     pub fn get_content<'s>(
         &self,
         s: &'s Storage,
-        label: DocLabel,
+        label: DocDisplayLabel,
         settings: &Settings,
     ) -> Option<(DocRef<'s>, pane::PrintingOptions)> {
         let meta_and_aux_options = pane::PrintingOptions {
@@ -145,8 +123,8 @@ impl DocSet {
         };
 
         let (doc, opts) = match label {
-            DocLabel::Visible => {
-                let doc = self.visible_doc();
+            DocDisplayLabel::Visible => {
+                let doc = self.visible_doc()?;
                 let (focus_path, focus_target) = doc.cursor().path_from_root(s);
                 let options = pane::PrintingOptions {
                     focus_path,
@@ -157,21 +135,15 @@ impl DocSet {
                 };
                 (doc, options)
             }
-            DocLabel::Metadata(name) => {
-                let doc = self.metadata_doc(&name)?;
+            DocDisplayLabel::Metadata(name) => {
+                let doc = self.get_doc(&DocName::Metadata(name))?;
                 (doc, meta_and_aux_options)
             }
-            DocLabel::Auxilliary(name) => {
-                let doc = self.auxilliary_doc(&name)?;
+            DocDisplayLabel::Auxilliary(name) => {
+                let doc = self.get_doc(&DocName::Auxilliary(name))?;
                 (doc, meta_and_aux_options)
             }
         };
         Some((doc.doc_ref_display(s), opts))
-    }
-
-    fn insert_doc(&mut self, doc: Doc) -> usize {
-        let doc_index = self.docs.len();
-        self.docs.push(doc);
-        doc_index
     }
 }

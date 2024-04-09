@@ -26,7 +26,7 @@ enum LocationInner {
     BelowNode(Node),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Mode {
     Tree,
     Text,

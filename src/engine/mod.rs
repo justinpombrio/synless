@@ -6,7 +6,8 @@ mod engine;
 use partial_pretty_printer as ppp;
 use std::default::Default;
 
-pub use engine::Engine;
+pub use doc_set::{DocDisplayLabel, DocName};
+pub use engine::{Engine, EngineError};
 
 #[derive(Debug, Clone)]
 pub struct Settings {

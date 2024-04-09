@@ -12,7 +12,7 @@ mod util;
 
 pub mod parsing;
 
-pub use engine::{Engine, Settings};
+pub use engine::{DocName, Engine, Settings};
 pub use language::{
     AritySpec, ConstructSpec, GrammarSpec, LanguageSpec, NotationSetSpec, SortSpec, Storage,
 };

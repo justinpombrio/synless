@@ -1,11 +1,9 @@
+use super::stack::Prog;
 use crate::frontends::Key;
 use crate::util::OrderedMap;
 use crate::util::SynlessBug;
 use std::borrow::Borrow;
 use std::collections::HashMap;
-
-#[derive(Clone)]
-pub struct Prog {}
 
 /// Key bindings.
 ///
