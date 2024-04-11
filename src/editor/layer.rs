@@ -7,9 +7,10 @@ use crate::util::IndexedMap;
 use std::collections::HashMap;
 
 // TODO:
-// - dynamic candidate lists
 // - filtering by sort
 // - docs
+// - proofread keymap & layer
+// - add tests
 
 type MenuName = String;
 type LayerIndex = usize;
@@ -66,7 +67,11 @@ pub struct LayerManager {
     global_layers: Vec<LayerIndex>,
     local_layers: HashMap<DocName, Vec<LayerIndex>>,
     layers: IndexedMap<Layer>,
-    active_menu: Option<MenuName>,
+    /// - `None` if there's no active menu.
+    /// - `Some((MenuName, None))` if there's an active menu.
+    /// - `Some((MenuName, Some(Keymap)))` if there's an active menu
+    ///   using the given dynamically constructed composite keymap.
+    active_menu: Option<(MenuName, Option<Keymap>)>,
     cached_composite_layers: HashMap<Vec<LayerIndex>, Layer>,
 }
 
@@ -131,8 +136,31 @@ impl LayerManager {
             .flat_map(|layers| layers.iter().map(|i| self.layers[*i].name.as_ref()))
     }
 
-    pub fn enter_menu(&mut self, menu_name: String) {
-        self.active_menu = Some(menu_name);
+    /// Open the named menu. If `dynamic_keymap` is `Some`, layer it on top of the existing
+    /// keymaps for the menu.
+    pub fn enter_menu(
+        &mut self,
+        doc_name: Option<&DocName>,
+        menu_name: String,
+        dynamic_keymap: Option<Keymap>,
+    ) {
+        let keymap = if let Some(dynamic_keymap) = dynamic_keymap {
+            let composite_layer = self.composite_layer(doc_name);
+            if let Some(composite_keymap) = composite_layer
+                .keymaps
+                .get(&KeymapLabel::Menu(menu_name.clone()))
+            {
+                let mut keymap = composite_keymap.clone();
+                keymap.append(dynamic_keymap);
+                Some(keymap)
+            } else {
+                Some(dynamic_keymap)
+            }
+        } else {
+            None
+        };
+
+        self.active_menu = Some((menu_name, keymap));
     }
 
     pub fn exit_menu(&mut self) {
@@ -181,13 +209,34 @@ impl LayerManager {
     /// Get a composite keymap that merges together all active keymaps for the given mode&document.
     /// It is cached.
     fn composite_keymap(&mut self, mode: Mode, doc_name: Option<&DocName>) -> Option<&Keymap> {
-        let keymap_label = self.active_keymap_label(mode);
-        let composite_layer = self.composite_layer(doc_name);
-        composite_layer.keymaps.get(&keymap_label)
+        // It would be nicer to just call `composite_layer()`, but the borrow checker
+        // dislikes that.
+        let layer_indices = match &self.active_menu {
+            None | Some((_, None)) => Some(self.cache_composite_layer(doc_name)),
+            Some((_menu_name, Some(_keymap))) => None,
+        };
+        match &self.active_menu {
+            None => {
+                let layer = &self.cached_composite_layers[&layer_indices.unwrap()];
+                layer.keymaps.get(&KeymapLabel::Mode(mode))
+            }
+            Some((menu_name, None)) => {
+                let layer = &self.cached_composite_layers[&layer_indices.unwrap()];
+                layer.keymaps.get(&KeymapLabel::Menu(menu_name.clone()))
+            }
+            Some((_menu_name, Some(keymap))) => Some(keymap),
+        }
     }
 
     /// Get a composite layer that merges together all active layers. It is cached.
     fn composite_layer(&mut self, doc_name: Option<&DocName>) -> &Layer {
+        let layer_indices = self.cache_composite_layer(doc_name);
+        &self.cached_composite_layers[&layer_indices]
+    }
+
+    /// Cache a composite layer that merges together all active layers. It can subsequently be
+    /// found by looking up the return value (layer indices) in `cached_composite_layers`.
+    fn cache_composite_layer(&mut self, doc_name: Option<&DocName>) -> Vec<usize> {
         let layer_indices = self.active_layers(doc_name).collect::<Vec<_>>();
         if !self.cached_composite_layers.contains_key(&layer_indices) {
             let layers_iter = layer_indices.iter().map(|i| &self.layers[*i]).cloned();
@@ -195,7 +244,7 @@ impl LayerManager {
             self.cached_composite_layers
                 .insert(layer_indices.clone(), composite_layer);
         }
-        &self.cached_composite_layers[&layer_indices]
+        layer_indices
     }
 
     /// Iterates over layers, yielding the lowest priority layers first.
@@ -207,14 +256,6 @@ impl LayerManager {
             .flat_map(|indices| indices.iter());
 
         local_layer_indices.chain(global_layer_indices).copied()
-    }
-
-    fn active_keymap_label(&self, mode: Mode) -> KeymapLabel {
-        if let Some(menu_name) = &self.active_menu {
-            KeymapLabel::Menu(menu_name.clone())
-        } else {
-            KeymapLabel::Mode(mode)
-        }
     }
 }
 

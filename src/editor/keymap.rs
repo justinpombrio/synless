@@ -4,11 +4,6 @@ use crate::util::{bug, OrderedMap, SynlessBug};
 use std::borrow::Borrow;
 use std::collections::HashMap;
 
-// TODO: merging
-// - Layer::merge(layers) -> Layer
-// - Keymap::merge(keymaps) -> Keymap
-// - OrderedMap::merge(ordered_maps) -> OrderedMap
-
 /// Key bindings.
 ///
 /// All methods that add bindings will overwrite existing bindings.
