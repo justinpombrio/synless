@@ -30,18 +30,6 @@ use std::time::Duration;
  * BLOCK until a key is pressed
  *     THEN execute that key's prog in the interpreter
  * ```
- *
- * To execute a KeyProg:
- *
- * ```
- * IF push_string:
- *     THEN push selected string onto data stack
- * IF exit_menu:
- *     THEN exit the menu
- * EXECUTE program
- * IF !exit_menu:
- *     THEN block
- * ```
  */
 
 struct App<F: Frontend<Style = Style>> {

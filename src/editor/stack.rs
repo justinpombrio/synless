@@ -1,5 +1,6 @@
 use super::EditorError;
 use crate::util::SynlessBug;
+use std::fmt;
 
 pub struct DataStack(Vec<Value>);
 pub struct CallStack(Vec<Prog>);
@@ -30,8 +31,9 @@ pub enum Op {
     Pop,
     Literal(Value),
 
-    // Event loop:
+    // Keymap:
     Block,
+    ExitMenu,
 }
 
 impl Value {
@@ -44,14 +46,14 @@ impl Value {
     }
 }
 
-impl ToString for ValueType {
-    fn to_string(&self) -> String {
+impl fmt::Display for ValueType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use ValueType::{Int, Quote, String};
 
         match self {
-            Int => "Int".to_owned(),
-            String => "String".to_owned(),
-            Quote => "Quote".to_owned(),
+            Int => write!(f, "Int"),
+            String => write!(f, "String"),
+            Quote => write!(f, "Quote"),
         }
     }
 }
@@ -63,6 +65,16 @@ impl Prog {
         let mut ops = forward_ops;
         ops.reverse();
         Prog(ops)
+    }
+
+    /// Insert `op` as the _first_ operator to be executed in this program.
+    pub fn insert_first(&mut self, op: Op) {
+        self.0.push(op);
+    }
+
+    /// Insert `op` as the _last_ operator to be executed in this program.
+    pub fn insert_last(&mut self, op: Op) {
+        self.0.insert(0, op);
     }
 
     /// Produce a literal value containing this program.
