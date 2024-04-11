@@ -2,7 +2,10 @@ use super::EditorError;
 use crate::util::SynlessBug;
 use std::fmt;
 
+#[derive(Debug, Default)]
 pub struct DataStack(Vec<Value>);
+
+#[derive(Debug, Default)]
 pub struct CallStack(Vec<Prog>);
 
 // Executes the last op first

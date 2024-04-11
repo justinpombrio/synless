@@ -1,3 +1,4 @@
+use super::interpreter::Interpreter;
 use super::runtime::Runtime;
 use super::stack::{CallStack, DataStack, Op, Prog};
 use super::EditorError;
@@ -5,6 +6,7 @@ use crate::engine::Engine;
 use crate::frontends::{Event, Frontend, Key, MouseEvent};
 use crate::style::Style;
 use crate::util::SynlessBug;
+use partial_pretty_printer::pane;
 use std::time::Duration;
 
 /*
@@ -33,38 +35,26 @@ use std::time::Duration;
  */
 
 struct App<F: Frontend<Style = Style>> {
-    runtime: Runtime<F>,
-    call_stack: CallStack,
-    data_stack: DataStack,
+    runtime: Runtime,
+    frontend: F,
+    interpreter: Interpreter,
 }
 
 impl<F: Frontend<Style = Style>> App<F> {
     pub fn run_event_loop(&mut self) {
         loop {
-            if let Err(err) = self.runtime.display() {
+            if let Err(err) = self.display() {
                 self.abort(err);
             }
             let prog = match self.block_on_input() {
                 Ok(prog) => prog,
                 Err(err) => self.abort(err),
             };
-            match self.execute(prog) {
-                Ok(()) => (),
+            match self.interpreter.execute(&mut self.runtime, prog) {
+                Ok(_) => (),
                 Err(err) => self.runtime.engine.report_error(&err),
             }
         }
-    }
-
-    fn execute(&mut self, prog: Prog) -> Result<(), EditorError> {
-        self.call_stack.push(prog);
-        while let Some(op) = self.call_stack.pop() {
-            if op == Op::Block {
-                return Ok(());
-            } else {
-                self.call(op)?;
-            }
-        }
-        Ok(())
     }
 
     fn block_on_input(&mut self) -> Result<Prog, EditorError> {
@@ -73,7 +63,7 @@ impl<F: Frontend<Style = Style>> App<F> {
         let ctrl_c = Key::from_str("C-c").bug();
 
         loop {
-            match self.runtime.next_event()? {
+            match self.next_event()? {
                 // TODO: Remove Ctrl-c. It's only for testing.
                 Event::Key(ctrl_c) => return Err(EditorError::KeyboardInterrupt),
                 Event::Key(key) => {
@@ -82,20 +72,45 @@ impl<F: Frontend<Style = Style>> App<F> {
                     }
                     // wait for a better key press
                 }
-                Event::Resize => self.runtime.display()?,
+                Event::Resize => self.display()?,
                 Event::Mouse(_) => (),
                 Event::Paste(_) => (), // TODO: OS paste support
             }
         }
     }
 
-    fn call(&mut self, op: Op) -> Result<(), EditorError> {
-        todo!()
+    /// Block until the next input event.
+    fn next_event(&mut self) -> Result<Event, EditorError> {
+        loop {
+            match self.frontend.next_event(Duration::from_secs(1)) {
+                Ok(None) => (), // continue waiting
+                Ok(Some(event)) => return Ok(event),
+                Err(err) => return Err(EditorError::FrontendError(Box::new(err))),
+            }
+        }
     }
 
     fn abort(&mut self, err: EditorError) -> ! {
         self.runtime.engine.report_error(&err);
         // TODO: Save the error log, and maybe the docs
         panic!("{}", err);
+    }
+
+    pub fn display(&mut self) -> Result<(), EditorError> {
+        self.frontend
+            .start_frame()
+            .map_err(|err| EditorError::FrontendError(Box::new(err)))?;
+
+        let get_content = |doc_label| self.runtime.engine.get_content(doc_label);
+        pane::display_pane(
+            &mut self.frontend,
+            &self.runtime.pane_notation,
+            &get_content,
+        )
+        .map_err(|err| EditorError::PaneError(Box::new(err)))?;
+
+        self.frontend
+            .end_frame()
+            .map_err(|err| EditorError::FrontendError(Box::new(err)))
     }
 }

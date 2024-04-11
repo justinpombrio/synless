@@ -1,4 +1,5 @@
 mod app;
+mod interpreter;
 mod keymap;
 mod layer;
 mod runtime;
@@ -9,6 +10,7 @@ use crate::frontends::Frontend;
 use std::error::Error;
 use std::fmt;
 
+// TODO: Is this InterpreterError, AppError, a mix of both?
 #[derive(thiserror::Error, fmt::Debug)]
 pub enum EditorError {
     #[error("Error from the document engine")]
