@@ -21,6 +21,72 @@ enum KeymapLabel {
     Mode(Mode),
 }
 
+/********
+ * Menu *
+ ********/
+
+pub enum MenuSelectionCmd {
+    Up,
+    Down,
+    Backspace,
+    Insert(char),
+}
+
+struct Menu {
+    name: MenuName,
+    keymap: Keymap,
+    /// The user has input `String`, and selected the candidate at index `u32`.
+    selection: Option<MenuSelection>,
+}
+
+struct MenuSelection {
+    input: String,
+    index: u32,
+    default_index: u32,
+}
+
+impl MenuSelection {
+    fn new(keymap: &Keymap) -> Option<MenuSelection> {
+        if keymap.has_candidates() {
+            let default_index = if keymap.has_custom() { 1 } else { 0 };
+            Some(MenuSelection {
+                input: String::new(),
+                index: default_index,
+                default_index,
+            })
+        } else {
+            None
+        }
+    }
+
+    fn execute(&mut self, cmd: MenuSelectionCmd) {
+        use MenuSelectionCmd::{Backspace, Down, Insert, Up};
+
+        match cmd {
+            Up => self.index = self.index.saturating_sub(1),
+            Down => self.index += 1,
+            Backspace => {
+                self.input.pop();
+            }
+            Insert(ch) => self.input.push(ch),
+        }
+    }
+}
+
+impl Menu {
+    fn new(name: MenuName, keymap: Keymap) -> Menu {
+        Menu {
+            name,
+            selection: MenuSelection::new(&keymap),
+            keymap,
+        }
+    }
+}
+
+/*********
+ * Layer *
+ *********/
+
 // TODO: doc
 #[derive(Debug, Clone)]
 pub struct Layer {
@@ -59,7 +125,11 @@ impl Layer {
     }
 }
 
-/// Mange keymap layers.
+/****************
+ * LayerManager *
+ ****************/
+
+/// Manage keymap layers.
 ///
 /// Layers added later has priority over layers added earlier,
 /// though every local layer has priority over every global layer.
@@ -67,11 +137,7 @@ pub struct LayerManager {
     global_layers: Vec<LayerIndex>,
     local_layers: HashMap<DocName, Vec<LayerIndex>>,
     layers: IndexedMap<Layer>,
-    /// - `None` if there's no active menu.
-    /// - `Some((MenuName, None))` if there's an active menu.
-    /// - `Some((MenuName, Some(Keymap)))` if there's an active menu
-    ///   using the given dynamically constructed composite keymap.
-    active_menu: Option<(MenuName, Option<Keymap>)>,
+    active_menu: Option<Menu>,
     cached_composite_layers: HashMap<Vec<LayerIndex>, Layer>,
 }
 
@@ -85,6 +151,10 @@ impl LayerManager {
             cached_composite_layers: HashMap::new(),
         }
     }
+
+    /**********
+     * Layers *
+     **********/
 
     pub fn register_layer(&mut self, layer: Layer) {
         self.layers.insert(layer.name.clone(), layer);
@@ -136,36 +206,58 @@ impl LayerManager {
             .flat_map(|layers| layers.iter().map(|i| self.layers[*i].name.as_ref()))
     }
 
+    /*********
+     * Menus *
+     *********/
+
     /// Open the named menu. If `dynamic_keymap` is `Some`, layer it on top of the existing
-    /// keymaps for the menu.
+    /// keymaps for the menu. Returns `false` if none of the layers have a menu of this name.
+    #[must_use]
     pub fn enter_menu(
         &mut self,
         doc_name: Option<&DocName>,
         menu_name: String,
         dynamic_keymap: Option<Keymap>,
-    ) {
-        let keymap = if let Some(dynamic_keymap) = dynamic_keymap {
-            let composite_layer = self.composite_layer(doc_name);
-            if let Some(composite_keymap) = composite_layer
-                .keymaps
-                .get(&KeymapLabel::Menu(menu_name.clone()))
-            {
-                let mut keymap = composite_keymap.clone();
-                keymap.append(dynamic_keymap);
-                Some(keymap)
-            } else {
-                Some(dynamic_keymap)
+    ) -> bool {
+        let composite_layer = self.composite_layer(doc_name);
+        let label = KeymapLabel::Menu(menu_name.clone());
+        let menu = match (dynamic_keymap, composite_layer.keymaps.get(&label)) {
+            (None, None) => return false,
+            (Some(keymap), None) => Menu::new(menu_name, keymap),
+            (Some(dyn_keymap), Some(composite_keymap)) => {
+                let mut keymap = composite_keymap.to_owned();
+                keymap.append(dyn_keymap);
+                Menu::new(menu_name, keymap)
             }
-        } else {
-            None
+            (None, Some(keymap)) => Menu::new(menu_name, keymap.to_owned()),
         };
-
-        self.active_menu = Some((menu_name, keymap));
+        self.active_menu = Some(menu);
+        true
     }
 
     pub fn exit_menu(&mut self) {
         self.active_menu = None;
     }
+
+    /// Edit the menu input selection.
+    /// Returns `false` if there is no menu open, or it does not have candidate selection.
+    #[must_use]
+    pub fn edit_menu_selection(&mut self, cmd: MenuSelectionCmd) -> bool {
+        if let Some(selection) = self
+            .active_menu
+            .as_mut()
+            .and_then(|menu| menu.selection.as_mut())
+        {
+            selection.execute(cmd);
+            true
+        } else {
+            false
+        }
+    }
+
+    /*********
+     * ??? *
+     *********/
 
     pub fn has_candidates(&mut self, mode: Mode, doc_name: Option<&DocName>) -> bool {
         self.composite_keymap(mode, doc_name)
@@ -206,25 +298,25 @@ impl LayerManager {
             .flat_map(move |keymap| keymap.available_keys(candidate))
     }
 
+    /***********
+     * Private *
+     ***********/
+
     /// Get a composite keymap that merges together all active keymaps for the given mode&document.
     /// It is cached.
     fn composite_keymap(&mut self, mode: Mode, doc_name: Option<&DocName>) -> Option<&Keymap> {
         // It would be nicer to just call `composite_layer()`, but the borrow checker
         // dislikes that.
         let layer_indices = match &self.active_menu {
-            None | Some((_, None)) => Some(self.cache_composite_layer(doc_name)),
-            Some((_menu_name, Some(_keymap))) => None,
+            Some(_) => None,
+            None => Some(self.cache_composite_layer(doc_name)),
         };
         match &self.active_menu {
+            Some(menu) => Some(&menu.keymap),
             None => {
                 let layer = &self.cached_composite_layers[&layer_indices.unwrap()];
                 layer.keymaps.get(&KeymapLabel::Mode(mode))
             }
-            Some((menu_name, None)) => {
-                let layer = &self.cached_composite_layers[&layer_indices.unwrap()];
-                layer.keymaps.get(&KeymapLabel::Menu(menu_name.clone()))
-            }
-            Some((_menu_name, Some(keymap))) => Some(keymap),
         }
     }
 

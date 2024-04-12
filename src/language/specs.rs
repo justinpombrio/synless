@@ -9,6 +9,7 @@ pub struct ConstructSpec {
     #[serde(default)]
     pub is_comment_or_ws: bool,
     // TODO: https://github.com/justinpombrio/synless/issues/88
+    #[serde(default)]
     pub key: Option<char>,
 }
 

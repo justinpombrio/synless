@@ -170,8 +170,32 @@ impl Engine {
      * Doc Management *
      ******************/
 
-    pub fn make_empty_doc(&mut self, _doc_name: &DocName, _language: Language) {
-        todo!()
+    pub fn add_empty_doc(
+        &mut self,
+        doc_name: &DocName,
+        language_name: &str,
+    ) -> Result<(), EngineError> {
+        let language = self.storage.language(language_name)?;
+        let root_construct = language.root_construct(&self.storage);
+        let root_node = Node::new(&mut self.storage, root_construct);
+        let doc = Doc::new(&self.storage, root_node)
+            .ok_or_else(|| EngineError::InvalidRoot(language_name.to_owned()))?;
+        if !self.doc_set.add_doc(doc_name.to_owned(), doc) {
+            return Err(EngineError::DocAlreadyOpen(doc_name.to_owned()));
+        }
+        Ok(())
+    }
+
+    pub fn visible_doc(&self) -> Option<&DocName> {
+        self.doc_set.visible_doc()
+    }
+
+    pub fn get_doc(&self, doc_name: &DocName) -> Option<&Doc> {
+        self.doc_set.get_doc(doc_name)
+    }
+
+    pub fn get_doc_mut(&mut self, doc_name: &DocName) -> Option<&mut Doc> {
+        self.doc_set.get_doc_mut(doc_name)
     }
 
     /****************************
@@ -232,5 +256,17 @@ impl Engine {
     pub fn get_content(&self, label: DocDisplayLabel) -> Option<(DocRef, pane::PrintingOptions)> {
         self.doc_set
             .get_content(&self.storage, label, &self.settings)
+    }
+
+    /**********************
+     * Raw Storage Access *
+     **********************/
+
+    pub fn raw_storage(&self) -> &Storage {
+        &self.storage
+    }
+
+    pub fn raw_storage_mut(&mut self) -> &mut Storage {
+        &mut self.storage
     }
 }

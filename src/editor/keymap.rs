@@ -199,22 +199,27 @@ impl Keymap {
         );
     }
 
-    /// Whether this set of keymaps contains any candidates. (First keymap takes priority.)
+    /// Whether this keymap contains any candidates.
     pub fn has_candidates(&self) -> bool {
         self.filtered_candidates("").next().is_some()
     }
 
+    /// Whether this keymap accepts a custom candidate.
+    pub fn has_custom(&self) -> bool {
+        !self.custom_bindings.is_empty()
+    }
+
     // TODO: Implement fuzzy search
-    /// Iterates over all candidates that match the pattern, in the order they should be
+    /// Iterates over all candidates that match the `input` pattern, in the order they should be
     /// displayed.
     pub fn filtered_candidates<'a>(
         &'a self,
-        pattern: &'a str,
+        input: &'a str,
     ) -> impl Iterator<Item = Candidate<'a>> {
         let custom_iter = {
             let has_custom = !self.custom_bindings.is_empty();
             let custom = if has_custom {
-                Some(Candidate::Custom { input: pattern })
+                Some(Candidate::Custom { input })
             } else {
                 None
             };
@@ -222,7 +227,7 @@ impl Keymap {
         };
 
         let literal_iter = self.literals.iter().filter_map(move |(display, value)| {
-            if display.contains(pattern) {
+            if display.contains(input) {
                 Some(Candidate::Literal { display, value })
             } else {
                 None
@@ -230,7 +235,7 @@ impl Keymap {
         });
 
         let non_literal_iter = self.non_literal_bindings.keys().filter_map(move |display| {
-            if display.contains(pattern) {
+            if display.contains(input) {
                 Some(Candidate::NonLiteral { display })
             } else {
                 None

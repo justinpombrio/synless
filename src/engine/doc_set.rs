@@ -63,7 +63,7 @@ pub enum DocName {
 #[derive(Debug)]
 pub struct DocSet {
     name_to_doc: HashMap<DocName, DocIndex>,
-    visible_doc: Option<DocIndex>,
+    visible_doc: Option<DocName>,
     /// DocIndex -> Doc
     docs: Vec<Doc>,
 }
@@ -91,21 +91,26 @@ impl DocSet {
 
     #[must_use]
     pub fn set_visible_doc(&mut self, doc_name: &DocName) -> bool {
-        if let Some(doc_index) = self.name_to_doc.get(doc_name) {
-            self.visible_doc = Some(*doc_index);
+        if self.name_to_doc.contains_key(doc_name) {
+            self.visible_doc = Some(doc_name.to_owned());
             true
         } else {
             false
         }
     }
 
-    pub fn visible_doc(&self) -> Option<&Doc> {
-        Some(self.docs.get(self.visible_doc?).bug())
+    pub fn visible_doc(&self) -> Option<&DocName> {
+        self.visible_doc.as_ref()
     }
 
     pub fn get_doc(&self, doc_name: &DocName) -> Option<&Doc> {
         let doc_index = *self.name_to_doc.get(doc_name)?;
         Some(self.docs.get(doc_index).bug())
+    }
+
+    pub fn get_doc_mut(&mut self, doc_name: &DocName) -> Option<&mut Doc> {
+        let doc_index = *self.name_to_doc.get(doc_name)?;
+        Some(self.docs.get_mut(doc_index).bug())
     }
 
     pub fn get_content<'s>(
@@ -124,7 +129,7 @@ impl DocSet {
 
         let (doc, opts) = match label {
             DocDisplayLabel::Visible => {
-                let doc = self.visible_doc()?;
+                let doc = self.get_doc(self.visible_doc()?)?;
                 let (focus_path, focus_target) = doc.cursor().path_from_root(s);
                 let options = pane::PrintingOptions {
                     focus_path,
