@@ -1,0 +1,46 @@
+// TODO: styles
+
+LanguageSpec(
+    name: "SelectionMenu",
+    grammar: GrammarSpec(
+        constructs: [
+            ConstructSpec(
+                name: "Root",
+                arity: Listy(SortSpec(["element"])),
+            ),
+            ConstructSpec(
+                name: "Input",
+                arity: Texty,
+            ),
+            ConstructSpec(
+                name: "Custom",
+                arity: Texty,
+            ),
+            ConstructSpec(
+                name: "Literal",
+                arity: Texty,
+            ),
+            ConstructSpec(
+                name: "NonLiteral",
+                arity: Texty,
+            ),
+        ],
+        sorts: [
+            ("element", SortSpec(["Input", "Custom", "Literal", "NonLiteral"]))
+        ],
+        root_construct: "Root",
+    ),
+    default_display_notation: NotationSetSpec(
+        name: "DefaultDisplay",
+        notations: [
+            ("Root", Fold(
+                first: Child(0),
+                join: Concat(Left, Concat(Newline, Right)),
+            )),
+            ("Input", Concat(Literal("> "), Text)),
+            ("Custom", Concat(Literal("[+] "), Text)),
+            ("Literal", Text),
+            ("NonLiteral", Text),
+        ]
+    ),
+)
