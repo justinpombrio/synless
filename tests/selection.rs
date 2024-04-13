@@ -32,9 +32,9 @@ fn test_selection_lang() {
 
     add_elem(s, &mut cursor, "Input", "oo");
     add_elem(s, &mut cursor, "Custom", "oo");
-    add_elem(s, &mut cursor, "Literal", "foobar.rs");
-    add_elem(s, &mut cursor, "NonLiteral", "..");
-    add_elem(s, &mut cursor, "Literal", "baz.rs");
+    add_elem(s, &mut cursor, "Regular", "foobar.rs");
+    add_elem(s, &mut cursor, "Special", "..");
+    add_elem(s, &mut cursor, "Regular", "baz.rs");
 
     let output = engine.print_source(&doc_name).unwrap();
     let expected = "> oo\n[+] oo\nfoobar.rs\n..\nbaz.rs";

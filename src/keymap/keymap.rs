@@ -14,53 +14,53 @@ const KEYHINTS_LANGUAGE_NAME: &str = "Keyhints";
  * Candidate *
  *************/
 
-// TODO: doc
+/// An entry in a [`Keymap`]'s candidate list.
 #[derive(Debug, Clone)]
 pub enum Candidate {
-    /// A candidate created from [`bind_key_for_candidate`].
-    NonLiteral { display: String },
-    /// A candidate created from [`add_candidate`].
-    Literal { display: String, value: Value },
+    /// A candidate created from [`bind_key_for_special_candidate`].
+    Special { display: String },
+    /// A candidate created from [`add_regular_candidate`].
+    Regular { display: String, value: Value },
     /// A new candidate created from the custom string the user typed.
     Custom { input: String },
 }
 
 impl Candidate {
-    fn new_custom() -> Candidate {
+    pub fn new_custom() -> Candidate {
         Candidate::Custom {
             input: String::new(),
         }
     }
 
-    fn new_literal(display: &str, value: &Value) -> Candidate {
-        Candidate::Literal {
+    fn new_regular(display: &str, value: &Value) -> Candidate {
+        Candidate::Regular {
             display: display.to_owned(),
             value: value.to_owned(),
         }
     }
 
-    fn new_non_literal(display: &str) -> Candidate {
-        Candidate::NonLiteral {
+    fn new_special(display: &str) -> Candidate {
+        Candidate::Special {
             display: display.to_owned(),
         }
     }
 
     pub fn display_str(&self) -> &str {
-        use Candidate::{Custom, Literal, NonLiteral};
+        use Candidate::{Custom, Regular, Special};
 
         match self {
-            NonLiteral { display } => display,
-            Literal { display, .. } => display,
+            Special { display } => display,
+            Regular { display, .. } => display,
             Custom { input } => input,
         }
     }
 
     fn value(&self) -> Option<Value> {
-        use Candidate::{Custom, Literal, NonLiteral};
+        use Candidate::{Custom, Regular, Special};
 
         match self {
-            NonLiteral { .. } => None,
-            Literal { value, .. } => Some(value.clone()),
+            Special { .. } => None,
+            Regular { value, .. } => Some(value.clone()),
             Custom { input } => Some(Value::String(input.clone())),
         }
     }
@@ -70,15 +70,15 @@ impl Candidate {
  * KeyProg *
  ***********/
 
-/// A named program that can be used in a key binding.
+/// A program that can be used in a key binding.
 /// Represents the regular program that:
 ///
 /// 1. If `exit_menu`, exits the menu.
-/// 2. If `push_candidate_value`, pushes the selected candidate onto the stack.
+/// 2. If `Some(val) = candidate.value()`, pushes `val` onto the stack.
 /// 3. Executes `prog`.
 #[derive(Debug, Clone)]
 struct KeyProg {
-    name: String,
+    hint: String,
     exit_menu: bool,
     prog: Prog,
 }
@@ -102,21 +102,109 @@ impl KeyProg {
  * KeyMap *
  **********/
 
-/// Key bindings.
+/// A keymap consists of one or two panes in the window. All keymaps have a "key hints" pane that
+/// shows which keys can be pressed, with short hints describing what each key will do. Some
+/// keymaps have an additional "selection" pane, where the user can select between candidate values
+/// by typing a search pattern and using arrow keys.
 ///
-/// All methods that add bindings will overwrite existing bindings.
+/// To illustrate the types of candidates and bindings, we will describe how to implement a file
+/// selection menu. It would look like:
+///
+/// ```text
+///     +------------------+
+///     | prompt>          |
+///     +------------------+
+///     | [new file]       |
+///  -> | baz.rs           |
+///     | foobar.rs        |
+///     | ..               |
+///     +------------------+
+///     | enter: open      |
+///     | ctrl-d: delete   |
+///     | esc: exit menu   |
+///     +------------------+
+/// ```
+///
+/// This menu contains:
+///
+/// - A prompt where the user can enter text. It can be used to filter the candidates or to
+/// create a new file with a custom name.
+/// - A list of candidates. This includes the name of each file in the directory, a special
+/// candidate ".." that opens a new selection menu for the parent directory, and a custom candidate
+/// that creates a new file with whatever name was entered at the prompt. There is always one
+/// selected candidate, shown here with an "->".
+/// - A list of key hints, showing which keys can be pressed and what they will do. These change
+/// depending on which candidate is currently selected. For example, normal files can be "opened" or
+/// "deleted", `..` can be "opened", and the custom candidate can be "created".
+///
+/// If the user types "foo" and presses the up arrow, the candidates list will be filtered, the
+/// selection will move to the custom "[new file]" candidate, and the key hints will be updated to
+/// reflect that selection:
+///
+/// ```text
+///     +------------------+
+///     |prompt> foo       |
+///     +------------------+
+///  -> |[new file] foo    |
+///     |foobar.rs         |
+///     +------------------+
+///     | enter: create    |
+///     | esc: exit menu   |
+///     +------------------+
+/// ```
+///
+/// Many keymaps don't need candidate selection. These will only contain _general bindings_, added
+/// with the method [`add_binding()`]. This method binds a key to a function that takes no
+/// arguments. If you only add bindings with this method, then no prompt or candidate list will be
+/// shown.
+///
+/// For keymaps with candidate selection, there are three kinds of candidates:
+///
+/// - _The custom candidate._ The method [`bind_key_for_custom_candidate()`] binds a key to a
+/// function that takes the user's input string as an argument. The custom candidate is only shown
+/// in the list if there is at least one binding for it. In the file example, `[new file]` is a
+/// custom candidate.
+///
+/// - _Regular candidates._ The method [`add_regular_candidate`] adds a regular candidate to the
+/// candidate list. This candidate has both a display string and a _value_. The method
+/// [`bind_key_for_regular_candidates()`] binds a key to a function that takes the selected
+/// candidate's value as an argument. Each of these bindings applies to _all_ regular candidates.
+/// In the file example, the file names "baz.rs" and "foobar.rs" are regular candidates and "enter"
+/// is bound to "open file by name" for both of them.
+///
+/// - _Special candidates._ The method [`bind_key_for_special_candidate()`] adds a special
+/// candidate to the candidate list, and gives it a binding from a key to a function that takes no
+/// arguments. You can call it more than once for the same special candidate to give it multiple
+/// bindings. In the file example, `..` is a special candidate, for which "enter" is bound to "open
+/// menu for parent directory".
+///
+/// You can have both candidate selection and general bindings in one keymap. In the file example,
+/// "esc" is bound to "exit menu" with a general binding. The key hints pane shows the key bindings
+/// for the selected candidate, plus all general key bindings. (If the same key is bound for both,
+/// the candidate specific binding overrides the general binding.)
+///
+/// ### Conflict Resolution
+///
+/// - If you add multiple general bindings for the same key, the latest binding overrides the
+/// previous ones.
+///
+/// - If you add multiple candidate-specific bindings for the same key and candidate, the latest binding
+/// overrides the previous ones.
+///
+/// - If you add a general binding and candidate-specific binding with the same key, the
+/// candidate-specific binding takes priority.
 #[derive(Debug, Clone)]
 pub struct Keymap {
     /// If the user types `Key`, execute `KeyProg`.
     general_bindings: OrderedMap<Key, KeyProg>,
     /// If the user types `Key` while `String` is selected, execute `KeyProg`.
-    non_literal_bindings: OrderedMap<String, OrderedMap<Key, KeyProg>>,
-    /// If the user types `Key` while any of `literals` is selected, push the literal candidate's
+    special_bindings: OrderedMap<String, OrderedMap<Key, KeyProg>>,
+    /// If the user types `Key` while any of `regular_candidates` is selected, push the regular candidate's
     /// `Value` and then execute `KeyProg`.
-    literal_bindings: OrderedMap<Key, KeyProg>,
-    /// The set of literal candidates. Each has a display name and a value to push.
-    // TODO: Literal insertion is quadratic. Make an efficient OrderedSet instead.
-    literals: Vec<(String, Value)>,
+    regular_bindings: OrderedMap<Key, KeyProg>,
+    /// The set of regular candidates. Each has a display label and a value to push.
+    // TODO: Regular candidate insertion is quadratic. Make an efficient OrderedSet instead.
+    regular_candidates: Vec<(String, Value)>,
     /// If the user types `Key` while a custom candidate is selected, push its string and execute
     /// `KeyProg`.
     custom_bindings: OrderedMap<Key, KeyProg>,
@@ -130,9 +218,9 @@ impl Keymap {
     pub fn new() -> Keymap {
         Keymap {
             general_bindings: OrderedMap::new(),
-            non_literal_bindings: OrderedMap::new(),
-            literal_bindings: OrderedMap::new(),
-            literals: Vec::new(),
+            special_bindings: OrderedMap::new(),
+            regular_bindings: OrderedMap::new(),
+            regular_candidates: Vec::new(),
             custom_bindings: OrderedMap::new(),
         }
     }
@@ -142,21 +230,21 @@ impl Keymap {
         // general_bindings
         self.general_bindings.append(other.general_bindings);
 
-        // non_literal_bindings
-        for (non_literal, map) in other.non_literal_bindings {
-            if let Some(self_map) = self.non_literal_bindings.get_mut(&non_literal) {
+        // special_bindings
+        for (special, map) in other.special_bindings {
+            if let Some(self_map) = self.special_bindings.get_mut(&special) {
                 self_map.append(map);
             } else {
-                self.non_literal_bindings.insert(non_literal, map);
+                self.special_bindings.insert(special, map);
             }
         }
 
-        // literal_bindings
-        self.literal_bindings.append(other.literal_bindings);
+        // regular_bindings
+        self.regular_bindings.append(other.regular_bindings);
 
-        // literals
-        for (display, value) in other.literals {
-            self.add_literal_candidate(display, value);
+        // regular candidatess
+        for (display, value) in other.regular_candidates {
+            self.add_regular_candidate(display, value);
         }
 
         // custom_bindings
@@ -167,86 +255,87 @@ impl Keymap {
      * Binding Keys *
      ****************/
 
-    /// If the user types `key`, execute `prog`, potentially after exiting the menu.
-    /// Use `name` when displaying this binding.
-    pub fn bind_key(&mut self, key: Key, name: String, prog: Prog, exit_menu: bool) {
+    /// Add a general binding: if the user types `key`, execute `prog`, potentially after exiting
+    /// the menu.  Use `hint` when displaying this binding.
+    pub fn bind_key(&mut self, key: Key, hint: String, prog: Prog, exit_menu: bool) {
         self.general_bindings.insert(
             key,
             KeyProg {
-                name,
+                hint,
                 exit_menu,
                 prog,
             },
         );
     }
 
-    /// If the user types `key` while `candidate` is selected, execute `prog`,
-    /// potentially after exiting the menu. Use `name` when displaying this binding.
-    pub fn bind_key_for_candidate(
+    /// Add a special binding: if the user types `key` while `candidate` is selected, execute
+    /// `prog`, potentially after exiting the menu. Use `hint` when displaying this binding.
+    pub fn bind_key_for_special_candidate(
         &mut self,
         key: Key,
         candidate: String,
-        name: String,
+        hint: String,
         prog: Prog,
         exit_menu: bool,
     ) {
         let key_prog = KeyProg {
-            name,
+            hint,
             exit_menu,
             prog,
         };
-        if !self.non_literal_bindings.contains_key(&candidate) {
-            self.non_literal_bindings
+        if !self.special_bindings.contains_key(&candidate) {
+            self.special_bindings
                 .insert(candidate.to_owned(), OrderedMap::new());
         }
-        self.non_literal_bindings[&candidate].insert(key, key_prog);
+        self.special_bindings[&candidate].insert(key, key_prog);
     }
 
-    /// Add a candidate to the list of literal candidates (used together with
-    /// [`bind_key_for_literal_candidates`]).
-    pub fn add_literal_candidate(&mut self, display: String, value: Value) {
-        for (existing_display, existing_value) in &mut self.literals {
+    /// Add a regular candidate to the list of candidates (used together with
+    /// [`bind_key_for_regular_candidates`]).
+    pub fn add_regular_candidate(&mut self, display: String, value: Value) {
+        for (existing_display, existing_value) in &mut self.regular_candidates {
             if existing_display == &display {
                 *existing_value = value;
                 return;
             }
         }
-        self.literals.push((display, value));
+        self.regular_candidates.push((display, value));
     }
 
-    /// If the user types `Key` while one of the literal candidates is selected, push that
-    /// candidate and then execute `prog`, potentially after exiting the menu. Use `name` when
-    /// displaying this binding.
-    pub fn bind_key_for_literal_candidates(
+    /// If the user types `Key` while one of the regular candidates is selected, pass that
+    /// candidate's value to `prog`, potentially after exiting the menu. Use `hint` when displaying
+    /// this binding.
+    pub fn bind_key_for_regular_candidates(
         &mut self,
         key: Key,
-        name: String,
+        hint: String,
         prog: Prog,
         exit_menu: bool,
     ) {
-        self.literal_bindings.insert(
+        self.regular_bindings.insert(
             key,
             KeyProg {
-                name,
+                hint,
                 exit_menu,
                 prog,
             },
         );
     }
 
-    /// If the user types `key` while a custom candidate is selected, push its string and execute
-    /// `prog`, potentially after exiting the menu. Use `name` when displaying this binding.
-    pub fn bind_key_for_custom_candidates(
+    /// If the user types `key` while the custom candidate is selected, pass the user's input
+    /// string to `prog`, potentially after exiting the menu. Use `hint` when displaying this
+    /// binding.
+    pub fn bind_key_for_custom_candidate(
         &mut self,
         key: Key,
-        name: String,
+        hint: String,
         prog: Prog,
         exit_menu: bool,
     ) {
         self.custom_bindings.insert(
             key,
             KeyProg {
-                name,
+                hint,
                 exit_menu,
                 prog,
             },
@@ -257,22 +346,23 @@ impl Keymap {
      * Accessors *
      *************/
 
-    pub fn custom_candidate(&self) -> Option<Candidate> {
-        (!self.custom_bindings.is_empty()).then(Candidate::new_custom)
+    pub fn has_custom_candidate(&self) -> bool {
+        !self.custom_bindings.is_empty()
     }
 
-    // all candidates except the custom candidate
+    /// Constructs a sequence of all regular and special candidates (does not include the custom
+    /// candidate).
     pub fn candidates(&self) -> impl Iterator<Item = Candidate> + '_ {
-        let literal_iter = self
-            .literals
+        let regular_iter = self
+            .regular_candidates
             .iter()
-            .map(|(display, value)| Candidate::new_literal(display, value));
-        let non_literal_iter = self
-            .non_literal_bindings
+            .map(|(display, value)| Candidate::new_regular(display, value));
+        let special_iter = self
+            .special_bindings
             .keys()
-            .map(|display| Candidate::new_non_literal(display));
+            .map(|display| Candidate::new_special(display));
 
-        literal_iter.chain(non_literal_iter)
+        regular_iter.chain(special_iter)
     }
 
     /// Returns the program to execute if `key` is pressed while `candidate` is selected.
@@ -288,26 +378,25 @@ impl Keymap {
         None
     }
 
-    /// Iterates over all `(key, name)` pairs that are available, given that `candidate` is selected.
+    /// Iterates over all `(key, hint)` pairs that are available, given that `candidate` is selected.
     pub fn available_keys(
         &self,
         candidate: Option<&Candidate>,
     ) -> impl Iterator<Item = (Key, &str)> + '_ {
         self.available_keys_impl(candidate)
-            .map(|(key, keyprog, _)| (key, keyprog.name.as_ref()))
+            .map(|(key, keyprog, _)| (key, keyprog.hint.as_ref()))
     }
 
-    // General key bindings are _lowest_ priority.
     // Returns iterator of (key, prog_to_run_if_pressed, use_candidate)
     fn available_keys_impl(
         &self,
         candidate: Option<&Candidate>,
     ) -> impl Iterator<Item = (Key, &KeyProg, bool)> + '_ {
-        use Candidate::{Custom, Literal, NonLiteral};
+        use Candidate::{Custom, Regular, Special};
 
         let ordered_map_opt = candidate.map(|candidate| match candidate {
-            NonLiteral { display } => &self.non_literal_bindings[display],
-            Literal { .. } => &self.literal_bindings,
+            Special { display } => &self.special_bindings[display],
+            Regular { .. } => &self.regular_bindings,
             Custom { .. } => &self.custom_bindings,
         });
         let candidate_iter = ordered_map_opt

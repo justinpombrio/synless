@@ -32,7 +32,7 @@ struct MenuSelection {
 
 impl MenuSelection {
     fn new(keymap: &Keymap) -> Option<MenuSelection> {
-        let custom_candidate = keymap.custom_candidate();
+        let custom_candidate = keymap.has_custom_candidate().then(Candidate::new_custom);
         let candidates = keymap.candidates().collect::<Vec<_>>();
         if candidates.is_empty() && custom_candidate.is_none() {
             return None;
@@ -85,7 +85,7 @@ impl MenuSelection {
     }
 
     fn make_selection_doc(&self, s: &mut Storage) -> Node {
-        use Candidate::{Custom, Literal, NonLiteral};
+        use Candidate::{Custom, Regular, Special};
 
         // Lookup SelectionMenu language and constructs
         let lang = s
@@ -95,8 +95,8 @@ impl MenuSelection {
         let c_input = lang.construct(s, "Input").bug();
         let c_selected = lang.construct(s, "Selected").bug();
         let c_custom = lang.construct(s, "Custom").bug();
-        let c_literal = lang.construct(s, "Literal").bug();
-        let c_non_literal = lang.construct(s, "NonLiteral").bug();
+        let c_regular = lang.construct(s, "Regular").bug();
+        let c_special = lang.construct(s, "Special").bug();
 
         // Construct root node
         let root = Node::new(s, c_root);
@@ -111,8 +111,8 @@ impl MenuSelection {
         for (i, candidate) in candidates.iter().enumerate() {
             let construct = match candidate {
                 Custom { .. } => c_custom,
-                Literal { .. } => c_literal,
-                NonLiteral { .. } => c_non_literal,
+                Regular { .. } => c_regular,
+                Special { .. } => c_special,
             };
             let mut node = Node::with_text(s, construct, candidate.display_str().to_owned()).bug();
             if i == index {

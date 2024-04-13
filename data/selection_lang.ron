@@ -19,17 +19,17 @@ LanguageSpec(
                 arity: Texty,
             ),
             ConstructSpec(
-                name: "Literal",
+                name: "Regular",
                 arity: Texty,
             ),
             ConstructSpec(
-                name: "NonLiteral",
+                name: "Special",
                 arity: Texty,
             ),
         ],
         sorts: [
             ("entry", SortSpec(["Input", "Selected", "candidate"])),
-            ("candidate", SortSpec(["Custom", "Literal", "NonLiteral"]))
+            ("candidate", SortSpec(["Custom", "Regular", "Special"]))
         ],
         root_construct: "Root",
     ),
@@ -52,8 +52,8 @@ LanguageSpec(
             ("Custom", Concat(
                 Style(Properties(fg_color: Some(Base0B)), Literal("[+] ")),
                 Text)),
-            ("Literal", Text),
-            ("NonLiteral", Text),
+            ("Regular", Text),
+            ("Special", Text),
         ]
     ),
 )
