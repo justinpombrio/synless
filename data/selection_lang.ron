@@ -1,16 +1,18 @@
-// TODO: styles
-
 LanguageSpec(
     name: "SelectionMenu",
     grammar: GrammarSpec(
         constructs: [
             ConstructSpec(
                 name: "Root",
-                arity: Listy(SortSpec(["element"])),
+                arity: Listy(SortSpec(["entry"])),
             ),
             ConstructSpec(
                 name: "Input",
                 arity: Texty,
+            ),
+            ConstructSpec(
+                name: "Selected",
+                arity: Fixed([SortSpec(["candidate"])]),
             ),
             ConstructSpec(
                 name: "Custom",
@@ -26,7 +28,8 @@ LanguageSpec(
             ),
         ],
         sorts: [
-            ("element", SortSpec(["Input", "Custom", "Literal", "NonLiteral"]))
+            ("entry", SortSpec(["Input", "Selected", "candidate"])),
+            ("candidate", SortSpec(["Custom", "Literal", "NonLiteral"]))
         ],
         root_construct: "Root",
     ),
@@ -37,8 +40,18 @@ LanguageSpec(
                 first: Child(0),
                 join: Concat(Left, Concat(Newline, Right)),
             )),
-            ("Input", Concat(Literal("> "), Text)),
-            ("Custom", Concat(Literal("[+] "), Text)),
+            ("Input", Concat(
+                Style(Properties(bold: Some(true), fg_color: Some(Base0C)), Literal("> ")),
+                Style(Properties(bold: Some(true)), Text))),
+            ("Selected", Style(Properties(
+                bold: Some(true),
+                fg_color: Some(Base01),
+                bg_color: Some(Base0A),
+                priority: High,
+            ), Child(0))),
+            ("Custom", Concat(
+                Style(Properties(fg_color: Some(Base0B)), Literal("[+] ")),
+                Text)),
             ("Literal", Text),
             ("NonLiteral", Text),
         ]

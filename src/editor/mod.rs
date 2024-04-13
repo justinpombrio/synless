@@ -1,7 +1,10 @@
+// TODO: pull out keymap, layer, menu
+
 mod app;
 mod interpreter;
 mod keymap;
 mod layer;
+mod menu;
 mod runtime;
 mod stack;
 

@@ -1,8 +1,104 @@
 use super::stack::{Op, Prog, Value};
 use crate::frontends::Key;
-use crate::util::{bug, OrderedMap, SynlessBug};
+use crate::language::Storage;
+use crate::tree::Node;
+use crate::util::{bug, bug_assert, OrderedMap, SynlessBug};
 use std::borrow::Borrow;
 use std::collections::HashMap;
+
+const KEYHINTS_LANGUAGE_NAME: &str = "Keyhints";
+
+/*************
+ * Candidate *
+ *************/
+
+// TODO: doc
+#[derive(Debug, Clone)]
+pub enum Candidate {
+    /// A candidate created from [`bind_key_for_candidate`].
+    NonLiteral { display: String },
+    /// A candidate created from [`add_candidate`].
+    Literal { display: String, value: Value },
+    /// A new candidate created from the custom string the user typed.
+    Custom { input: String },
+}
+
+impl Candidate {
+    fn new_custom() -> Candidate {
+        Candidate::Custom {
+            input: String::new(),
+        }
+    }
+
+    fn new_literal(display: &str, value: &Value) -> Candidate {
+        Candidate::Literal {
+            display: display.to_owned(),
+            value: value.to_owned(),
+        }
+    }
+
+    fn new_non_literal(display: &str) -> Candidate {
+        Candidate::NonLiteral {
+            display: display.to_owned(),
+        }
+    }
+
+    pub fn display_str(&self) -> &str {
+        use Candidate::{Custom, Literal, NonLiteral};
+
+        match self {
+            NonLiteral { display } => display,
+            Literal { display, .. } => display,
+            Custom { input } => input,
+        }
+    }
+
+    fn value(&self) -> Option<Value> {
+        use Candidate::{Custom, Literal, NonLiteral};
+
+        match self {
+            NonLiteral { .. } => None,
+            Literal { value, .. } => Some(value.clone()),
+            Custom { input } => Some(Value::String(input.clone())),
+        }
+    }
+}
+
+/***********
+ * KeyProg *
+ ***********/
+
+/// A named program that can be used in a key binding.
+/// Represents the regular program that:
+///
+/// 1. If `exit_menu`, exits the menu.
+/// 2. If `push_candidate_value`, pushes the selected candidate onto the stack.
+/// 3. Executes `prog`.
+#[derive(Debug, Clone)]
+struct KeyProg {
+    name: String,
+    exit_menu: bool,
+    prog: Prog,
+}
+
+impl KeyProg {
+    fn to_program(&self, candidate: Option<&Candidate>) -> Prog {
+        let mut prog = self.prog.to_owned();
+        if let Some(value) = candidate.and_then(|candidate| candidate.value()) {
+            prog.insert_first(Op::Literal(value));
+        }
+        if self.exit_menu {
+            prog.insert_first(Op::ExitMenu);
+        } else {
+            prog.insert_last(Op::Block);
+        }
+        prog
+    }
+}
+
+/**********
+ * KeyMap *
+ **********/
 
 /// Key bindings.
 ///
@@ -24,55 +120,11 @@ pub struct Keymap {
     custom_bindings: OrderedMap<Key, KeyProg>,
 }
 
-// TODO: doc
-#[derive(Debug, Clone, Copy)]
-pub enum Candidate<'a> {
-    /// A candidate created from [`bind_key_for_candidate`].
-    NonLiteral { display: &'a str },
-    /// A candidate created from [`add_candidate`].
-    Literal { display: &'a str, value: &'a Value },
-    /// A new candidate created from the custom string the user typed.
-    Custom { input: &'a str },
-}
-
-/// A named program that can be used in a key binding.
-/// Represents the regular program that:
-///
-/// 1. If `exit_menu`, exits the menu.
-/// 2. If `push_candidate_value`, pushes the selected candidate onto the stack.
-/// 3. Executes `prog`.
-#[derive(Debug, Clone)]
-struct KeyProg {
-    name: String,
-    exit_menu: bool,
-    push_candidate_value: bool,
-    prog: Prog,
-}
-
-impl KeyProg {
-    fn to_program(&self, candidate: Option<Candidate>) -> Prog {
-        let mut prog = self.prog.to_owned();
-        if self.push_candidate_value {
-            // push_candidate_value is only set for literal&custom, so there must be a candidate
-            let candidate = candidate.bug_msg("Keymap: push w/o candidate");
-            let candidate_value = match candidate {
-                Candidate::Literal { value, .. } => value.to_owned(),
-                Candidate::Custom { input } => Value::String(input.to_owned()),
-                // push_candidate_value is never set for a non_literal binding
-                Candidate::NonLiteral { .. } => bug!("Keymap: NonLiteral w/ push"),
-            };
-            prog.insert_first(Op::Literal(candidate_value));
-        }
-        if self.exit_menu {
-            prog.insert_first(Op::ExitMenu);
-        } else {
-            prog.insert_last(Op::Block);
-        }
-        prog
-    }
-}
-
 impl Keymap {
+    /****************
+     * Constructors *
+     ****************/
+
     pub fn new() -> Keymap {
         Keymap {
             general_bindings: OrderedMap::new(),
@@ -109,6 +161,10 @@ impl Keymap {
         self.custom_bindings.append(other.custom_bindings);
     }
 
+    /****************
+     * Binding Keys *
+     ****************/
+
     /// If the user types `key`, execute `prog`, potentially after exiting the menu.
     /// Use `name` when displaying this binding.
     pub fn bind_key(&mut self, key: Key, name: String, prog: Prog, exit_menu: bool) {
@@ -117,7 +173,6 @@ impl Keymap {
             KeyProg {
                 name,
                 exit_menu,
-                push_candidate_value: false,
                 prog,
             },
         );
@@ -136,7 +191,6 @@ impl Keymap {
         let key_prog = KeyProg {
             name,
             exit_menu,
-            push_candidate_value: false,
             prog,
         };
         if !self.non_literal_bindings.contains_key(&candidate) {
@@ -173,7 +227,6 @@ impl Keymap {
             KeyProg {
                 name,
                 exit_menu,
-                push_candidate_value: true,
                 prog,
             },
         );
@@ -193,62 +246,40 @@ impl Keymap {
             KeyProg {
                 name,
                 exit_menu,
-                push_candidate_value: true,
                 prog,
             },
         );
     }
 
-    /// Whether this keymap contains any candidates.
-    pub fn has_candidates(&self) -> bool {
-        self.filtered_candidates("").next().is_some()
+    /*************
+     * Accessors *
+     *************/
+
+    pub fn custom_candidate(&self) -> Option<Candidate> {
+        (!self.custom_bindings.is_empty()).then(Candidate::new_custom)
     }
 
-    /// Whether this keymap accepts a custom candidate.
-    pub fn has_custom(&self) -> bool {
-        !self.custom_bindings.is_empty()
-    }
+    // all candidates except the custom candidate
+    pub fn candidates(&self) -> impl Iterator<Item = Candidate> + '_ {
+        let literal_iter = self
+            .literals
+            .iter()
+            .map(|(display, value)| Candidate::new_literal(display, value));
+        let non_literal_iter = self
+            .non_literal_bindings
+            .keys()
+            .map(|display| Candidate::new_non_literal(display));
 
-    // TODO: Implement fuzzy search
-    /// Iterates over all candidates that match the `input` pattern, in the order they should be
-    /// displayed.
-    pub fn filtered_candidates<'a>(
-        &'a self,
-        input: &'a str,
-    ) -> impl Iterator<Item = Candidate<'a>> {
-        let custom_iter = {
-            let has_custom = !self.custom_bindings.is_empty();
-            let custom = if has_custom {
-                Some(Candidate::Custom { input })
-            } else {
-                None
-            };
-            custom.into_iter()
-        };
-
-        let literal_iter = self.literals.iter().filter_map(move |(display, value)| {
-            if display.contains(input) {
-                Some(Candidate::Literal { display, value })
-            } else {
-                None
-            }
-        });
-
-        let non_literal_iter = self.non_literal_bindings.keys().filter_map(move |display| {
-            if display.contains(input) {
-                Some(Candidate::NonLiteral { display })
-            } else {
-                None
-            }
-        });
-
-        custom_iter.chain(literal_iter).chain(non_literal_iter)
+        literal_iter.chain(non_literal_iter)
     }
 
     /// Returns the program to execute if `key` is pressed while `candidate` is selected.
-    pub fn lookup(&self, key: Key, candidate: Option<Candidate>) -> Option<Prog> {
-        for (bound_key, keyprog) in self.available_keys_impl(candidate) {
+    pub fn lookup(&self, key: Key, mut candidate: Option<&Candidate>) -> Option<Prog> {
+        for (bound_key, keyprog, use_candidate) in self.available_keys_impl(candidate) {
             if bound_key == key {
+                if !use_candidate {
+                    candidate = None;
+                }
                 return Some(keyprog.to_program(candidate));
             }
         }
@@ -256,35 +287,64 @@ impl Keymap {
     }
 
     /// Iterates over all `(key, name)` pairs that are available, given that `candidate` is selected.
-    pub fn available_keys<'a>(
-        &'a self,
-        candidate: Option<Candidate<'a>>,
-    ) -> impl Iterator<Item = (Key, &'a str)> {
+    pub fn available_keys(
+        &self,
+        candidate: Option<&Candidate>,
+    ) -> impl Iterator<Item = (Key, &str)> + '_ {
         self.available_keys_impl(candidate)
-            .map(|(key, keyprog)| (key, keyprog.name.as_ref()))
+            .map(|(key, keyprog, _)| (key, keyprog.name.as_ref()))
     }
 
     // General key bindings are _lowest_ priority.
-    fn available_keys_impl<'a>(
-        &'a self,
-        candidate: Option<Candidate<'a>>,
-    ) -> impl Iterator<Item = (Key, &'a KeyProg)> {
-        let candidate_iter = candidate.into_iter().flat_map(|candidate| {
-            let ordered_map = match candidate {
-                Candidate::NonLiteral { display } => &self.non_literal_bindings[display],
-                Candidate::Literal { .. } => &self.literal_bindings,
-                Candidate::Custom { .. } => &self.custom_bindings,
-            };
-            ordered_map
-                .into_iter()
-                .map(|(key, keyprog)| (*key, keyprog))
+    // Returns iterator of (key, prog_to_run_if_pressed, use_candidate)
+    fn available_keys_impl(
+        &self,
+        candidate: Option<&Candidate>,
+    ) -> impl Iterator<Item = (Key, &KeyProg, bool)> + '_ {
+        use Candidate::{Custom, Literal, NonLiteral};
+
+        let ordered_map_opt = candidate.map(|candidate| match candidate {
+            NonLiteral { display } => &self.non_literal_bindings[display],
+            Literal { .. } => &self.literal_bindings,
+            Custom { .. } => &self.custom_bindings,
         });
+        let candidate_iter = ordered_map_opt
+            .into_iter()
+            .flat_map(|map| map.into_iter().map(|(key, keyprog)| (*key, keyprog, true)));
 
         let general_iter = self
             .general_bindings
             .iter()
-            .map(|(key, keyprog)| (*key, keyprog));
+            .map(|(key, keyprog)| (*key, keyprog, false));
 
         candidate_iter.chain(general_iter)
+    }
+
+    /***************
+     * KeyHint Doc *
+     ***************/
+
+    pub fn make_keyhint_doc(&self, s: &mut Storage, candidate: Option<&Candidate>) -> Node {
+        // Lookup SelectionMenu language and constructs
+        let lang = s
+            .language(&KEYHINTS_LANGUAGE_NAME)
+            .bug_msg("Missing Keyhints lang");
+        let c_root = lang.root_construct(s);
+        let c_entry = lang.construct(s, "Entry").bug();
+        let c_key = lang.construct(s, "Key").bug();
+        let c_hint = lang.construct(s, "Hint").bug();
+
+        // Construct root node
+        let root = Node::new(s, c_root);
+
+        // Add (key, hint) entries
+        for (key, hint) in self.available_keys(candidate) {
+            let key_node = Node::with_text(s, c_key, key.to_string()).bug();
+            let hint_node = Node::with_text(s, c_hint, hint.to_owned()).bug();
+            let entry_node = Node::with_children(s, c_entry, [key_node, hint_node]).bug();
+            bug_assert!(root.insert_last_child(s, entry_node));
+        }
+
+        root
     }
 }

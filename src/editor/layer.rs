@@ -1,8 +1,11 @@
-use super::keymap::{Candidate, Keymap};
+use super::keymap::Keymap;
+use super::menu::{Menu, MenuName, MenuSelectionCmd};
 use super::stack::Prog;
 use crate::engine::DocName;
 use crate::frontends::Key;
+use crate::language::Storage;
 use crate::tree::Mode;
+use crate::tree::Node;
 use crate::util::IndexedMap;
 use std::collections::HashMap;
 
@@ -12,75 +15,12 @@ use std::collections::HashMap;
 // - proofread keymap & layer
 // - add tests
 
-type MenuName = String;
 type LayerIndex = usize;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 enum KeymapLabel {
     Menu(MenuName),
     Mode(Mode),
-}
-
-/********
- * Menu *
- ********/
-
-pub enum MenuSelectionCmd {
-    Up,
-    Down,
-    Backspace,
-    Insert(char),
-}
-
-struct Menu {
-    name: MenuName,
-    keymap: Keymap,
-    /// The user has input `String`, and selected the candidate at index `u32`.
-    selection: Option<MenuSelection>,
-}
-
-struct MenuSelection {
-    input: String,
-    index: u32,
-    default_index: u32,
-}
-
-impl MenuSelection {
-    fn new(keymap: &Keymap) -> Option<MenuSelection> {
-        if keymap.has_candidates() {
-            let default_index = if keymap.has_custom() { 1 } else { 0 };
-            Some(MenuSelection {
-                input: String::new(),
-                index: default_index,
-                default_index,
-            })
-        } else {
-            None
-        }
-    }
-
-    fn execute(&mut self, cmd: MenuSelectionCmd) {
-        use MenuSelectionCmd::{Backspace, Down, Insert, Up};
-
-        match cmd {
-            Up => self.index = self.index.saturating_sub(1),
-            Down => self.index += 1,
-            Backspace => {
-                self.input.pop();
-            }
-            Insert(ch) => self.input.push(ch),
-        }
-    }
-}
-
-impl Menu {
-    fn new(name: MenuName, keymap: Keymap) -> Menu {
-        Menu {
-            name,
-            selection: MenuSelection::new(&keymap),
-            keymap,
-        }
-    }
 }
 
 /*********
@@ -243,92 +183,58 @@ impl LayerManager {
     /// Returns `false` if there is no menu open, or it does not have candidate selection.
     #[must_use]
     pub fn edit_menu_selection(&mut self, cmd: MenuSelectionCmd) -> bool {
-        if let Some(selection) = self
-            .active_menu
-            .as_mut()
-            .and_then(|menu| menu.selection.as_mut())
-        {
-            selection.execute(cmd);
-            true
+        if let Some(menu) = &mut self.active_menu {
+            menu.execute(cmd)
         } else {
             false
         }
     }
 
     /*********
-     * ??? *
+     * Input *
      *********/
 
-    pub fn has_candidates(&mut self, mode: Mode, doc_name: Option<&DocName>) -> bool {
-        self.composite_keymap(mode, doc_name)
-            .map(|keymap| keymap.has_candidates())
-            .unwrap_or(false)
+    pub fn lookup_key(&mut self, mode: Mode, doc_name: Option<&DocName>, key: Key) -> Option<Prog> {
+        if let Some(menu) = &self.active_menu {
+            menu.lookup(key)
+        } else {
+            let layer = self.composite_layer(doc_name);
+            let keymap = layer.keymaps.get(&KeymapLabel::Mode(mode))?;
+            keymap.lookup(key, None)
+        }
     }
 
-    pub fn filtered_candidates<'a>(
-        &'a mut self,
-        mode: Mode,
-        doc_name: Option<&DocName>,
-        pattern: &'a str,
-    ) -> impl Iterator<Item = Candidate<'a>> {
-        self.composite_keymap(mode, doc_name)
-            .into_iter()
-            .flat_map(|keymap| keymap.filtered_candidates(pattern))
+    /***********
+     * Display *
+     ***********/
+
+    pub fn make_selection_doc(&self, s: &mut Storage) -> Option<Node> {
+        self.active_menu
+            .as_ref()
+            .and_then(|menu| menu.make_selection_doc(s))
     }
 
-    pub fn lookup_key(
+    pub fn make_keyhint_doc(
         &mut self,
+        s: &mut Storage,
         mode: Mode,
         doc_name: Option<&DocName>,
-        key: Key,
-        candidate: Option<Candidate>,
-    ) -> Option<Prog> {
-        self.composite_keymap(mode, doc_name)?
-            .lookup(key, candidate)
-    }
-
-    pub fn available_keys<'a>(
-        &'a mut self,
-        mode: Mode,
-        doc_name: Option<&DocName>,
-        candidate: Option<Candidate<'a>>,
-    ) -> impl Iterator<Item = (Key, &'a str)> {
-        self.composite_keymap(mode, doc_name)
-            .into_iter()
-            .flat_map(move |keymap| keymap.available_keys(candidate))
+    ) -> Option<Node> {
+        if let Some(menu) = &self.active_menu {
+            Some(menu.make_keyhint_doc(s))
+        } else {
+            let layer = self.composite_layer(doc_name);
+            let keymap = layer.keymaps.get(&KeymapLabel::Mode(mode))?;
+            Some(keymap.make_keyhint_doc(s, None))
+        }
     }
 
     /***********
      * Private *
      ***********/
 
-    /// Get a composite keymap that merges together all active keymaps for the given mode&document.
-    /// It is cached.
-    fn composite_keymap(&mut self, mode: Mode, doc_name: Option<&DocName>) -> Option<&Keymap> {
-        // It would be nicer to just call `composite_layer()`, but the borrow checker
-        // dislikes that.
-        let layer_indices = match &self.active_menu {
-            Some(_) => None,
-            None => Some(self.cache_composite_layer(doc_name)),
-        };
-        match &self.active_menu {
-            Some(menu) => Some(&menu.keymap),
-            None => {
-                let layer = &self.cached_composite_layers[&layer_indices.unwrap()];
-                layer.keymaps.get(&KeymapLabel::Mode(mode))
-            }
-        }
-    }
-
     /// Get a composite layer that merges together all active layers. It is cached.
     fn composite_layer(&mut self, doc_name: Option<&DocName>) -> &Layer {
-        let layer_indices = self.cache_composite_layer(doc_name);
-        &self.cached_composite_layers[&layer_indices]
-    }
-
-    /// Cache a composite layer that merges together all active layers. It can subsequently be
-    /// found by looking up the return value (layer indices) in `cached_composite_layers`.
-    fn cache_composite_layer(&mut self, doc_name: Option<&DocName>) -> Vec<usize> {
         let layer_indices = self.active_layers(doc_name).collect::<Vec<_>>();
         if !self.cached_composite_layers.contains_key(&layer_indices) {
             let layers_iter = layer_indices.iter().map(|i| &self.layers[*i]).cloned();
@@ -336,7 +242,7 @@ impl LayerManager {
             self.cached_composite_layers
                 .insert(layer_indices.clone(), composite_layer);
         }
-        layer_indices
+        &self.cached_composite_layers[&layer_indices]
     }
 
     /// Iterates over layers, yielding the lowest priority layers first.

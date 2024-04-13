@@ -1,0 +1,41 @@
+LanguageSpec(
+    name: "Keyhints",
+    grammar: GrammarSpec(
+        constructs: [
+            ConstructSpec(
+                name: "Root",
+                arity: Listy(SortSpec(["Entry"])),
+            ),
+            ConstructSpec(
+                name: "Entry",
+                arity: Fixed([SortSpec(["Key"]), SortSpec(["Hint"])]),
+            ),
+            ConstructSpec(
+                name: "Key",
+                arity: Texty,
+            ),
+            ConstructSpec(
+                name: "Hint",
+                arity: Texty,
+            ),
+        ],
+        sorts: [],
+        root_construct: "Root",
+    ),
+    default_display_notation: NotationSetSpec(
+        name: "DefaultDisplay",
+        notations: [
+            ("Root", Fold(
+                first: Child(0),
+                join: Concat(Left, Concat(Choice(Literal("   "), Newline), Right)),
+            )),
+            ("Entry", Concat(
+                Child(0), Concat(
+                Style(Properties(fg_color: Some(Base04)), Literal(": ")),
+                Child(1))
+            )),
+            ("Key", Text),
+            ("Hint", Text),
+        ]
+    ),
+)

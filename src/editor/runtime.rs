@@ -18,7 +18,7 @@ pub struct Runtime {
 }
 
 impl Runtime {
-    pub fn lookup_key(&self, key: Key) -> Option<Prog> {
+    pub fn lookup_key(&mut self, key: Key) -> Option<Prog> {
         let (mode, doc_name) = {
             if let Some(doc_name) = self.engine.visible_doc() {
                 let doc = self.engine.get_doc(doc_name).bug();
@@ -28,7 +28,6 @@ impl Runtime {
             }
         };
 
-        // TODO: must handle char insertion in text mode
-        todo!()
+        self.layer_manager.lookup_key(mode, doc_name, key)
     }
 }
