@@ -84,6 +84,7 @@ struct KeyProg {
 }
 
 impl KeyProg {
+    // If this KeyProg is from a general binding, `candidate` should be None.
     fn to_program(&self, candidate: Option<&Candidate>) -> Prog {
         let mut prog = self.prog.to_owned();
         if let Some(value) = candidate.and_then(|candidate| candidate.value()) {
@@ -113,11 +114,10 @@ impl KeyProg {
 /// ```text
 ///     +------------------+
 ///     | prompt>          |
-///     +------------------+
-///     | [new file]       |
-///  -> | baz.rs           |
-///     | foobar.rs        |
-///     | ..               |
+///     | * [new file]     |
+///  -> | * baz.rs         |
+///     | * foobar.rs      |
+///     | * ..             |
 ///     +------------------+
 ///     | enter: open      |
 ///     | ctrl-d: delete   |
@@ -129,48 +129,48 @@ impl KeyProg {
 ///
 /// - A prompt where the user can enter text. It can be used to filter the candidates or to
 /// create a new file with a custom name.
+///
 /// - A list of candidates. This includes the name of each file in the directory, a special
-/// candidate ".." that opens a new selection menu for the parent directory, and a custom candidate
+/// candidate `..` that opens a new selection menu for the parent directory, and a custom candidate
 /// that creates a new file with whatever name was entered at the prompt. There is always one
-/// selected candidate, shown here with an "->".
+/// selected candidate, shown here with `->`.
+///
 /// - A list of key hints, showing which keys can be pressed and what they will do. These change
 /// depending on which candidate is currently selected. For example, normal files can be "opened" or
 /// "deleted", `..` can be "opened", and the custom candidate can be "created".
 ///
 /// If the user types "foo" and presses the up arrow, the candidates list will be filtered, the
-/// selection will move to the custom "[new file]" candidate, and the key hints will be updated to
-/// reflect that selection:
+/// selection will move to the custom "[new file] foo" candidate, and the key hints will be updated
+/// to reflect that selection:
 ///
 /// ```text
 ///     +------------------+
-///     |prompt> foo       |
+///     | prompt> foo      |
+///  -> | * [new file] foo |
+///     | * foobar.rs      |
 ///     +------------------+
-///  -> |[new file] foo    |
-///     |foobar.rs         |
-///     +------------------+
-///     | enter: create    |
-///     | esc: exit menu   |
+///     |  enter: create   |
+///     |  esc: exit menu  |
 ///     +------------------+
 /// ```
 ///
 /// Many keymaps don't need candidate selection. These will only contain _general bindings_, added
 /// with the method [`add_binding()`]. This method binds a key to a function that takes no
-/// arguments. If you only add bindings with this method, then no prompt or candidate list will be
-/// shown.
+/// arguments. If you only add general bindings, then no prompt or candidate list will be shown.
 ///
 /// For keymaps with candidate selection, there are three kinds of candidates:
 ///
 /// - _The custom candidate._ The method [`bind_key_for_custom_candidate()`] binds a key to a
 /// function that takes the user's input string as an argument. The custom candidate is only shown
-/// in the list if there is at least one binding for it. In the file example, `[new file]` is a
-/// custom candidate.
+/// in the list if there is at least one binding for it. In the file example, the entry prefixed
+/// with `[new file]` is a custom candidate.
 ///
-/// - _Regular candidates._ The method [`add_regular_candidate`] adds a regular candidate to the
+/// - _Regular candidates._ The method [`add_regular_candidate()`] adds a regular candidate to the
 /// candidate list. This candidate has both a display string and a _value_. The method
 /// [`bind_key_for_regular_candidates()`] binds a key to a function that takes the selected
-/// candidate's value as an argument. Each of these bindings applies to _all_ regular candidates.
-/// In the file example, the file names "baz.rs" and "foobar.rs" are regular candidates and "enter"
-/// is bound to "open file by name" for both of them.
+/// candidate's value as an argument. Each such binding applies to _all_ regular candidates. In
+/// the file example, the file names "baz.rs" and "foobar.rs" are regular candidates and "enter" is
+/// bound to "open file by name" for both of them.
 ///
 /// - _Special candidates._ The method [`bind_key_for_special_candidate()`] adds a special
 /// candidate to the candidate list, and gives it a binding from a key to a function that takes no
@@ -180,8 +180,7 @@ impl KeyProg {
 ///
 /// You can have both candidate selection and general bindings in one keymap. In the file example,
 /// "esc" is bound to "exit menu" with a general binding. The key hints pane shows the key bindings
-/// for the selected candidate, plus all general key bindings. (If the same key is bound for both,
-/// the candidate specific binding overrides the general binding.)
+/// for the selected candidate, plus all general key bindings.
 ///
 /// ### Conflict Resolution
 ///
@@ -199,14 +198,14 @@ pub struct Keymap {
     general_bindings: OrderedMap<Key, KeyProg>,
     /// If the user types `Key` while `String` is selected, execute `KeyProg`.
     special_bindings: OrderedMap<String, OrderedMap<Key, KeyProg>>,
-    /// If the user types `Key` while any of `regular_candidates` is selected, push the regular candidate's
-    /// `Value` and then execute `KeyProg`.
+    /// If the user types `Key` while any of `regular_candidates` is selected, invoke `KeyProg`
+    /// with the regular candidate's `Value`.
     regular_bindings: OrderedMap<Key, KeyProg>,
-    /// The set of regular candidates. Each has a display label and a value to push.
+    /// The set of regular candidates. Each has a display label and a value.
     // TODO: Regular candidate insertion is quadratic. Make an efficient OrderedSet instead.
     regular_candidates: Vec<(String, Value)>,
-    /// If the user types `Key` while a custom candidate is selected, push its string and execute
-    /// `KeyProg`.
+    /// If the user types `Key` while a custom candidate is selected, invoke `KeyProg` with the
+    /// user's input string.
     custom_bindings: OrderedMap<Key, KeyProg>,
 }
 

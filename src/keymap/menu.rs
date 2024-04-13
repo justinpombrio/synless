@@ -9,6 +9,7 @@ const SELECTION_LANGUAGE_NAME: &str = "SelectionMenu";
 
 pub type MenuName = String;
 
+/// A command that manipulates the menu's candidate selection.
 pub enum MenuSelectionCmd {
     Up,
     Down,
@@ -16,12 +17,14 @@ pub enum MenuSelectionCmd {
     Insert(char),
 }
 
+/// An open menu. Keeps track of the state of its candidate selection.
 pub struct Menu {
     name: MenuName,
     keymap: Keymap,
     selection: Option<MenuSelection>,
 }
 
+/// The state of a menu's candidate selection.
 struct MenuSelection {
     custom_candidate: Option<Candidate>,
     candidates: Vec<Candidate>,
@@ -84,7 +87,13 @@ impl MenuSelection {
         filtered
     }
 
-    fn make_selection_doc(&self, s: &mut Storage) -> Node {
+    fn selected_candidate(&self) -> Option<&Candidate> {
+        let candidates = self.filtered_candidates();
+        let index = self.index.min(candidates.len().saturating_sub(1));
+        candidates.get(index).copied()
+    }
+
+    fn make_candidate_selection_doc(&self, s: &mut Storage) -> Node {
         use Candidate::{Custom, Regular, Special};
 
         // Lookup SelectionMenu language and constructs
@@ -148,10 +157,10 @@ impl Menu {
         self.keymap.lookup(key, self.selected_candidate())
     }
 
-    pub fn make_selection_doc(&self, s: &mut Storage) -> Option<Node> {
+    pub fn make_candidate_selection_doc(&self, s: &mut Storage) -> Option<Node> {
         self.selection
             .as_ref()
-            .map(|selection| selection.make_selection_doc(s))
+            .map(|selection| selection.make_candidate_selection_doc(s))
     }
 
     pub fn make_keyhint_doc(&self, s: &mut Storage) -> Node {
@@ -159,12 +168,8 @@ impl Menu {
     }
 
     fn selected_candidate(&self) -> Option<&Candidate> {
-        if let Some(selection) = &self.selection {
-            let candidates = selection.filtered_candidates();
-            let index = selection.index.min(candidates.len().saturating_sub(1));
-            candidates.get(index).copied()
-        } else {
-            None
-        }
+        self.selection
+            .as_ref()
+            .and_then(|selection| selection.selected_candidate())
     }
 }

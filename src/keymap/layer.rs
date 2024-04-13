@@ -9,12 +9,6 @@ use crate::tree::Node;
 use crate::util::IndexedMap;
 use std::collections::HashMap;
 
-// TODO:
-// - filtering by sort
-// - docs
-// - proofread keymap & layer
-// - add tests
-
 type LayerIndex = usize;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -27,7 +21,8 @@ enum KeymapLabel {
  * Layer *
  *********/
 
-// TODO: doc
+/// A collection of Keymaps, with up to one Keymap per `MenuName` or `Mode`. Layers can be stacked
+/// on top of each other to combine their functionality; see [`LayerManager`].
 #[derive(Debug, Clone)]
 pub struct Layer {
     name: String,
@@ -42,14 +37,15 @@ impl Layer {
         }
     }
 
-    pub fn add_menu(&mut self, menu_name: MenuName, keymap: Keymap) {
+    pub fn add_menu_keymap(&mut self, menu_name: MenuName, keymap: Keymap) {
         self.keymaps.insert(KeymapLabel::Menu(menu_name), keymap);
     }
 
-    pub fn add_mode(&mut self, mode: Mode, keymap: Keymap) {
+    pub fn add_mode_keymap(&mut self, mode: Mode, keymap: Keymap) {
         self.keymaps.insert(KeymapLabel::Mode(mode), keymap);
     }
 
+    // If the same KeymapLabel is used in multiple layers, later layers override earlier layers
     fn merge(name: String, layers: impl IntoIterator<Item = Layer>) -> Layer {
         let mut keymaps = HashMap::<KeymapLabel, Keymap>::new();
         for layer in layers {
@@ -69,10 +65,12 @@ impl Layer {
  * LayerManager *
  ****************/
 
-/// Manage keymap layers.
+/// Manage [`Layer`]s of [`Keymap`]s, and track the active menu.
 ///
-/// Layers added later has priority over layers added earlier,
-/// though every local layer has priority over every global layer.
+/// Layers can be stacked on top of each other. There is a global stack of layers that apply to all
+/// documents, as well as a local stack of layers for each individual document. When different
+/// layers have conflicting bindings, layers higher in the stack take priority over lower layers,
+/// and local layers take priority over global layers.
 pub struct LayerManager {
     global_layers: Vec<LayerIndex>,
     local_layers: HashMap<DocName, Vec<LayerIndex>>,
@@ -96,18 +94,21 @@ impl LayerManager {
      * Layers *
      **********/
 
+    /// Register the layer, so that it can later be added or removed by name.
     pub fn register_layer(&mut self, layer: Layer) {
         self.layers.insert(layer.name.clone(), layer);
     }
 
-    /// Add a global keymap layer. Returns `Err` if the layer has not been registered.
+    /// Add a global keymap layer to the top of the global layer stack. Returns `Err` if the layer
+    /// has not been registered.
     pub fn add_global_layer(&mut self, layer_name: &str) -> Result<(), ()> {
         add_layer(&self.layers, &mut self.global_layers, layer_name)?;
         self.cached_composite_layers.clear();
         Ok(())
     }
 
-    /// Add a keymap layer for this document. Returns `Err` if the layer has not been registered.
+    /// Add a keymap layer to the top of the given document's local layer stack. Returns `Err` if
+    /// the layer has not been registered.
     pub fn add_local_layer(&mut self, doc_name: &DocName, layer_name: &str) -> Result<(), ()> {
         let mut local_layers = self.local_layers.entry(doc_name.to_owned()).or_default();
         add_layer(&self.layers, local_layers, layer_name)?;
@@ -115,15 +116,16 @@ impl LayerManager {
         Ok(())
     }
 
-    /// Remove a global keymap layer. Returns `Err` if the layer has not been registered.
+    /// Remove a global keymap layer from wherever it is in the global layer stack. Returns `Err`
+    /// if the layer has not been registered.
     pub fn remove_global_layer(&mut self, layer_name: &str) -> Result<(), ()> {
         remove_layer(&self.layers, &mut self.global_layers, layer_name)?;
         self.cached_composite_layers.clear();
         Ok(())
     }
 
-    /// Remove a keymap layer for this document. Returns `Err` if the layer has not been
-    /// registered.
+    /// Remove a keymap layer from wherever it is in the given document's local layer stack.
+    /// Returns `Err` if the layer has not been registered.
     pub fn remove_local_layer(&mut self, doc_name: &DocName, layer_name: &str) -> Result<(), ()> {
         let mut local_layers = self.local_layers.entry(doc_name.to_owned()).or_default();
         remove_layer(&self.layers, local_layers, layer_name)?;
@@ -131,14 +133,15 @@ impl LayerManager {
         Ok(())
     }
 
-    /// Iterate over all active global layer names.
+    /// Iterate over all global layer names, from the bottom to top of the stack.
     pub fn global_layers(&self) -> impl Iterator<Item = &str> {
         self.global_layers
             .iter()
             .map(|i| self.layers[*i].name.as_ref())
     }
 
-    /// Iterate over all active local layer names for the given document.
+    /// Iterate over all local layer names for the given document, from the bottom to top of the
+    /// stack.
     pub fn local_layers(&self, doc_name: &DocName) -> impl Iterator<Item = &str> {
         self.local_layers
             .get(doc_name)
@@ -146,12 +149,19 @@ impl LayerManager {
             .flat_map(|layers| layers.iter().map(|i| self.layers[*i].name.as_ref()))
     }
 
+    /// Iterate over all registered layer names, regardless of whether they're currently in use, in
+    /// arbitrary order.
+    pub fn all_layers(&self) -> impl Iterator<Item = &str> {
+        self.layers.names()
+    }
+
     /*********
      * Menus *
      *********/
 
-    /// Open the named menu. If `dynamic_keymap` is `Some`, layer it on top of the existing
-    /// keymaps for the menu. Returns `false` if none of the layers have a menu of this name.
+    /// Open the named menu. If `dynamic_keymap` is `Some`, layer it on top of the existing keymaps
+    /// for the menu. Returns `false` and does nothing if there's no menu to open (this happens
+    /// when none of the layers have a menu of this name and `dynamic_keymap` is `None`).
     #[must_use]
     pub fn enter_menu(
         &mut self,
@@ -179,8 +189,8 @@ impl LayerManager {
         self.active_menu = None;
     }
 
-    /// Edit the menu input selection.
-    /// Returns `false` if there is no menu open, or it does not have candidate selection.
+    /// Manipulate the menu's candidate selection. Returns `false` and does nothing if there is no
+    /// menu open, or it does not have candidate selection.
     #[must_use]
     pub fn edit_menu_selection(&mut self, cmd: MenuSelectionCmd) -> bool {
         if let Some(menu) = &mut self.active_menu {
@@ -194,6 +204,8 @@ impl LayerManager {
      * Input *
      *********/
 
+    /// Lookup the program to run when the given key is pressed, given the current mode and active
+    /// document.
     pub fn lookup_key(&mut self, mode: Mode, doc_name: Option<&DocName>, key: Key) -> Option<Prog> {
         if let Some(menu) = &self.active_menu {
             menu.lookup(key)
@@ -208,10 +220,10 @@ impl LayerManager {
      * Display *
      ***********/
 
-    pub fn make_selection_doc(&self, s: &mut Storage) -> Option<Node> {
+    pub fn make_candidate_selection_doc(&self, s: &mut Storage) -> Option<Node> {
         self.active_menu
             .as_ref()
-            .and_then(|menu| menu.make_selection_doc(s))
+            .and_then(|menu| menu.make_candidate_selection_doc(s))
     }
 
     pub fn make_keyhint_doc(
