@@ -327,7 +327,7 @@ impl Keymap {
     pub fn make_keyhint_doc(&self, s: &mut Storage, candidate: Option<&Candidate>) -> Node {
         // Lookup SelectionMenu language and constructs
         let lang = s
-            .language(&KEYHINTS_LANGUAGE_NAME)
+            .language(KEYHINTS_LANGUAGE_NAME)
             .bug_msg("Missing Keyhints lang");
         let c_root = lang.root_construct(s);
         let c_entry = lang.construct(s, "Entry").bug();

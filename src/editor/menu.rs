@@ -89,7 +89,7 @@ impl MenuSelection {
 
         // Lookup SelectionMenu language and constructs
         let lang = s
-            .language(&SELECTION_LANGUAGE_NAME)
+            .language(SELECTION_LANGUAGE_NAME)
             .bug_msg("Missing SelectionMenu lang");
         let c_root = lang.root_construct(s);
         let c_input = lang.construct(s, "Input").bug();
