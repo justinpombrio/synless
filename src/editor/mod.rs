@@ -2,9 +2,6 @@
 
 mod app;
 mod interpreter;
-mod keymap;
-mod layer;
-mod menu;
 mod runtime;
 mod stack;
 
@@ -12,6 +9,8 @@ use crate::engine::EngineError;
 use crate::frontends::Frontend;
 use std::error::Error;
 use std::fmt;
+
+pub use stack::{Op, Prog, Value};
 
 // TODO: Is this InterpreterError, AppError, a mix of both?
 #[derive(thiserror::Error, fmt::Debug)]

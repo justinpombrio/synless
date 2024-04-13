@@ -1,5 +1,5 @@
 use super::keymap::{Candidate, Keymap};
-use super::stack::Prog;
+use crate::editor::Prog;
 use crate::frontends::Key;
 use crate::language::Storage;
 use crate::tree::Node;

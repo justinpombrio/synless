@@ -4,6 +4,7 @@
 mod editor;
 mod engine;
 mod frontends;
+mod keymap;
 mod language;
 mod pretty_doc;
 mod style;

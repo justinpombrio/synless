@@ -1,6 +1,6 @@
 use super::keymap::Keymap;
 use super::menu::{Menu, MenuName, MenuSelectionCmd};
-use super::stack::Prog;
+use crate::editor::Prog;
 use crate::engine::DocName;
 use crate::frontends::Key;
 use crate::language::Storage;

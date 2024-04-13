@@ -1,8 +1,8 @@
-use super::layer::LayerManager;
 use super::stack::Prog;
 use super::EditorError;
 use crate::engine::{DocDisplayLabel, Engine};
 use crate::frontends::{Event, Frontend, Key};
+use crate::keymap::LayerManager;
 use crate::style::Style;
 use crate::tree::Mode;
 use crate::util::SynlessBug;

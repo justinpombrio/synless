@@ -1,4 +1,6 @@
-use super::stack::{Op, Prog, Value};
+#![allow(clippy::module_inception)]
+
+use crate::editor::{Op, Prog, Value};
 use crate::frontends::Key;
 use crate::language::Storage;
 use crate::tree::Node;
