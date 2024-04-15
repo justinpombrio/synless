@@ -13,6 +13,10 @@ crossterm = "0.27.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 ron = "0.8.1"
+# TODO: opt-out of uneeded Rhai features
+[dependencies.rhai]
+    version = "1.18.0"
+    features = ["metadata"]
 [dependencies.partial-pretty-printer]
     #path = "../ppp/"
     git = "https://github.com/justinpombrio/partial-pretty-printer"
@@ -42,3 +46,31 @@ path = "examples/crossterm/event.rs"
 [[example]]
 name = "crossterm_fullwidth"
 path = "examples/crossterm/fullwidth.rs"
+
+[[example]]
+name = "rhai_hello_world"
+path = "examples/rhai/hello_world.rs"
+
+[[example]]
+name = "rhai_script_loop"
+path = "examples/rhai/script_loop.rs"
+
+[[example]]
+name = "rhai_rust_loop"
+path = "examples/rhai/rust_loop.rs"
+
+[[example]]
+name = "rhai_custom_syntax"
+path = "examples/rhai/custom_syntax.rs"
+
+[[example]]
+name = "rhai_module"
+path = "examples/rhai/module.rs"
+
+[[example]]
+name = "rhai_bug_1"
+path = "examples/rhai/bug_1.rs"
+
+[[example]]
+name = "rhai_bug_2"
+path = "examples/rhai/bug_2.rs"
