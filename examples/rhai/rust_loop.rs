@@ -66,7 +66,7 @@ impl CustomType for SharedRuntime {
 fn event_loop(engine: &mut Engine, rt: &mut SharedRuntime, ast: &AST) {
     loop {
         let prog = rt.0.borrow_mut().block();
-        prog.call::<()>(&engine, &ast, ()).unwrap();
+        prog.call::<()>(engine, ast, ()).unwrap();
     }
 }
 
