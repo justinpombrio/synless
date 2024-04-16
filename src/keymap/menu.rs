@@ -1,5 +1,4 @@
-use super::keymap::{Candidate, Keymap};
-use crate::editor::Prog;
+use super::keymap::{Candidate, KeyProg, Keymap};
 use crate::frontends::Key;
 use crate::language::Storage;
 use crate::tree::Node;
@@ -153,7 +152,7 @@ impl Menu {
         }
     }
 
-    pub fn lookup(&self, key: Key) -> Option<Prog> {
+    pub fn lookup(&self, key: Key) -> Option<KeyProg> {
         self.keymap.lookup(key, self.selected_candidate())
     }
 

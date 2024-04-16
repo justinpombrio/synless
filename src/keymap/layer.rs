@@ -1,6 +1,5 @@
-use super::keymap::Keymap;
+use super::keymap::{KeyProg, Keymap};
 use super::menu::{Menu, MenuName, MenuSelectionCmd};
-use crate::editor::Prog;
 use crate::engine::DocName;
 use crate::frontends::Key;
 use crate::language::Storage;
@@ -163,7 +162,7 @@ impl LayerManager {
     /// for the menu. Returns `false` and does nothing if there's no menu to open (this happens
     /// when none of the layers have a menu of this name and `dynamic_keymap` is `None`).
     #[must_use]
-    pub fn enter_menu(
+    pub fn open_menu(
         &mut self,
         doc_name: Option<&DocName>,
         menu_name: String,
@@ -185,7 +184,7 @@ impl LayerManager {
         true
     }
 
-    pub fn exit_menu(&mut self) {
+    pub fn close_menu(&mut self) {
         self.active_menu = None;
     }
 
@@ -206,7 +205,12 @@ impl LayerManager {
 
     /// Lookup the program to run when the given key is pressed, given the current mode and active
     /// document.
-    pub fn lookup_key(&mut self, mode: Mode, doc_name: Option<&DocName>, key: Key) -> Option<Prog> {
+    pub fn lookup_key(
+        &mut self,
+        mode: Mode,
+        doc_name: Option<&DocName>,
+        key: Key,
+    ) -> Option<KeyProg> {
         if let Some(menu) = &self.active_menu {
             menu.lookup(key)
         } else {

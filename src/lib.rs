@@ -19,3 +19,5 @@ pub use language::{
 };
 pub use pretty_doc::DocRef;
 pub use tree::{Location, Node};
+
+pub use editor::{Runtime, SynlessError};

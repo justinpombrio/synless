@@ -1,6 +1,5 @@
 #![allow(clippy::module_inception)]
 
-use crate::editor::{Op, Prog, Value};
 use crate::frontends::Key;
 use crate::language::Storage;
 use crate::tree::Node;
@@ -20,7 +19,10 @@ pub enum Candidate {
     /// A candidate created from [`bind_key_for_special_candidate`].
     Special { display: String },
     /// A candidate created from [`add_regular_candidate`].
-    Regular { display: String, value: Value },
+    Regular {
+        display: String,
+        value: rhai::Dynamic,
+    },
     /// A new candidate created from the custom string the user typed.
     Custom { input: String },
 }
@@ -32,7 +34,7 @@ impl Candidate {
         }
     }
 
-    fn new_regular(display: &str, value: &Value) -> Candidate {
+    fn new_regular(display: &str, value: &rhai::Dynamic) -> Candidate {
         Candidate::Regular {
             display: display.to_owned(),
             value: value.to_owned(),
@@ -55,13 +57,13 @@ impl Candidate {
         }
     }
 
-    fn value(&self) -> Option<Value> {
+    fn value(&self) -> Option<rhai::Dynamic> {
         use Candidate::{Custom, Regular, Special};
 
         match self {
             Special { .. } => None,
             Regular { value, .. } => Some(value.clone()),
-            Custom { input } => Some(Value::String(input.clone())),
+            Custom { input } => Some(rhai::Dynamic::from(input.to_owned())),
         }
     }
 }
@@ -73,29 +75,54 @@ impl Candidate {
 /// A program that can be used in a key binding.
 /// Represents the regular program that:
 ///
-/// 1. If `exit_menu`, exits the menu.
+/// 1. If `close_menu`, exits the menu.
 /// 2. If `Some(val) = candidate.value()`, pushes `val` onto the stack.
 /// 3. Executes `prog`.
 #[derive(Debug, Clone)]
-struct KeyProg {
+struct KeyProgSpec {
     hint: String,
-    exit_menu: bool,
-    prog: Prog,
+    close_menu: bool,
+    prog: rhai::FnPtr,
 }
 
-impl KeyProg {
-    // If this KeyProg is from a general binding, `candidate` should be None.
-    fn to_program(&self, candidate: Option<&Candidate>) -> Prog {
-        let mut prog = self.prog.to_owned();
-        if let Some(value) = candidate.and_then(|candidate| candidate.value()) {
-            prog.insert_first(Op::Literal(value));
+#[derive(Debug, Clone)]
+pub struct KeyProg {
+    close_menu: bool,
+    prog: rhai::FnPtr,
+    value: Option<rhai::Dynamic>,
+}
+
+impl KeyProgSpec {
+    // If this KeyProgSpec is from a general binding, `candidate` should be None.
+    fn to_key_prog(&self, candidate: Option<&Candidate>) -> KeyProg {
+        let value = candidate.and_then(|candidate| candidate.value());
+        KeyProg {
+            close_menu: self.close_menu,
+            prog: self.prog.clone(),
+            value,
         }
-        if self.exit_menu {
-            prog.insert_first(Op::ExitMenu);
-        } else {
-            prog.insert_last(Op::Block);
-        }
-        prog
+    }
+}
+
+impl rhai::CustomType for KeyProg {
+    fn build(mut builder: rhai::TypeBuilder<Self>) {
+        builder
+            .with_name("KeyProg")
+            .with_get_set(
+                "close_menu",
+                |kp: &mut KeyProg| -> bool { kp.close_menu },
+                |kp: &mut KeyProg, close_menu: bool| kp.close_menu = close_menu,
+            )
+            .with_get_set(
+                "prog",
+                |kp: &mut KeyProg| -> rhai::FnPtr { kp.prog.clone() },
+                |kp: &mut KeyProg, prog: rhai::FnPtr| kp.prog = prog,
+            )
+            .with_get_set(
+                "value",
+                |kp: &mut KeyProg| -> Option<rhai::Dynamic> { kp.value.clone() },
+                |kp: &mut KeyProg, value: Option<rhai::Dynamic>| kp.value = value,
+            );
     }
 }
 
@@ -194,19 +221,19 @@ impl KeyProg {
 /// candidate-specific binding takes priority.
 #[derive(Debug, Clone)]
 pub struct Keymap {
-    /// If the user types `Key`, execute `KeyProg`.
-    general_bindings: OrderedMap<Key, KeyProg>,
-    /// If the user types `Key` while `String` is selected, execute `KeyProg`.
-    special_bindings: OrderedMap<String, OrderedMap<Key, KeyProg>>,
-    /// If the user types `Key` while any of `regular_candidates` is selected, invoke `KeyProg`
-    /// with the regular candidate's `Value`.
-    regular_bindings: OrderedMap<Key, KeyProg>,
+    /// If the user types `Key`, execute `KeyProgSpec`.
+    general_bindings: OrderedMap<Key, KeyProgSpec>,
+    /// If the user types `Key` while `String` is selected, execute `KeyProgSpec`.
+    special_bindings: OrderedMap<String, OrderedMap<Key, KeyProgSpec>>,
+    /// If the user types `Key` while any of `regular_candidates` is selected, invoke `KeyProgSpec`
+    /// with the regular candidate's `rhai::Dynamic`.
+    regular_bindings: OrderedMap<Key, KeyProgSpec>,
     /// The set of regular candidates. Each has a display label and a value.
     // TODO: Regular candidate insertion is quadratic. Make an efficient OrderedSet instead.
-    regular_candidates: Vec<(String, Value)>,
-    /// If the user types `Key` while a custom candidate is selected, invoke `KeyProg` with the
+    regular_candidates: Vec<(String, rhai::Dynamic)>,
+    /// If the user types `Key` while a custom candidate is selected, invoke `KeyProgSpec` with the
     /// user's input string.
-    custom_bindings: OrderedMap<Key, KeyProg>,
+    custom_bindings: OrderedMap<Key, KeyProgSpec>,
 }
 
 impl Keymap {
@@ -256,12 +283,12 @@ impl Keymap {
 
     /// Add a general binding: if the user types `key`, execute `prog`, potentially after exiting
     /// the menu.  Use `hint` when displaying this binding.
-    pub fn bind_key(&mut self, key: Key, hint: String, prog: Prog, exit_menu: bool) {
+    pub fn bind_key(&mut self, key: Key, hint: String, prog: rhai::FnPtr, close_menu: bool) {
         self.general_bindings.insert(
             key,
-            KeyProg {
+            KeyProgSpec {
                 hint,
-                exit_menu,
+                close_menu,
                 prog,
             },
         );
@@ -274,12 +301,12 @@ impl Keymap {
         key: Key,
         candidate: String,
         hint: String,
-        prog: Prog,
-        exit_menu: bool,
+        prog: rhai::FnPtr,
+        close_menu: bool,
     ) {
-        let key_prog = KeyProg {
+        let key_prog = KeyProgSpec {
             hint,
-            exit_menu,
+            close_menu,
             prog,
         };
         if !self.special_bindings.contains_key(&candidate) {
@@ -291,7 +318,7 @@ impl Keymap {
 
     /// Add a regular candidate to the list of candidates (used together with
     /// [`bind_key_for_regular_candidates`]).
-    pub fn add_regular_candidate(&mut self, display: String, value: Value) {
+    pub fn add_regular_candidate(&mut self, display: String, value: rhai::Dynamic) {
         for (existing_display, existing_value) in &mut self.regular_candidates {
             if existing_display == &display {
                 *existing_value = value;
@@ -308,14 +335,14 @@ impl Keymap {
         &mut self,
         key: Key,
         hint: String,
-        prog: Prog,
-        exit_menu: bool,
+        prog: rhai::FnPtr,
+        close_menu: bool,
     ) {
         self.regular_bindings.insert(
             key,
-            KeyProg {
+            KeyProgSpec {
                 hint,
-                exit_menu,
+                close_menu,
                 prog,
             },
         );
@@ -328,14 +355,14 @@ impl Keymap {
         &mut self,
         key: Key,
         hint: String,
-        prog: Prog,
-        exit_menu: bool,
+        prog: rhai::FnPtr,
+        close_menu: bool,
     ) {
         self.custom_bindings.insert(
             key,
-            KeyProg {
+            KeyProgSpec {
                 hint,
-                exit_menu,
+                close_menu,
                 prog,
             },
         );
@@ -365,13 +392,13 @@ impl Keymap {
     }
 
     /// Returns the program to execute if `key` is pressed while `candidate` is selected.
-    pub fn lookup(&self, key: Key, mut candidate: Option<&Candidate>) -> Option<Prog> {
+    pub fn lookup(&self, key: Key, mut candidate: Option<&Candidate>) -> Option<KeyProg> {
         for (bound_key, keyprog, use_candidate) in self.available_keys_impl(candidate) {
             if bound_key == key {
                 if !use_candidate {
                     candidate = None;
                 }
-                return Some(keyprog.to_program(candidate));
+                return Some(keyprog.to_key_prog(candidate));
             }
         }
         None
@@ -390,7 +417,7 @@ impl Keymap {
     fn available_keys_impl(
         &self,
         candidate: Option<&Candidate>,
-    ) -> impl Iterator<Item = (Key, &KeyProg, bool)> + '_ {
+    ) -> impl Iterator<Item = (Key, &KeyProgSpec, bool)> + '_ {
         use Candidate::{Custom, Regular, Special};
 
         let ordered_map_opt = candidate.map(|candidate| match candidate {
