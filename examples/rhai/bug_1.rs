@@ -1,3 +1,6 @@
+//! Now fixed: https://github.com/rhaiscript/rhai/issues/862
+//! The fix is on master, and will be released with 1.19.0
+
 use rhai::{Dynamic, Engine};
 
 fn main() {
