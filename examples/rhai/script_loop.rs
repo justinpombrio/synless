@@ -93,10 +93,14 @@ impl Runtime {
 }
 
 macro_rules! register {
-    ($module:expr, $fn_name:literal, $closure:expr) => {
-        FuncRegistration::new($fn_name)
+    ($module:expr, $runtime:ident . $method:ident($( $param:ident : $type:ty ),*) ) => {
+        let rt = $runtime.clone();
+        let closure = move | $( $param : $type ),* | {
+            rt.borrow_mut().$method( $( $param ),* )
+        };
+        FuncRegistration::new(stringify!($method))
             .in_internal_namespace()
-            .set_into_module($module, $closure);
+            .set_into_module($module, closure);
     };
 }
 
@@ -106,30 +110,11 @@ fn register_runtime_methods(module: &mut Module) {
         active_menu: "Default".to_owned(),
     }));
 
-    let rt = runtime.clone();
-    register!(module, "enter_menu", move |menu: &str| {
-        rt.borrow_mut().enter_menu(menu)
-    });
-
-    let rt = runtime.clone();
-    register!(module, "close_menu", move || rt.borrow_mut().close_menu());
-
-    let rt = runtime.clone();
-    register!(
-        module,
-        "bind_key",
-        move |keymap: &str, key: char, close_menu: bool, prog: FnPtr| {
-            rt.borrow_mut().bind_key(keymap, key, close_menu, prog)
-        }
-    );
-
-    let rt = runtime.clone();
-    register!(module, "block_for_keyprog", move || {
-        rt.borrow_mut().block_for_keyprog()
-    });
-
-    let rt = runtime.clone();
-    register!(module, "exit", move || rt.borrow_mut().exit());
+    register!(module, runtime.enter_menu(menu: &str));
+    register!(module, runtime.close_menu());
+    register!(module, runtime.bind_key(keymap: &str, key: char, close_menu: bool, prog: FnPtr));
+    register!(module, runtime.block_for_keyprog());
+    register!(module, runtime.exit());
 }
 
 pub fn main() {
