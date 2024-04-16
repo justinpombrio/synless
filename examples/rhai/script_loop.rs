@@ -49,7 +49,7 @@ impl Runtime {
         self.keymaps.get_mut(keymap).unwrap().insert(key, keyprog);
     }
 
-    fn enter_menu(&mut self, menu: &str) {
+    fn open_menu(&mut self, menu: &str) {
         self.active_menu = menu.to_owned();
     }
 
@@ -110,7 +110,7 @@ fn register_runtime_methods(module: &mut Module) {
         active_menu: "Default".to_owned(),
     }));
 
-    register!(module, runtime.enter_menu(menu: &str));
+    register!(module, runtime.open_menu(menu: &str));
     register!(module, runtime.close_menu());
     register!(module, runtime.bind_key(keymap: &str, key: char, close_menu: bool, prog: FnPtr));
     register!(module, runtime.block_for_keyprog());
@@ -131,11 +131,14 @@ pub fn main() {
 
     let prelude_script = "
         fn block() {
-            let keyprog = s::block_for_keyprog();
-            if keyprog.close_menu {
-                s::close_menu();
+            loop {
+                let keyprog = s::block_for_keyprog();
+                if keyprog.close_menu {
+                    s::close_menu();
+                    return call(keyprog.prog);
+                }
+                call(keyprog.prog);
             }
-            call(keyprog.prog)
         }
         
         fn escape() {
@@ -145,12 +148,21 @@ pub fn main() {
 
     let init_script = "
         // Default Menu
-        s::bind_key(`Default`, 'c', true, || s::enter_menu(`Counter`));
+        s::bind_key(`Default`, 'c', true, || s::open_menu(`Counter`));
         s::bind_key(`Default`, 'i', true, || {
-            s::enter_menu(`Node`);
+            s::open_menu(`Node`);
             let node = block();
             // return to main loop
             print(`  Inserting node of type ${node}`);
+        });
+        s::bind_key(`Default`, 'r', true, || {
+            s::open_menu(`Counter`);
+            let count = block();
+            s::open_menu(`Node`);
+            let node = block();
+            for _i in 0..count {
+                print(`  Inserting node of type ${node}`);
+            }
         });
         s::bind_key(`Default`, 'q', true, || s::escape());
         s::bind_key(`Default`, 'e', true, || s::exit());
@@ -161,6 +173,7 @@ pub fn main() {
             print(`  a pressed ${count} times`);
             count += 1;
         });
+        s::bind_key(`Counter`, 'd', true, || count);
         s::bind_key(`Counter`, 'q', true, || s::escape());
         s::bind_key(`Counter`, 'e', true, || s::exit());
 
