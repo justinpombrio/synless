@@ -9,9 +9,6 @@ pub use crate::style::ColorTheme;
 /// A front end for the editor. It knows how to render a frame and how to
 /// receive keyboard and mouse events.
 pub trait Frontend: Sized + ppp::pane::PrettyWindow {
-    /// Construct a new frontend.
-    fn new(theme: ColorTheme) -> Result<Self, Self::Error>;
-
     /// Set the color theme. Must not be called between `start_frame()` and `end_frame()`.
     fn set_color_theme(&mut self, theme: ColorTheme) -> Result<(), Self::Error>;
 

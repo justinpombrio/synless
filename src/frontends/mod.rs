@@ -18,7 +18,7 @@ impl<W: Error + 'static, E: Error + 'static> From<pane::PaneError<W, E>> for Syn
         match &error {
             InvalidUseOfDynamic | MissingDocument(_) => error!(Frontend, "{}", error.to_string()),
             PrettyWindowError(err) => error!(Frontend, "{}", err.to_string()),
-            PrintingError(err) => error!(Frontend, "{}", err.to_string()),
+            PrintingError(err) => error!(Printing, "{}", err.to_string()),
         }
     }
 }

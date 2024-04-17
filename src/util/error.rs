@@ -9,7 +9,7 @@ pub struct SynlessError {
     pub category: ErrorCategory,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ErrorCategory {
     Doc,
     Edit,
@@ -17,7 +17,8 @@ pub enum ErrorCategory {
     Language,
     Parse,
     Printing,
-    Event,
+    Escape,
+    Abort,
 }
 
 impl fmt::Display for ErrorCategory {
@@ -32,7 +33,7 @@ impl ErrorCategory {
 
         match self {
             Edit => false,
-            Doc | Frontend | Language | Parse | Printing | Event => true,
+            Doc | Frontend | Language | Parse | Printing | Escape | Abort => true,
         }
     }
 }
@@ -66,15 +67,24 @@ macro_rules! error {
 impl rhai::CustomType for SynlessError {
     fn build(mut builder: rhai::TypeBuilder<Self>) {
         builder
-            .with_name("Error")
+            .with_name("SynlessError")
             .with_get("message", |err: &mut SynlessError| -> String {
                 err.message.clone()
             })
-            .with_get("category", |err: &mut SynlessError| -> ErrorCategory {
-                err.category
+            .with_get("category", |err: &mut SynlessError| -> String {
+                format!("{}", err.category)
             })
             .with_fn("is_fatal", |err: &mut SynlessError| -> bool {
                 err.is_fatal()
             });
+    }
+}
+
+impl From<SynlessError> for Box<rhai::EvalAltResult> {
+    fn from(error: SynlessError) -> Box<rhai::EvalAltResult> {
+        Box::new(rhai::EvalAltResult::ErrorRuntime(
+            rhai::Dynamic::from(error),
+            rhai::Position::NONE,
+        ))
     }
 }

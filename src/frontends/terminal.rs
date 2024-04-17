@@ -42,6 +42,18 @@ pub enum TerminalError {
 }
 
 impl Terminal {
+    pub fn new(theme: ColorTheme) -> Result<Terminal, TerminalError> {
+        let default_concrete_style = theme.concrete_style(&Style::default());
+
+        let mut term = Terminal {
+            color_theme: theme,
+            buf: ScreenBuf::new(Terminal::terminal_window_size()?, default_concrete_style),
+            focus_pos: None,
+        };
+        term.enter()?;
+        Ok(term)
+    }
+
     /// Get the current size of the actual terminal window in characters. This may be different
     /// than the current size of the ScreenBuf.
     fn terminal_window_size() -> Result<Size, TerminalError> {
@@ -108,18 +120,6 @@ impl PrettyWindow for Terminal {
 }
 
 impl Frontend for Terminal {
-    fn new(theme: ColorTheme) -> Result<Terminal, TerminalError> {
-        let default_concrete_style = theme.concrete_style(&Style::default());
-
-        let mut term = Terminal {
-            color_theme: theme,
-            buf: ScreenBuf::new(Terminal::terminal_window_size()?, default_concrete_style),
-            focus_pos: None,
-        };
-        term.enter()?;
-        Ok(term)
-    }
-
     fn set_color_theme(&mut self, theme: ColorTheme) -> Result<(), Self::Error> {
         let default_concrete_style = theme.concrete_style(&Style::default());
         self.color_theme = theme;

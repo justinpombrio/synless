@@ -1,9 +1,9 @@
-use crate::engine::{DocDisplayLabel, Engine};
+use crate::engine::{DocDisplayLabel, Engine, Settings};
 use crate::frontends::{Event, Frontend, Key, MouseEvent};
 use crate::keymap::{KeyProg, LayerManager};
 use crate::style::Style;
 use crate::tree::Mode;
-use crate::util::{error, SynlessBug, SynlessError};
+use crate::util::{error, log, SynlessBug, SynlessError};
 use partial_pretty_printer as ppp;
 use partial_pretty_printer::pane;
 use std::cell::RefCell;
@@ -17,14 +17,30 @@ pub struct Runtime<F: Frontend<Style = Style>> {
     engine: Engine,
     pane_notation: pane::PaneNotation<DocDisplayLabel, Style>,
     frontend: F,
-    layer_manager: LayerManager,
+    layers: LayerManager,
 }
 
 impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
-    pub fn abort(&mut self, err: SynlessError) -> ! {
-        //self.engine.report_error(&err);
-        // TODO: Save the error log, and maybe the docs
-        panic!("{}", err);
+    pub fn new(settings: Settings, frontend: F) -> Runtime<F> {
+        let engine = Engine::new(settings);
+        let pane_notation = pane::PaneNotation::Doc {
+            label: DocDisplayLabel::Visible,
+        };
+        Runtime {
+            engine,
+            pane_notation,
+            frontend,
+            layers: LayerManager::new(),
+        }
+    }
+
+    pub fn close_menu(&mut self) {
+        self.layers.close_menu();
+    }
+
+    pub fn prepare_to_abort(&mut self) {
+        log!(Error, "Synless is aborting!");
+        // TODO try to save docs
     }
 
     pub fn display(&mut self) -> Result<(), SynlessError> {
@@ -48,8 +64,8 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         loop {
             match self.next_event()? {
                 // TODO: Remove Ctrl-c. It's only for testing.
-                Event::Key(ctrl_c) => {
-                    return Err(error!(Event, "I was rudely interrupted by Ctrl-C"));
+                Event::Key(key) if key == ctrl_c => {
+                    return Err(error!(Abort, "I was rudely interrupted by Ctrl-C"));
                 }
                 Event::Key(key) => {
                     if let Some(prog) = self.lookup_key(key) {
@@ -74,7 +90,7 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
             }
         };
 
-        self.layer_manager.lookup_key(mode, doc_name, key)
+        self.layers.lookup_key(mode, doc_name, key)
     }
 
     /// Block until the next input event.
@@ -99,13 +115,41 @@ macro_rules! register {
             .in_internal_namespace()
             .set_into_module($module, closure);
     };
+    ($module:expr, $runtime:ident . $method:ident($( $param:ident : $type:ty ),*) ? ) => {
+        let rt = $runtime.clone();
+        let closure = move | $( $param : $type ),* | {
+            rt.borrow_mut().$method( $( $param ),* )
+                .map_err(|err| Box::<rhai::EvalAltResult>::from(err))
+        };
+        rhai::FuncRegistration::new(stringify!($method))
+            .in_internal_namespace()
+            .set_into_module($module, closure);
+    };
 }
 
 impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
-    fn register_runtime_methods(self, module: &mut rhai::Module) {
-        let rt = Rc::new(RefCell::new(self));
+    pub fn register_internal_methods(rt: Rc<RefCell<Runtime<F>>>, module: &mut rhai::Module) {
+        register!(module, rt.prepare_to_abort());
+        register!(module, rt.block_on_key()?);
+    }
 
-        register!(module, rt.block_on_key());
-        register!(module, rt.abort(err: SynlessError));
+    pub fn register_external_methods(rt: Rc<RefCell<Runtime<F>>>, module: &mut rhai::Module) {
+        register!(module, rt.close_menu());
+
+        rhai::FuncRegistration::new("log_trace")
+            .in_internal_namespace()
+            .set_into_module(module, |msg: String| log!(Trace, "{}", msg));
+        rhai::FuncRegistration::new("log_debug")
+            .in_internal_namespace()
+            .set_into_module(module, |msg: String| log!(Debug, "{}", msg));
+        rhai::FuncRegistration::new("log_info")
+            .in_internal_namespace()
+            .set_into_module(module, |msg: String| log!(Info, "{}", msg));
+        rhai::FuncRegistration::new("log_warn")
+            .in_internal_namespace()
+            .set_into_module(module, |msg: String| log!(Warn, "{}", msg));
+        rhai::FuncRegistration::new("log_error")
+            .in_internal_namespace()
+            .set_into_module(module, |msg: String| log!(Error, "{}", msg));
     }
 }
