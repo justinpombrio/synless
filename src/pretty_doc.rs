@@ -3,7 +3,7 @@ use crate::style::{
     Condition, Style, StyleLabel, ValidNotation, HOLE_STYLE, LEFT_CURSOR_STYLE, RIGHT_CURSOR_STYLE,
 };
 use crate::tree::{Location, Node, NodeId};
-use crate::util::SynlessBug;
+use crate::util::{error, SynlessBug, SynlessError};
 use partial_pretty_printer as ppp;
 use std::fmt;
 
@@ -173,5 +173,15 @@ impl<'d> fmt::Debug for DocRef<'d> {
             "DocRef({:?}, {:?}, {})",
             self.node, self.cursor_loc, self.use_source_notation
         )
+    }
+}
+
+impl From<ppp::PrintingError<PrettyDocError>> for SynlessError {
+    fn from(error: ppp::PrintingError<PrettyDocError>) -> SynlessError {
+        if let ppp::PrintingError::PrettyDoc(err) = &error {
+            error!(Printing, "{}", err)
+        } else {
+            error!(Printing, "{}", error)
+        }
     }
 }

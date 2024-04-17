@@ -1,16 +1,17 @@
-use super::SynlessError;
 use crate::engine::{DocDisplayLabel, Engine};
 use crate::frontends::{Event, Frontend, Key, MouseEvent};
 use crate::keymap::{KeyProg, LayerManager};
 use crate::style::Style;
 use crate::tree::Mode;
-use crate::util::SynlessBug;
+use crate::util::{error, SynlessBug, SynlessError};
 use partial_pretty_printer as ppp;
 use partial_pretty_printer::pane;
 use std::cell::RefCell;
 use std::error::Error;
 use std::rc::Rc;
 use std::time::Duration;
+
+// TODO: Rename Runtime -> Editor, put it in src/editor.rs?
 
 pub struct Runtime<F: Frontend<Style = Style>> {
     engine: Engine,
@@ -29,15 +30,14 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
     pub fn display(&mut self) -> Result<(), SynlessError> {
         self.frontend
             .start_frame()
-            .map_err(|err| SynlessError::new_fatal("Frontend error", err))?;
+            .map_err(|err| error!(Frontend, "{}", err))?;
 
         let get_content = |doc_label| self.engine.get_content(doc_label);
-        pane::display_pane(&mut self.frontend, &self.pane_notation, &get_content)
-            .map_err(|err| SynlessError::new_fatal("Pane error", err))?;
+        pane::display_pane(&mut self.frontend, &self.pane_notation, &get_content)?;
 
         self.frontend
             .end_frame()
-            .map_err(|err| SynlessError::new_fatal("Frontend error", err))
+            .map_err(|err| error!(Frontend, "{}", err))
     }
 
     pub fn block_on_key(&mut self) -> Result<KeyProg, SynlessError> {
@@ -45,18 +45,11 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
 
         let ctrl_c = Key::from_str("C-c").bug();
 
-        #[derive(thiserror::Error, Debug)]
-        #[error("I was rudely interrupted by Ctrl-C")]
-        struct KeyboardInterruptError;
-
         loop {
             match self.next_event()? {
                 // TODO: Remove Ctrl-c. It's only for testing.
                 Event::Key(ctrl_c) => {
-                    return Err(SynlessError::new_fatal(
-                        "Event error",
-                        KeyboardInterruptError,
-                    ))
+                    return Err(error!(Event, "I was rudely interrupted by Ctrl-C"));
                 }
                 Event::Key(key) => {
                     if let Some(prog) = self.lookup_key(key) {
@@ -90,7 +83,7 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
             match self.frontend.next_event(Duration::from_secs(1)) {
                 Ok(None) => (), // continue waiting
                 Ok(Some(event)) => return Ok(event),
-                Err(err) => return Err(SynlessError::new_fatal("Frontend error", err)),
+                Err(err) => return Err(error!(Frontend, "{}", err)),
             }
         }
     }

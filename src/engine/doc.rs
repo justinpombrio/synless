@@ -5,7 +5,7 @@ use super::doc_command::{
 use crate::language::Storage;
 use crate::pretty_doc::DocRef;
 use crate::tree::{Bookmark, Location, Mode, Node};
-use crate::util::{bug_assert, SynlessBug};
+use crate::util::{bug_assert, error, SynlessBug, SynlessError};
 use std::collections::HashMap;
 
 /// A set of changes that can be undone/redone all at once.
@@ -19,7 +19,7 @@ pub struct UndoGroup {
 }
 
 #[derive(thiserror::Error, Debug)]
-pub enum DocError {
+pub enum EditError {
     #[error("Cannot execute text command while not in text mode")]
     NotInTextMode,
     #[error("Cannot execute tree command while not in tree mode")]
@@ -40,6 +40,12 @@ pub enum DocError {
     NoNodeHere,
     #[error("Clipboard is empty")]
     EmptyClipboard,
+}
+
+impl From<EditError> for SynlessError {
+    fn from(error: EditError) -> SynlessError {
+        error!(Edit, "{}", error)
+    }
 }
 
 #[derive(Debug)]
@@ -89,7 +95,7 @@ impl Doc {
         s: &mut Storage,
         cmd: DocCommand,
         clipboard: &mut Vec<Node>,
-    ) -> Result<(), DocError> {
+    ) -> Result<(), EditError> {
         let restore_loc = self.cursor;
         let undos = match cmd {
             DocCommand::Ed(cmd) => execute_ed(s, cmd, &mut self.cursor)?,
@@ -121,22 +127,22 @@ impl Doc {
     }
 
     /// Undoes the last undo group on the undo stack and moves it to the redo stack.
-    /// Returns `Err(DocError::NothingToUndo)` if the undo stack is empty.
+    /// Returns `Err(EditError::NothingToUndo)` if the undo stack is empty.
     /// If there were recent edits _not_ completed with a call to end_undo_group(),
     /// the group is automatically ended and then undone.
-    pub fn undo(&mut self, s: &mut Storage) -> Result<(), DocError> {
+    pub fn undo(&mut self, s: &mut Storage) -> Result<(), EditError> {
         self.end_undo_group();
 
-        let undo_group = self.undo_stack.pop().ok_or(DocError::NothingToUndo)?;
+        let undo_group = self.undo_stack.pop().ok_or(EditError::NothingToUndo)?;
         let redo_group = undo_group.execute(s, &mut self.cursor);
         self.redo_stack.push(redo_group);
         Ok(())
     }
 
     /// Redoes the last undo group on the redo stack and moves it to the undo stack.
-    /// Returns DocError::NothingToRedo if the redo stack is empty.
-    pub fn redo(&mut self, s: &mut Storage) -> Result<(), DocError> {
-        let redo_group = self.redo_stack.pop().ok_or(DocError::NothingToRedo)?;
+    /// Returns EditError::NothingToRedo if the redo stack is empty.
+    pub fn redo(&mut self, s: &mut Storage) -> Result<(), EditError> {
+        let redo_group = self.redo_stack.pop().ok_or(EditError::NothingToRedo)?;
         bug_assert!(
             self.recent.is_none(),
             "redo: recent edits should have cleared the redo stack"
@@ -196,7 +202,7 @@ fn execute_ed(
     s: &mut Storage,
     cmd: EdCommand,
     cursor: &mut Location,
-) -> Result<Vec<(Location, EdCommand)>, DocError> {
+) -> Result<Vec<(Location, EdCommand)>, EditError> {
     match cmd {
         EdCommand::Tree(cmd) => execute_tree_ed(s, cmd, cursor),
         EdCommand::Text(cmd) => execute_text_ed(s, cmd, cursor),
@@ -208,7 +214,7 @@ fn execute_nav(
     cmd: NavCommand,
     cursor: &mut Location,
     bookmarks: &mut HashMap<char, Bookmark>,
-) -> Result<(), DocError> {
+) -> Result<(), EditError> {
     match cmd {
         NavCommand::Tree(cmd) => execute_tree_nav(s, cmd, cursor),
         NavCommand::Text(cmd) => execute_text_nav(s, cmd, cursor),
@@ -220,11 +226,11 @@ fn execute_tree_ed(
     s: &mut Storage,
     cmd: TreeEdCommand,
     cursor: &mut Location,
-) -> Result<Vec<(Location, EdCommand)>, DocError> {
+) -> Result<Vec<(Location, EdCommand)>, EditError> {
     use TreeEdCommand::*;
 
     if cursor.mode() != Mode::Tree {
-        return Err(DocError::NotInTreeMode);
+        return Err(EditError::NotInTreeMode);
     }
 
     match cmd {
@@ -233,26 +239,26 @@ fn execute_tree_ed(
             Ok(Some(detached_node)) => {
                 Ok(vec![(cursor.prev(s).bug(), Insert(detached_node).into())])
             }
-            Err(()) => Err(DocError::CannotPlaceNode),
+            Err(()) => Err(EditError::CannotPlaceNode),
         },
         Replace(new_node) => {
-            let old_node = cursor.left_node(s).ok_or(DocError::NoNodeHere)?;
+            let old_node = cursor.left_node(s).ok_or(EditError::NoNodeHere)?;
             if old_node.swap(s, new_node) {
                 Ok(vec![(*cursor, Replace(old_node).into())])
             } else {
-                Err(DocError::CannotPlaceNode)
+                Err(EditError::CannotPlaceNode)
             }
         }
         Backspace => {
             let old_node = cursor
                 .delete_neighbor(s, true)
-                .ok_or(DocError::NoNodeHere)?;
+                .ok_or(EditError::NoNodeHere)?;
             Ok(vec![(*cursor, Insert(old_node).into())])
         }
         Delete => {
             let old_node = cursor
                 .delete_neighbor(s, false)
-                .ok_or(DocError::NoNodeHere)?;
+                .ok_or(EditError::NoNodeHere)?;
             Ok(vec![(*cursor, Insert(old_node).into())])
         }
     }
@@ -262,10 +268,10 @@ fn execute_text_ed(
     s: &mut Storage,
     cmd: TextEdCommand,
     cursor: &mut Location,
-) -> Result<Vec<(Location, EdCommand)>, DocError> {
+) -> Result<Vec<(Location, EdCommand)>, EditError> {
     use TextEdCommand::{Backspace, Delete, Insert};
 
-    let (node, char_index) = cursor.text_pos_mut().ok_or(DocError::NotInTextMode)?;
+    let (node, char_index) = cursor.text_pos_mut().ok_or(EditError::NotInTextMode)?;
     let text = node.text_mut(s).bug();
 
     match cmd {
@@ -276,7 +282,7 @@ fn execute_text_ed(
         }
         Backspace => {
             if *char_index == 0 {
-                return Err(DocError::CannotDeleteChar);
+                return Err(EditError::CannotDeleteChar);
             }
             let ch = text.delete(*char_index - 1);
             *char_index -= 1;
@@ -285,7 +291,7 @@ fn execute_text_ed(
         Delete => {
             let text_len = text.num_chars();
             if *char_index == text_len {
-                return Err(DocError::CannotDeleteChar);
+                return Err(EditError::CannotDeleteChar);
             }
             let ch = text.delete(*char_index);
             Ok(vec![(*cursor, Insert(ch).into())])
@@ -298,17 +304,17 @@ fn execute_clipboard(
     cmd: ClipboardCommand,
     cursor: &mut Location,
     clipboard: &mut Vec<Node>,
-) -> Result<Vec<(Location, EdCommand)>, DocError> {
+) -> Result<Vec<(Location, EdCommand)>, EditError> {
     use ClipboardCommand::*;
 
     match cmd {
         Copy => {
-            let node = cursor.left_node(s).ok_or(DocError::NoNodeHere)?;
+            let node = cursor.left_node(s).ok_or(EditError::NoNodeHere)?;
             clipboard.push(node.deep_copy(s));
             Ok(Vec::new())
         }
         Paste => {
-            let node = clipboard.pop().ok_or(DocError::EmptyClipboard)?;
+            let node = clipboard.pop().ok_or(EditError::EmptyClipboard)?;
             let result = execute_tree_ed(s, TreeEdCommand::Insert(node), cursor);
             if result.is_err() {
                 clipboard.push(node);
@@ -316,23 +322,23 @@ fn execute_clipboard(
             result
         }
         PasteSwap => {
-            let clip_node = clipboard.pop().ok_or(DocError::EmptyClipboard)?;
-            let doc_node = cursor.left_node(s).ok_or(DocError::NoNodeHere)?;
+            let clip_node = clipboard.pop().ok_or(EditError::EmptyClipboard)?;
+            let doc_node = cursor.left_node(s).ok_or(EditError::NoNodeHere)?;
             if doc_node.swap(s, clip_node) {
                 clipboard.push(doc_node.deep_copy(s));
                 Ok(vec![(*cursor, TreeEdCommand::Replace(doc_node).into())])
             } else {
                 clipboard.push(clip_node);
-                Err(DocError::CannotPlaceNode)
+                Err(EditError::CannotPlaceNode)
             }
         }
         Dup => {
-            let clip_node = clipboard.last().ok_or(DocError::EmptyClipboard)?;
+            let clip_node = clipboard.last().ok_or(EditError::EmptyClipboard)?;
             clipboard.push(clip_node.deep_copy(s));
             Ok(Vec::new())
         }
         Pop => {
-            let clip_node = clipboard.pop().ok_or(DocError::EmptyClipboard)?;
+            let clip_node = clipboard.pop().ok_or(EditError::EmptyClipboard)?;
             clip_node.delete_root(s);
             Ok(Vec::new())
         }
@@ -343,11 +349,11 @@ fn execute_tree_nav(
     s: &Storage,
     cmd: TreeNavCommand,
     cursor: &mut Location,
-) -> Result<(), DocError> {
+) -> Result<(), EditError> {
     use TreeNavCommand::*;
 
     if cursor.mode() != Mode::Tree {
-        return Err(DocError::NotInTreeMode);
+        return Err(EditError::NotInTreeMode);
     }
 
     let new_loc = match cmd {
@@ -370,7 +376,7 @@ fn execute_tree_nav(
         *cursor = new_loc;
         Ok(())
     } else {
-        Err(DocError::CannotMove)
+        Err(EditError::CannotMove)
     }
 }
 
@@ -378,22 +384,22 @@ fn execute_text_nav(
     s: &Storage,
     cmd: TextNavCommand,
     cursor: &mut Location,
-) -> Result<(), DocError> {
+) -> Result<(), EditError> {
     use TextNavCommand::*;
 
-    let (node, char_index) = cursor.text_pos_mut().ok_or(DocError::NotInTextMode)?;
+    let (node, char_index) = cursor.text_pos_mut().ok_or(EditError::NotInTextMode)?;
     let text = node.text(s).bug();
 
     match cmd {
         Left => {
             if *char_index == 0 {
-                return Err(DocError::CannotMove);
+                return Err(EditError::CannotMove);
             }
             *char_index -= 1;
         }
         Right => {
             if *char_index >= text.num_chars() {
-                return Err(DocError::CannotMove);
+                return Err(EditError::CannotMove);
             }
             *char_index += 1;
         }
@@ -409,7 +415,7 @@ fn execute_bookmark(
     cmd: BookmarkCommand,
     cursor: &mut Location,
     bookmarks: &mut HashMap<char, Bookmark>,
-) -> Result<(), DocError> {
+) -> Result<(), EditError> {
     match cmd {
         BookmarkCommand::Save(letter) => {
             bookmarks.insert(letter, cursor.bookmark());
@@ -423,7 +429,7 @@ fn execute_bookmark(
                 *cursor = loc;
                 Ok(())
             } else {
-                Err(DocError::BookmarkNotFound)
+                Err(EditError::BookmarkNotFound)
             }
         }
     }

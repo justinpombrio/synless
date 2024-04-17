@@ -3,6 +3,7 @@ mod interface;
 mod specs;
 mod storage;
 
+use crate::util::{error, SynlessError};
 use partial_pretty_printer as ppp;
 use std::fmt;
 
@@ -52,4 +53,10 @@ pub enum LanguageError {
     UndefinedLanguage(String),
     #[error("Name '{1}' is not a known notation set for language '{0}'")]
     UndefinedNotationSet(String, String),
+}
+
+impl From<LanguageError> for SynlessError {
+    fn from(error: LanguageError) -> SynlessError {
+        error!(Language, "{}", error.to_string())
+    }
 }

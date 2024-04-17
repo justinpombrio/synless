@@ -6,6 +6,7 @@ use crate::util::SynlessBug;
 use partial_pretty_printer as ppp;
 use partial_pretty_printer::pane;
 use std::collections::HashMap;
+use std::fmt;
 use std::path::{Path, PathBuf};
 
 type DocIndex = usize;
@@ -58,6 +59,18 @@ pub enum DocName {
     File(PathBuf),
     Metadata(String),
     Auxilliary(String),
+}
+
+impl fmt::Display for DocName {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use DocName::*;
+
+        match self {
+            File(path) => write!(f, "file:{}", path.to_string_lossy()),
+            Metadata(name) => write!(f, "metadata:{}", name),
+            Auxilliary(name) => write!(f, "auxilliary:{}", name),
+        }
+    }
 }
 
 #[derive(Debug)]

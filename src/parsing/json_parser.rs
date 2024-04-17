@@ -1,7 +1,7 @@
 use super::{Parse, ParseError};
 use crate::language::{Language, Storage};
 use crate::tree::Node;
-use crate::util::{bug_assert, SynlessBug};
+use crate::util::{bug_assert, error, SynlessBug, SynlessError};
 use partial_pretty_printer as ppp;
 
 #[derive(Debug)]
@@ -12,26 +12,31 @@ impl Parse for JsonParser {
         "BuiltinJsonParser"
     }
 
-    fn parse(&mut self, s: &mut Storage, source: &str) -> Result<Node, ParseError> {
+    fn parse(
+        &mut self,
+        s: &mut Storage,
+        file_name: &str,
+        source: &str,
+    ) -> Result<Node, SynlessError> {
         // Serde json uses 1-indexed positions; we use 0-indexed positions.
         let json = serde_json::from_str(source).map_err(|err| ParseError {
             pos: Some(ppp::Pos {
                 row: (err.line() as ppp::Row).saturating_sub(1),
                 col: (err.column() as ppp::Col).saturating_sub(1),
             }),
+            file_name: file_name.to_owned(),
             message: format!("{}", err),
         })?;
 
         let json_lang = s.language("Json")?;
-        let json_node = json_to_node(s, json, json_lang).map_err(|construct| ParseError {
-            pos: None,
-            message: format!("Construct '{}' missing from JSON language spec", construct),
+        let json_node = json_to_node(s, json, json_lang).map_err(|construct| {
+            error!(
+                Parse,
+                "Construct '{}' missing from JSON language spec", construct
+            )
         })?;
         let root_node = Node::with_children(s, json_lang.root_construct(s), [json_node])
-            .ok_or_else(|| ParseError {
-                pos: None,
-                message: "Bug in Json Parser: root node arity mismatch".to_owned(),
-            })?;
+            .ok_or_else(|| error!(Parse, "Bug in Json Parser: root node arity mismatch"))?;
         Ok(root_node)
     }
 }

@@ -13,11 +13,11 @@ mod util;
 
 pub mod parsing;
 
+pub use editor::Runtime;
 pub use engine::{DocName, Engine, Settings};
 pub use language::{
     AritySpec, ConstructSpec, GrammarSpec, LanguageSpec, NotationSetSpec, SortSpec, Storage,
 };
 pub use pretty_doc::DocRef;
 pub use tree::{Location, Node};
-
-pub use editor::{Runtime, SynlessError};
+pub use util::SynlessError;

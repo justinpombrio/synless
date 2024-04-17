@@ -7,63 +7,25 @@ use crate::language::{Language, LanguageError, LanguageSpec, NotationSetSpec, St
 use crate::parsing::{Parse, ParseError};
 use crate::pretty_doc::{DocRef, PrettyDocError};
 use crate::tree::Node;
+use crate::util::{error, SynlessBug, SynlessError};
 use partial_pretty_printer as ppp;
 use partial_pretty_printer::pane;
 use std::collections::HashMap;
 use std::error::Error;
+use std::fmt;
 use std::path::Path;
 
 #[derive(thiserror::Error, Debug)]
-pub enum EngineError {
-    #[error("Did not find doc named '{0:?}'")]
+pub enum DocError {
+    #[error("Did not find doc named '{0}'")]
     DocNotFound(DocName),
-    #[error("Invalid root node in language '{0}'")]
-    InvalidRoot(String),
-    #[error("Document '{0:?}' is already open")]
+    #[error("Document '{0}' is already open")]
     DocAlreadyOpen(DocName),
-    #[error("Printing error")]
-    PrintingError(#[from] ppp::PrintingError<PrettyDocError>),
-    #[error("Language error")]
-    LanguageError(#[from] LanguageError),
-    #[error("No parser for language '{0}'")]
-    NoParser(String),
-    #[error("Parse error in '{doc_name:?}' at '{pos:?}':\n{message}")]
-    ParseError {
-        doc_name: DocName,
-        pos: Option<ppp::Pos>,
-        message: String,
-    },
 }
 
-impl EngineError {
-    fn from_ron_error(filename: &Path, error: ron::error::SpannedError) -> EngineError {
-        // Serde ron uses 1-indexed positions, with 0,0 as a sentinel value.
-        // We use 0-indexed positions.
-        let (row, col) = (
-            error.position.line as ppp::Row,
-            error.position.col as ppp::Col,
-        );
-        let pos = if row == 0 || col == 0 {
-            None
-        } else {
-            Some(ppp::Pos {
-                row: row - 1,
-                col: col - 1,
-            })
-        };
-        EngineError::ParseError {
-            doc_name: DocName::File(filename.to_owned()),
-            pos,
-            message: format!("{}", error.code),
-        }
-    }
-
-    fn from_parse_error(doc_name: &DocName, error: ParseError) -> EngineError {
-        EngineError::ParseError {
-            doc_name: doc_name.to_owned(),
-            pos: error.pos,
-            message: error.message,
-        }
+impl From<DocError> for SynlessError {
+    fn from(error: DocError) -> SynlessError {
+        error!(Doc, "{}", error)
     }
 }
 
@@ -104,9 +66,9 @@ impl Engine {
         &mut self,
         filepath: &Path,
         language_spec_ron: &str,
-    ) -> Result<String, EngineError> {
+    ) -> Result<String, SynlessError> {
         let language_spec = ron::from_str::<LanguageSpec>(language_spec_ron)
-            .map_err(|err| EngineError::from_ron_error(filepath, err))?;
+            .map_err(|err| ParseError::from_ron_error(filepath, err))?;
         let language_name = language_spec.name.clone();
         self.storage.add_language(language_spec)?;
         Ok(language_name)
@@ -117,9 +79,9 @@ impl Engine {
         language_name: &str,
         filepath: &Path,
         notation_ron: &str,
-    ) -> Result<String, EngineError> {
+    ) -> Result<String, SynlessError> {
         let notation_spec = ron::from_str::<NotationSetSpec>(notation_ron)
-            .map_err(|err| EngineError::from_ron_error(filepath, err))?;
+            .map_err(|err| ParseError::from_ron_error(filepath, err))?;
         let notation_name = notation_spec.name.clone();
         let lang = self.storage.language(language_name)?;
         lang.add_notation(&mut self.storage, notation_spec)?;
@@ -130,7 +92,7 @@ impl Engine {
         &mut self,
         language_name: &str,
         notation_name: &str,
-    ) -> Result<(), EngineError> {
+    ) -> Result<(), SynlessError> {
         let lang = self.storage.language(language_name)?;
         lang.set_display_notation(&mut self.storage, notation_name)?;
         Ok(())
@@ -140,13 +102,13 @@ impl Engine {
         &mut self,
         language_name: &str,
         notation_name: &str,
-    ) -> Result<(), EngineError> {
+    ) -> Result<(), SynlessError> {
         let lang = self.storage.language(language_name)?;
         lang.set_source_notation(&mut self.storage, notation_name)?;
         Ok(())
     }
 
-    pub fn unset_source_notation(&mut self, language_name: &str) -> Result<(), EngineError> {
+    pub fn unset_source_notation(&mut self, language_name: &str) -> Result<(), SynlessError> {
         let lang = self.storage.language(language_name)?;
         lang.unset_source_notation(&mut self.storage)?;
         Ok(())
@@ -160,7 +122,7 @@ impl Engine {
         &mut self,
         language_name: &str,
         parser: impl Parse + 'static,
-    ) -> Result<(), EngineError> {
+    ) -> Result<(), SynlessError> {
         self.parsers
             .insert(language_name.to_owned(), Box::new(parser));
         Ok(())
@@ -174,14 +136,13 @@ impl Engine {
         &mut self,
         doc_name: &DocName,
         language_name: &str,
-    ) -> Result<(), EngineError> {
+    ) -> Result<(), SynlessError> {
         let language = self.storage.language(language_name)?;
         let root_construct = language.root_construct(&self.storage);
         let root_node = Node::new(&mut self.storage, root_construct);
-        let doc = Doc::new(&self.storage, root_node)
-            .ok_or_else(|| EngineError::InvalidRoot(language_name.to_owned()))?;
+        let doc = Doc::new(&self.storage, root_node).bug_msg("Invalid root");
         if !self.doc_set.add_doc(doc_name.to_owned(), doc) {
-            return Err(EngineError::DocAlreadyOpen(doc_name.to_owned()));
+            Err(DocError::DocAlreadyOpen(doc_name.to_owned()))?;
         }
         Ok(())
     }
@@ -206,11 +167,11 @@ impl Engine {
         &self,
         doc_name: &DocName,
         _source: &str,
-    ) -> Result<(), EngineError> {
+    ) -> Result<(), SynlessError> {
         todo!()
     }
 
-    pub fn print_sexpr(&self, _doc_name: &DocName) -> Result<String, EngineError> {
+    pub fn print_sexpr(&self, _doc_name: &DocName) -> Result<String, SynlessError> {
         todo!()
     }
 
@@ -219,35 +180,32 @@ impl Engine {
         doc_name: &DocName,
         language_name: &str,
         source: &str,
-    ) -> Result<(), EngineError> {
+    ) -> Result<(), SynlessError> {
         let parser = self
             .parsers
             .get_mut(language_name)
-            .ok_or_else(|| EngineError::NoParser(language_name.to_owned()))?;
-        let root_node = parser
-            .parse(&mut self.storage, source)
-            .map_err(|err| EngineError::from_parse_error(doc_name, err))?;
-        let doc = Doc::new(&self.storage, root_node)
-            .ok_or_else(|| EngineError::InvalidRoot(language_name.to_owned()))?;
+            .ok_or_else(|| error!(Language, "No parser for language {}", language_name))?;
+        let root_node = parser.parse(&mut self.storage, &doc_name.to_string(), source)?;
+        let doc = Doc::new(&self.storage, root_node).bug_msg("Invalid root");
         if !self.doc_set.add_doc(doc_name.to_owned(), doc) {
-            return Err(EngineError::DocAlreadyOpen(doc_name.to_owned()));
+            return Err(DocError::DocAlreadyOpen(doc_name.to_owned()).into());
         }
         Ok(())
     }
 
-    pub fn set_visible_doc(&mut self, doc_name: &DocName) -> Result<(), EngineError> {
+    pub fn set_visible_doc(&mut self, doc_name: &DocName) -> Result<(), SynlessError> {
         if self.doc_set.set_visible_doc(doc_name) {
             Ok(())
         } else {
-            Err(EngineError::DocNotFound(doc_name.to_owned()))
+            Err(DocError::DocNotFound(doc_name.to_owned()).into())
         }
     }
 
-    pub fn print_source(&self, doc_name: &DocName) -> Result<String, EngineError> {
+    pub fn print_source(&self, doc_name: &DocName) -> Result<String, SynlessError> {
         let doc = self
             .doc_set
             .get_doc(doc_name)
-            .ok_or_else(|| EngineError::DocNotFound(doc_name.to_owned()))?;
+            .ok_or_else(|| DocError::DocNotFound(doc_name.to_owned()))?;
         let doc_ref = doc.doc_ref_source(&self.storage);
         let source = ppp::pretty_print_to_string(doc_ref, self.settings.max_source_width)?;
         Ok(source)
