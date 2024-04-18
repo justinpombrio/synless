@@ -34,6 +34,10 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         }
     }
 
+    /****************
+     * Control Flow *
+     ****************/
+
     pub fn close_menu(&mut self) {
         self.layers.close_menu();
     }
@@ -79,6 +83,10 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
             }
         }
     }
+
+    /***********
+     * Private *
+     ***********/
 
     fn lookup_key(&mut self, key: Key) -> Option<KeyProg> {
         let (mode, doc_name) = {
