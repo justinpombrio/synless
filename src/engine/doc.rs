@@ -1,5 +1,5 @@
-use super::doc_command::{
-    BookmarkCommand, ClipboardCommand, DocCommand, EdCommand, NavCommand, TextEdCommand,
+use super::command::{
+    BookmarkCommand, ClipboardCommand, Command, EdCommand, NavCommand, TextEdCommand,
     TextNavCommand, TreeEdCommand, TreeNavCommand,
 };
 use crate::language::Storage;
@@ -93,14 +93,14 @@ impl Doc {
     pub fn execute(
         &mut self,
         s: &mut Storage,
-        cmd: DocCommand,
+        cmd: Command,
         clipboard: &mut Vec<Node>,
     ) -> Result<(), EditError> {
         let restore_loc = self.cursor;
         let undos = match cmd {
-            DocCommand::Ed(cmd) => execute_ed(s, cmd, &mut self.cursor)?,
-            DocCommand::Clipboard(cmd) => execute_clipboard(s, cmd, &mut self.cursor, clipboard)?,
-            DocCommand::Nav(cmd) => {
+            Command::Ed(cmd) => execute_ed(s, cmd, &mut self.cursor)?,
+            Command::Clipboard(cmd) => execute_clipboard(s, cmd, &mut self.cursor, clipboard)?,
+            Command::Nav(cmd) => {
                 execute_nav(s, cmd, &mut self.cursor, &mut self.bookmarks)?;
                 Vec::new()
             }

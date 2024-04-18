@@ -1,5 +1,5 @@
+mod command;
 mod doc;
-mod doc_command;
 mod doc_set;
 mod engine;
 

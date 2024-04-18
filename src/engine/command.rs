@@ -2,7 +2,7 @@ use crate::language::Storage;
 use crate::tree::Node;
 
 #[derive(Debug)]
-pub enum DocCommand {
+pub enum Command {
     Ed(EdCommand),
     Clipboard(ClipboardCommand),
     Nav(NavCommand),
@@ -131,21 +131,21 @@ impl TreeEdCommand {
     }
 }
 
-impl From<EdCommand> for DocCommand {
-    fn from(cmd: EdCommand) -> DocCommand {
-        DocCommand::Ed(cmd)
+impl From<EdCommand> for Command {
+    fn from(cmd: EdCommand) -> Command {
+        Command::Ed(cmd)
     }
 }
 
-impl From<ClipboardCommand> for DocCommand {
-    fn from(cmd: ClipboardCommand) -> DocCommand {
-        DocCommand::Clipboard(cmd)
+impl From<ClipboardCommand> for Command {
+    fn from(cmd: ClipboardCommand) -> Command {
+        Command::Clipboard(cmd)
     }
 }
 
-impl From<NavCommand> for DocCommand {
-    fn from(cmd: NavCommand) -> DocCommand {
-        DocCommand::Nav(cmd)
+impl From<NavCommand> for Command {
+    fn from(cmd: NavCommand) -> Command {
+        Command::Nav(cmd)
     }
 }
 
@@ -155,9 +155,9 @@ impl From<TreeEdCommand> for EdCommand {
     }
 }
 
-impl From<TreeEdCommand> for DocCommand {
-    fn from(cmd: TreeEdCommand) -> DocCommand {
-        DocCommand::Ed(EdCommand::Tree(cmd))
+impl From<TreeEdCommand> for Command {
+    fn from(cmd: TreeEdCommand) -> Command {
+        Command::Ed(EdCommand::Tree(cmd))
     }
 }
 
@@ -167,9 +167,9 @@ impl From<TextEdCommand> for EdCommand {
     }
 }
 
-impl From<TextEdCommand> for DocCommand {
-    fn from(cmd: TextEdCommand) -> DocCommand {
-        DocCommand::Ed(EdCommand::Text(cmd))
+impl From<TextEdCommand> for Command {
+    fn from(cmd: TextEdCommand) -> Command {
+        Command::Ed(EdCommand::Text(cmd))
     }
 }
 
@@ -179,9 +179,9 @@ impl From<TreeNavCommand> for NavCommand {
     }
 }
 
-impl From<TreeNavCommand> for DocCommand {
-    fn from(cmd: TreeNavCommand) -> DocCommand {
-        DocCommand::Nav(NavCommand::Tree(cmd))
+impl From<TreeNavCommand> for Command {
+    fn from(cmd: TreeNavCommand) -> Command {
+        Command::Nav(NavCommand::Tree(cmd))
     }
 }
 
@@ -191,9 +191,9 @@ impl From<TextNavCommand> for NavCommand {
     }
 }
 
-impl From<TextNavCommand> for DocCommand {
-    fn from(cmd: TextNavCommand) -> DocCommand {
-        DocCommand::Nav(NavCommand::Text(cmd))
+impl From<TextNavCommand> for Command {
+    fn from(cmd: TextNavCommand) -> Command {
+        Command::Nav(NavCommand::Text(cmd))
     }
 }
 
@@ -203,8 +203,8 @@ impl From<BookmarkCommand> for NavCommand {
     }
 }
 
-impl From<BookmarkCommand> for DocCommand {
-    fn from(cmd: BookmarkCommand) -> DocCommand {
-        DocCommand::Nav(NavCommand::Bookmark(cmd))
+impl From<BookmarkCommand> for Command {
+    fn from(cmd: BookmarkCommand) -> Command {
+        Command::Nav(NavCommand::Bookmark(cmd))
     }
 }
