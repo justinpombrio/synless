@@ -1,12 +1,14 @@
-use crate::engine::{DocDisplayLabel, Engine, Settings};
+use crate::engine::{DocDisplayLabel, DocName, Engine, Settings};
 use crate::frontends::{Event, Frontend, Key, MouseEvent};
-use crate::keymap::{KeyProg, LayerManager};
+use crate::keymap::{KeyProg, Keymap, LayerManager};
+use crate::language::Construct;
 use crate::style::Style;
 use crate::tree::Mode;
 use crate::util::{error, log, SynlessBug, SynlessError};
 use partial_pretty_printer as ppp;
 use partial_pretty_printer::pane;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::error::Error;
 use std::rc::Rc;
 use std::time::Duration;
@@ -22,7 +24,11 @@ pub struct Runtime<F: Frontend<Style = Style>> {
 
 impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
     pub fn new(settings: Settings, frontend: F) -> Runtime<F> {
-        let engine = Engine::new(settings);
+        let mut engine = Engine::new(settings);
+
+        // Magic initialization
+        engine.add_parser("json", crate::parsing::JsonParser);
+
         let pane_notation = pane::PaneNotation::Doc {
             label: DocDisplayLabel::Visible,
         };
@@ -38,6 +44,20 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
      * Control Flow *
      ****************/
 
+    pub fn open_menu(&mut self, menu_name: String) -> Result<(), SynlessError> {
+        let doc_name = self.engine.visible_doc_name();
+        self.layers.open_menu(doc_name, menu_name, None)
+    }
+
+    pub fn open_menu_with_keymap(
+        &mut self,
+        menu_name: String,
+        keymap: Keymap,
+    ) -> Result<(), SynlessError> {
+        let doc_name = self.engine.visible_doc_name();
+        self.layers.open_menu(doc_name, menu_name, Some(keymap))
+    }
+
     pub fn close_menu(&mut self) {
         self.layers.close_menu();
     }
@@ -45,19 +65,6 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
     pub fn prepare_to_abort(&mut self) {
         log!(Error, "Synless is aborting!");
         // TODO try to save docs
-    }
-
-    pub fn display(&mut self) -> Result<(), SynlessError> {
-        self.frontend
-            .start_frame()
-            .map_err(|err| error!(Frontend, "{}", err))?;
-
-        let get_content = |doc_label| self.engine.get_content(doc_label);
-        pane::display_pane(&mut self.frontend, &self.pane_notation, &get_content)?;
-
-        self.frontend
-            .end_frame()
-            .map_err(|err| error!(Frontend, "{}", err))
     }
 
     pub fn block_on_key(&mut self) -> Result<KeyProg, SynlessError> {
@@ -85,12 +92,112 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
     }
 
     /***********
+     * Display *
+     ***********/
+
+    pub fn display(&mut self) -> Result<(), SynlessError> {
+        self.frontend
+            .start_frame()
+            .map_err(|err| error!(Frontend, "{}", err))?;
+
+        let get_content = |doc_label| self.engine.get_content(doc_label);
+        pane::display_pane(&mut self.frontend, &self.pane_notation, &get_content)?;
+
+        self.frontend
+            .end_frame()
+            .map_err(|err| error!(Frontend, "{}", err))
+    }
+
+    /******************
+     * Doc Management *
+     ******************/
+
+    /// If there is a visible doc, return the directory it's in. Fall back to the cwd.
+    pub fn current_dir(&self) -> Result<String, SynlessError> {
+        use std::path::Path;
+
+        fn path_to_string(path: &Path) -> Result<String, SynlessError> {
+            path.to_str().map(|s| s.to_owned()).ok_or_else(|| {
+                error!(
+                    FileSystem,
+                    "Path '{}' is not valid Unicode",
+                    path.to_string_lossy()
+                )
+            })
+        }
+
+        if let Some(DocName::File(path)) = self.engine.visible_doc_name() {
+            if let Some(parent_path) = path.parent() {
+                return path_to_string(parent_path);
+            }
+        }
+
+        let cwd = std::env::current_dir().map_err(|err| {
+            error!(
+                FileSystem,
+                "Failed to get current working directory ({err})"
+            )
+        })?;
+        path_to_string(&cwd)
+    }
+
+    pub fn open_doc(&mut self, path: &str) -> Result<(), SynlessError> {
+        use std::fs::read_to_string;
+        use std::path::PathBuf;
+
+        let source = read_to_string(path)
+            .map_err(|err| error!(FileSystem, "Failed to read file at '{path}' ({err})"))?;
+        let path_buf = PathBuf::from(path);
+        let ext = path_buf
+            .extension()
+            .ok_or_else(|| {
+                error!(
+                    Doc,
+                    "Can't open file at '{path}' because it doesn't have an extension"
+                )
+            })?
+            .to_str()
+            .ok_or_else(|| {
+                error!(
+                    Doc,
+                    "Can't open file at '{path}' because its extension is not valid Unicode"
+                )
+            })?;
+        let language_name = self
+            .engine
+            .lookup_file_extension(&format!(".{ext}"))
+            .ok_or_else(|| error!(Doc, "No language registered for extension '{ext}'"))?
+            .to_owned();
+        let doc_name = DocName::File(path_buf);
+        self.engine
+            .load_doc_from_source(doc_name.clone(), &language_name, &source)?;
+        self.engine.set_visible_doc(&doc_name)
+    }
+
+    /*************
+     * Languages *
+     *************/
+
+    pub fn load_language(&mut self, path: &str) -> Result<String, SynlessError> {
+        use std::fs::read_to_string;
+        use std::path::Path;
+
+        let ron_string = read_to_string(path)
+            .map_err(|err| error!(FileSystem, "Failed to read file at '{path}' ({err})"))?;
+        self.engine.load_language_ron(Path::new(path), &ron_string)
+    }
+
+    /***********
+     * Editing *
+     ***********/
+
+    /***********
      * Private *
      ***********/
 
     fn lookup_key(&mut self, key: Key) -> Option<KeyProg> {
         let (mode, doc_name) = {
-            if let Some(doc_name) = self.engine.visible_doc() {
+            if let Some(doc_name) = self.engine.visible_doc_name() {
                 let doc = self.engine.get_doc(doc_name).bug();
                 (doc.mode(), Some(doc_name))
             } else {
@@ -113,23 +220,81 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
     }
 }
 
+/**************
+ * Filesystem *
+ **************/
+
+fn list_files_and_dirs(dir: &str) -> Result<(Vec<String>, Vec<String>), SynlessError> {
+    use std::fs::read_dir;
+    use std::path::{Path, PathBuf};
+
+    let entries = read_dir(dir).map_err(|err| {
+        error!(
+            FileSystem,
+            "Failed to list files in directory '{dir}' ({err})"
+        )
+    })?;
+
+    let mut files = Vec::new();
+    let mut dirs = Vec::new();
+    for entry in entries {
+        if let Ok(path) = entry.and_then(|e| e.path().canonicalize()) {
+            if let Some(path_string) = path.to_str().map(|s| s.to_owned()) {
+                if path.is_dir() {
+                    dirs.push(path_string);
+                } else if path.is_file() {
+                    files.push(path_string);
+                }
+            }
+        }
+    }
+
+    Ok((files, dirs))
+}
+
 macro_rules! register {
-    ($module:expr, $runtime:ident . $method:ident($( $param:ident : $type:ty ),*) ) => {
+    ($module:expr, $runtime:ident . $method:ident($( $param:ident : $type:ty ),*)) => {
+        register!($module, $runtime . $method($( $param : $type ),*) as $method)
+    };
+    ($module:expr, $runtime:ident . $method:ident($( $param:ident : $type:ty ),*) as $name:ident) => {
         let rt = $runtime.clone();
         let closure = move | $( $param : $type ),* | {
             rt.borrow_mut().$method( $( $param ),* )
         };
-        rhai::FuncRegistration::new(stringify!($method))
+        rhai::FuncRegistration::new(stringify!($name))
             .in_internal_namespace()
             .set_into_module($module, closure);
     };
-    ($module:expr, $runtime:ident . $method:ident($( $param:ident : $type:ty ),*) ? ) => {
+    ($module:expr, $runtime:ident . $method:ident($( $param:ident : $type:ty ),*) ?) => {
+        register!($module, $runtime . $method($( $param : $type ),*)? as $method)
+    };
+    ($module:expr, $runtime:ident . $method:ident($( $param:ident : $type:ty ),*) ? as $name:ident) => {
         let rt = $runtime.clone();
         let closure = move | $( $param : $type ),* | {
             rt.borrow_mut().$method( $( $param ),* )
                 .map_err(|err| Box::<rhai::EvalAltResult>::from(err))
         };
-        rhai::FuncRegistration::new(stringify!($method))
+        rhai::FuncRegistration::new(stringify!($name))
+            .in_internal_namespace()
+            .set_into_module($module, closure);
+    };
+    ($module:expr, $function:ident) => {
+        register!($module, $function as $function)
+    };
+    ($module:expr, $function:ident as $name:ident) => {
+        rhai::FuncRegistration::new(stringify!($name))
+            .in_internal_namespace()
+            .set_into_module($module, $function);
+    };
+    ($module:expr, $function:ident($( $param:ident : $type:ty ),*) ?) => {
+        register!($module, $function($( $param: $type),*) ? as $function)
+    };
+    ($module:expr, $function:ident($( $param:ident : $type:ty ),*) ? as $name:ident) => {
+        let closure = move | $( $param : $type ),* | {
+            $function( $( $param ),* )
+                .map_err(|err| Box::<rhai::EvalAltResult>::from(err))
+        };
+        rhai::FuncRegistration::new(stringify!($name))
             .in_internal_namespace()
             .set_into_module($module, closure);
     };
@@ -137,13 +302,29 @@ macro_rules! register {
 
 impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
     pub fn register_internal_methods(rt: Rc<RefCell<Runtime<F>>>, module: &mut rhai::Module) {
+        // Control Flow
         register!(module, rt.prepare_to_abort());
         register!(module, rt.block_on_key()?);
+
+        // Display
+        register!(module, rt.display()?);
     }
 
     pub fn register_external_methods(rt: Rc<RefCell<Runtime<F>>>, module: &mut rhai::Module) {
+        // Control Flow
         register!(module, rt.close_menu());
 
+        // Filesystem
+        register!(module, list_files_and_dirs(dir: &str)?);
+
+        // Doc management
+        register!(module, rt.current_dir()?);
+        register!(module, rt.open_doc(path: &str)?);
+
+        // Languages
+        register!(module, rt.load_language(path: &str)?);
+
+        // Logging
         rhai::FuncRegistration::new("log_trace")
             .in_internal_namespace()
             .set_into_module(module, |msg: String| log!(Trace, "{}", msg));

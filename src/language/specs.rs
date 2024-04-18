@@ -55,4 +55,6 @@ pub struct LanguageSpec {
     pub name: String,
     pub grammar: GrammarSpec,
     pub default_display_notation: NotationSetSpec,
+    /// Load files with these extensions using this language. Must include the `.`.
+    pub file_extensions: Vec<String>,
 }

@@ -112,8 +112,18 @@ impl DocSet {
         }
     }
 
-    pub fn visible_doc(&self) -> Option<&DocName> {
+    pub fn visible_doc_name(&self) -> Option<&DocName> {
         self.visible_doc.as_ref()
+    }
+
+    pub fn visible_doc(&self) -> Option<&Doc> {
+        let doc_index = *self.name_to_doc.get(self.visible_doc.as_ref()?)?;
+        Some(self.docs.get(doc_index).bug())
+    }
+
+    pub fn visible_doc_mut(&mut self) -> Option<&mut Doc> {
+        let doc_index = *self.name_to_doc.get(self.visible_doc.as_ref()?)?;
+        Some(self.docs.get_mut(doc_index).bug())
     }
 
     pub fn get_doc(&self, doc_name: &DocName) -> Option<&Doc> {
@@ -142,7 +152,7 @@ impl DocSet {
 
         let (doc, opts) = match label {
             DocDisplayLabel::Visible => {
-                let doc = self.get_doc(self.visible_doc()?)?;
+                let doc = self.get_doc(self.visible_doc_name()?)?;
                 let (focus_path, focus_target) = doc.cursor().path_from_root(s);
                 let options = pane::PrintingOptions {
                     focus_path,

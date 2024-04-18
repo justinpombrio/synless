@@ -1,5 +1,6 @@
 LanguageSpec(
-    name: "SelectionMenu",
+    name: "selection_menu",
+    file_extensions: [],
     grammar: GrammarSpec(
         constructs: [
             ConstructSpec(

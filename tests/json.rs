@@ -21,7 +21,7 @@ fn test_json() {
     let doc_name = DocName::Auxilliary("<testing>".to_owned());
     let source = "{\"primitives\": [true, false, null, 5.3, \"string!\"]}";
     engine
-        .load_doc_from_source(&doc_name, &language_name, source)
+        .load_doc_from_source(doc_name.clone(), &language_name, source)
         .unwrap();
     let output = engine.print_source(&doc_name).unwrap();
     assert_eq!(output, source);

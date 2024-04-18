@@ -5,7 +5,7 @@ use crate::frontends::Key;
 use crate::language::Storage;
 use crate::tree::Mode;
 use crate::tree::Node;
-use crate::util::IndexedMap;
+use crate::util::{error, IndexedMap, SynlessError};
 use std::collections::HashMap;
 
 type LayerIndex = usize;
@@ -100,7 +100,7 @@ impl LayerManager {
 
     /// Add a global keymap layer to the top of the global layer stack. Returns `Err` if the layer
     /// has not been registered.
-    pub fn add_global_layer(&mut self, layer_name: &str) -> Result<(), ()> {
+    pub fn add_global_layer(&mut self, layer_name: &str) -> Result<(), SynlessError> {
         add_layer(&self.layers, &mut self.global_layers, layer_name)?;
         self.cached_composite_layers.clear();
         Ok(())
@@ -108,7 +108,11 @@ impl LayerManager {
 
     /// Add a keymap layer to the top of the given document's local layer stack. Returns `Err` if
     /// the layer has not been registered.
-    pub fn add_local_layer(&mut self, doc_name: &DocName, layer_name: &str) -> Result<(), ()> {
+    pub fn add_local_layer(
+        &mut self,
+        doc_name: &DocName,
+        layer_name: &str,
+    ) -> Result<(), SynlessError> {
         let mut local_layers = self.local_layers.entry(doc_name.to_owned()).or_default();
         add_layer(&self.layers, local_layers, layer_name)?;
         self.cached_composite_layers.clear();
@@ -117,7 +121,7 @@ impl LayerManager {
 
     /// Remove a global keymap layer from wherever it is in the global layer stack. Returns `Err`
     /// if the layer has not been registered.
-    pub fn remove_global_layer(&mut self, layer_name: &str) -> Result<(), ()> {
+    pub fn remove_global_layer(&mut self, layer_name: &str) -> Result<(), SynlessError> {
         remove_layer(&self.layers, &mut self.global_layers, layer_name)?;
         self.cached_composite_layers.clear();
         Ok(())
@@ -125,7 +129,11 @@ impl LayerManager {
 
     /// Remove a keymap layer from wherever it is in the given document's local layer stack.
     /// Returns `Err` if the layer has not been registered.
-    pub fn remove_local_layer(&mut self, doc_name: &DocName, layer_name: &str) -> Result<(), ()> {
+    pub fn remove_local_layer(
+        &mut self,
+        doc_name: &DocName,
+        layer_name: &str,
+    ) -> Result<(), SynlessError> {
         let mut local_layers = self.local_layers.entry(doc_name.to_owned()).or_default();
         remove_layer(&self.layers, local_layers, layer_name)?;
         self.cached_composite_layers.clear();
@@ -161,17 +169,16 @@ impl LayerManager {
     /// Open the named menu. If `dynamic_keymap` is `Some`, layer it on top of the existing keymaps
     /// for the menu. Returns `false` and does nothing if there's no menu to open (this happens
     /// when none of the layers have a menu of this name and `dynamic_keymap` is `None`).
-    #[must_use]
     pub fn open_menu(
         &mut self,
         doc_name: Option<&DocName>,
         menu_name: String,
         dynamic_keymap: Option<Keymap>,
-    ) -> bool {
+    ) -> Result<(), SynlessError> {
         let composite_layer = self.composite_layer(doc_name);
         let label = KeymapLabel::Menu(menu_name.clone());
         let menu = match (dynamic_keymap, composite_layer.keymaps.get(&label)) {
-            (None, None) => return false,
+            (None, None) => return Err(error!(Keymap, "No keymap for menu '{menu_name}'")),
             (Some(keymap), None) => Menu::new(menu_name, keymap),
             (Some(dyn_keymap), Some(composite_keymap)) => {
                 let mut keymap = composite_keymap.to_owned();
@@ -181,7 +188,7 @@ impl LayerManager {
             (None, Some(keymap)) => Menu::new(menu_name, keymap.to_owned()),
         };
         self.active_menu = Some(menu);
-        true
+        Ok(())
     }
 
     pub fn close_menu(&mut self) {
@@ -190,12 +197,16 @@ impl LayerManager {
 
     /// Manipulate the menu's candidate selection. Returns `false` and does nothing if there is no
     /// menu open, or it does not have candidate selection.
-    #[must_use]
-    pub fn edit_menu_selection(&mut self, cmd: MenuSelectionCmd) -> bool {
-        if let Some(menu) = &mut self.active_menu {
+    pub fn edit_menu_selection(&mut self, cmd: MenuSelectionCmd) -> Result<(), SynlessError> {
+        let is_ok = if let Some(menu) = &mut self.active_menu {
             menu.execute(cmd)
         } else {
             false
+        };
+        if is_ok {
+            Ok(())
+        } else {
+            Err(error!(Keymap, "No selection menu to edit"))
         }
     }
 
@@ -277,8 +288,13 @@ fn add_layer(
     layers: &IndexedMap<Layer>,
     active_layers: &mut Vec<LayerIndex>,
     layer_name: &str,
-) -> Result<(), ()> {
-    let layer_index = layers.id(layer_name).ok_or(())?;
+) -> Result<(), SynlessError> {
+    let layer_index = layers.id(layer_name).ok_or_else(|| {
+        error!(
+            Keymap,
+            "Layer {layer_name} cannot be added because it has not been registered"
+        )
+    })?;
     active_layers.retain(|i| *i != layer_index); // remove lower priority duplicate
     active_layers.push(layer_index);
     Ok(())
@@ -288,8 +304,13 @@ fn remove_layer(
     layers: &IndexedMap<Layer>,
     active_layers: &mut Vec<LayerIndex>,
     layer_name: &str,
-) -> Result<(), ()> {
-    let layer_index = layers.id(layer_name).ok_or(())?;
+) -> Result<(), SynlessError> {
+    let layer_index = layers.id(layer_name).ok_or_else(|| {
+        error!(
+            Keymap,
+            "Layer {layer_name} cannot be removed because it has not been registered"
+        )
+    })?;
     active_layers.retain(|i| *i != layer_index);
     Ok(())
 }

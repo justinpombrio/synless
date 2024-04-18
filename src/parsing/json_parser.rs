@@ -4,12 +4,15 @@ use crate::tree::Node;
 use crate::util::{bug_assert, error, SynlessBug, SynlessError};
 use partial_pretty_printer as ppp;
 
+const LANGUAGE_NAME: &str = "json";
+const PARSER_NAME: &str = "builtin_json_parser";
+
 #[derive(Debug)]
 pub struct JsonParser;
 
 impl Parse for JsonParser {
     fn name(&self) -> &str {
-        "BuiltinJsonParser"
+        PARSER_NAME
     }
 
     fn parse(
@@ -28,15 +31,15 @@ impl Parse for JsonParser {
             message: format!("{}", err),
         })?;
 
-        let json_lang = s.language("Json")?;
+        let json_lang = s.language(LANGUAGE_NAME)?;
         let json_node = json_to_node(s, json, json_lang).map_err(|construct| {
             error!(
                 Parse,
-                "Construct '{}' missing from JSON language spec", construct
+                "Construct '{}' missing from json language spec", construct
             )
         })?;
         let root_node = Node::with_children(s, json_lang.root_construct(s), [json_node])
-            .ok_or_else(|| error!(Parse, "Bug in Json Parser: root node arity mismatch"))?;
+            .ok_or_else(|| error!(Parse, "Bug in json parser: root node arity mismatch"))?;
         Ok(root_node)
     }
 }
@@ -75,7 +78,7 @@ fn json_to_node(
                 let child = json_to_node(s, value, json_lang)?;
                 bug_assert!(
                     node.insert_last_child(s, child),
-                    "Wrong arity in Json Array"
+                    "Wrong arity in json Array"
                 );
             }
             Ok(node)
@@ -88,10 +91,10 @@ fn json_to_node(
                 let value_node = json_to_node(s, value, json_lang)?;
                 let pair_construct = json_lang.construct(s, "ObjectPair").ok_or("ObjectPair")?;
                 let child = Node::with_children(s, pair_construct, [key_node, value_node])
-                    .bug_msg("Wrong arity in Json ObjectPair");
+                    .bug_msg("Wrong arity in json ObjectPair");
                 bug_assert!(
                     node.insert_last_child(s, child),
-                    "Wrong arity in Json Object"
+                    "Wrong arity in json Object"
                 );
             }
             Ok(node)

@@ -1,5 +1,6 @@
 LanguageSpec(
-    name: "Keyhints",
+    name: "keyhints",
+    file_extensions: [],
     grammar: GrammarSpec(
         constructs: [
             ConstructSpec(

@@ -12,6 +12,7 @@ fn urllang() -> LanguageSpec {
 
     LanguageSpec {
         name: "urllang".to_owned(),
+        file_extensions: Vec::new(),
         grammar: GrammarSpec {
             constructs: vec![
                 ConstructSpec {

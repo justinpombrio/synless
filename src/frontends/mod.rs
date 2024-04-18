@@ -11,12 +11,10 @@ use std::error::Error;
 
 impl<W: Error + 'static, E: Error + 'static> From<pane::PaneError<W, E>> for SynlessError {
     fn from(error: pane::PaneError<W, E>) -> SynlessError {
-        use pane::PaneError::{
-            InvalidUseOfDynamic, MissingDocument, PrettyWindowError, PrintingError,
-        };
+        use pane::PaneError::{InvalidUseOfDynamic, PrettyWindowError, PrintingError};
 
         match &error {
-            InvalidUseOfDynamic | MissingDocument(_) => error!(Frontend, "{}", error.to_string()),
+            InvalidUseOfDynamic => error!(Frontend, "{}", error.to_string()),
             PrettyWindowError(err) => error!(Frontend, "{}", err.to_string()),
             PrintingError(err) => error!(Printing, "{}", err.to_string()),
         }

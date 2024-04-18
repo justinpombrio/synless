@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-use synless::{log, ColorTheme, Log, Runtime, Settings, SynlessBug, Terminal};
+use synless::{log, ColorTheme, Log, Runtime, Settings, SynlessBug, SynlessError, Terminal};
 
 // TODO: Make this work if you start in a different cwd
 const BASE_MODULE_PATH: &str = "scripts/base_module.rhai";
@@ -74,10 +74,20 @@ fn run() -> Result<(), Box<rhai::EvalAltResult>> {
     Ok(())
 }
 
+fn display_error(error: Box<rhai::EvalAltResult>) {
+    if let rhai::EvalAltResult::ErrorRuntime(value, _) = error.as_ref() {
+        if let Some(synless_error) = value.clone().try_cast::<SynlessError>() {
+            log!(Error, "Uncaught error in main: {synless_error}");
+            return;
+        }
+    }
+    log!(Error, "Uncaught error in main: {error}");
+}
+
 fn main() {
     log!(Info, "Synless is starting");
     if let Err(err) = run() {
-        log!(Error, "{}", err);
+        display_error(err);
     }
     println!("{}", Log::to_string());
 }

@@ -11,6 +11,8 @@ pub struct SynlessError {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ErrorCategory {
+    Keymap,
+    FileSystem,
     Doc,
     Edit,
     Frontend,
@@ -29,12 +31,7 @@ impl fmt::Display for ErrorCategory {
 
 impl ErrorCategory {
     fn is_fatal(&self) -> bool {
-        use ErrorCategory::*;
-
-        match self {
-            Edit => false,
-            Doc | Frontend | Language | Parse | Printing | Escape | Abort => true,
-        }
+        !matches!(self, ErrorCategory::Edit)
     }
 }
 

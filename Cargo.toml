@@ -20,7 +20,7 @@ ron = "0.8.1"
 [dependencies.partial-pretty-printer]
     #path = "../ppp/"
     git = "https://github.com/justinpombrio/partial-pretty-printer"
-    version = "0.7.0"
+    version = "0.8.0"
     features = ["serialization"]
 [dependencies.no-nonsense-flamegraphs]
     version = "0.2.*"

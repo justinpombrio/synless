@@ -1,7 +1,8 @@
 // TODO: styles
 
 LanguageSpec(
-    name: "Json",
+    name: "json",
+    file_extensions: [".json"],
     grammar: GrammarSpec(
         constructs: [
             ConstructSpec(

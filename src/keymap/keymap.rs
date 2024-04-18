@@ -219,7 +219,7 @@ impl rhai::CustomType for KeyProg {
 ///
 /// - If you add a general binding and candidate-specific binding with the same key, the
 /// candidate-specific binding takes priority.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Keymap {
     /// If the user types `Key`, execute `KeyProgSpec`.
     general_bindings: OrderedMap<Key, KeyProgSpec>,
@@ -242,13 +242,7 @@ impl Keymap {
      ****************/
 
     pub fn new() -> Keymap {
-        Keymap {
-            general_bindings: OrderedMap::new(),
-            special_bindings: OrderedMap::new(),
-            regular_bindings: OrderedMap::new(),
-            regular_candidates: Vec::new(),
-            custom_bindings: OrderedMap::new(),
-        }
+        Keymap::default()
     }
 
     /// Take the union of the two keymaps, with bindings in `other` overriding those in `self`.

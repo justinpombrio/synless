@@ -157,7 +157,8 @@ impl Language {
         s.languages[self.language]
             .notation_sets
             .insert(notation_set.name.clone(), notation_set)
-            .map_err(|name| LanguageError::DuplicateNotationSet(self.name(s).to_owned(), name))
+            .map_err(|name| LanguageError::DuplicateNotationSet(self.name(s).to_owned(), name))?;
+        Ok(())
     }
 
     pub fn set_display_notation(

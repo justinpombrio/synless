@@ -1,5 +1,6 @@
 #![allow(clippy::module_inception)]
 
+use super::command::Command;
 use super::doc::Doc;
 use super::doc_set::{DocDisplayLabel, DocName, DocSet};
 use super::Settings;
@@ -21,6 +22,8 @@ pub enum DocError {
     DocNotFound(DocName),
     #[error("Document '{0}' is already open")]
     DocAlreadyOpen(DocName),
+    #[error("There is no visible doc to act on")]
+    NoVisibleDoc,
 }
 
 impl From<DocError> for SynlessError {
@@ -114,6 +117,21 @@ impl Engine {
         Ok(())
     }
 
+    pub fn register_file_extension(
+        &mut self,
+        extension: String,
+        language_name: &str,
+    ) -> Result<(), SynlessError> {
+        let lang = self.storage.language(language_name)?;
+        self.storage.register_file_extension(extension, lang);
+        Ok(())
+    }
+
+    pub fn lookup_file_extension(&self, extension: &str) -> Option<&str> {
+        let language = self.storage.lookup_file_extension(extension)?;
+        Some(language.name(&self.storage))
+    }
+
     /***********
      * Parsers *
      ***********/
@@ -147,8 +165,8 @@ impl Engine {
         Ok(())
     }
 
-    pub fn visible_doc(&self) -> Option<&DocName> {
-        self.doc_set.visible_doc()
+    pub fn visible_doc_name(&self) -> Option<&DocName> {
+        self.doc_set.visible_doc_name()
     }
 
     pub fn get_doc(&self, doc_name: &DocName) -> Option<&Doc> {
@@ -165,7 +183,7 @@ impl Engine {
 
     pub fn load_doc_from_sexpr(
         &self,
-        doc_name: &DocName,
+        doc_name: DocName,
         _source: &str,
     ) -> Result<(), SynlessError> {
         todo!()
@@ -177,7 +195,7 @@ impl Engine {
 
     pub fn load_doc_from_source(
         &mut self,
-        doc_name: &DocName,
+        doc_name: DocName,
         language_name: &str,
         source: &str,
     ) -> Result<(), SynlessError> {
@@ -187,8 +205,8 @@ impl Engine {
             .ok_or_else(|| error!(Language, "No parser for language {}", language_name))?;
         let root_node = parser.parse(&mut self.storage, &doc_name.to_string(), source)?;
         let doc = Doc::new(&self.storage, root_node).bug_msg("Invalid root");
-        if !self.doc_set.add_doc(doc_name.to_owned(), doc) {
-            return Err(DocError::DocAlreadyOpen(doc_name.to_owned()).into());
+        if !self.doc_set.add_doc(doc_name.clone(), doc) {
+            return Err(DocError::DocAlreadyOpen(doc_name).into());
         }
         Ok(())
     }
@@ -214,6 +232,19 @@ impl Engine {
     pub fn get_content(&self, label: DocDisplayLabel) -> Option<(DocRef, pane::PrintingOptions)> {
         self.doc_set
             .get_content(&self.storage, label, &self.settings)
+    }
+
+    /***********
+     * Editing *
+     ***********/
+
+    pub fn execute(&mut self, cmd: Command) -> Result<(), SynlessError> {
+        let doc = self
+            .doc_set
+            .visible_doc_mut()
+            .ok_or(DocError::NoVisibleDoc)?;
+        doc.execute(&mut self.storage, cmd, &mut self.clipboard)?;
+        Ok(())
     }
 
     /**********************

@@ -56,6 +56,8 @@ pub struct LanguageCompiled {
     pub notation_sets: IndexedMap<NotationSetCompiled>,
     pub source_notation: Option<NotationSetId>,
     pub display_notation: NotationSetId,
+    /// Load files with these extensions using this language. Must include the `.`.
+    pub file_extensions: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -80,6 +82,7 @@ pub fn compile_language(language_spec: LanguageSpec) -> Result<LanguageCompiled,
         notation_sets,
         source_notation: None,
         display_notation: 0,
+        file_extensions: language_spec.file_extensions,
     })
 }
 
@@ -184,7 +187,8 @@ impl GrammarCompiler {
 
         self.constructs
             .insert(construct.name.clone(), construct)
-            .map_err(LanguageError::DuplicateConstruct)
+            .map_err(LanguageError::DuplicateConstruct)?;
+        Ok(())
     }
 
     fn add_sort(&mut self, name: String, sort: SortSpec) -> Result<(), LanguageError> {

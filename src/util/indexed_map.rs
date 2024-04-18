@@ -17,15 +17,16 @@ impl<T> IndexedMap<T> {
         }
     }
 
-    /// Inserts name->value into this map. Returns `Err(name)` if already present.
-    pub fn insert(&mut self, name: String, value: T) -> Result<(), String> {
+    /// Inserts name->value into this map.
+    /// Returns `Err(name)` if already present or `Ok(new_id)` if not.
+    pub fn insert(&mut self, name: String, value: T) -> Result<usize, String> {
         if self.map.contains_key(&name) {
             return Err(name);
         }
         let new_id = self.values.len();
         self.values.push(value);
         self.map.insert(name, new_id);
-        Ok(())
+        Ok(new_id)
     }
 
     pub fn contains_name(&self, name: &str) -> bool {
