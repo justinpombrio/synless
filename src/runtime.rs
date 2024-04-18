@@ -1,6 +1,6 @@
 use crate::engine::{DocDisplayLabel, DocName, Engine, Settings};
 use crate::frontends::{Event, Frontend, Key, MouseEvent};
-use crate::keymap::{KeyProg, Keymap, LayerManager};
+use crate::keymap::{KeyProg, Keymap, Layer, LayerManager};
 use crate::language::Construct;
 use crate::style::Style;
 use crate::tree::Mode;
@@ -40,9 +40,17 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         }
     }
 
-    /****************
-     * Control Flow *
-     ****************/
+    /***********
+     * Keymaps *
+     ***********/
+
+    pub fn register_layer(&mut self, layer: Layer) {
+        self.layers.register_layer(layer);
+    }
+
+    pub fn add_global_layer(&mut self, layer_name: &str) -> Result<(), SynlessError> {
+        self.layers.add_global_layer(layer_name)
+    }
 
     pub fn open_menu(&mut self, menu_name: String) -> Result<(), SynlessError> {
         let doc_name = self.engine.visible_doc_name();
@@ -61,6 +69,10 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
     pub fn close_menu(&mut self) {
         self.layers.close_menu();
     }
+
+    /****************
+     * Control Flow *
+     ****************/
 
     pub fn prepare_to_abort(&mut self) {
         log!(Error, "Synless is aborting!");
@@ -311,7 +323,11 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
     }
 
     pub fn register_external_methods(rt: Rc<RefCell<Runtime<F>>>, module: &mut rhai::Module) {
-        // Control Flow
+        // Keymaps
+        register!(module, rt.register_layer(layer: Layer));
+        register!(module, rt.add_global_layer(layer_name: &str)?);
+        register!(module, rt.open_menu(menu_name: String)?);
+        register!(module, rt.open_menu_with_keymap(menu_name: String, keymap: Keymap)? as open_menu);
         register!(module, rt.close_menu());
 
         // Filesystem

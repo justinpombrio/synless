@@ -15,7 +15,7 @@ pub mod parsing;
 
 pub use engine::{DocName, Engine, Settings};
 pub use frontends::Terminal;
-pub use keymap::KeyProg;
+pub use keymap::{KeyProg, Keymap, Layer};
 pub use language::{
     AritySpec, ConstructSpec, GrammarSpec, LanguageSpec, NotationSetSpec, SortSpec, Storage,
 };

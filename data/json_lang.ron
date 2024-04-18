@@ -64,7 +64,9 @@ LanguageSpec(
             ("Null", Literal("null")),
             ("True", Literal("true")),
             ("False", Literal("false")),
-            ("String", Concat(Literal("\""), Concat(Text, Literal("\"")))),
+            ("String", 
+                Style(Properties(fg_color: Some(Base0B)),
+                      Concat(Literal("\""), Concat(Text, Literal("\""))))),
             ("Number", Check(IsEmptyText, Here, Literal("•"), Text)),
             ("Array",
                 Count(

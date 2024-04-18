@@ -2,7 +2,7 @@ loop {
     try {
         s::block(); // ignoring return value
     } catch (err) {
-        log_caught_error(err);
+        s::log_caught_error(err);
         if type_of(err) == "SynlessError" && err.category == "Abort" {
             s::abort();
         }

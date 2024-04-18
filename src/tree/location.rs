@@ -2,6 +2,8 @@ use super::node::Node;
 use crate::language::{Arity, Storage};
 use crate::util::{bug, SynlessBug};
 use partial_pretty_printer as ppp;
+use std::fmt;
+use std::str::FromStr;
 
 // The node in this LocationInner may not be valid (may have been deleted!)
 #[derive(Debug, Clone, Copy)]
@@ -403,6 +405,22 @@ impl LocationInner {
 
         match self {
             InText(node, _) | AfterNode(node) | BeforeNode(node) | BelowNode(node) => node,
+        }
+    }
+}
+
+#[derive(thiserror::Error, fmt::Debug)]
+#[error("Failed to parse mode from string")]
+pub struct ModeParseError;
+
+impl FromStr for Mode {
+    type Err = ModeParseError;
+
+    fn from_str(s: &str) -> Result<Self, ModeParseError> {
+        match s {
+            "Tree" => Ok(Mode::Tree),
+            "Text" => Ok(Mode::Text),
+            _ => Err(ModeParseError),
         }
     }
 }

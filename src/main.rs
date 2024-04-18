@@ -17,6 +17,8 @@ fn make_engine() -> rhai::Engine {
         log!(Debug, "{src} @ {pos:?} > {msg}");
     });
 
+    engine.build_type::<synless::Keymap>();
+    engine.build_type::<synless::Layer>();
     engine.build_type::<synless::KeyProg>();
     engine.build_type::<synless::SynlessError>();
 

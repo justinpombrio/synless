@@ -60,6 +60,29 @@ impl Layer {
     }
 }
 
+impl rhai::CustomType for Layer {
+    fn build(mut builder: rhai::TypeBuilder<Self>) {
+        use std::str::FromStr;
+
+        builder
+            .with_name("Layer")
+            .with_get("name", |layer: &mut Layer| -> String { layer.name.clone() })
+            .with_fn("new_layer", Layer::new)
+            .with_fn(
+                "add_mode_keymap",
+                |layer: &mut Layer,
+                 mode_str: &str,
+                 keymap: Keymap|
+                 -> Result<(), Box<rhai::EvalAltResult>> {
+                    let mode = Mode::from_str(mode_str)
+                        .map_err(|err| error!(Keymap, "{err}: {mode_str}"))?;
+                    layer.add_mode_keymap(mode, keymap);
+                    Ok(())
+                },
+            );
+    }
+}
+
 /****************
  * LayerManager *
  ****************/

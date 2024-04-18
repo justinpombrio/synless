@@ -1,12 +1,13 @@
 fn block() {
     loop {
+        let keyprog = ();
         try {
             synless_internals::display();
-            let keyprog = synless_internals::block_on_key();
+            keyprog = synless_internals::block_on_key();
         } catch (err) {
             log_caught_error(err);
             s::abort();
-        }
+        };
         if keyprog.close_menu {
             s::close_menu();
             return call(keyprog.prog);

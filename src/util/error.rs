@@ -54,7 +54,7 @@ macro_rules! error {
         $crate::error!($category, $message,)
     };
     ($category:ident, $message:literal, $( $arg:expr ),*) => {
-        SynlessError {
+        $crate::util::SynlessError {
             message: format!($message, $( $arg ),*),
             category: $crate::util::ErrorCategory::$category,
         }

@@ -3,7 +3,7 @@
 use crate::frontends::Key;
 use crate::language::Storage;
 use crate::tree::Node;
-use crate::util::{bug, bug_assert, OrderedMap, SynlessBug};
+use crate::util::{bug, bug_assert, error, OrderedMap, SynlessBug};
 use std::borrow::Borrow;
 use std::collections::HashMap;
 
@@ -457,5 +457,30 @@ impl Keymap {
         }
 
         root
+    }
+}
+
+impl rhai::CustomType for Keymap {
+    fn build(mut builder: rhai::TypeBuilder<Self>) {
+        use std::str::FromStr;
+
+        // TODO add the other bind methods
+        builder
+            .with_name("Keymap")
+            .with_fn("new_keymap", Keymap::new)
+            .with_fn(
+                "bind_key",
+                |keymap: &mut Keymap,
+                 key_str: &str,
+                 hint: String,
+                 prog: rhai::FnPtr,
+                 close_menu: bool|
+                 -> Result<(), Box<rhai::EvalAltResult>> {
+                    let key =
+                        Key::from_str(key_str).map_err(|err| error!(Keymap, "{err}: {key_str}"))?;
+                    keymap.bind_key(key, hint, prog, close_menu);
+                    Ok(())
+                },
+            );
     }
 }
