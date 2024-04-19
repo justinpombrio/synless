@@ -65,9 +65,12 @@ fn run() -> Result<(), Box<rhai::EvalAltResult>> {
     // Can't set this before modules are registered, as they reference each other
     engine.set_strict_variables(true);
 
-    // Load init.rhai
-    let init_ast = engine.compile_file(INIT_PATH.into())?;
-    engine.run_ast(&init_ast)?;
+    // Load init.rhai as a module, so keybindings can call functions defined in it.
+    let init_mod = {
+        let init_ast = engine.compile_file(INIT_PATH.into())?;
+        rhai::Module::eval_ast_as_new(rhai::Scope::new(), &init_ast, &engine)?
+    };
+    engine.register_global_module(init_mod.into());
 
     // Load main.rhai
     let main_ast = engine.compile_file(MAIN_PATH.into())?;
