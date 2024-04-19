@@ -89,17 +89,18 @@ struct KeyProgSpec {
 pub struct KeyProg {
     close_menu: bool,
     prog: rhai::FnPtr,
-    value: Option<rhai::Dynamic>,
 }
 
 impl KeyProgSpec {
     // If this KeyProgSpec is from a general binding, `candidate` should be None.
     fn to_key_prog(&self, candidate: Option<&Candidate>) -> KeyProg {
-        let value = candidate.and_then(|candidate| candidate.value());
+        let mut prog = self.prog.clone();
+        if let Some(arg) = candidate.and_then(|candidate| candidate.value()) {
+            prog.add_curry(arg);
+        }
         KeyProg {
             close_menu: self.close_menu,
-            prog: self.prog.clone(),
-            value,
+            prog,
         }
     }
 }
@@ -117,11 +118,6 @@ impl rhai::CustomType for KeyProg {
                 "prog",
                 |kp: &mut KeyProg| -> rhai::FnPtr { kp.prog.clone() },
                 |kp: &mut KeyProg, prog: rhai::FnPtr| kp.prog = prog,
-            )
-            .with_get_set(
-                "value",
-                |kp: &mut KeyProg| -> Option<rhai::Dynamic> { kp.value.clone() },
-                |kp: &mut KeyProg, value: Option<rhai::Dynamic>| kp.value = value,
             );
     }
 }
