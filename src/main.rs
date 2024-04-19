@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::panic;
 use std::rc::Rc;
 use synless::{log, ColorTheme, Log, Runtime, Settings, SynlessBug, SynlessError, Terminal};
 
@@ -89,11 +90,30 @@ fn display_error(error: Box<rhai::EvalAltResult>) {
     log!(Error, "Uncaught error in main: {error}");
 }
 
-// TODO: catch panics and print them after dropping the terminal?
 fn main() {
     log!(Info, "Synless is starting");
-    if let Err(err) = run() {
-        display_error(err);
-    }
+
+    // Set up panic handling. We can't simply print the panic message to stderr,
+    // because it would be swallowed by the terminal's alternate screen. Instead,
+    // we'll log it and print the log once the terminal has been dropped.
+    let old_hook = panic::take_hook();
+    panic::set_hook(Box::new(|info| {
+        let mut message = "Rust panic".to_owned();
+        if let Some(location) = info.location() {
+            message.push_str(&format!(" @ {location}"));
+        }
+        if let Some(payload) = info.payload().downcast_ref::<&str>() {
+            message.push_str(&format!(": {payload}"));
+        }
+        log!(Error, "{message}")
+    }));
+
+    // Run the editor, catching any panics, then print the log.
+    let _ = panic::catch_unwind(|| {
+        if let Err(err) = run() {
+            display_error(err);
+        }
+    });
+    panic::set_hook(old_hook);
     println!("{}", Log::to_string());
 }
