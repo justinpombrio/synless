@@ -296,6 +296,14 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
     }
 }
 
+/***********
+ * Keymaps *
+ ***********/
+
+fn escape() -> Result<(), SynlessError> {
+    Err(error!(Escape, "Escape"))
+}
+
 /**************
  * Filesystem *
  **************/
@@ -396,6 +404,7 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         register!(module, rt.open_menu(menu_name: String)?);
         register!(module, rt.open_menu_with_keymap(menu_name: String, keymap: Keymap)? as open_menu);
         register!(module, rt.close_menu());
+        register!(module, escape()?);
 
         // Filesystem
         register!(module, list_files_and_dirs(dir: &str)?);

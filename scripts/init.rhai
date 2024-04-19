@@ -35,6 +35,7 @@ keymap.bind_key("o", "Open", || {
 
 let file_selection_keymap = new_keymap();
 file_selection_keymap.bind_key_for_regular_candidates("enter", "Open file", |path| s::open_doc(path));
+file_selection_keymap.bind_key("esc", "Exit menu", || s::escape());
 
 let layer = new_layer("default");
 layer.add_menu_keymap("file_selection", file_selection_keymap);
