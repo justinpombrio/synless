@@ -41,6 +41,11 @@ tree_keymap.bind_key("l", "Inorder next", || s::tree_nav_inorder_next());
 tree_keymap.bind_key("down", "Last child", || s::tree_nav_last_child());
 tree_keymap.bind_key("up", "Parent", || s::tree_nav_parent());
 tree_keymap.bind_key("enter", "Enter text", || s::tree_nav_enter_text());
+tree_keymap.bind_key("bksp", "Backspace", || s::tree_ed_backspace());
+tree_keymap.bind_key("d", "Delete", || s::tree_ed_delete());
+tree_keymap.bind_key("u", "Undo", || s::undo());
+tree_keymap.bind_key("r", "Redo", || s::redo());
+
 tree_keymap.bind_key("m", "Save bookmark", || s::save_bookmark('a'));
 tree_keymap.bind_key("'", "Go to bookmark", || s::goto_bookmark('a'));
 

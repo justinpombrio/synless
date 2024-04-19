@@ -262,6 +262,33 @@ impl Engine {
         Ok(())
     }
 
+    pub fn undo(&mut self) -> Result<(), SynlessError> {
+        let doc = self
+            .doc_set
+            .visible_doc_mut()
+            .ok_or(DocError::NoVisibleDoc)?;
+        doc.undo(&mut self.storage)?;
+        Ok(())
+    }
+
+    pub fn redo(&mut self) -> Result<(), SynlessError> {
+        let doc = self
+            .doc_set
+            .visible_doc_mut()
+            .ok_or(DocError::NoVisibleDoc)?;
+        doc.redo(&mut self.storage)?;
+        Ok(())
+    }
+
+    pub fn end_undo_group(&mut self) -> Result<(), SynlessError> {
+        let doc = self
+            .doc_set
+            .visible_doc_mut()
+            .ok_or(DocError::NoVisibleDoc)?;
+        doc.end_undo_group();
+        Ok(())
+    }
+
     /**********************
      * Raw Storage Access *
      **********************/

@@ -286,6 +286,14 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         self.engine.execute(cmd)
     }
 
+    pub fn undo(&mut self) -> Result<(), SynlessError> {
+        self.engine.undo()
+    }
+
+    pub fn redo(&mut self) -> Result<(), SynlessError> {
+        self.engine.redo()
+    }
+
     /***********
      * Private *
      ***********/
@@ -506,6 +514,9 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
 
         register!(module, rt, BookmarkCommand::Save(ch: char) as save_bookmark);
         register!(module, rt, BookmarkCommand::Goto(ch: char) as goto_bookmark);
+
+        register!(module, rt.undo()?);
+        register!(module, rt.redo()?);
 
         // Logging
         rhai::FuncRegistration::new("log_trace")
