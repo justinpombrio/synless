@@ -7,7 +7,7 @@ use crate::util::{bug, bug_assert, error, OrderedMap, SynlessBug};
 use std::borrow::Borrow;
 use std::collections::HashMap;
 
-const KEYHINTS_LANGUAGE_NAME: &str = "Keyhints";
+const KEYHINTS_LANGUAGE_NAME: &str = "keyhints";
 
 /*************
  * Candidate *
@@ -439,7 +439,7 @@ impl Keymap {
         // Lookup SelectionMenu language and constructs
         let lang = s
             .language(KEYHINTS_LANGUAGE_NAME)
-            .bug_msg("Missing Keyhints lang");
+            .bug_msg("Missing keyhints lang");
         let c_root = lang.root_construct(s);
         let c_entry = lang.construct(s, "Entry").bug();
         let c_key = lang.construct(s, "Key").bug();

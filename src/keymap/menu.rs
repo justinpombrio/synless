@@ -4,7 +4,7 @@ use crate::language::Storage;
 use crate::tree::Node;
 use crate::util::{bug_assert, SynlessBug};
 
-const SELECTION_LANGUAGE_NAME: &str = "SelectionMenu";
+const SELECTION_LANGUAGE_NAME: &str = "selection_menu";
 
 pub type MenuName = String;
 
@@ -95,10 +95,10 @@ impl MenuSelection {
     fn make_candidate_selection_doc(&self, s: &mut Storage) -> Node {
         use Candidate::{Custom, Regular, Special};
 
-        // Lookup SelectionMenu language and constructs
+        // Lookup selection menu language and constructs
         let lang = s
             .language(SELECTION_LANGUAGE_NAME)
-            .bug_msg("Missing SelectionMenu lang");
+            .bug_msg("Missing selection menu lang");
         let c_root = lang.root_construct(s);
         let c_input = lang.construct(s, "Input").bug();
         let c_selected = lang.construct(s, "Selected").bug();
