@@ -206,6 +206,26 @@ impl Style {
             is_hole: false,
         }
     }
+
+    pub fn with_fg(mut self, color: Base16Color, priority: Priority) -> Style {
+        self.fg_color = Some((color, priority));
+        self
+    }
+
+    pub fn with_bg(mut self, color: Base16Color, priority: Priority) -> Style {
+        self.bg_color = Some((color, priority));
+        self
+    }
+
+    pub fn with_bold(mut self, bold: bool, priority: Priority) -> Style {
+        self.bold = Some((bold, priority));
+        self
+    }
+
+    pub fn with_underlined(mut self, underlined: bool, priority: Priority) -> Style {
+        self.underlined = Some((underlined, priority));
+        self
+    }
 }
 
 impl ColorTheme {

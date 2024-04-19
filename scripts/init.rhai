@@ -1,3 +1,5 @@
+s::load_language("data/keyhints_lang.ron");
+s::load_language("data/selection_lang.ron");
 s::load_language("data/json_lang.ron");
 s::open_doc("data/pokemon.json");
 

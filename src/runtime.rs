@@ -15,6 +15,9 @@ use std::time::Duration;
 
 // TODO: Rename Runtime -> Editor, put it in src/editor.rs?
 
+const KEYHINTS_DOC_NAME: &str = "keyhints";
+const CANDIDATE_SELECTION_DOC_NAME: &str = "selection_menu";
+
 pub struct Runtime<F: Frontend<Style = Style>> {
     engine: Engine,
     pane_notation: pane::PaneNotation<DocDisplayLabel, Style>,
@@ -24,14 +27,40 @@ pub struct Runtime<F: Frontend<Style = Style>> {
 
 impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
     pub fn new(settings: Settings, frontend: F) -> Runtime<F> {
+        use crate::style::{Base16Color, Priority};
+
         let mut engine = Engine::new(settings);
 
         // Magic initialization
         engine.add_parser("json", crate::parsing::JsonParser);
 
-        let pane_notation = pane::PaneNotation::Doc {
-            label: DocDisplayLabel::Visible,
-        };
+        let pane_notation = pane::PaneNotation::Vert(vec![
+            (
+                pane::PaneSize::Proportional(1),
+                pane::PaneNotation::Doc {
+                    label: DocDisplayLabel::Visible,
+                },
+            ),
+            (
+                pane::PaneSize::Fixed(1),
+                pane::PaneNotation::Fill {
+                    ch: ' ',
+                    style: Style::default().with_bg(Base16Color::Base04, Priority::Low),
+                },
+            ),
+            (
+                pane::PaneSize::Dynamic,
+                pane::PaneNotation::Doc {
+                    label: DocDisplayLabel::Auxilliary(CANDIDATE_SELECTION_DOC_NAME.to_owned()),
+                },
+            ),
+            (
+                pane::PaneSize::Dynamic,
+                pane::PaneNotation::Doc {
+                    label: DocDisplayLabel::Auxilliary(KEYHINTS_DOC_NAME.to_owned()),
+                },
+            ),
+        ]);
         Runtime {
             engine,
             pane_notation,
@@ -112,6 +141,8 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
      ***********/
 
     pub fn display(&mut self) -> Result<(), SynlessError> {
+        self.update_auxilliary_docs();
+
         self.frontend
             .start_frame()
             .map_err(|err| error!(Frontend, "{}", err))?;
@@ -122,6 +153,33 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         self.frontend
             .end_frame()
             .map_err(|err| error!(Frontend, "{}", err))
+    }
+
+    fn update_auxilliary_docs(&mut self) {
+        // Candidate Selection
+        let selection_doc_name = DocName::Auxilliary(CANDIDATE_SELECTION_DOC_NAME.to_owned());
+        self.engine.delete_doc(&selection_doc_name);
+        let storage = self.engine.raw_storage_mut();
+        if let Some(node) = self.layers.make_candidate_selection_doc(storage) {
+            self.engine.add_doc(node, &selection_doc_name).bug();
+        };
+
+        // Keyhints
+        let keyhints_doc_name = DocName::Auxilliary(KEYHINTS_DOC_NAME.to_owned());
+        self.engine.delete_doc(&keyhints_doc_name);
+        let visible_doc_name = self.engine.visible_doc_name().cloned();
+        let mode = if let Some(doc) = self.engine.visible_doc() {
+            doc.mode()
+        } else {
+            Mode::Tree
+        };
+        let storage = self.engine.raw_storage_mut();
+        if let Some(node) = self
+            .layers
+            .make_keyhint_doc(storage, mode, visible_doc_name.as_ref())
+        {
+            self.engine.add_doc(node, &keyhints_doc_name).bug();
+        };
     }
 
     /******************
