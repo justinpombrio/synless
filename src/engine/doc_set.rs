@@ -75,36 +75,30 @@ impl fmt::Display for DocName {
 
 #[derive(Debug)]
 pub struct DocSet {
-    name_to_doc: HashMap<DocName, DocIndex>,
+    docs: HashMap<DocName, Doc>,
     visible_doc: Option<DocName>,
-    /// DocIndex -> Doc
-    docs: Vec<Doc>,
 }
 
 impl DocSet {
     pub fn new() -> DocSet {
         DocSet {
-            name_to_doc: HashMap::new(),
+            docs: HashMap::new(),
             visible_doc: None,
-            docs: Vec::new(),
         }
     }
 
     #[must_use]
     pub fn add_doc(&mut self, doc_name: DocName, doc: Doc) -> bool {
-        if self.name_to_doc.contains_key(&doc_name) {
+        if self.docs.contains_key(&doc_name) {
             return false;
         }
-
-        let doc_index = self.docs.len();
-        self.docs.push(doc);
-        self.name_to_doc.insert(doc_name, doc_index);
+        self.docs.insert(doc_name, doc);
         true
     }
 
     #[must_use]
     pub fn set_visible_doc(&mut self, doc_name: &DocName) -> bool {
-        if self.name_to_doc.contains_key(doc_name) {
+        if self.docs.contains_key(doc_name) {
             self.visible_doc = Some(doc_name.to_owned());
             true
         } else {
@@ -117,23 +111,19 @@ impl DocSet {
     }
 
     pub fn visible_doc(&self) -> Option<&Doc> {
-        let doc_index = *self.name_to_doc.get(self.visible_doc.as_ref()?)?;
-        Some(self.docs.get(doc_index).bug())
+        self.docs.get(self.visible_doc.as_ref()?)
     }
 
     pub fn visible_doc_mut(&mut self) -> Option<&mut Doc> {
-        let doc_index = *self.name_to_doc.get(self.visible_doc.as_ref()?)?;
-        Some(self.docs.get_mut(doc_index).bug())
+        self.docs.get_mut(self.visible_doc.as_ref()?)
     }
 
     pub fn get_doc(&self, doc_name: &DocName) -> Option<&Doc> {
-        let doc_index = *self.name_to_doc.get(doc_name)?;
-        Some(self.docs.get(doc_index).bug())
+        self.docs.get(doc_name)
     }
 
     pub fn get_doc_mut(&mut self, doc_name: &DocName) -> Option<&mut Doc> {
-        let doc_index = *self.name_to_doc.get(doc_name)?;
-        Some(self.docs.get_mut(doc_index).bug())
+        self.docs.get_mut(doc_name)
     }
 
     pub fn get_content<'s>(
