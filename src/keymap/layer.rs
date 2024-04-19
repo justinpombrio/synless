@@ -2,6 +2,7 @@ use super::keymap::{KeyProg, Keymap};
 use super::menu::{Menu, MenuName, MenuSelectionCmd};
 use crate::engine::DocName;
 use crate::frontends::Key;
+use crate::keymap;
 use crate::language::Storage;
 use crate::tree::Mode;
 use crate::tree::Node;
@@ -68,6 +69,7 @@ impl rhai::CustomType for Layer {
             .with_name("Layer")
             .with_get("name", |layer: &mut Layer| -> String { layer.name.clone() })
             .with_fn("new_layer", Layer::new)
+            .with_fn("add_menu_keymap", Layer::add_menu_keymap)
             .with_fn(
                 "add_mode_keymap",
                 |layer: &mut Layer,

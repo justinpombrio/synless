@@ -52,6 +52,10 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         self.layers.add_global_layer(layer_name)
     }
 
+    pub fn remove_global_layer(&mut self, layer_name: &str) -> Result<(), SynlessError> {
+        self.layers.remove_global_layer(layer_name)
+    }
+
     pub fn open_menu(&mut self, menu_name: String) -> Result<(), SynlessError> {
         let doc_name = self.engine.visible_doc_name();
         self.layers.open_menu(doc_name, menu_name, None)
@@ -326,6 +330,7 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         // Keymaps
         register!(module, rt.register_layer(layer: Layer));
         register!(module, rt.add_global_layer(layer_name: &str)?);
+        register!(module, rt.remove_global_layer(layer_name: &str)?);
         register!(module, rt.open_menu(menu_name: String)?);
         register!(module, rt.open_menu_with_keymap(menu_name: String, keymap: Keymap)? as open_menu);
         register!(module, rt.close_menu());
