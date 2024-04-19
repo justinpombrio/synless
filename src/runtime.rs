@@ -3,7 +3,7 @@ use crate::frontends::{Event, Frontend, Key, MouseEvent};
 use crate::keymap::{KeyProg, Keymap, Layer, LayerManager};
 use crate::language::Construct;
 use crate::style::Style;
-use crate::tree::Mode;
+use crate::tree::{Mode, Node};
 use crate::util::{error, log, SynlessBug, SynlessError};
 use partial_pretty_printer as ppp;
 use partial_pretty_printer::pane;
@@ -34,6 +34,7 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         // Magic initialization
         engine.add_parser("json", crate::parsing::JsonParser);
 
+        // TODO load pane notation from file
         let pane_notation = pane::PaneNotation::Vert(vec![
             (
                 pane::PaneSize::Proportional(1),
@@ -156,17 +157,24 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
     }
 
     fn update_auxilliary_docs(&mut self) {
-        // Candidate Selection
-        let selection_doc_name = DocName::Auxilliary(CANDIDATE_SELECTION_DOC_NAME.to_owned());
-        self.engine.delete_doc(&selection_doc_name);
-        let storage = self.engine.raw_storage_mut();
-        if let Some(node) = self.layers.make_candidate_selection_doc(storage) {
-            self.engine.add_doc(node, &selection_doc_name).bug();
-        };
+        for (name, node) in [self.make_keyhint_doc(), self.make_candidate_selection_doc()] {
+            let _ = self.engine.delete_doc(&name);
+            if let Some(node) = node {
+                self.engine.add_doc(&name, node).bug();
+            }
+        }
+    }
 
-        // Keyhints
-        let keyhints_doc_name = DocName::Auxilliary(KEYHINTS_DOC_NAME.to_owned());
-        self.engine.delete_doc(&keyhints_doc_name);
+    fn make_candidate_selection_doc(&mut self) -> (DocName, Option<Node>) {
+        let storage = self.engine.raw_storage_mut();
+        let node = self.layers.make_candidate_selection_doc(storage);
+        (
+            DocName::Auxilliary(CANDIDATE_SELECTION_DOC_NAME.to_owned()),
+            node,
+        )
+    }
+
+    fn make_keyhint_doc(&mut self) -> (DocName, Option<Node>) {
         let visible_doc_name = self.engine.visible_doc_name().cloned();
         let mode = if let Some(doc) = self.engine.visible_doc() {
             doc.mode()
@@ -174,12 +182,10 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
             Mode::Tree
         };
         let storage = self.engine.raw_storage_mut();
-        if let Some(node) = self
+        let node = self
             .layers
-            .make_keyhint_doc(storage, mode, visible_doc_name.as_ref())
-        {
-            self.engine.add_doc(node, &keyhints_doc_name).bug();
-        };
+            .make_keyhint_doc(storage, mode, visible_doc_name.as_ref());
+        (DocName::Auxilliary(KEYHINTS_DOC_NAME.to_owned()), node)
     }
 
     /******************

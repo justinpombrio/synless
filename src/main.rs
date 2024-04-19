@@ -89,6 +89,7 @@ fn display_error(error: Box<rhai::EvalAltResult>) {
     log!(Error, "Uncaught error in main: {error}");
 }
 
+// TODO: catch panics and print them after dropping the terminal?
 fn main() {
     log!(Info, "Synless is starting");
     if let Err(err) = run() {

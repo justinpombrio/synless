@@ -1,3 +1,5 @@
+// TODO split into user_init.rhai and system_init.rhai
+
 fn open_file_menu(dir) {
     let contents = s::list_files_and_dirs(dir);
     let keymap = new_keymap();
@@ -11,6 +13,10 @@ fn open_file_menu(dir) {
         };
         keymap.bind_key_for_special_candidate("enter", child_dir, "View directory", prog, false);
     }
+    keymap.bind_key_for_special_candidate("enter", "..", "View directory", || {
+        open_file_menu(dir + "/..");
+    } , false);
+
     s::open_menu("file_selection", keymap);
 }
 
@@ -28,9 +34,7 @@ keymap.bind_key("o", "Open", || {
 }, true);
 
 let file_selection_keymap = new_keymap();
-file_selection_keymap.bind_key_for_regular_candidates("enter", "Open file", |file_path| {
-    s::open_doc(file_path);
-}, true);
+file_selection_keymap.bind_key_for_regular_candidates("enter", "Open file", |path| s::open_doc(path), true);
 
 let layer = new_layer("default");
 layer.add_menu_keymap("file_selection", file_selection_keymap);

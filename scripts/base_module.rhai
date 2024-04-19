@@ -10,7 +10,7 @@ fn block() {
         };
         if keyprog.close_menu {
             s::close_menu();
-            return keyprog.prog.call();
+            return call(keyprog.prog);
         }
         call(keyprog.prog);
     }

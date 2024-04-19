@@ -167,7 +167,7 @@ impl Engine {
         Ok(())
     }
 
-    pub fn add_doc(&mut self, root_node: Node, doc_name: &DocName) -> Result<(), SynlessError> {
+    pub fn add_doc(&mut self, doc_name: &DocName, root_node: Node) -> Result<(), SynlessError> {
         let doc = Doc::new(&self.storage, root_node).ok_or(DocError::InvalidRootNode)?;
         if !self.doc_set.add_doc(doc_name.to_owned(), doc) {
             Err(DocError::DocAlreadyOpen(doc_name.to_owned()))?;

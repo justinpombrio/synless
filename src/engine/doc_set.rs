@@ -75,6 +75,7 @@ impl fmt::Display for DocName {
 
 #[derive(Debug)]
 pub struct DocSet {
+    // TODO: consider more efficient ways to store docs in DocSet
     docs: HashMap<DocName, Doc>,
     visible_doc: Option<DocName>,
 }
@@ -98,11 +99,7 @@ impl DocSet {
 
     #[must_use]
     pub fn delete_doc(&mut self, doc_name: &DocName) -> bool {
-        if let Some(index) = self.docs.remove(doc_name) {
-            true
-        } else {
-            false
-        }
+        self.docs.remove(doc_name).is_some()
     }
 
     #[must_use]

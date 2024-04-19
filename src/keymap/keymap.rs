@@ -493,12 +493,7 @@ impl rhai::CustomType for Keymap {
                     Ok(())
                 },
             )
-            .with_fn(
-                "add_regular_candidate",
-                |keymap: &mut Keymap, display: String, value: rhai::Dynamic| {
-                    keymap.add_regular_candidate(display, value)
-                },
-            )
+            .with_fn("add_regular_candidate", Keymap::add_regular_candidate)
             .with_fn(
                 "add_regular_candidate",
                 |keymap: &mut Keymap, value: rhai::Dynamic| {
