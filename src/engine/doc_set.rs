@@ -2,14 +2,11 @@ use super::doc::Doc;
 use super::Settings;
 use crate::language::Storage;
 use crate::pretty_doc::DocRef;
-use crate::util::SynlessBug;
 use partial_pretty_printer as ppp;
 use partial_pretty_printer::pane;
 use std::collections::HashMap;
 use std::fmt;
-use std::path::{Path, PathBuf};
-
-type DocIndex = usize;
+use std::path::PathBuf;
 
 /// Label for documents that might be displayed on the screen.  Not every document will have such a
 /// label, and multiple labels may refer to the same document.

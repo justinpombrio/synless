@@ -649,19 +649,19 @@ mod forest_tests {
         let elder = forest.first_child(parent).unwrap();
         let younger = forest.next(elder).unwrap();
 
-        forest.swap(elder, elder);
+        assert!(forest.swap(elder, elder));
         assert_eq!(
             verify_and_print(&forest),
             "(parent (elderSister) (youngerSister))"
         );
 
-        forest.swap(elder, younger);
+        assert!(forest.swap(elder, younger));
         assert_eq!(
             verify_and_print(&forest),
             "(parent (youngerSister) (elderSister))"
         );
 
-        forest.swap(elder, younger);
+        assert!(forest.swap(elder, younger));
         assert_eq!(
             verify_and_print(&forest),
             "(parent (elderSister) (youngerSister))"
@@ -669,13 +669,13 @@ mod forest_tests {
 
         let middle = forest.new_node("middleSister");
         assert!(forest.insert_after(elder, middle));
-        forest.swap(elder, middle);
+        assert!(forest.swap(elder, middle));
         assert_eq!(
             verify_and_print(&forest),
             "(parent (middleSister) (elderSister) (youngerSister))"
         );
 
-        forest.swap(middle, younger);
+        assert!(forest.swap(middle, younger));
         assert_eq!(
             verify_and_print(&forest),
             "(parent (youngerSister) (elderSister) (middleSister))"
@@ -748,8 +748,8 @@ mod forest_tests {
             "(kid (gramp) (papa (ogramp) (ogram)))(mama (gram))"
         );
 
-        f.swap(kid, mama);
-        f.swap(gramp, gram);
+        assert!(f.swap(kid, mama));
+        assert!(f.swap(gramp, gram));
         assert_eq!(
             verify_and_print(&f),
             "(kid (gram) (papa (ogramp) (ogram)))(mama (gramp))"

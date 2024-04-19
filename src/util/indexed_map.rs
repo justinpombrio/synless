@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::mem;
 use std::ops::{Index, IndexMut};
 
 /// A map from `String` to `T`, that also associates a `usize` with each element for faster
@@ -17,16 +18,18 @@ impl<T> IndexedMap<T> {
         }
     }
 
-    /// Inserts name->value into this map.
-    /// Returns `Err(name)` if already present or `Ok(new_id)` if not.
-    pub fn insert(&mut self, name: String, value: T) -> Result<usize, String> {
-        if self.map.contains_key(&name) {
-            return Err(name);
+    /// Inserts name->value into this map, replacing the binding if the name was already present.
+    /// Returns `(new_id, Option<old_value>)`.
+    pub fn insert(&mut self, name: String, value: T) -> (usize, Option<T>) {
+        if let Some(old_id) = self.id(&name) {
+            let old_value = mem::replace(&mut self.values[old_id], value);
+            (old_id, Some(old_value))
+        } else {
+            let new_id = self.values.len();
+            self.values.push(value);
+            self.map.insert(name, new_id);
+            (new_id, None)
         }
-        let new_id = self.values.len();
-        self.values.push(value);
-        self.map.insert(name, new_id);
-        Ok(new_id)
     }
 
     pub fn contains_name(&self, name: &str) -> bool {

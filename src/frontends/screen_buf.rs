@@ -1,5 +1,5 @@
 use crate::style::ConcreteStyle;
-use partial_pretty_printer::{Height, Pos, Size, Width};
+use partial_pretty_printer::{Pos, Size, Width};
 use std::mem;
 
 /// The width of a single character. Either 1 ("half-width") or 2 ("full-width").
@@ -249,7 +249,7 @@ impl<'a> Iterator for ScreenBufIter<'a> {
 mod screen_buf_tests {
     use super::*;
     use crate::style::{ConcreteStyle, Rgb};
-    use partial_pretty_printer::{Pos, Size};
+    use partial_pretty_printer::{Height, Pos, Size};
 
     const STYLE_DEFAULT: ConcreteStyle = ConcreteStyle {
         fg_color: Rgb {
@@ -517,10 +517,10 @@ mod screen_buf_tests {
             ]
         );
 
-        buf.display_char('一', Pos::zero(), STYLE_RED, 2);
-        buf.display_char('二', Pos { col: 2, row: 0 }, STYLE_RED, 2);
-        buf.display_char('*', Pos { col: 4, row: 0 }, STYLE_RED, 1);
-        buf.display_char('三', Pos { col: 5, row: 0 }, STYLE_RED, 2);
+        assert!(buf.display_char('一', Pos::zero(), STYLE_RED, 2));
+        assert!(buf.display_char('二', Pos { col: 2, row: 0 }, STYLE_RED, 2));
+        assert!(buf.display_char('*', Pos { col: 4, row: 0 }, STYLE_RED, 1));
+        assert!(buf.display_char('三', Pos { col: 5, row: 0 }, STYLE_RED, 2));
         let actual_ops = buf.drain_changes().collect::<Vec<_>>();
         assert_eq!(
             actual_ops,
@@ -536,8 +536,8 @@ mod screen_buf_tests {
             ]
         );
 
-        buf.display_char('3', Pos { col: 3, row: 0 }, STYLE_RED, 1);
-        buf.display_char('5', Pos { col: 5, row: 0 }, STYLE_RED, 1);
+        assert!(buf.display_char('3', Pos { col: 3, row: 0 }, STYLE_RED, 1));
+        assert!(buf.display_char('5', Pos { col: 5, row: 0 }, STYLE_RED, 1));
         let actual_ops = buf.drain_changes().collect::<Vec<_>>();
         assert_eq!(
             actual_ops,
@@ -565,9 +565,9 @@ mod screen_buf_tests {
     #[test]
     fn test_replace_full_width_with_space() {
         let mut buf = new_buf(2, 1);
-        buf.display_char('一', Pos::zero(), STYLE_DEFAULT, 2);
+        assert!(buf.display_char('一', Pos::zero(), STYLE_DEFAULT, 2));
         buf.drain_changes();
-        buf.display_char(' ', Pos::zero(), STYLE_DEFAULT, 1);
+        assert!(buf.display_char(' ', Pos::zero(), STYLE_DEFAULT, 1));
         let actual_ops = buf.drain_changes().collect::<Vec<_>>();
         assert_eq!(
             actual_ops,

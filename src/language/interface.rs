@@ -154,10 +154,14 @@ impl Language {
         notation_set: NotationSetSpec,
     ) -> Result<(), LanguageError> {
         let notation_set = compile_notation_set(notation_set, grammar(s, self.language))?;
-        s.languages[self.language]
-            .notation_sets
-            .insert(notation_set.name.clone(), notation_set)
-            .map_err(|name| LanguageError::DuplicateNotationSet(self.name(s).to_owned(), name))?;
+        let notation_sets = &mut s.languages[self.language].notation_sets;
+        if notation_sets.contains_name(&notation_set.name) {
+            return Err(LanguageError::DuplicateNotationSet(
+                self.name(s).to_owned(),
+                notation_set.name,
+            ));
+        }
+        notation_sets.insert(notation_set.name.clone(), notation_set);
         Ok(())
     }
 

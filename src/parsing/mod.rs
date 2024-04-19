@@ -1,6 +1,6 @@
 mod json_parser;
 
-use crate::language::{LanguageError, Storage};
+use crate::language::Storage;
 use crate::tree::Node;
 use crate::util::{error, SynlessError};
 use partial_pretty_printer as ppp;

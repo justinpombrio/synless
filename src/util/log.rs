@@ -50,7 +50,7 @@ impl Log {
     }
 
     #[doc(hidden)]
-    pub fn with_log<R>(mut callback: impl FnOnce(&mut Log) -> R) -> R {
+    pub fn with_log<R>(callback: impl FnOnce(&mut Log) -> R) -> R {
         let log_mutex: &'static Mutex<Log> = LOG.get_or_init(|| Mutex::new(Log::new()));
         let mut log_guard: MutexGuard<Log> = log_mutex.lock().bug();
         callback(&mut log_guard)

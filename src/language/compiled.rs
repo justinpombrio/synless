@@ -72,9 +72,7 @@ pub fn compile_language(language_spec: LanguageSpec) -> Result<LanguageCompiled,
 
     let notation_set = compile_notation_set(language_spec.default_display_notation, &grammar)?;
     let mut notation_sets = IndexedMap::new();
-    notation_sets
-        .insert(notation_set.name.to_owned(), notation_set)
-        .bug();
+    notation_sets.insert(notation_set.name.to_owned(), notation_set);
 
     Ok(LanguageCompiled {
         name: language_spec.name,
@@ -185,9 +183,10 @@ impl GrammarCompiler {
             ));
         }
 
-        self.constructs
-            .insert(construct.name.clone(), construct)
-            .map_err(LanguageError::DuplicateConstruct)?;
+        if self.constructs.contains_name(&construct.name) {
+            return Err(LanguageError::DuplicateConstruct(construct.name));
+        }
+        self.constructs.insert(construct.name.clone(), construct);
         Ok(())
     }
 
@@ -319,18 +318,15 @@ impl GrammarCompiler {
         }
 
         assert_eq!(construct_id, grammar.constructs.len());
-        grammar
-            .constructs
-            .insert(
-                construct.name.clone(),
-                ConstructCompiled {
-                    name: construct.name.clone(),
-                    arity,
-                    is_comment_or_ws: construct.is_comment_or_ws,
-                    key: construct.key,
-                },
-            )
-            .bug();
+        grammar.constructs.insert(
+            construct.name.clone(),
+            ConstructCompiled {
+                name: construct.name.clone(),
+                arity,
+                is_comment_or_ws: construct.is_comment_or_ws,
+                key: construct.key,
+            },
+        );
         Ok(())
     }
 }

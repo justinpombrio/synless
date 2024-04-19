@@ -13,7 +13,7 @@ fn test_json() {
     let language_name = engine
         .load_language_ron(Path::new(JSON_PATH), &json_lang_ron)
         .unwrap();
-    engine.add_parser(&language_name, JsonParser).unwrap();
+    engine.add_parser(&language_name, JsonParser);
     engine
         .set_source_notation(&language_name, JSON_NOTATION_NAME)
         .unwrap();

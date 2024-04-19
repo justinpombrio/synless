@@ -1,15 +1,11 @@
 use crate::engine::{DocDisplayLabel, DocName, Engine, Settings};
-use crate::frontends::{Event, Frontend, Key, MouseEvent};
+use crate::frontends::{Event, Frontend, Key};
 use crate::keymap::{KeyProg, Keymap, Layer, LayerManager};
-use crate::language::Construct;
 use crate::style::Style;
 use crate::tree::{Mode, Node};
 use crate::util::{error, log, SynlessBug, SynlessError};
-use partial_pretty_printer as ppp;
 use partial_pretty_printer::pane;
 use std::cell::RefCell;
-use std::collections::HashMap;
-use std::error::Error;
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -306,7 +302,6 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
 
 fn list_files_and_dirs(dir: &str) -> Result<rhai::Map, SynlessError> {
     use std::fs::read_dir;
-    use std::path::{Path, PathBuf};
 
     let entries = read_dir(dir).map_err(|err| {
         error!(

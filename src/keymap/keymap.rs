@@ -3,9 +3,7 @@
 use crate::frontends::Key;
 use crate::language::Storage;
 use crate::tree::Node;
-use crate::util::{bug, bug_assert, error, OrderedMap, SynlessBug};
-use std::borrow::Borrow;
-use std::collections::HashMap;
+use crate::util::{bug_assert, error, OrderedMap, SynlessBug};
 
 const KEYHINTS_LANGUAGE_NAME: &str = "keyhints";
 

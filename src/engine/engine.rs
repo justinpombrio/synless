@@ -4,16 +4,15 @@ use super::command::Command;
 use super::doc::Doc;
 use super::doc_set::{DocDisplayLabel, DocName, DocSet};
 use super::Settings;
-use crate::language::{Language, LanguageError, LanguageSpec, NotationSetSpec, Storage};
+use crate::language::{LanguageSpec, NotationSetSpec, Storage};
 use crate::parsing::{Parse, ParseError};
-use crate::pretty_doc::{DocRef, PrettyDocError};
+use crate::pretty_doc::DocRef;
 use crate::tree::Node;
-use crate::util::{bug_assert, error, SynlessBug, SynlessError};
+use crate::util::{error, SynlessBug, SynlessError};
 use partial_pretty_printer as ppp;
 use partial_pretty_printer::pane;
 use std::collections::HashMap;
 use std::error::Error;
-use std::fmt;
 use std::path::Path;
 
 #[derive(thiserror::Error, Debug)]
@@ -138,14 +137,9 @@ impl Engine {
      * Parsers *
      ***********/
 
-    pub fn add_parser(
-        &mut self,
-        language_name: &str,
-        parser: impl Parse + 'static,
-    ) -> Result<(), SynlessError> {
+    pub fn add_parser(&mut self, language_name: &str, parser: impl Parse + 'static) {
         self.parsers
             .insert(language_name.to_owned(), Box::new(parser));
-        Ok(())
     }
 
     /******************
@@ -204,7 +198,7 @@ impl Engine {
 
     pub fn load_doc_from_sexpr(
         &self,
-        doc_name: DocName,
+        _doc_name: DocName,
         _source: &str,
     ) -> Result<(), SynlessError> {
         todo!()

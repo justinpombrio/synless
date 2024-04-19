@@ -1,5 +1,5 @@
-// TODO: temporary
-#![allow(unused)]
+// TODO: temporary #[allow(dead_code)]
+#![allow(dead_code)]
 
 mod engine;
 mod frontends;

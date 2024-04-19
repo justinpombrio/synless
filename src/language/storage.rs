@@ -27,10 +27,10 @@ impl Storage {
     pub fn add_language(&mut self, language_spec: LanguageSpec) -> Result<(), LanguageError> {
         let language = compile_language(language_spec)?;
         let extensions = language.file_extensions.clone();
-        let id = self
-            .languages
-            .insert(language.name.clone(), language)
-            .map_err(LanguageError::DuplicateLanguage)?;
+        if self.languages.contains_name(&language.name) {
+            return Err(LanguageError::DuplicateLanguage(language.name));
+        }
+        let (id, _) = self.languages.insert(language.name.clone(), language);
         for ext in extensions {
             self.file_extensions.insert(ext, Language::from_id(id));
         }

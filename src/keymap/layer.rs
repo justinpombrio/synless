@@ -2,7 +2,6 @@ use super::keymap::{KeyProg, Keymap};
 use super::menu::{Menu, MenuName, MenuSelectionCmd};
 use crate::engine::DocName;
 use crate::frontends::Key;
-use crate::keymap;
 use crate::language::Storage;
 use crate::tree::Mode;
 use crate::tree::Node;
@@ -138,7 +137,7 @@ impl LayerManager {
         doc_name: &DocName,
         layer_name: &str,
     ) -> Result<(), SynlessError> {
-        let mut local_layers = self.local_layers.entry(doc_name.to_owned()).or_default();
+        let local_layers = self.local_layers.entry(doc_name.to_owned()).or_default();
         add_layer(&self.layers, local_layers, layer_name)?;
         self.cached_composite_layers.clear();
         Ok(())
@@ -159,7 +158,7 @@ impl LayerManager {
         doc_name: &DocName,
         layer_name: &str,
     ) -> Result<(), SynlessError> {
-        let mut local_layers = self.local_layers.entry(doc_name.to_owned()).or_default();
+        let local_layers = self.local_layers.entry(doc_name.to_owned()).or_default();
         remove_layer(&self.layers, local_layers, layer_name)?;
         self.cached_composite_layers.clear();
         Ok(())

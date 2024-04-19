@@ -2,8 +2,8 @@ mod frontend;
 mod screen_buf;
 mod terminal;
 
-pub use frontend::{Event, Frontend, Key, KeyCode, KeyModifiers, MouseButton, MouseEvent};
-pub use terminal::{Terminal, TerminalError};
+pub use frontend::{Event, Frontend, Key};
+pub use terminal::Terminal;
 
 use crate::util::{error, SynlessError};
 use partial_pretty_printer::pane;
