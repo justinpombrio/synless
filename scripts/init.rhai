@@ -36,6 +36,9 @@ keymap.bind_key("o", "Open", || {
 let file_selection_keymap = new_keymap();
 file_selection_keymap.bind_key_for_regular_candidates("enter", "Open file", |path| s::open_doc(path));
 file_selection_keymap.bind_key("esc", "Exit menu", || s::escape());
+file_selection_keymap.bind_key("up", "Up", || s::menu_selection_up(), false);
+file_selection_keymap.bind_key("down", "Down", || s::menu_selection_down(), false);
+file_selection_keymap.bind_key("bksp", "Backspace", || s::menu_selection_backspace(), false);
 
 let layer = new_layer("default");
 layer.add_menu_keymap("file_selection", file_selection_keymap);

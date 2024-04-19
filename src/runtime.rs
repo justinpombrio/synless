@@ -1,6 +1,6 @@
 use crate::engine::{DocDisplayLabel, DocName, Engine, Settings};
 use crate::frontends::{Event, Frontend, Key};
-use crate::keymap::{KeyProg, Keymap, Layer, LayerManager};
+use crate::keymap::{KeyProg, Keymap, Layer, LayerManager, MenuSelectionCmd};
 use crate::style::Style;
 use crate::tree::{Mode, Node};
 use crate::util::{error, log, SynlessBug, SynlessError};
@@ -98,6 +98,18 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
 
     pub fn close_menu(&mut self) {
         self.layers.close_menu();
+    }
+
+    pub fn menu_selection_up(&mut self) -> Result<(), SynlessError> {
+        self.layers.edit_menu_selection(MenuSelectionCmd::Up)
+    }
+
+    pub fn menu_selection_down(&mut self) -> Result<(), SynlessError> {
+        self.layers.edit_menu_selection(MenuSelectionCmd::Down)
+    }
+
+    pub fn menu_selection_backspace(&mut self) -> Result<(), SynlessError> {
+        self.layers.edit_menu_selection(MenuSelectionCmd::Backspace)
     }
 
     /****************
@@ -405,6 +417,9 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         register!(module, rt.open_menu_with_keymap(menu_name: String, keymap: Keymap)? as open_menu);
         register!(module, rt.close_menu());
         register!(module, escape()?);
+        register!(module, rt.menu_selection_up()?);
+        register!(module, rt.menu_selection_down()?);
+        register!(module, rt.menu_selection_backspace()?);
 
         // Filesystem
         register!(module, list_files_and_dirs(dir: &str)?);
