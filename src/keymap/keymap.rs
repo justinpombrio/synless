@@ -458,6 +458,10 @@ impl rhai::CustomType for Keymap {
     fn build(mut builder: rhai::TypeBuilder<Self>) {
         use std::str::FromStr;
 
+        fn parse_key(key_str: &str) -> Result<Key, Box<rhai::EvalAltResult>> {
+            Key::from_str(key_str).map_err(|err| error!(Keymap, "{err}: {key_str}").into())
+        }
+
         // TODO add the other bind methods
         builder
             .with_name("Keymap")
@@ -467,12 +471,21 @@ impl rhai::CustomType for Keymap {
                 |keymap: &mut Keymap,
                  key_str: &str,
                  hint: String,
+                 prog: rhai::FnPtr|
+                 -> Result<(), Box<rhai::EvalAltResult>> {
+                    keymap.bind_key(parse_key(key_str)?, hint, prog, true);
+                    Ok(())
+                },
+            )
+            .with_fn(
+                "bind_key",
+                |keymap: &mut Keymap,
+                 key_str: &str,
+                 hint: String,
                  prog: rhai::FnPtr,
                  close_menu: bool|
                  -> Result<(), Box<rhai::EvalAltResult>> {
-                    let key =
-                        Key::from_str(key_str).map_err(|err| error!(Keymap, "{err}: {key_str}"))?;
-                    keymap.bind_key(key, hint, prog, close_menu);
+                    keymap.bind_key(parse_key(key_str)?, hint, prog, close_menu);
                     Ok(())
                 },
             )
@@ -485,9 +498,31 @@ impl rhai::CustomType for Keymap {
                  prog: rhai::FnPtr,
                  close_menu: bool|
                  -> Result<(), Box<rhai::EvalAltResult>> {
-                    let key =
-                        Key::from_str(key_str).map_err(|err| error!(Keymap, "{err}: {key_str}"))?;
-                    keymap.bind_key_for_special_candidate(key, candidate, hint, prog, close_menu);
+                    keymap.bind_key_for_special_candidate(
+                        parse_key(key_str)?,
+                        candidate,
+                        hint,
+                        prog,
+                        close_menu,
+                    );
+                    Ok(())
+                },
+            )
+            .with_fn(
+                "bind_key_for_special_candidate",
+                |keymap: &mut Keymap,
+                 key_str: &str,
+                 candidate: String,
+                 hint: String,
+                 prog: rhai::FnPtr|
+                 -> Result<(), Box<rhai::EvalAltResult>> {
+                    keymap.bind_key_for_special_candidate(
+                        parse_key(key_str)?,
+                        candidate,
+                        hint,
+                        prog,
+                        true,
+                    );
                     Ok(())
                 },
             )
@@ -506,9 +541,23 @@ impl rhai::CustomType for Keymap {
                  prog: rhai::FnPtr,
                  close_menu: bool|
                  -> Result<(), Box<rhai::EvalAltResult>> {
-                    let key =
-                        Key::from_str(key_str).map_err(|err| error!(Keymap, "{err}: {key_str}"))?;
-                    keymap.bind_key_for_regular_candidates(key, hint, prog, close_menu);
+                    keymap.bind_key_for_regular_candidates(
+                        parse_key(key_str)?,
+                        hint,
+                        prog,
+                        close_menu,
+                    );
+                    Ok(())
+                },
+            )
+            .with_fn(
+                "bind_key_for_regular_candidates",
+                |keymap: &mut Keymap,
+                 key_str: &str,
+                 hint: String,
+                 prog: rhai::FnPtr|
+                 -> Result<(), Box<rhai::EvalAltResult>> {
+                    keymap.bind_key_for_regular_candidates(parse_key(key_str)?, hint, prog, true);
                     Ok(())
                 },
             )
@@ -520,9 +569,23 @@ impl rhai::CustomType for Keymap {
                  prog: rhai::FnPtr,
                  close_menu: bool|
                  -> Result<(), Box<rhai::EvalAltResult>> {
-                    let key =
-                        Key::from_str(key_str).map_err(|err| error!(Keymap, "{err}: {key_str}"))?;
-                    keymap.bind_key_for_custom_candidate(key, hint, prog, close_menu);
+                    keymap.bind_key_for_custom_candidate(
+                        parse_key(key_str)?,
+                        hint,
+                        prog,
+                        close_menu,
+                    );
+                    Ok(())
+                },
+            )
+            .with_fn(
+                "bind_key_for_custom_candidate",
+                |keymap: &mut Keymap,
+                 key_str: &str,
+                 hint: String,
+                 prog: rhai::FnPtr|
+                 -> Result<(), Box<rhai::EvalAltResult>> {
+                    keymap.bind_key_for_custom_candidate(parse_key(key_str)?, hint, prog, true);
                     Ok(())
                 },
             );

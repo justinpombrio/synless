@@ -11,11 +11,11 @@ fn open_file_menu(dir) {
             // TODO could we hit recursion depth limit when opening many dirs?
             open_file_menu(child_dir);
         };
-        keymap.bind_key_for_special_candidate("enter", child_dir, "View directory", prog, false);
+        keymap.bind_key_for_special_candidate("enter", child_dir, "View directory", prog);
     }
     keymap.bind_key_for_special_candidate("enter", "..", "View directory", || {
         open_file_menu(dir + "/..");
-    } , false);
+    });
 
     s::open_menu("file_selection", keymap);
 }
@@ -27,14 +27,14 @@ s::load_language("data/json_lang.ron");
 s::open_doc("data/pokemon.json");
 
 let keymap = new_keymap();
-keymap.bind_key("h", "Say Hello", || print("hello world!"), true);
-keymap.bind_key("q", "Quit", || s::abort(), true);
+keymap.bind_key("h", "Say Hello", || print("hello world!"));
+keymap.bind_key("q", "Quit", || s::abort());
 keymap.bind_key("o", "Open", || {
     open_file_menu(s::current_dir());
-}, true);
+});
 
 let file_selection_keymap = new_keymap();
-file_selection_keymap.bind_key_for_regular_candidates("enter", "Open file", |path| s::open_doc(path), true);
+file_selection_keymap.bind_key_for_regular_candidates("enter", "Open file", |path| s::open_doc(path));
 
 let layer = new_layer("default");
 layer.add_menu_keymap("file_selection", file_selection_keymap);
