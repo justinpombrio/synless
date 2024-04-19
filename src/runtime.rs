@@ -240,7 +240,7 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
  * Filesystem *
  **************/
 
-fn list_files_and_dirs(dir: &str) -> Result<(Vec<String>, Vec<String>), SynlessError> {
+fn list_files_and_dirs(dir: &str) -> Result<rhai::Map, SynlessError> {
     use std::fs::read_dir;
     use std::path::{Path, PathBuf};
 
@@ -265,7 +265,10 @@ fn list_files_and_dirs(dir: &str) -> Result<(Vec<String>, Vec<String>), SynlessE
         }
     }
 
-    Ok((files, dirs))
+    let mut map = rhai::Map::new();
+    map.insert("files".into(), files.into());
+    map.insert("dirs".into(), dirs.into());
+    Ok(map)
 }
 
 macro_rules! register {
