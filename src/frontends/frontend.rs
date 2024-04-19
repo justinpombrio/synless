@@ -54,7 +54,7 @@ pub struct Key {
     modifiers: KeyModifiers,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, Default, PartialEq, Eq, Hash)]
 pub struct KeyModifiers {
     pub ctrl: bool,
     pub alt: bool,
@@ -102,6 +102,21 @@ impl Key {
 
     pub fn modifiers(&self) -> KeyModifiers {
         self.modifiers
+    }
+
+    pub fn as_plain_char(&self) -> Option<char> {
+        if self.modifiers.is_empty() {
+            if let KeyCode::Char(ch) = self.code {
+                return Some(ch);
+            }
+        }
+        None
+    }
+}
+
+impl KeyModifiers {
+    pub fn is_empty(self) -> bool {
+        self == KeyModifiers::default()
     }
 }
 

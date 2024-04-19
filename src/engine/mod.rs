@@ -6,6 +6,12 @@ mod engine;
 use partial_pretty_printer as ppp;
 use std::default::Default;
 
+// TODO remove allow(unused)
+#[allow(unused)]
+pub use command::{
+    BookmarkCommand, ClipboardCommand, Command, EdCommand, NavCommand, TextEdCommand,
+    TextNavCommand, TreeEdCommand, TreeNavCommand,
+};
 pub use doc_set::{DocDisplayLabel, DocName};
 pub use engine::Engine;
 

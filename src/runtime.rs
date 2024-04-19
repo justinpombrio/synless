@@ -1,6 +1,6 @@
-use crate::engine::{DocDisplayLabel, DocName, Engine, Settings};
+use crate::engine::{Command, DocDisplayLabel, DocName, Engine, Settings, TextEdCommand};
 use crate::frontends::{Event, Frontend, Key};
-use crate::keymap::{KeyProg, Keymap, Layer, LayerManager, MenuSelectionCmd};
+use crate::keymap::{KeyLookupResult, KeyProg, Keymap, Layer, LayerManager, MenuSelectionCmd};
 use crate::style::Style;
 use crate::tree::{Mode, Node};
 use crate::util::{error, log, SynlessBug, SynlessError};
@@ -133,10 +133,10 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
                     return Err(error!(Abort, "I was rudely interrupted by Ctrl-C"));
                 }
                 Event::Key(key) => {
-                    if let Some(prog) = self.lookup_key(key) {
+                    if let Some(prog) = self.handle_key(key)? {
                         return Ok(prog);
                     }
-                    // wait for a better key press
+                    // wait for another key press
                 }
                 Event::Resize => self.display()?,
                 Event::Mouse(_) => (),
@@ -283,7 +283,10 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
      * Private *
      ***********/
 
-    fn lookup_key(&mut self, key: Key) -> Option<KeyProg> {
+    /// If the `key` is bound to a prog that needs to be executed by rhai, then returns `Some(prog)`.
+    /// Otherwise (if the `key` is not bound or is bound to something that was already handled),
+    /// then returns `None`.
+    fn handle_key(&mut self, key: Key) -> Result<Option<KeyProg>, SynlessError> {
         let (mode, doc_name) = {
             if let Some(doc_name) = self.engine.visible_doc_name() {
                 let doc = self.engine.get_doc(doc_name).bug();
@@ -292,8 +295,19 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
                 (Mode::Tree, None)
             }
         };
-
-        self.layers.lookup_key(mode, doc_name, key)
+        match self.layers.lookup_key(mode, doc_name, key) {
+            None => Ok(None),
+            Some(KeyLookupResult::KeyProg(key_prog)) => Ok(Some(key_prog)),
+            Some(KeyLookupResult::Redisplay) => {
+                self.display()?;
+                Ok(None)
+            }
+            Some(KeyLookupResult::InsertChar(ch)) => {
+                self.engine.execute(TextEdCommand::Insert(ch).into())?;
+                self.display()?;
+                Ok(None)
+            }
+        }
     }
 
     /// Block until the next input event.

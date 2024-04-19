@@ -16,6 +16,12 @@ enum KeymapLabel {
     Mode(Mode),
 }
 
+pub enum KeyLookupResult {
+    KeyProg(KeyProg),
+    InsertChar(char),
+    Redisplay,
+}
+
 /*********
  * Layer *
  *********/
@@ -245,14 +251,29 @@ impl LayerManager {
         mode: Mode,
         doc_name: Option<&DocName>,
         key: Key,
-    ) -> Option<KeyProg> {
-        if let Some(menu) = &self.active_menu {
-            menu.lookup(key)
+    ) -> Option<KeyLookupResult> {
+        if let Some(menu) = &mut self.active_menu {
+            if let Some(key_prog) = menu.lookup(key) {
+                return Some(KeyLookupResult::KeyProg(key_prog));
+            }
+            if let Some(ch) = key.as_plain_char() {
+                if menu.execute(MenuSelectionCmd::Insert(ch)) {
+                    return Some(KeyLookupResult::Redisplay);
+                }
+            }
         } else {
             let layer = self.composite_layer(doc_name);
             let keymap = layer.keymaps.get(&KeymapLabel::Mode(mode))?;
-            keymap.lookup(key, None)
+            if let Some(key_prog) = keymap.lookup(key, None) {
+                return Some(KeyLookupResult::KeyProg(key_prog));
+            }
+            if mode == Mode::Text {
+                if let Some(ch) = key.as_plain_char() {
+                    return Some(KeyLookupResult::InsertChar(ch));
+                }
+            }
         }
+        None
     }
 
     /***********
