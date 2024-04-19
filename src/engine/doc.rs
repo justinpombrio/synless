@@ -152,8 +152,25 @@ impl Doc {
         Ok(())
     }
 
+    /// Deletes the document and all of its nodes.
+    pub fn delete(mut self, s: &mut Storage) {
+        self.clear_undos(s);
+        self.clear_redos(s);
+        let root = self.cursor.root_node(s);
+        root.delete_root(s);
+    }
+
     fn clear_redos(&mut self, s: &mut Storage) {
         for group in self.redo_stack.drain(..) {
+            group.delete_trees(s);
+        }
+    }
+
+    fn clear_undos(&mut self, s: &mut Storage) {
+        for group in self.undo_stack.drain(..) {
+            group.delete_trees(s);
+        }
+        if let Some(group) = self.recent.take() {
             group.delete_trees(s);
         }
     }

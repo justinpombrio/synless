@@ -97,6 +97,15 @@ impl DocSet {
     }
 
     #[must_use]
+    pub fn delete_doc(&mut self, doc_name: &DocName) -> bool {
+        if let Some(index) = self.docs.remove(doc_name) {
+            true
+        } else {
+            false
+        }
+    }
+
+    #[must_use]
     pub fn set_visible_doc(&mut self, doc_name: &DocName) -> bool {
         if self.docs.contains_key(doc_name) {
             self.visible_doc = Some(doc_name.to_owned());
@@ -116,6 +125,10 @@ impl DocSet {
 
     pub fn visible_doc_mut(&mut self) -> Option<&mut Doc> {
         self.docs.get_mut(self.visible_doc.as_ref()?)
+    }
+
+    pub fn contains_doc(&self, doc_name: &DocName) -> bool {
+        self.docs.contains_key(doc_name)
     }
 
     pub fn get_doc(&self, doc_name: &DocName) -> Option<&Doc> {

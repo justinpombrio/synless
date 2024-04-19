@@ -8,7 +8,7 @@ use crate::language::{Language, LanguageError, LanguageSpec, NotationSetSpec, St
 use crate::parsing::{Parse, ParseError};
 use crate::pretty_doc::{DocRef, PrettyDocError};
 use crate::tree::Node;
-use crate::util::{error, SynlessBug, SynlessError};
+use crate::util::{bug_assert, error, SynlessBug, SynlessError};
 use partial_pretty_printer as ppp;
 use partial_pretty_printer::pane;
 use std::collections::HashMap;
@@ -24,6 +24,8 @@ pub enum DocError {
     DocAlreadyOpen(DocName),
     #[error("There is no visible doc to act on")]
     NoVisibleDoc,
+    #[error("Can't create document because it doesn't have a valid root node")]
+    InvalidRootNode,
 }
 
 impl From<DocError> for SynlessError {
@@ -165,8 +167,27 @@ impl Engine {
         Ok(())
     }
 
+    pub fn add_doc(&mut self, root_node: Node, doc_name: &DocName) -> Result<(), SynlessError> {
+        let doc = Doc::new(&self.storage, root_node).ok_or(DocError::InvalidRootNode)?;
+        if !self.doc_set.add_doc(doc_name.to_owned(), doc) {
+            Err(DocError::DocAlreadyOpen(doc_name.to_owned()))?;
+        }
+        Ok(())
+    }
+
+    pub fn delete_doc(&mut self, doc_name: &DocName) -> Result<(), SynlessError> {
+        if self.doc_set.delete_doc(doc_name) {
+            Err(DocError::DocNotFound(doc_name.to_owned()))?;
+        }
+        Ok(())
+    }
+
     pub fn visible_doc_name(&self) -> Option<&DocName> {
         self.doc_set.visible_doc_name()
+    }
+
+    pub fn visible_doc(&self) -> Option<&Doc> {
+        self.doc_set.visible_doc()
     }
 
     pub fn get_doc(&self, doc_name: &DocName) -> Option<&Doc> {
