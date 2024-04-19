@@ -26,12 +26,31 @@ s::load_language("data/json_lang.ron");
 
 s::open_doc("data/pokemon.json");
 
-let keymap = new_keymap();
-keymap.bind_key("h", "Say Hello", || print("hello world!"));
-keymap.bind_key("q", "Quit", || s::abort());
-keymap.bind_key("o", "Open", || {
+let tree_keymap = new_keymap();
+tree_keymap.bind_key("h", "Say Hello", || print("hello world!"));
+tree_keymap.bind_key("q", "Quit", || s::abort());
+tree_keymap.bind_key("o", "Open", || {
     open_file_menu(s::current_dir());
 });
+tree_keymap.bind_key("left", "Prev", || s::tree_nav_prev());
+tree_keymap.bind_key("right", "Next", || s::tree_nav_next());
+tree_keymap.bind_key("^", "First", || s::tree_nav_first());
+tree_keymap.bind_key("$", "Last", || s::tree_nav_last());
+tree_keymap.bind_key("h", "Inorder prev", || s::tree_nav_inorder_prev());
+tree_keymap.bind_key("l", "Inorder next", || s::tree_nav_inorder_next());
+tree_keymap.bind_key("down", "Last child", || s::tree_nav_last_child());
+tree_keymap.bind_key("up", "Parent", || s::tree_nav_parent());
+tree_keymap.bind_key("enter", "Enter text", || s::tree_nav_enter_text());
+tree_keymap.bind_key("m", "Save bookmark", || s::save_bookmark('a'));
+tree_keymap.bind_key("'", "Go to bookmark", || s::goto_bookmark('a'));
+
+let text_keymap = new_keymap();
+text_keymap.bind_key("esc", "Exit text", || s::text_nav_exit());
+text_keymap.bind_key("left", "Left", || s::text_nav_left());
+text_keymap.bind_key("right", "Right", || s::text_nav_right());
+text_keymap.bind_key("down", "Insert D", || s::text_ed_insert('D'));
+text_keymap.bind_key("bksp", "Backspace", || s::text_ed_backspace());
+text_keymap.bind_key("del", "Delete", || s::text_ed_delete());
 
 let file_selection_keymap = new_keymap();
 file_selection_keymap.bind_key_for_regular_candidates("enter", "Open file", |path| s::open_doc(path));
@@ -42,6 +61,7 @@ file_selection_keymap.bind_key("bksp", "Backspace", || s::menu_selection_backspa
 
 let layer = new_layer("default");
 layer.add_menu_keymap("file_selection", file_selection_keymap);
-layer.add_mode_keymap("Tree", keymap);
+layer.add_mode_keymap("Tree", tree_keymap);
+layer.add_mode_keymap("Text", text_keymap);
 s::register_layer(layer);
 s::add_global_layer("default");

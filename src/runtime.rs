@@ -1,4 +1,7 @@
-use crate::engine::{Command, DocDisplayLabel, DocName, Engine, Settings, TextEdCommand};
+use crate::engine::{
+    BookmarkCommand, Command, DocDisplayLabel, DocName, Engine, Settings, TextEdCommand,
+    TextNavCommand, TreeEdCommand, TreeNavCommand,
+};
 use crate::frontends::{Event, Frontend, Key};
 use crate::keymap::{KeyLookupResult, KeyProg, Keymap, Layer, LayerManager, MenuSelectionCmd};
 use crate::style::Style;
@@ -279,6 +282,10 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
      * Editing *
      ***********/
 
+    pub fn execute(&mut self, cmd: Command) -> Result<(), SynlessError> {
+        self.engine.execute(cmd)
+    }
+
     /***********
      * Private *
      ***********/
@@ -303,7 +310,7 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
                 Ok(None)
             }
             Some(KeyLookupResult::InsertChar(ch)) => {
-                self.engine.execute(TextEdCommand::Insert(ch).into())?;
+                self.execute(TextEdCommand::Insert(ch).into())?;
                 self.display()?;
                 Ok(None)
             }
@@ -410,6 +417,26 @@ macro_rules! register {
             .in_internal_namespace()
             .set_into_module($module, closure);
     };
+    ($module:expr, $runtime:ident, $command:ident :: $variant:ident as $name:ident) => {
+        let rt = $runtime.clone();
+        let closure = move || {
+            rt.borrow_mut().execute($command::$variant.into())
+                .map_err(|err| Box::<rhai::EvalAltResult>::from(err))
+        };
+        rhai::FuncRegistration::new(stringify!($name))
+            .in_internal_namespace()
+            .set_into_module($module, closure);
+    };
+    ($module:expr, $runtime:ident, $command:ident :: $variant:ident ($( $param:ident : $type:ty ),*) as $name:ident) => {
+        let rt = $runtime.clone();
+        let closure = move | $( $param : $type ),* | {
+            rt.borrow_mut().execute($command::$variant( $( $param ),* ).into())
+                .map_err(|err| Box::<rhai::EvalAltResult>::from(err))
+        };
+        rhai::FuncRegistration::new(stringify!($name))
+            .in_internal_namespace()
+            .set_into_module($module, closure);
+    };
 }
 
 impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
@@ -444,6 +471,41 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
 
         // Languages
         register!(module, rt.load_language(path: &str)?);
+
+        // Editing
+        register!(module, rt, TreeNavCommand::Prev as tree_nav_prev);
+        register!(module, rt, TreeNavCommand::First as tree_nav_first);
+        register!(module, rt, TreeNavCommand::Next as tree_nav_next);
+        register!(module, rt, TreeNavCommand::Last as tree_nav_last);
+        register!(
+            module,
+            rt,
+            TreeNavCommand::InorderNext as tree_nav_inorder_next
+        );
+        register!(
+            module,
+            rt,
+            TreeNavCommand::InorderPrev as tree_nav_inorder_prev
+        );
+        register!(module, rt, TreeNavCommand::LastChild as tree_nav_last_child);
+        register!(module, rt, TreeNavCommand::Parent as tree_nav_parent);
+        register!(module, rt, TreeNavCommand::EnterText as tree_nav_enter_text);
+
+        register!(module, rt, TreeEdCommand::Backspace as tree_ed_backspace);
+        register!(module, rt, TreeEdCommand::Delete as tree_ed_delete);
+
+        register!(module, rt, TextNavCommand::Left as text_nav_left);
+        register!(module, rt, TextNavCommand::Right as text_nav_right);
+        register!(module, rt, TextNavCommand::Beginning as text_nav_beginning);
+        register!(module, rt, TextNavCommand::End as text_nav_end);
+        register!(module, rt, TextNavCommand::ExitText as text_nav_exit);
+
+        register!(module, rt, TextEdCommand::Backspace as text_ed_backspace);
+        register!(module, rt, TextEdCommand::Delete as text_ed_delete);
+        register!(module, rt, TextEdCommand::Insert(ch: char) as text_ed_insert);
+
+        register!(module, rt, BookmarkCommand::Save(ch: char) as save_bookmark);
+        register!(module, rt, BookmarkCommand::Goto(ch: char) as goto_bookmark);
 
         // Logging
         rhai::FuncRegistration::new("log_trace")
