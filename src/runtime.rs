@@ -312,7 +312,14 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         };
         match self.layers.lookup_key(mode, doc_name, key) {
             None => Ok(None),
-            Some(KeyLookupResult::KeyProg(key_prog)) => Ok(Some(key_prog)),
+            Some(KeyLookupResult::KeyProg(key_prog)) => {
+                // Each keypress in tree mode should be a separate undo group, but multiple text
+                // edits (and multiple edits made in a menu) should be grouped together.
+                if mode != Mode::Text && !self.layers.has_open_menu() {
+                    let _ = self.engine.end_undo_group();
+                }
+                Ok(Some(key_prog))
+            }
             Some(KeyLookupResult::Redisplay) => {
                 self.display()?;
                 Ok(None)

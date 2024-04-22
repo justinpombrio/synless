@@ -197,6 +197,10 @@ impl UndoGroup {
         }
 
         jump_to(s, cursor, self.restore_loc);
+        // Always end in tree mode, so that undoing can't unexpectedly enter text mode.
+        if let Some(new_cursor) = cursor.exit_text() {
+            *cursor = new_cursor;
+        }
         UndoGroup::new(redo_restore_loc.bug(), redos)
     }
 

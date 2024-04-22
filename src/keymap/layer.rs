@@ -240,6 +240,10 @@ impl LayerManager {
         }
     }
 
+    pub fn has_open_menu(&self) -> bool {
+        self.active_menu.is_some()
+    }
+
     /*********
      * Input *
      *********/
