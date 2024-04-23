@@ -44,6 +44,7 @@ pub struct Style {
 }
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub enum Priority {
     #[default]
     Low,
@@ -57,6 +58,7 @@ pub enum CursorHalf {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub enum StyleLabel {
     Open,
     Close,
@@ -77,6 +79,7 @@ pub enum StyleLabel {
 
 // TODO: doc
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub enum Condition {
     IsEmptyText,
     IsCommentOrWs,
@@ -95,6 +98,7 @@ pub struct Rgb {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub enum Base16Color {
     /// Default Background
     Base00,
@@ -232,9 +236,9 @@ impl ColorTheme {
     /// The "default dark" Base16 colorscheme, by Chris Kempson (http://chriskempson.com)
     pub fn default_dark() -> ColorTheme {
         ColorTheme {
-            base00: Rgb::from_hex("#181818").bug(),
-            base01: Rgb::from_hex("#282828").bug(),
-            base02: Rgb::from_hex("#383838").bug(),
+            base00: Rgb::from_hex("#312121").bug(),
+            base01: Rgb::from_hex("#111111").bug(),
+            base02: Rgb::from_hex("#103030").bug(),
             base03: Rgb::from_hex("#585858").bug(),
             base04: Rgb::from_hex("#b8b8b8").bug(),
             base05: Rgb::from_hex("#d8d8d8").bug(),
