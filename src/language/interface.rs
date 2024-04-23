@@ -136,7 +136,7 @@ impl Language {
 
     pub fn constructs(self, s: &Storage) -> impl Iterator<Item = Construct> {
         let constructs = &grammar(s, self.language).constructs;
-        (&constructs).into_iter().map(move |id| Construct {
+        constructs.into_iter().map(move |id| Construct {
             language: self.language,
             construct: id,
         })

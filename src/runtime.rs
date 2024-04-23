@@ -285,7 +285,7 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
 
     pub fn language_constructs(&mut self, language: Language) -> Vec<rhai::Dynamic> {
         language
-            .constructs(&self.engine.raw_storage())
+            .constructs(self.engine.raw_storage())
             .map(rhai::Dynamic::from)
             .collect()
     }
