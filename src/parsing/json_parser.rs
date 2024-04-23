@@ -86,7 +86,7 @@ fn json_to_node(
         Object(object) => {
             let node = make_node(s, "Object")?;
             for (key, value) in object {
-                let key_node = make_node(s, "String")?;
+                let key_node = make_node(s, "Key")?;
                 key_node.text_mut(s).unwrap().set(key);
                 let value_node = json_to_node(s, value, json_lang)?;
                 let pair_construct = json_lang.construct(s, "ObjectPair").ok_or("ObjectPair")?;

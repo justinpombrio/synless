@@ -41,8 +41,14 @@ LanguageSpec(
                 key: Some('a'),
             ),
             ConstructSpec(
+                name: "Key",
+                arity: Texty,
+                // TODO: Remove key binding for Json.Key in favor of automatic insertion
+                key: Some('k'),
+            ),
+            ConstructSpec(
                 name: "ObjectPair",
-                arity: Fixed([SortSpec(["String"]), SortSpec(["value"])]),
+                arity: Fixed([SortSpec(["Key"]), SortSpec(["value"])]),
                 key: None,
             ),
             ConstructSpec(
@@ -61,13 +67,21 @@ LanguageSpec(
         name: "DefaultDisplay",
         notations: [
             ("Root", Child(0)),
-            ("Null", Literal("null")),
-            ("True", Literal("true")),
-            ("False", Literal("false")),
+            ("Null",
+                Style(Properties(fg_color: Some(Base0E), bold: Some(true)),
+                    Literal("null"))),
+            ("True",
+                Style(Properties(fg_color: Some(Base09), bold: Some(true)),
+                    Literal("true"))),
+            ("False",
+                Style(Properties(fg_color: Some(Base09), bold: Some(true)),
+                    Literal("false"))),
             ("String", 
                 Style(Properties(fg_color: Some(Base0B)),
                       Concat(Literal("\""), Concat(Text, Literal("\""))))),
-            ("Number", Check(IsEmptyText, Here, Literal("•"), Text)),
+            ("Number",
+                Style(Properties(fg_color: Some(Base09)),
+                    Check(IsEmptyText, Here, Literal("•"), Text))),
             ("Array",
                 Count(
                     zero:
@@ -113,6 +127,9 @@ LanguageSpec(
                     ),
                 ),
             ),
+            ("Key",
+                Style(Properties(fg_color: Some(Base0C)),
+                      Text)),
             ("ObjectPair",
                 Choice(
                     // single line
