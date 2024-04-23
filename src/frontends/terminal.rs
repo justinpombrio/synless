@@ -175,9 +175,13 @@ impl Frontend for Terminal {
                     let mut attributes = Attributes::default();
                     if style.bold {
                         attributes.set(Attribute::Bold);
+                    } else {
+                        attributes.set(Attribute::NormalIntensity);
                     }
                     if style.underlined {
                         attributes.set(Attribute::Underlined);
+                    } else {
+                        attributes.set(Attribute::NoUnderline);
                     }
                     out.queue(SetAttributes(attributes))?;
                     out.queue(SetForegroundColor(style.fg_color.into()))?;
