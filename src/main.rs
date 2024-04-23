@@ -104,6 +104,8 @@ fn main() {
         }
         if let Some(payload) = info.payload().downcast_ref::<&str>() {
             message.push_str(&format!(": {payload}"));
+        } else if let Some(payload) = info.payload().downcast_ref::<String>() {
+            message.push_str(&format!(": {payload}"));
         }
         log!(Error, "{message}")
     }));
