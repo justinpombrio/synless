@@ -185,6 +185,14 @@ impl Node {
         s.forest().data(self.0).text.is_some()
     }
 
+    pub fn can_have_children(self, s: &Storage) -> bool {
+        match self.arity(s) {
+            Arity::Texty => false,
+            Arity::Fixed(sorts) => sorts.len(s) > 0,
+            Arity::Listy(_) => true,
+        }
+    }
+
     /// Borrow the text of a texty node. `None` if it's not texty.
     pub fn text(self, s: &Storage) -> Option<&Text> {
         s.forest().data(self.0).text.as_ref()
@@ -218,9 +226,9 @@ impl Node {
         s.forest().sibling_index(self.0)
     }
 
-    /// Return the number of children this node has. For a Fixed node, this is
-    /// its arity. For a Listy node, this is its current number of children.
-    /// For text, this is None. Requires iterating over all the children.
+    /// Return the number of children this node has. For a Fixed node, this is the length of its
+    /// arity. For a Listy node, this is its current number of children.  For text, this is None.
+    /// Requires iterating over all the children.
     pub fn num_children(self, s: &Storage) -> Option<usize> {
         if self.is_texty(s) {
             None

@@ -49,8 +49,9 @@ impl Location {
     }
 
     /// Returns the location at the beginning of the child sequence of the given node.
+    /// (Returns `None` for a texty node, or a fixed node with no children.)
     pub fn before_children(s: &Storage, node: Node) -> Option<Location> {
-        if node.is_texty(s) {
+        if !node.can_have_children(s) {
             return None;
         }
         if let Some(first_child) = node.first_child(s) {
@@ -61,8 +62,9 @@ impl Location {
     }
 
     /// Returns the location at the end of the child sequence of the given node.
+    /// (Returns `None` for a texty node, or a fixed node with no children.)
     pub fn after_children(s: &Storage, node: Node) -> Option<Location> {
-        if node.is_texty(s) {
+        if !node.can_have_children(s) {
             return None;
         }
         if let Some(last_child) = node.last_child(s) {
