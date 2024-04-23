@@ -4,7 +4,7 @@ use super::command::Command;
 use super::doc::Doc;
 use super::doc_set::{DocDisplayLabel, DocName, DocSet};
 use super::Settings;
-use crate::language::{LanguageSpec, NotationSetSpec, Storage};
+use crate::language::{Language, LanguageSpec, NotationSetSpec, Storage};
 use crate::parsing::{Parse, ParseError};
 use crate::pretty_doc::DocRef;
 use crate::tree::Node;
@@ -90,6 +90,10 @@ impl Engine {
         let lang = self.storage.language(language_name)?;
         lang.add_notation(&mut self.storage, notation_spec)?;
         Ok(notation_name)
+    }
+
+    pub fn get_language(&self, name: &str) -> Result<Language, SynlessError> {
+        Ok(self.storage.language(name)?)
     }
 
     pub fn set_display_notation(
@@ -253,12 +257,12 @@ impl Engine {
      * Editing *
      ***********/
 
-    pub fn execute(&mut self, cmd: Command) -> Result<(), SynlessError> {
+    pub fn execute(&mut self, cmd: impl Into<Command>) -> Result<(), SynlessError> {
         let doc = self
             .doc_set
             .visible_doc_mut()
             .ok_or(DocError::NoVisibleDoc)?;
-        doc.execute(&mut self.storage, cmd, &mut self.clipboard)?;
+        doc.execute(&mut self.storage, cmd.into(), &mut self.clipboard)?;
         Ok(())
     }
 

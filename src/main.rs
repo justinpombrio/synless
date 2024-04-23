@@ -22,6 +22,8 @@ fn make_engine() -> rhai::Engine {
     engine.build_type::<synless::Layer>();
     engine.build_type::<synless::KeyProg>();
     engine.build_type::<synless::SynlessError>();
+    engine.build_type::<synless::Construct>();
+    engine.build_type::<synless::Language>();
 
     println!("Signatures:");
     engine
@@ -42,6 +44,7 @@ fn make_runtime() -> Rc<RefCell<Runtime<Terminal>>> {
 }
 
 fn run() -> Result<(), Box<rhai::EvalAltResult>> {
+    // TODO: Log which rhai script failed to compile (instead of simple ?s)
     let mut engine = make_engine();
 
     // Load internals_module.rhai

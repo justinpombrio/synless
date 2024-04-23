@@ -134,6 +134,14 @@ impl Language {
         })
     }
 
+    pub fn constructs(self, s: &Storage) -> impl Iterator<Item = Construct> {
+        let constructs = &grammar(s, self.language).constructs;
+        (&constructs).into_iter().map(move |id| Construct {
+            language: self.language,
+            construct: id,
+        })
+    }
+
     pub fn root_construct(self, s: &Storage) -> Construct {
         Construct {
             language: self.language,
@@ -322,5 +330,17 @@ impl FixedSorts {
         } else {
             bug!("Language - FixedSort of wrong arity (get)");
         }
+    }
+}
+
+impl rhai::CustomType for Construct {
+    fn build(mut builder: rhai::TypeBuilder<Self>) {
+        builder.with_name("Construct");
+    }
+}
+
+impl rhai::CustomType for Language {
+    fn build(mut builder: rhai::TypeBuilder<Self>) {
+        builder.with_name("Language");
     }
 }

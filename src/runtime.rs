@@ -1,9 +1,10 @@
 use crate::engine::{
-    BookmarkCommand, Command, DocDisplayLabel, DocName, Engine, Settings, TextEdCommand,
-    TextNavCommand, TreeEdCommand, TreeNavCommand,
+    BookmarkCommand, DocDisplayLabel, DocName, Engine, Settings, TextEdCommand, TextNavCommand,
+    TreeEdCommand, TreeNavCommand,
 };
 use crate::frontends::{Event, Frontend, Key};
 use crate::keymap::{KeyLookupResult, KeyProg, Keymap, Layer, LayerManager, MenuSelectionCmd};
+use crate::language::{Construct, Language};
 use crate::style::Style;
 use crate::tree::{Mode, Node};
 use crate::util::{error, log, SynlessBug, SynlessError};
@@ -278,13 +279,24 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         self.engine.load_language_ron(Path::new(path), &ron_string)
     }
 
+    pub fn get_language(&mut self, language_name: &str) -> Result<Language, SynlessError> {
+        self.engine.get_language(language_name)
+    }
+
+    pub fn language_constructs(&mut self, language: Language) -> Vec<rhai::Dynamic> {
+        language
+            .constructs(&self.engine.raw_storage())
+            .map(rhai::Dynamic::from)
+            .collect()
+    }
+
+    pub fn construct_name(&self, construct: Construct) -> String {
+        construct.name(self.engine.raw_storage()).to_owned()
+    }
+
     /***********
      * Editing *
      ***********/
-
-    pub fn execute(&mut self, cmd: Command) -> Result<(), SynlessError> {
-        self.engine.execute(cmd)
-    }
 
     pub fn undo(&mut self) -> Result<(), SynlessError> {
         self.engine.undo()
@@ -292,6 +304,11 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
 
     pub fn redo(&mut self) -> Result<(), SynlessError> {
         self.engine.redo()
+    }
+
+    pub fn insert_node(&mut self, construct: Construct) -> Result<(), SynlessError> {
+        let node = Node::new(self.engine.raw_storage_mut(), construct);
+        self.engine.execute(TreeEdCommand::Insert(node))
     }
 
     /***********
@@ -325,7 +342,7 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
                 Ok(None)
             }
             Some(KeyLookupResult::InsertChar(ch)) => {
-                self.execute(TextEdCommand::Insert(ch).into())?;
+                self.engine.execute(TextEdCommand::Insert(ch))?;
                 self.display()?;
                 Ok(None)
             }
@@ -435,7 +452,7 @@ macro_rules! register {
     ($module:expr, $runtime:ident, $command:ident :: $variant:ident as $name:ident) => {
         let rt = $runtime.clone();
         let closure = move || {
-            rt.borrow_mut().execute($command::$variant.into())
+            rt.borrow_mut().engine.execute($command::$variant)
                 .map_err(|err| Box::<rhai::EvalAltResult>::from(err))
         };
         rhai::FuncRegistration::new(stringify!($name))
@@ -445,7 +462,7 @@ macro_rules! register {
     ($module:expr, $runtime:ident, $command:ident :: $variant:ident ($( $param:ident : $type:ty ),*) as $name:ident) => {
         let rt = $runtime.clone();
         let closure = move | $( $param : $type ),* | {
-            rt.borrow_mut().execute($command::$variant( $( $param ),* ).into())
+            rt.borrow_mut().engine.execute($command::$variant( $( $param ),* ))
                 .map_err(|err| Box::<rhai::EvalAltResult>::from(err))
         };
         rhai::FuncRegistration::new(stringify!($name))
@@ -486,8 +503,11 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
 
         // Languages
         register!(module, rt.load_language(path: &str)?);
+        register!(module, rt.get_language(language_name: &str)?);
+        register!(module, rt.language_constructs(language: Language));
+        register!(module, rt.construct_name(construct: Construct));
 
-        // Editing
+        // Editing: Tree Nav
         register!(module, rt, TreeNavCommand::Prev as tree_nav_prev);
         register!(module, rt, TreeNavCommand::First as tree_nav_first);
         register!(module, rt, TreeNavCommand::Next as tree_nav_next);
@@ -506,22 +526,28 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         register!(module, rt, TreeNavCommand::Parent as tree_nav_parent);
         register!(module, rt, TreeNavCommand::EnterText as tree_nav_enter_text);
 
+        // Editing: Tree Ed
         register!(module, rt, TreeEdCommand::Backspace as tree_ed_backspace);
         register!(module, rt, TreeEdCommand::Delete as tree_ed_delete);
+        register!(module, rt.insert_node(construct: Construct)?);
 
+        // Editing: Text Nav
         register!(module, rt, TextNavCommand::Left as text_nav_left);
         register!(module, rt, TextNavCommand::Right as text_nav_right);
         register!(module, rt, TextNavCommand::Beginning as text_nav_beginning);
         register!(module, rt, TextNavCommand::End as text_nav_end);
         register!(module, rt, TextNavCommand::ExitText as text_nav_exit);
 
+        // Editing: Text Ed
         register!(module, rt, TextEdCommand::Backspace as text_ed_backspace);
         register!(module, rt, TextEdCommand::Delete as text_ed_delete);
         register!(module, rt, TextEdCommand::Insert(ch: char) as text_ed_insert);
 
+        // Editing: Bookmark
         register!(module, rt, BookmarkCommand::Save(ch: char) as save_bookmark);
         register!(module, rt, BookmarkCommand::Goto(ch: char) as goto_bookmark);
 
+        // Editing: Meta
         register!(module, rt.undo()?);
         register!(module, rt.redo()?);
 

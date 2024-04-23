@@ -1,5 +1,23 @@
 // TODO split into user_init.rhai and system_init.rhai
 
+fn make_candidate_keymap() {
+    let keymap = new_keymap();
+    keymap.bind_key("esc", "Exit menu", || s::escape());
+    keymap.bind_key("up", "Up", || s::menu_selection_up(), false);
+    keymap.bind_key("down", "Down", || s::menu_selection_down(), false);
+    keymap.bind_key("bksp", "Backspace", || s::menu_selection_backspace(), false);
+    keymap
+}
+
+fn make_node_selection_keymap(language_name) {
+    let keymap = make_candidate_keymap();
+    for construct in s::language_constructs(s::get_language(language_name)) {
+        keymap.add_regular_candidate(s::construct_name(construct), construct);
+    }
+    keymap.bind_key_for_regular_candidates("enter", "Select", |construct| construct);
+    keymap
+}
+
 fn open_file_menu(dir) {
     let contents = s::list_files_and_dirs(dir);
     let keymap = new_keymap();
@@ -59,6 +77,12 @@ tree_keymap.bind_key("r", "Redo", || s::redo());
 tree_keymap.bind_key("m", "Save bookmark", || s::save_bookmark('a'));
 tree_keymap.bind_key("'", "Go to bookmark", || s::goto_bookmark('a'));
 
+tree_keymap.bind_key("i", "Insert", || {
+    s::open_menu("node_selection");
+    let construct = s::block();
+    s::insert_node(construct);
+});
+
 // ~~~ Text Keymap ~~~
 
 let text_keymap = new_keymap();
@@ -70,16 +94,19 @@ text_keymap.bind_key("del", "Delete", || s::text_ed_delete());
 
 // ~~~ File Selection Keymap ~~~
 
-let file_selection_keymap = new_keymap();
+let file_selection_keymap = make_candidate_keymap();
 file_selection_keymap.bind_key_for_regular_candidates("enter", "Open file", |path| s::open_doc(path));
-file_selection_keymap.bind_key("esc", "Exit menu", || s::escape());
-file_selection_keymap.bind_key("up", "Up", || s::menu_selection_up(), false);
-file_selection_keymap.bind_key("down", "Down", || s::menu_selection_down(), false);
-file_selection_keymap.bind_key("bksp", "Backspace", || s::menu_selection_backspace(), false);
+
+// ~~~ Default Layer ~~~
 
 let layer = new_layer("default");
-layer.add_menu_keymap("file_selection", file_selection_keymap);
+
 layer.add_mode_keymap("Tree", tree_keymap);
 layer.add_mode_keymap("Text", text_keymap);
+
+layer.add_menu_keymap("file_selection", file_selection_keymap);
+// TODO: use local layers
+layer.add_menu_keymap("node_selection", make_node_selection_keymap("json"));
+
 s::register_layer(layer);
 s::add_global_layer("default");
