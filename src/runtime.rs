@@ -294,6 +294,13 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         construct.name(self.engine.raw_storage()).to_owned()
     }
 
+    pub fn construct_key(&self, construct: Construct) -> String {
+        construct
+            .key(self.engine.raw_storage())
+            .map(|c| c.to_string())
+            .unwrap_or_default()
+    }
+
     /***********
      * Editing *
      ***********/
@@ -506,6 +513,7 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         register!(module, rt.get_language(language_name: &str)?);
         register!(module, rt.language_constructs(language: Language));
         register!(module, rt.construct_name(construct: Construct));
+        register!(module, rt.construct_key(construct: Construct));
 
         // Editing: Tree Nav
         register!(module, rt, TreeNavCommand::Prev as tree_nav_prev);

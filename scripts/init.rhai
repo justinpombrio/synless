@@ -9,12 +9,26 @@ fn make_candidate_keymap() {
     keymap
 }
 
-fn make_node_selection_keymap(language_name) {
+fn make_candidate_node_selection_keymap(language_name) {
     let keymap = make_candidate_keymap();
     for construct in s::language_constructs(s::get_language(language_name)) {
         keymap.add_regular_candidate(s::construct_name(construct), construct);
     }
     keymap.bind_key_for_regular_candidates("enter", "Select", |construct| construct);
+    keymap
+}
+
+fn make_char_node_selection_keymap(language_name) {
+    let keymap = new_keymap();
+    for construct in s::language_constructs(s::get_language(language_name)) {
+        let key = s::construct_key(construct);
+        if key != "" {
+            let construct_copy = construct;
+            let prog = || construct_copy;
+            keymap.bind_key(key, s::construct_name(construct), prog);
+        }
+    }
+    keymap.bind_key("esc", "Exit menu", || s::escape());
     keymap
 }
 
@@ -77,8 +91,14 @@ tree_keymap.bind_key("r", "Redo", || s::redo());
 tree_keymap.bind_key("m", "Save bookmark", || s::save_bookmark('a'));
 tree_keymap.bind_key("'", "Go to bookmark", || s::goto_bookmark('a'));
 
-tree_keymap.bind_key("i", "Insert", || {
-    s::open_menu("node_selection");
+tree_keymap.bind_key("I", "Insert", || {
+    s::open_menu("candidate_node_selection");
+    let construct = s::block();
+    s::insert_node(construct);
+});
+
+tree_keymap.bind_key("i", "Quick insert", || {
+    s::open_menu("char_node_selection");
     let construct = s::block();
     s::insert_node(construct);
 });
@@ -106,7 +126,8 @@ layer.add_mode_keymap("Text", text_keymap);
 
 layer.add_menu_keymap("file_selection", file_selection_keymap);
 // TODO: use local layers
-layer.add_menu_keymap("node_selection", make_node_selection_keymap("json"));
+layer.add_menu_keymap("candidate_node_selection", make_candidate_node_selection_keymap("json"));
+layer.add_menu_keymap("char_node_selection", make_char_node_selection_keymap("json"));
 
 s::register_layer(layer);
 s::add_global_layer("default");

@@ -12,6 +12,7 @@ const MAIN_PATH: &str = "scripts/main.rhai";
 fn make_engine() -> rhai::Engine {
     let mut engine = rhai::Engine::new();
     engine.set_fail_on_invalid_map_property(true);
+    engine.set_max_expr_depths(64, 32);
     engine.on_print(|msg| log!(Info, "{msg}"));
     engine.on_debug(|msg, src, pos| {
         let src = src.unwrap_or("unknown");
