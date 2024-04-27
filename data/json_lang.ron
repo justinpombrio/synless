@@ -130,7 +130,7 @@ LanguageSpec(
             ),
             ("Key",
                 Style(Properties(fg_color: Some(Base0C)),
-                      Text)),
+                      Check(IsEmptyText, Here, Literal("•"), Text))),
             ("ObjectPair",
                 Choice(
                     // single line
