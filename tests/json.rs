@@ -3,7 +3,6 @@ use std::path::Path;
 use synless::{parsing::JsonParser, DocName, Engine, Settings};
 
 const JSON_PATH: &str = "data/json_lang.ron";
-const JSON_NOTATION_NAME: &str = "DefaultDisplay";
 
 #[test]
 fn test_json() {
@@ -14,9 +13,6 @@ fn test_json() {
         .load_language_ron(Path::new(JSON_PATH), &json_lang_ron)
         .unwrap();
     engine.add_parser(&language_name, JsonParser);
-    engine
-        .set_source_notation(&language_name, JSON_NOTATION_NAME)
-        .unwrap();
 
     let doc_name = DocName::Auxilliary("<testing>".to_owned());
     let source = "{\"primitives\": [true, false, null, 5.3, \"string!\"]}";
