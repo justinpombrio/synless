@@ -9,6 +9,16 @@ const INTERNALS_MODULE_PATH: &str = "scripts/internals_module.rhai";
 const INIT_PATH: &str = "scripts/init.rhai";
 const MAIN_PATH: &str = "scripts/main.rhai";
 
+#[allow(unused)]
+fn print_signatures(engine: &rhai::Engine) {
+    println!("Signatures:");
+    engine
+        .gen_fn_signatures(false)
+        .into_iter()
+        .for_each(|func| println!("  {func}"));
+    println!();
+}
+
 fn make_engine() -> rhai::Engine {
     let mut engine = rhai::Engine::new();
     engine.set_fail_on_invalid_map_property(true);
@@ -25,14 +35,6 @@ fn make_engine() -> rhai::Engine {
     engine.build_type::<synless::SynlessError>();
     engine.build_type::<synless::Construct>();
     engine.build_type::<synless::Language>();
-
-    println!("Signatures:");
-    engine
-        .gen_fn_signatures(false)
-        .into_iter()
-        .for_each(|func| println!("  {func}"));
-    println!();
-
     engine
 }
 
