@@ -34,27 +34,31 @@ LanguageSpec(
         ],
         root_construct: "Root",
     ),
-    default_display_notation: NotationSetSpec(
-        name: "DefaultDisplay",
-        notations: [
-            ("Root", Fold(
-                first: Child(0),
-                join: Concat(Left, Concat(Newline, Right)),
-            )),
-            ("Input", Concat(
-                Style(Properties(bold: Some(true), fg_color: Some(Base0C)), Literal("> ")),
-                Style(Properties(bold: Some(true)), Text))),
-            ("Selected", Style(Properties(
-                bold: Some(true),
-                fg_color: Some(Base01),
-                bg_color: Some(Base0A),
-                priority: High,
-            ), Child(0))),
-            ("Custom", Concat(
-                Style(Properties(fg_color: Some(Base0B)), Literal("[+] ")),
-                Text)),
-            ("Regular", Text),
-            ("Special", Text),
-        ]
-    ),
+    default_display_notation: "DefaultDisplay",
+    default_source_notation: None,
+    notations: [
+        NotationSetSpec(
+            name: "DefaultDisplay",
+            notations: [
+                ("Root", Fold(
+                        first: Child(0),
+                        join: Concat(Left, Concat(Newline, Right)),
+                    )),
+                ("Input", Concat(
+                        Style(Properties(bold: Some(true), fg_color: Some(Base0C)), Literal("> ")),
+                        Style(Properties(bold: Some(true)), Text))),
+                ("Selected", Style(Properties(
+                            bold: Some(true),
+                            fg_color: Some(Base01),
+                            bg_color: Some(Base0A),
+                            priority: High,
+                        ), Child(0))),
+                ("Custom", Concat(
+                        Style(Properties(fg_color: Some(Base0B)), Literal("[+] ")),
+                        Text)),
+                ("Regular", Text),
+                ("Special", Text),
+            ]
+        )
+    ]
 )

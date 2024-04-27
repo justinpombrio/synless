@@ -23,18 +23,22 @@ LanguageSpec(
         sorts: [],
         root_construct: "Root",
     ),
-    default_display_notation: NotationSetSpec(
-        name: "DefaultDisplay",
-        notations: [
-            ("Root", Fold(
-                first: Child(0),
-                join: Concat(Left, Concat(Choice(Literal("   "), Newline), Right)),
-            )),
-            ("Entry", Concat(
-                Child(0), Concat(Literal(" "), Child(1))
-            )),
-            ("Key", Style(Properties(fg_color: Some(Base0C)), Text)),
-            ("Hint", Text),
-        ]
-    ),
+    default_display_notation: "DefaultDisplay",
+    default_source_notation: None,
+    notations: [
+        NotationSetSpec(
+            name: "DefaultDisplay",
+            notations: [
+                ("Root", Fold(
+                        first: Child(0),
+                        join: Concat(Left, Concat(Choice(Literal("   "), Newline), Right)),
+                    )),
+                ("Entry", Concat(
+                        Child(0), Concat(Literal(" "), Child(1))
+                    )),
+                ("Key", Style(Properties(fg_color: Some(Base0C)), Text)),
+                ("Hint", Text),
+            ]
+        )
+    ]
 )

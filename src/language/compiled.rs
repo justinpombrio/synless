@@ -70,16 +70,34 @@ pub struct NotationSetCompiled {
 pub fn compile_language(language_spec: LanguageSpec) -> Result<LanguageCompiled, LanguageError> {
     let grammar = language_spec.grammar.compile()?;
 
-    let notation_set = compile_notation_set(language_spec.default_display_notation, &grammar)?;
     let mut notation_sets = IndexedMap::new();
-    notation_sets.insert(notation_set.name.to_owned(), notation_set);
+    for notation_set_spec in language_spec.notations {
+        let notation_set = compile_notation_set(notation_set_spec, &grammar)?;
+        notation_sets.insert(notation_set.name.to_owned(), notation_set);
+    }
+    let display_notation = notation_sets
+        .id(&language_spec.default_display_notation)
+        .ok_or_else(|| {
+            LanguageError::UndefinedNotationSet(
+                language_spec.name.clone(),
+                language_spec.default_display_notation,
+            )
+        })?;
+
+    let source_notation = if let Some(name) = language_spec.default_source_notation {
+        Some(notation_sets.id(&name).ok_or_else(|| {
+            LanguageError::UndefinedNotationSet(language_spec.name.clone(), name.to_owned())
+        })?)
+    } else {
+        None
+    };
 
     Ok(LanguageCompiled {
         name: language_spec.name,
         grammar,
         notation_sets,
-        source_notation: None,
-        display_notation: 0,
+        source_notation,
+        display_notation,
         file_extensions: language_spec.file_extensions,
     })
 }

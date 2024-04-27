@@ -64,130 +64,134 @@ LanguageSpec(
         ],
         root_construct: "Root",
     ),
-    default_display_notation: NotationSetSpec(
-        name: "DefaultDisplay",
-        notations: [
-            ("Root", Child(0)),
-            ("Null",
-                Style(Properties(fg_color: Some(Base0E), bold: Some(true)),
-                    Literal("null"))),
-            ("True",
-                Style(Properties(fg_color: Some(Base09), bold: Some(true)),
-                    Literal("true"))),
-            ("False",
-                Style(Properties(fg_color: Some(Base09), bold: Some(true)),
-                    Literal("false"))),
-            ("String", 
-                Style(Properties(fg_color: Some(Base0B)),
-                      Concat(Literal("\""), Concat(Text, Literal("\""))))),
-            ("Number",
-                Style(Properties(fg_color: Some(Base09)),
-                    Check(IsEmptyText, Here, Concat(Literal("•"), Text), Text))),
-            ("Array",
-                Count(
-                    zero:
+    default_display_notation: "DefaultDisplay",
+    default_source_notation: None,
+    notations: [
+        NotationSetSpec(
+            name: "DefaultDisplay",
+            notations: [
+                ("Root", Child(0)),
+                ("Null",
+                    Style(Properties(fg_color: Some(Base0E), bold: Some(true)),
+                        Literal("null"))),
+                ("True",
+                    Style(Properties(fg_color: Some(Base09), bold: Some(true)),
+                        Literal("true"))),
+                ("False",
+                    Style(Properties(fg_color: Some(Base09), bold: Some(true)),
+                        Literal("false"))),
+                ("String",
+                    Style(Properties(fg_color: Some(Base0B)),
+                        Concat(Literal("\""), Concat(Text, Literal("\""))))),
+                ("Number",
+                    Style(Properties(fg_color: Some(Base09)),
+                        Check(IsEmptyText, Here, Concat(Literal("•"), Text), Text))),
+                ("Array",
+                    Count(
+                        zero:
                         Concat(Style(Open, Literal("[")),
-                        Concat(FocusMark,
-                               Style(Close, Literal("]")))),
-                    one: Choice(
-                        // single line
-                        Concat(Style(Open, Literal("[")),
-                        Concat(Flat(Child(0)),
-                               Style(Close, Literal("]")))),
-                        // multi line
-                        Concat(Style(Open, Literal("[")),
-                        Concat(Indent("    ", None, Concat(Newline, Child(0))),
-                        Concat(Newline,
-                               Style(Close, Literal("]"))))),
-                    ),
-                    many: Choice(
-                        // single line
-                        Concat(Style(Open, Literal("[")),
-                        Concat(Fold(
-                                   first: Flat(Child(0)),
-                                   join: Concat(Left, Concat(Literal(", "), Flat(Right))),
-                               ),
-                               Style(Close, Literal("]")))),
-                        // multi line
-                        Concat(Style(Open, Literal("[")),
-                        Concat(
-                            Indent("    ", None,
-                                Concat(
-                                    Newline,
-                                    Fold(
-                                        first: Child(0),
-                                        join: Concat(Left,
-                                              Concat(Literal(","),
-                                              Concat(Newline,
-                                                     Right))),
+                            Concat(FocusMark,
+                                Style(Close, Literal("]")))),
+                        one: Choice(
+                            // single line
+                            Concat(Style(Open, Literal("[")),
+                                Concat(Flat(Child(0)),
+                                    Style(Close, Literal("]")))),
+                            // multi line
+                            Concat(Style(Open, Literal("[")),
+                                Concat(Indent("    ", None, Concat(Newline, Child(0))),
+                                    Concat(Newline,
+                                        Style(Close, Literal("]"))))),
+                        ),
+                        many: Choice(
+                            // single line
+                            Concat(Style(Open, Literal("[")),
+                                Concat(Fold(
+                                        first: Flat(Child(0)),
+                                        join: Concat(Left, Concat(Literal(", "), Flat(Right))),
                                     ),
-                                )
-                            ),
-                        Concat(Newline,
-                               Style(Close, Literal("]"))))),
+                                    Style(Close, Literal("]")))),
+                            // multi line
+                            Concat(Style(Open, Literal("[")),
+                                Concat(
+                                    Indent("    ", None,
+                                        Concat(
+                                            Newline,
+                                            Fold(
+                                                first: Child(0),
+                                                join: Concat(Left,
+                                                    Concat(Literal(","),
+                                                        Concat(Newline,
+                                                            Right))),
+                                            ),
+                                        )
+                                    ),
+                                    Concat(Newline,
+                                        Style(Close, Literal("]"))))),
+                        ),
                     ),
                 ),
-            ),
-            ("Key",
-                Style(Properties(fg_color: Some(Base0C)),
-                      Check(IsEmptyText, Here, Concat(Literal("•"), Text), Text))),
-            ("ObjectPair",
-                Choice(
-                    // single line
-                    Concat(Child(0),
-                    Concat(Literal(": "),
-                           Child(1))),
-                    // multi line
-                    Concat(Child(0),
-                    Concat(Literal(":"),
-                           Indent("    ", None, Concat(Newline, Child(1))))),
+                ("Key",
+                    Style(Properties(fg_color: Some(Base0C)),
+                        Check(IsEmptyText, Here, Concat(Literal("•"), Text), Text))),
+                ("ObjectPair",
+                    Choice(
+                        // single line
+                        Concat(Child(0),
+                            Concat(Literal(": "),
+                                Child(1))),
+                        // multi line
+                        Concat(Child(0),
+                            Concat(Literal(":"),
+                                Indent("    ", None, Concat(Newline, Child(1))))),
+                    ),
                 ),
-            ),
-            ("Object",
-                Count(
-                    zero:
+                ("Object",
+                    Count(
+                        zero:
                         Concat(Style(Open, Literal("{")),
-                        Concat(FocusMark,
-                               Style(Close, Literal("}")))),
-                    one: Choice(
-                        // single line
-                        Concat(Style(Open, Literal("{")),
-                        Concat(Flat(Child(0)),
-                               Style(Close, Literal("}")))),
-                        // multi line
-                        Concat(Style(Open, Literal("{")),
-                        Concat(Indent("    ", None, Concat(Newline, Child(0))),
-                        Concat(Newline,
-                               Style(Close, Literal("}"))))),
-                    ),
-                    many: Choice(
-                        // single line
-                        Concat(Style(Open, Literal("{")),
-                        Concat(Fold(
-                                   first: Flat(Child(0)),
-                                   join: Concat(Left, Concat(Literal(", "), Flat(Right))),
-                               ),
-                               Style(Close, Literal("}")))),
-                        // multi line
-                        Concat(Style(Open, Literal("{")),
-                        Concat(
-                            Indent("    ", None,
-                                Concat(
-                                    Newline,
-                                    Fold(
-                                        first: Child(0),
-                                        join: Concat(Left,
-                                              Concat(Literal(","),
-                                              Concat(Newline,
-                                                     Right))),
+                            Concat(FocusMark,
+                                Style(Close, Literal("}")))),
+                        one: Choice(
+                            // single line
+                            Concat(Style(Open, Literal("{")),
+                                Concat(Flat(Child(0)),
+                                    Style(Close, Literal("}")))),
+                            // multi line
+                            Concat(Style(Open, Literal("{")),
+                                Concat(Indent("    ", None, Concat(Newline, Child(0))),
+                                    Concat(Newline,
+                                        Style(Close, Literal("}"))))),
+                        ),
+                        many: Choice(
+                            // single line
+                            Concat(Style(Open, Literal("{")),
+                                Concat(Fold(
+                                        first: Flat(Child(0)),
+                                        join: Concat(Left, Concat(Literal(", "), Flat(Right))),
                                     ),
-                                )
-                            ),
-                        Concat(Newline,
-                               Style(Close, Literal("}"))))),
-                    ),
-                )
-            ),
-        ],
-    ),
+                                    Style(Close, Literal("}")))),
+                            // multi line
+                            Concat(Style(Open, Literal("{")),
+                                Concat(
+                                    Indent("    ", None,
+                                        Concat(
+                                            Newline,
+                                            Fold(
+                                                first: Child(0),
+                                                join: Concat(Left,
+                                                    Concat(Literal(","),
+                                                        Concat(Newline,
+                                                            Right))),
+                                            ),
+                                        )
+                                    ),
+                                    Concat(Newline,
+                                        Style(Close, Literal("}"))))),
+                        ),
+                    )
+                ),
+            ],
+        ),
+    ]
 )

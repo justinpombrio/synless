@@ -60,7 +60,9 @@ pub struct NotationSetSpec {
 pub struct LanguageSpec {
     pub name: String,
     pub grammar: GrammarSpec,
-    pub default_display_notation: NotationSetSpec,
+    pub notations: Vec<NotationSetSpec>,
+    pub default_display_notation: String,
+    pub default_source_notation: Option<String>,
     /// Load files with these extensions using this language. Must include the `.`.
     pub file_extensions: Vec<String>,
 }

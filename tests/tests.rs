@@ -52,7 +52,9 @@ fn urllang() -> LanguageSpec {
             )],
             root_construct: "Url".to_owned(),
         },
-        default_display_notation: NotationSetSpec {
+        default_display_notation: "Testlang_notation".to_owned(),
+        default_source_notation: None,
+        notations: vec![NotationSetSpec {
             name: "Testlang_notation".to_owned(),
             notations: vec![
                 ("String".to_owned(), text()),
@@ -80,7 +82,7 @@ fn urllang() -> LanguageSpec {
                     ),
                 ),
             ],
-        },
+        }],
     }
 }
 
