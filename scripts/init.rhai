@@ -61,7 +61,6 @@ s::open_doc("data/pokemon.json");
 // ~~~ Tree Keymap ~~~
 
 let tree_keymap = new_keymap();
-tree_keymap.bind_key("h", "SayHello", || print("hello world!"));
 tree_keymap.bind_key("q", "Quit", || s::abort());
 tree_keymap.bind_key("o", "Open", || {
     open_file_menu(s::current_dir());
@@ -76,12 +75,12 @@ tree_keymap.bind_key("j", "LeftSibling", || s::tree_nav_prev());
 tree_keymap.bind_key("k", "RightSibling", || s::tree_nav_next());
 tree_keymap.bind_key("h", "InorderNext", || s::tree_nav_inorder_prev());
 tree_keymap.bind_key("l", "InorderPrev", || s::tree_nav_inorder_next());
+tree_keymap.bind_key(";", "Parent", || s::tree_nav_parent());
 tree_keymap.bind_key("J", "First", || s::tree_nav_first());
 tree_keymap.bind_key("K", "Last", || s::tree_nav_last());
-tree_keymap.bind_key(";", "Parent", || s::tree_nav_parent());
-
 tree_keymap.bind_key("^", "First", || s::tree_nav_first());
 tree_keymap.bind_key("$", "Last", || s::tree_nav_last());
+
 tree_keymap.bind_key("enter", "EnterText", || s::tree_nav_enter_text());
 tree_keymap.bind_key("bksp", "Backspace", || s::tree_ed_backspace());
 tree_keymap.bind_key("del", "Delete", || s::tree_ed_delete());
