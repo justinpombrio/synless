@@ -2,7 +2,7 @@
 
 fn make_candidate_keymap() {
     let keymap = new_keymap();
-    keymap.bind_key("esc", "Exit menu", || s::escape());
+    keymap.bind_key("esc", "ExitMenu", || s::escape());
     keymap.bind_key("up", "Up", || s::menu_selection_up(), false);
     keymap.bind_key("down", "Down", || s::menu_selection_down(), false);
     keymap.bind_key("bksp", "Backspace", || s::menu_selection_backspace(), false);
@@ -28,7 +28,7 @@ fn make_char_node_selection_keymap(language_name) {
             keymap.bind_key(key, s::construct_name(construct), prog);
         }
     }
-    keymap.bind_key("esc", "Exit menu", || s::escape());
+    keymap.bind_key("esc", "ExitMenu", || s::escape());
     keymap
 }
 
@@ -43,9 +43,9 @@ fn open_file_menu(dir) {
             // TODO could we hit recursion depth limit when opening many dirs?
             open_file_menu(child_dir);
         };
-        keymap.bind_key_for_special_candidate("enter", child_dir, "View directory", prog);
+        keymap.bind_key_for_special_candidate("enter", child_dir, "ViewDirectory", prog);
     }
-    keymap.bind_key_for_special_candidate("enter", "..", "View directory", || {
+    keymap.bind_key_for_special_candidate("enter", "..", "ViewDirectory", || {
         open_file_menu(dir + "/..");
     });
 
@@ -61,35 +61,35 @@ s::open_doc("data/pokemon.json");
 // ~~~ Tree Keymap ~~~
 
 let tree_keymap = new_keymap();
-tree_keymap.bind_key("h", "Say Hello", || print("hello world!"));
+tree_keymap.bind_key("h", "SayHello", || print("hello world!"));
 tree_keymap.bind_key("q", "Quit", || s::abort());
 tree_keymap.bind_key("o", "Open", || {
     open_file_menu(s::current_dir());
 });
 
-tree_keymap.bind_key("left", "Inorder prev", || s::tree_nav_inorder_prev());
-tree_keymap.bind_key("right", "Inorder next", || s::tree_nav_inorder_next());
-tree_keymap.bind_key("down", "Right sibling", || s::tree_nav_next());
-tree_keymap.bind_key("up", "Left sibling", || s::tree_nav_prev());
+tree_keymap.bind_key("left", "InorderPrev", || s::tree_nav_inorder_prev());
+tree_keymap.bind_key("right", "InorderNext", || s::tree_nav_inorder_next());
+tree_keymap.bind_key("down", "RightSibling", || s::tree_nav_next());
+tree_keymap.bind_key("up", "LeftSibling", || s::tree_nav_prev());
 
-tree_keymap.bind_key("j", "Left sibling", || s::tree_nav_prev());
-tree_keymap.bind_key("k", "Right sibling", || s::tree_nav_next());
-tree_keymap.bind_key("h", "Inorder next", || s::tree_nav_inorder_prev());
-tree_keymap.bind_key("l", "Inorder prev", || s::tree_nav_inorder_next());
+tree_keymap.bind_key("j", "LeftSibling", || s::tree_nav_prev());
+tree_keymap.bind_key("k", "RightSibling", || s::tree_nav_next());
+tree_keymap.bind_key("h", "InorderNext", || s::tree_nav_inorder_prev());
+tree_keymap.bind_key("l", "InorderPrev", || s::tree_nav_inorder_next());
 tree_keymap.bind_key("J", "First", || s::tree_nav_first());
 tree_keymap.bind_key("K", "Last", || s::tree_nav_last());
 tree_keymap.bind_key(";", "Parent", || s::tree_nav_parent());
 
 tree_keymap.bind_key("^", "First", || s::tree_nav_first());
 tree_keymap.bind_key("$", "Last", || s::tree_nav_last());
-tree_keymap.bind_key("enter", "Enter text", || s::tree_nav_enter_text());
+tree_keymap.bind_key("enter", "EnterText", || s::tree_nav_enter_text());
 tree_keymap.bind_key("bksp", "Backspace", || s::tree_ed_backspace());
 tree_keymap.bind_key("del", "Delete", || s::tree_ed_delete());
 tree_keymap.bind_key("u", "Undo", || s::undo());
 tree_keymap.bind_key("r", "Redo", || s::redo());
 
-tree_keymap.bind_key("m", "Save bookmark", || s::save_bookmark('a'));
-tree_keymap.bind_key("'", "Go to bookmark", || s::goto_bookmark('a'));
+tree_keymap.bind_key("m", "SaveBookmark", || s::save_bookmark('a'));
+tree_keymap.bind_key("'", "GoToBookmark", || s::goto_bookmark('a'));
 
 tree_keymap.bind_key("I", "Insert", || {
     s::open_menu("candidate_node_selection");
@@ -97,7 +97,7 @@ tree_keymap.bind_key("I", "Insert", || {
     s::insert_node(construct);
 });
 
-tree_keymap.bind_key("i", "Quick insert", || {
+tree_keymap.bind_key("i", "QuickInsert", || {
     s::open_menu("char_node_selection");
     let construct = s::block();
     s::insert_node(construct);
@@ -106,7 +106,7 @@ tree_keymap.bind_key("i", "Quick insert", || {
 // ~~~ Text Keymap ~~~
 
 let text_keymap = new_keymap();
-text_keymap.bind_key("esc", "Exit text", || s::text_nav_exit());
+text_keymap.bind_key("esc", "ExitText", || s::text_nav_exit());
 text_keymap.bind_key("left", "Left", || s::text_nav_left());
 text_keymap.bind_key("right", "Right", || s::text_nav_right());
 text_keymap.bind_key("bksp", "Backspace", || s::text_ed_backspace());
@@ -115,7 +115,7 @@ text_keymap.bind_key("del", "Delete", || s::text_ed_delete());
 // ~~~ File Selection Keymap ~~~
 
 let file_selection_keymap = make_candidate_keymap();
-file_selection_keymap.bind_key_for_regular_candidates("enter", "Open file", |path| s::open_doc(path));
+file_selection_keymap.bind_key_for_regular_candidates("enter", "OpenFile", |path| s::open_doc(path));
 
 // ~~~ Default Layer ~~~
 

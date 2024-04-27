@@ -31,11 +31,9 @@ LanguageSpec(
                 join: Concat(Left, Concat(Choice(Literal("   "), Newline), Right)),
             )),
             ("Entry", Concat(
-                Child(0), Concat(
-                Style(Properties(fg_color: Some(Base04)), Literal(": ")),
-                Child(1))
+                Child(0), Concat(Literal(" "), Child(1))
             )),
-            ("Key", Text),
+            ("Key", Style(Properties(fg_color: Some(Base0C)), Text)),
             ("Hint", Text),
         ]
     ),
