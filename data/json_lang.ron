@@ -82,7 +82,7 @@ LanguageSpec(
                       Concat(Literal("\""), Concat(Text, Literal("\""))))),
             ("Number",
                 Style(Properties(fg_color: Some(Base09)),
-                    Check(IsEmptyText, Here, Literal("•"), Text))),
+                    Check(IsEmptyText, Here, Concat(Literal("•"), Text), Text))),
             ("Array",
                 Count(
                     zero:
@@ -130,7 +130,7 @@ LanguageSpec(
             ),
             ("Key",
                 Style(Properties(fg_color: Some(Base0C)),
-                      Check(IsEmptyText, Here, Literal("•"), Text))),
+                      Check(IsEmptyText, Here, Concat(Literal("•"), Text), Text))),
             ("ObjectPair",
                 Choice(
                     // single line
