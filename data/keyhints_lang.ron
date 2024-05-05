@@ -31,10 +31,13 @@ LanguageSpec(
             notations: [
                 ("Root", Fold(
                         first: Child(0),
-                        join: Concat(Left, Concat(Choice(Literal("   "), Newline), Right)),
+                        join: Concat(Left, Concat(Newline, Right)),
                     )),
                 ("Entry", Concat(
-                        Child(0), Concat(Literal(" "), Child(1))
+                        Child(0), 
+                        Concat(
+                            Choice(Literal(" "), Indent(" ", None, Newline)),
+                            Child(1))
                     )),
                 ("Key", Style(Properties(fg_color: Some(Base0C)), Text)),
                 ("Hint", Text),

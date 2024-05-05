@@ -17,6 +17,7 @@ use std::time::Duration;
 
 const KEYHINTS_DOC_NAME: &str = "keyhints";
 const CANDIDATE_SELECTION_DOC_NAME: &str = "selection_menu";
+const KEYHINTS_PANE_WIDTH: usize = 15;
 
 pub struct Runtime<F: Frontend<Style = Style>> {
     engine: Engine,
@@ -35,12 +36,32 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         engine.add_parser("json", crate::parsing::JsonParser);
 
         // TODO load pane notation from file
-        let pane_notation = pane::PaneNotation::Vert(vec![
+        let pane_notation = pane::PaneNotation::Horz(vec![
             (
                 pane::PaneSize::Proportional(1),
-                pane::PaneNotation::Doc {
-                    label: DocDisplayLabel::Visible,
-                },
+                pane::PaneNotation::Vert(vec![
+                    (
+                        pane::PaneSize::Proportional(1),
+                        pane::PaneNotation::Doc {
+                            label: DocDisplayLabel::Visible,
+                        },
+                    ),
+                    (
+                        pane::PaneSize::Fixed(1),
+                        pane::PaneNotation::Fill {
+                            ch: ' ',
+                            style: Style::default().with_bg(Base16Color::Base04, Priority::Low),
+                        },
+                    ),
+                    (
+                        pane::PaneSize::Dynamic,
+                        pane::PaneNotation::Doc {
+                            label: DocDisplayLabel::Auxilliary(
+                                CANDIDATE_SELECTION_DOC_NAME.to_owned(),
+                            ),
+                        },
+                    ),
+                ]),
             ),
             (
                 pane::PaneSize::Fixed(1),
@@ -50,16 +71,29 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
                 },
             ),
             (
-                pane::PaneSize::Dynamic,
-                pane::PaneNotation::Doc {
-                    label: DocDisplayLabel::Auxilliary(CANDIDATE_SELECTION_DOC_NAME.to_owned()),
-                },
-            ),
-            (
-                pane::PaneSize::Dynamic,
-                pane::PaneNotation::Doc {
-                    label: DocDisplayLabel::Auxilliary(KEYHINTS_DOC_NAME.to_owned()),
-                },
+                pane::PaneSize::Fixed(KEYHINTS_PANE_WIDTH),
+                pane::PaneNotation::Vert(vec![
+                    (
+                        pane::PaneSize::Proportional(1),
+                        pane::PaneNotation::Fill {
+                            ch: ' ',
+                            style: Style::default(),
+                        },
+                    ),
+                    (
+                        pane::PaneSize::Dynamic,
+                        pane::PaneNotation::Doc {
+                            label: DocDisplayLabel::Auxilliary(KEYHINTS_DOC_NAME.to_owned()),
+                        },
+                    ),
+                    (
+                        pane::PaneSize::Fixed(1),
+                        pane::PaneNotation::Fill {
+                            ch: ' ',
+                            style: Style::default().with_bg(Base16Color::Base04, Priority::Low),
+                        },
+                    ),
+                ]),
             ),
         ]);
         Runtime {
