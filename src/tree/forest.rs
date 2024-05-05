@@ -108,7 +108,7 @@ impl<D> Forest<D> {
     }
 
     /// Get the `node`'s previous sibling, if any.
-    pub fn prev(&self, node: NodeIndex) -> Option<NodeIndex> {
+    pub fn prev_sibling(&self, node: NodeIndex) -> Option<NodeIndex> {
         if self.is_first(node) {
             None
         } else {
@@ -117,7 +117,7 @@ impl<D> Forest<D> {
     }
 
     /// Get the `node`'s next sibling, if any.
-    pub fn next(&self, node: NodeIndex) -> Option<NodeIndex> {
+    pub fn next_sibling(&self, node: NodeIndex) -> Option<NodeIndex> {
         if self.is_last(node) {
             None
         } else {

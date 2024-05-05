@@ -257,9 +257,10 @@ fn execute_tree_ed(
     match cmd {
         Insert(node) => match cursor.insert(s, node) {
             Ok(None) => Ok(vec![(*cursor, Backspace.into())]),
-            Ok(Some(detached_node)) => {
-                Ok(vec![(cursor.prev(s).bug(), Insert(detached_node).into())])
-            }
+            Ok(Some(detached_node)) => Ok(vec![(
+                cursor.prev_sibling(s).bug(),
+                Insert(detached_node).into(),
+            )]),
             Err(()) => Err(EditError::CannotPlaceNode),
         },
         Replace(new_node) => {
@@ -378,14 +379,18 @@ fn execute_tree_nav(
     }
 
     let new_loc = match cmd {
-        Prev => cursor.prev(s),
-        Next => cursor.next(s),
+        Prev => cursor.prev_cousin(s),
+        Next => cursor.next_cousin(s),
         First => cursor.first(s),
         Last => cursor.last(s),
-        Parent => cursor.after_parent(s),
+        BeforeParent => cursor.before_parent(s),
+        AfterParent => cursor.after_parent(s),
         LastChild => cursor
             .left_node(s)
             .and_then(|node| Location::after_children(s, node)),
+        FirstChild => cursor
+            .right_node(s)
+            .and_then(|node| Location::before_children(s, node)),
         InorderNext => cursor.inorder_next(s),
         InorderPrev => cursor.inorder_prev(s),
         EnterText => cursor

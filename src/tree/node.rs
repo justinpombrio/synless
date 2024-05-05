@@ -259,12 +259,12 @@ impl Node {
         s.forest().nth_child(self.0, n).map(Node)
     }
 
-    pub fn next_sibling(self, s: &Storage) -> Option<Node> {
-        s.forest().next(self.0).map(Node)
+    pub fn prev_sibling(self, s: &Storage) -> Option<Node> {
+        s.forest().prev_sibling(self.0).map(Node)
     }
 
-    pub fn prev_sibling(self, s: &Storage) -> Option<Node> {
-        s.forest().prev(self.0).map(Node)
+    pub fn next_sibling(self, s: &Storage) -> Option<Node> {
+        s.forest().next_sibling(self.0).map(Node)
     }
 
     pub fn first_sibling(self, s: &Storage) -> Node {
@@ -273,6 +273,40 @@ impl Node {
 
     pub fn last_sibling(self, s: &Storage) -> Node {
         Node(s.forest().last_sibling(self.0))
+    }
+
+    pub fn prev_cousin(self, s: &Storage) -> Option<Node> {
+        let mut level = 0;
+        let mut grandparent = self;
+        loop {
+            if let Some(great_aunt) = grandparent.prev_sibling(s) {
+                let mut cousin = great_aunt;
+                for _ in 0..level {
+                    cousin = cousin.last_child(s)?;
+                }
+                return Some(cousin);
+            } else {
+                grandparent = grandparent.parent(s)?;
+                level += 1;
+            }
+        }
+    }
+
+    pub fn next_cousin(self, s: &Storage) -> Option<Node> {
+        let mut level = 0;
+        let mut grandparent = self;
+        loop {
+            if let Some(great_aunt) = grandparent.next_sibling(s) {
+                let mut cousin = great_aunt;
+                for _ in 0..level {
+                    cousin = cousin.first_child(s)?;
+                }
+                return Some(cousin);
+            } else {
+                grandparent = grandparent.parent(s)?;
+                level += 1;
+            }
+        }
     }
 
     pub fn root(self, s: &Storage) -> Node {

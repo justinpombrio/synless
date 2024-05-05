@@ -145,7 +145,36 @@ impl Location {
      * Navigation *
      **************/
 
-    pub fn prev(self, s: &Storage) -> Option<Location> {
+    pub fn prev_cousin(self, s: &Storage) -> Option<Location> {
+        use LocationInner::{AfterNode, BeforeNode, BelowNode, InText};
+
+        match self.0 {
+            InText(_, _) => return None,
+            AfterNode(node) => return Some(Location::before(s, node)),
+            BeforeNode(_) | BelowNode(_) => (),
+        }
+
+        Location::after_children(s, self.parent_node(s)?.prev_cousin(s)?)
+    }
+
+    pub fn next_cousin(self, s: &Storage) -> Option<Location> {
+        use LocationInner::{AfterNode, BeforeNode, BelowNode, InText};
+
+        match self.0 {
+            InText(_, _) => return None,
+            BeforeNode(node) => return Some(Location::after(s, node)),
+            AfterNode(node) => {
+                if let Some(sibling) = node.next_sibling(s) {
+                    return Some(Location::after(s, sibling));
+                }
+            }
+            BelowNode(_) => (),
+        }
+
+        Location::before_children(s, self.parent_node(s)?.next_cousin(s)?)
+    }
+
+    pub fn prev_sibling(self, s: &Storage) -> Option<Location> {
         use LocationInner::{AfterNode, BeforeNode, BelowNode, InText};
 
         match self.0 {
@@ -154,7 +183,7 @@ impl Location {
         }
     }
 
-    pub fn next(self, s: &Storage) -> Option<Location> {
+    pub fn next_sibling(self, s: &Storage) -> Option<Location> {
         use LocationInner::{AfterNode, BeforeNode, BelowNode, InText};
 
         match self.0 {

@@ -530,8 +530,22 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
             rt,
             TreeNavCommand::InorderPrev as tree_nav_inorder_prev
         );
+        register!(
+            module,
+            rt,
+            TreeNavCommand::FirstChild as tree_nav_first_child
+        );
         register!(module, rt, TreeNavCommand::LastChild as tree_nav_last_child);
-        register!(module, rt, TreeNavCommand::Parent as tree_nav_parent);
+        register!(
+            module,
+            rt,
+            TreeNavCommand::BeforeParent as tree_nav_before_parent
+        );
+        register!(
+            module,
+            rt,
+            TreeNavCommand::AfterParent as tree_nav_after_parent
+        );
         register!(module, rt, TreeNavCommand::EnterText as tree_nav_enter_text);
 
         // Editing: Tree Ed
