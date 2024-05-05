@@ -266,6 +266,7 @@ fn execute_tree_ed(
         Replace(new_node) => {
             let old_node = cursor.left_node(s).ok_or(EditError::NoNodeHere)?;
             if old_node.swap(s, new_node) {
+                *cursor = Location::after(s, new_node);
                 Ok(vec![(*cursor, Replace(old_node).into())])
             } else {
                 Err(EditError::CannotPlaceNode)
@@ -345,8 +346,9 @@ fn execute_clipboard(
         }
         PasteSwap => {
             let clip_node = clipboard.pop().ok_or(EditError::EmptyClipboard)?;
-            let doc_node = cursor.left_node(s).ok_or(EditError::NoNodeHere)?;
+            let doc_node = cursor.right_node(s).ok_or(EditError::NoNodeHere)?;
             if doc_node.swap(s, clip_node) {
+                *cursor = Location::after(s, clip_node);
                 clipboard.push(doc_node.deep_copy(s));
                 Ok(vec![(*cursor, TreeEdCommand::Replace(doc_node).into())])
             } else {

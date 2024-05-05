@@ -1,6 +1,6 @@
 use crate::engine::{
-    BookmarkCommand, DocDisplayLabel, DocName, Engine, Settings, TextEdCommand, TextNavCommand,
-    TreeEdCommand, TreeNavCommand,
+    BookmarkCommand, ClipboardCommand, DocDisplayLabel, DocName, Engine, Settings, TextEdCommand,
+    TextNavCommand, TreeEdCommand, TreeNavCommand,
 };
 use crate::frontends::{Event, Frontend, Key};
 use crate::keymap::{KeyLookupResult, KeyProg, Keymap, Layer, LayerManager, MenuSelectionCmd};
@@ -352,6 +352,15 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         self.engine.execute(TreeEdCommand::Insert(node))
     }
 
+    /*************
+     * Clipboard *
+     *************/
+
+    pub fn cut(&mut self) -> Result<(), SynlessError> {
+        self.engine.execute(ClipboardCommand::Copy)?;
+        self.engine.execute(TreeEdCommand::Backspace)
+    }
+
     /***********
      * Private *
      ***********/
@@ -602,6 +611,14 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         // Editing: Bookmark
         register!(module, rt, BookmarkCommand::Save(ch: char) as save_bookmark);
         register!(module, rt, BookmarkCommand::Goto(ch: char) as goto_bookmark);
+
+        // Clipboard
+        register!(module, rt.cut()?);
+        register!(module, rt, ClipboardCommand::Copy as copy);
+        register!(module, rt, ClipboardCommand::Paste as paste);
+        register!(module, rt, ClipboardCommand::PasteSwap as paste_swap);
+        register!(module, rt, ClipboardCommand::Dup as dup_clipboard);
+        register!(module, rt, ClipboardCommand::Pop as pop_clipboard);
 
         // Editing: Meta
         register!(module, rt.undo()?);

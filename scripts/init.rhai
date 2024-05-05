@@ -88,6 +88,11 @@ tree_keymap.bind_key("r", "Redo", || s::redo());
 tree_keymap.bind_key("m", "SaveBookmark", || s::save_bookmark('a'));
 tree_keymap.bind_key("'", "GoToBookmark", || s::goto_bookmark('a'));
 
+tree_keymap.bind_key("y", "Copy", || s::copy());
+tree_keymap.bind_key("d", "Cut", || s::cut());
+tree_keymap.bind_key("p", "Paste", || s::paste());
+tree_keymap.bind_key("P", "PasteSwap", || s::paste_swap());
+
 tree_keymap.bind_key("I", "Insert", || {
     s::open_menu("candidate_node_selection");
     let construct = s::block();
