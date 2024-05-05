@@ -398,6 +398,9 @@ fn execute_tree_nav(
         EnterText => cursor
             .left_node(s)
             .and_then(|node| Location::end_of_text(s, node)),
+        FirstInsertLoc => cursor
+            .left_node(s)
+            .map(|node| Location::first_insert_loc(s, node)),
     };
 
     if let Some(new_loc) = new_loc {

@@ -50,11 +50,20 @@ impl Node {
      ****************/
 
     pub fn new_hole(s: &mut Storage, lang: Language) -> Node {
-        Node::new(s, lang.hole_construct(s))
+        Node::new_impl(s, lang.hole_construct(s), false)
     }
 
     /// Creates a new root node.
     pub fn new(s: &mut Storage, construct: Construct) -> Node {
+        Node::new_impl(s, construct, false)
+    }
+
+    /// Creates a new root node, filling in any children that can only be one construct.
+    pub fn new_with_auto_fill(s: &mut Storage, construct: Construct) -> Node {
+        Node::new_impl(s, construct, true)
+    }
+
+    fn new_impl(s: &mut Storage, construct: Construct, auto_fill: bool) -> Node {
         let id = inc_id(&mut s.node_forest.next_id);
         match construct.arity(s) {
             Arity::Texty => Node(s.forest_mut().new_node(NodeData {
@@ -73,16 +82,16 @@ impl Node {
                     construct,
                     text: None,
                 });
-                let num_children = sorts.len(s);
                 let hole_construct = construct.language().hole_construct(s);
-                for _ in 0..num_children {
-                    let child_id = inc_id(&mut s.node_forest.next_id);
-                    let child = s.forest_mut().new_node(NodeData {
-                        id: child_id,
-                        construct: hole_construct,
-                        text: None,
-                    });
-                    bug_assert!(s.forest_mut().insert_last_child(parent, child));
+                for i in 0..sorts.len(s) {
+                    let sort = sorts.get(s, i).bug();
+                    let child = match sort.unique_construct(s) {
+                        Some(child_construct) if auto_fill => {
+                            Node::new_impl(s, child_construct, auto_fill)
+                        }
+                        _ => Node::new_impl(s, hole_construct, false),
+                    };
+                    bug_assert!(s.forest_mut().insert_last_child(parent, child.0));
                 }
                 Node(parent)
             }

@@ -90,6 +90,9 @@ pub enum TreeNavCommand {
     /// If the node before the cursor is texty, enter text mode, placing the cursor at the
     /// end of the text.
     EnterText,
+    /// Use this when the node before the cursor has just been `Insert`ed, to move the cursor to a
+    /// convenient editing location.
+    FirstInsertLoc,
 }
 
 #[derive(Debug)]

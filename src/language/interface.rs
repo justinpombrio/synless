@@ -252,6 +252,23 @@ impl Sort {
                 construct: id,
             })
     }
+
+    /// Returns the single unique construct in this sort, or `None` if it has zero or more than one
+    /// construct.
+    pub fn unique_construct(self, s: &Storage) -> Option<Construct> {
+        let mut unique = None;
+        for construct in self.matching_constructs(s) {
+            if construct.is_hole(s) {
+                continue;
+            }
+            if unique.is_some() {
+                return None;
+            } else {
+                unique = Some(construct);
+            }
+        }
+        unique
+    }
 }
 
 impl Construct {
@@ -293,6 +310,10 @@ impl Construct {
 
     pub fn is_comment_or_ws(self, s: &Storage) -> bool {
         grammar(s, self.language).constructs[self.construct].is_comment_or_ws
+    }
+
+    pub fn is_hole(self, s: &Storage) -> bool {
+        grammar(s, self.language).hole_construct == self.construct
     }
 
     pub fn is_root(self, s: &Storage) -> bool {

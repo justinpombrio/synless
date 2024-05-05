@@ -89,6 +89,27 @@ impl Location {
         Some(Location(LocationInner::InText(node, text_len)))
     }
 
+    /// Where to move the cursor after inserting this node.
+    pub fn first_insert_loc(s: &Storage, node: Node) -> Location {
+        Location::first_insert_loc_impl(s, node, true)
+    }
+
+    fn first_insert_loc_impl(s: &Storage, node: Node, top_level: bool) -> Location {
+        match node.arity(s) {
+            Arity::Texty => Location::end_of_text(s, node).bug(),
+            Arity::Listy(_) => Location::before_children(s, node).bug(),
+            Arity::Fixed(_) => {
+                if let Some(child) = node.first_child(s) {
+                    Location::first_insert_loc_impl(s, child, false)
+                } else if top_level {
+                    Location::after(s, node)
+                } else {
+                    Location::before(s, node)
+                }
+            }
+        }
+    }
+
     /*************
      * Accessors *
      *************/

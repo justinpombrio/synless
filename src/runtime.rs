@@ -348,8 +348,9 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
     }
 
     pub fn insert_node(&mut self, construct: Construct) -> Result<(), SynlessError> {
-        let node = Node::new(self.engine.raw_storage_mut(), construct);
-        self.engine.execute(TreeEdCommand::Insert(node))
+        let node = Node::new_with_auto_fill(self.engine.raw_storage_mut(), construct);
+        self.engine.execute(TreeEdCommand::Insert(node))?;
+        self.engine.execute(TreeNavCommand::FirstInsertLoc)
     }
 
     /*************
