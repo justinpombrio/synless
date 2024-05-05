@@ -385,10 +385,10 @@ fn execute_tree_nav(
         Last => cursor.last(s),
         BeforeParent => cursor.before_parent(s),
         AfterParent => cursor.after_parent(s),
-        LastChild => cursor
+        ChildLeft => cursor
             .left_node(s)
             .and_then(|node| Location::after_children(s, node)),
-        FirstChild => cursor
+        ChildRight => cursor
             .right_node(s)
             .and_then(|node| Location::before_children(s, node)),
         InorderNext => cursor.inorder_next(s),

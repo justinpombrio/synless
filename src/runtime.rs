@@ -533,9 +533,9 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         register!(
             module,
             rt,
-            TreeNavCommand::FirstChild as tree_nav_first_child
+            TreeNavCommand::ChildRight as tree_nav_child_right
         );
-        register!(module, rt, TreeNavCommand::LastChild as tree_nav_last_child);
+        register!(module, rt, TreeNavCommand::ChildLeft as tree_nav_child_left);
         register!(
             module,
             rt,

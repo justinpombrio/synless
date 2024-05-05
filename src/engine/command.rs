@@ -84,9 +84,9 @@ pub enum TreeNavCommand {
     /// Move the cursor before its parent.
     BeforeParent,
     /// Move the cursor to before the first child of the node after the cursor.
-    FirstChild,
+    ChildRight,
     /// Move the cursor to after the last child of the node before the cursor.
-    LastChild,
+    ChildLeft,
     /// If the node before the cursor is texty, enter text mode, placing the cursor at the
     /// end of the text.
     EnterText,
