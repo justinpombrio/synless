@@ -90,7 +90,7 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
                         pane::PaneSize::Fixed(1),
                         pane::PaneNotation::Fill {
                             ch: ' ',
-                            style: Style::default().with_bg(Base16Color::Base04, Priority::Low),
+                            style: Style::default(),
                         },
                     ),
                 ]),

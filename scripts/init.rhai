@@ -71,9 +71,9 @@ tree_keymap.bind_key("K", "First", || s::tree_nav_first());
 tree_keymap.bind_key("j", "Next", || s::tree_nav_next());
 tree_keymap.bind_key("J", "Last", || s::tree_nav_last());
 tree_keymap.bind_key("h", "ChildLeft", || s::tree_nav_child_left());
-tree_keymap.bind_key("H", "BeforeParent", || s::tree_nav_before_parent());
+tree_keymap.bind_key("H", "ParentLeft", || s::tree_nav_before_parent());
 tree_keymap.bind_key("l", "ChildRight", || s::tree_nav_child_right());
-tree_keymap.bind_key("L", "AfterParent", || s::tree_nav_after_parent());
+tree_keymap.bind_key("L", "ParentRight", || s::tree_nav_after_parent());
 
 tree_keymap.bind_key(";", "Parent", || s::tree_nav_parent());
 tree_keymap.bind_key("^", "First", || s::tree_nav_first());
