@@ -39,6 +39,6 @@ fn test_keyhint_lang() {
     add_entry(s, &mut cursor, "l", "right");
 
     let output = engine.print_source(&doc_name).unwrap();
-    let expected = "h left   l right";
+    let expected = "h left\nl right";
     assert_eq!(output, expected);
 }
