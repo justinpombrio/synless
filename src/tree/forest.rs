@@ -568,14 +568,17 @@ mod forest_tests {
             if let Some(first_child) = self.forest.first_child(node) {
                 let mut child = first_child;
                 assert!(self.forest.is_first(child));
-                assert!(self.forest.prev(child).is_none());
+                assert!(self.forest.prev_sibling(child).is_none());
                 assert!(self.forest.is_last(self.forest.arena[child].prev));
-                assert!(self.forest.next(self.forest.arena[child].prev).is_none());
+                assert!(self
+                    .forest
+                    .next_sibling(self.forest.arena[child].prev)
+                    .is_none());
                 loop {
                     self.display.push(' ');
                     self.verify_tree(child, Some(node), expected_root);
                     num_children += 1;
-                    match self.forest.next(child) {
+                    match self.forest.next_sibling(child) {
                         None => break,
                         Some(c) => child = c,
                     }
@@ -634,7 +637,7 @@ mod forest_tests {
         let mut forest = Forest::new("");
         let parent = make_sisters(&mut forest);
         let elder = forest.first_child(parent).unwrap();
-        let younger = forest.next(elder).unwrap();
+        let younger = forest.next_sibling(elder).unwrap();
 
         assert_eq!(forest.first_sibling(younger), elder);
         assert_eq!(forest.first_sibling(elder), elder);
@@ -647,7 +650,7 @@ mod forest_tests {
         let mut forest = Forest::new("");
         let parent = make_sisters(&mut forest);
         let elder = forest.first_child(parent).unwrap();
-        let younger = forest.next(elder).unwrap();
+        let younger = forest.next_sibling(elder).unwrap();
 
         assert!(forest.swap(elder, elder));
         assert_eq!(
@@ -694,7 +697,7 @@ mod forest_tests {
         fn nth_child<D>(f: &Forest<D>, n: usize, parent: NodeIndex) -> NodeIndex {
             let mut child = f.first_child(parent).unwrap();
             for _ in 0..n {
-                child = f.next(child).unwrap();
+                child = f.next_sibling(child).unwrap();
             }
             child
         }
