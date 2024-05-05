@@ -272,16 +272,16 @@ fn execute_tree_ed(
             }
         }
         Backspace => {
-            let old_node = cursor
+            let (old_node, undo_location) = cursor
                 .delete_neighbor(s, true)
                 .ok_or(EditError::NoNodeHere)?;
-            Ok(vec![(*cursor, Insert(old_node).into())])
+            Ok(vec![(undo_location, Insert(old_node).into())])
         }
         Delete => {
-            let old_node = cursor
+            let (old_node, undo_location) = cursor
                 .delete_neighbor(s, false)
                 .ok_or(EditError::NoNodeHere)?;
-            Ok(vec![(*cursor, Insert(old_node).into())])
+            Ok(vec![(undo_location, Insert(old_node).into())])
         }
     }
 }

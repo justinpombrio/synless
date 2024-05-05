@@ -343,11 +343,16 @@ impl Location {
         }
     }
 
-    /// In a listy sequence, delete the node before (after) the cursor. In a fixed sequence,
-    /// replace the node before (after) the cursor with a hole, and move the cursor before (after)
-    /// it.
+    /// In a listy sequence, deletes the node before (after) the cursor. In a fixed sequence,
+    /// replaces the node before (after) the cursor with a hole, and moves the cursor before (after)
+    /// it. Returns the node that was deleted and the location where the undo command should be
+    /// executed from.
     #[must_use]
-    pub fn delete_neighbor(&mut self, s: &mut Storage, delete_before: bool) -> Option<Node> {
+    pub fn delete_neighbor(
+        &mut self,
+        s: &mut Storage,
+        delete_before: bool,
+    ) -> Option<(Node, Location)> {
         let parent = self.parent_node(s)?;
         let node = if delete_before {
             self.left_node(s)?
@@ -361,12 +366,13 @@ impl Location {
                 // multi-language docs
                 let hole = Node::new_hole(s, node.language(s));
                 if node.swap(s, hole) {
-                    *self = if delete_before {
-                        Location::before(s, hole)
+                    if delete_before {
+                        *self = Location::before(s, hole);
+                        Some((node, *self))
                     } else {
-                        Location::after(s, hole)
-                    };
-                    Some(node)
+                        *self = Location::after(s, hole);
+                        Some((node, Location::before(s, hole)))
+                    }
                 } else {
                     None
                 }
@@ -380,7 +386,7 @@ impl Location {
                         (None, Some(next)) => Location(LocationInner::BeforeNode(next)),
                         (None, None) => Location(LocationInner::BelowNode(parent)),
                     };
-                    Some(node)
+                    Some((node, *self))
                 } else {
                     None
                 }
