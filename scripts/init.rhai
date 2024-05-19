@@ -115,6 +115,16 @@ text_keymap.bind_key("left", "Left", || s::text_nav_left());
 text_keymap.bind_key("right", "Right", || s::text_nav_right());
 text_keymap.bind_key("bksp", "Backspace", || s::text_ed_backspace());
 text_keymap.bind_key("del", "Delete", || s::text_ed_delete());
+text_keymap.bind_key("tab", "NextLeaf", || {
+    s::text_nav_exit();
+    s::tree_nav_next_text();
+    s::tree_nav_enter_text();
+});
+text_keymap.bind_key("S-tab", "PrevLeaf", || {
+    s::text_nav_exit();
+    s::tree_nav_prev_text();
+    s::tree_nav_enter_text();
+});
 
 // ~~~ File Selection Keymap ~~~
 

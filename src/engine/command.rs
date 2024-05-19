@@ -85,6 +85,10 @@ pub enum TreeNavCommand {
     NextLeaf,
     /// Move the cursor to the previous leaf node (node with no children).
     PrevLeaf,
+    /// Move the cursor to the next texty node.
+    NextText,
+    /// Move the cursor to the previous texty node.
+    PrevText,
     /// If the node at the cursor is texty, enter text mode, placing the cursor at the
     /// end of the text.
     EnterText,

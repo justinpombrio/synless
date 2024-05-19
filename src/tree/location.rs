@@ -233,6 +233,26 @@ impl Location {
         )))
     }
 
+    /// Get the location at the next texty node.
+    pub fn next_text(mut self, s: &Storage) -> Option<Location> {
+        loop {
+            self = self.next_leaf(s)?;
+            if self.node(s).bug().is_texty(s) {
+                return Some(self);
+            }
+        }
+    }
+
+    /// Get the location at the previous texty node.
+    pub fn prev_text(mut self, s: &Storage) -> Option<Location> {
+        loop {
+            self = self.prev_leaf(s)?;
+            if self.node(s).bug().is_texty(s) {
+                return Some(self);
+            }
+        }
+    }
+
     /// Get the location at this node's parent.
     pub fn parent(self, s: &Storage) -> Option<Location> {
         Some(Location(AtNode(self.parent_node(s)?)))
