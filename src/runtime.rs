@@ -359,7 +359,7 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
 
     pub fn cut(&mut self) -> Result<(), SynlessError> {
         self.engine.execute(ClipboardCommand::Copy)?;
-        self.engine.execute(TreeEdCommand::Backspace)
+        self.engine.execute(TreeEdCommand::Delete)
     }
 
     /***********
@@ -567,29 +567,12 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         register!(
             module,
             rt,
-            TreeNavCommand::InorderNext as tree_nav_inorder_next
+            TreeNavCommand::FirstChild as tree_nav_first_child
         );
-        register!(
-            module,
-            rt,
-            TreeNavCommand::InorderPrev as tree_nav_inorder_prev
-        );
-        register!(
-            module,
-            rt,
-            TreeNavCommand::ChildRight as tree_nav_child_right
-        );
-        register!(module, rt, TreeNavCommand::ChildLeft as tree_nav_child_left);
-        register!(
-            module,
-            rt,
-            TreeNavCommand::BeforeParent as tree_nav_before_parent
-        );
-        register!(
-            module,
-            rt,
-            TreeNavCommand::AfterParent as tree_nav_after_parent
-        );
+        register!(module, rt, TreeNavCommand::PrevLeaf as tree_nav_prev_leaf);
+        register!(module, rt, TreeNavCommand::NextLeaf as tree_nav_next_leaf);
+        register!(module, rt, TreeNavCommand::LastChild as tree_nav_last_child);
+        register!(module, rt, TreeNavCommand::Parent as tree_nav_parent);
         register!(module, rt, TreeNavCommand::EnterText as tree_nav_enter_text);
 
         // Editing: Tree Ed

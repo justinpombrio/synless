@@ -156,7 +156,7 @@ impl DocSet {
                     focus_target,
                     focus_height: settings.focus_height,
                     width_strategy: pane::WidthStrategy::NoMoreThan(settings.max_display_width),
-                    set_focus: true,
+                    set_focus: doc.cursor().node(s).is_none(),
                 };
                 (doc, options)
             }

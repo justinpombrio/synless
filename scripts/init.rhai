@@ -70,10 +70,11 @@ tree_keymap.bind_key("k", "Prev", || s::tree_nav_prev());
 tree_keymap.bind_key("K", "First", || s::tree_nav_first());
 tree_keymap.bind_key("j", "Next", || s::tree_nav_next());
 tree_keymap.bind_key("J", "Last", || s::tree_nav_last());
-tree_keymap.bind_key("h", "ChildLeft", || s::tree_nav_child_left());
-tree_keymap.bind_key("H", "ParentLeft", || s::tree_nav_before_parent());
-tree_keymap.bind_key("l", "ChildRight", || s::tree_nav_child_right());
-tree_keymap.bind_key("L", "ParentRight", || s::tree_nav_after_parent());
+tree_keymap.bind_key("l", "FirstChild", || s::tree_nav_first_child());
+tree_keymap.bind_key("L", "LastChild", || s::tree_nav_last_child());
+tree_keymap.bind_key("h", "Parent", || s::tree_nav_parent());
+tree_keymap.bind_key("tab", "NextLeaf", || s::tree_nav_next_leaf());
+tree_keymap.bind_key("S-tab", "PrevLeaf", || s::tree_nav_prev_leaf());
 
 tree_keymap.bind_key(";", "Parent", || s::tree_nav_parent());
 tree_keymap.bind_key("^", "First", || s::tree_nav_first());
@@ -109,6 +110,7 @@ tree_keymap.bind_key("i", "QuickInsert", || {
 
 let text_keymap = new_keymap();
 text_keymap.bind_key("esc", "ExitText", || s::text_nav_exit());
+text_keymap.bind_key("enter", "ExitText", || s::text_nav_exit());
 text_keymap.bind_key("left", "Left", || s::text_nav_left());
 text_keymap.bind_key("right", "Right", || s::text_nav_right());
 text_keymap.bind_key("bksp", "Backspace", || s::text_ed_backspace());

@@ -13,20 +13,15 @@ pub struct Bookmark(LocationInner);
 #[derive(Debug, Clone, Copy)]
 pub struct Location(LocationInner);
 
-/// This data type admits multiple representations of the same location. For example, a location
-/// between nodes X and Y could be represented as either `AfterNode(X)` or `BeforeNode(Y)`. We
-/// therefore keep locations in a _normal form_. The exception is Bookmarks, which might not be in
-/// normal form (or even valid!) and must be checked and normalized before use. The rule for the
-/// normal form is that `AfterNode` is used if possible, falling back to `BeforeNode` and then
-/// `BelowNode`. This implies that `BelowNode` is only used in empty sequences.
 #[derive(Debug, Clone, Copy)]
 enum LocationInner {
     /// The usize is an index between chars (so it can be equal to the len)
     InText(Node, usize),
-    AfterNode(Node),
-    BeforeNode(Node),
+    AtNode(Node),
+    /// After the last child of `Node`; requires that `Node` be listy.
     BelowNode(Node),
 }
+use LocationInner::{AtNode, BelowNode, InText};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Mode {
@@ -39,45 +34,37 @@ impl Location {
      * Constructors *
      ****************/
 
-    pub fn before(s: &Storage, node: Node) -> Location {
-        Location(LocationInner::BeforeNode(node).normalize(s))
+    pub fn at(_s: &Storage, node: Node) -> Location {
+        Location(AtNode(node))
     }
 
-    pub fn after(_s: &Storage, node: Node) -> Location {
-        // already normal form
-        Location(LocationInner::AfterNode(node))
-    }
-
-    /// Returns the location at the beginning of the child sequence of the given node.
-    /// (Returns `None` for a texty node, or a fixed node with no children.)
+    /// Returns the left-most location in the node's child sequence.
+    /// (Returns `None` for a texty node or a fixed node with no children.)
     pub fn before_children(s: &Storage, node: Node) -> Option<Location> {
         if !node.can_have_children(s) {
             return None;
         }
         if let Some(first_child) = node.first_child(s) {
-            Some(Location::before(s, first_child))
+            Some(Location(AtNode(first_child)))
         } else {
-            Some(Location(LocationInner::BelowNode(node)))
+            Some(Location(BelowNode(node)))
         }
     }
 
-    /// Returns the location at the end of the child sequence of the given node.
-    /// (Returns `None` for a texty node, or a fixed node with no children.)
+    /// Returns the right-most location in the node's child sequence.
+    /// (Returns `None` for a texty node or a fixed node with no children.)
     pub fn after_children(s: &Storage, node: Node) -> Option<Location> {
-        if !node.can_have_children(s) {
-            return None;
-        }
-        if let Some(last_child) = node.last_child(s) {
-            Some(Location::after(s, last_child))
-        } else {
-            Some(Location(LocationInner::BelowNode(node)))
+        match node.arity(s) {
+            Arity::Texty => None,
+            Arity::Fixed(_) => node.last_child(s).map(|child| Location(AtNode(child))),
+            Arity::Listy(_) => Some(Location(BelowNode(node))),
         }
     }
 
     /// If the node is texty, returns the location at the start of its text, otherwise returns `None`.
     pub fn start_of_text(s: &Storage, node: Node) -> Option<Location> {
         if node.is_texty(s) {
-            Some(Location(LocationInner::InText(node, 0)))
+            Some(Location(InText(node, 0)))
         } else {
             None
         }
@@ -86,25 +73,19 @@ impl Location {
     /// If the node is texty, returns the location at the end of its text, otherwise returns `None`.
     pub fn end_of_text(s: &Storage, node: Node) -> Option<Location> {
         let text_len = node.text(s)?.num_chars();
-        Some(Location(LocationInner::InText(node, text_len)))
+        Some(Location(InText(node, text_len)))
     }
 
     /// Where to move the cursor after inserting this node.
     pub fn first_insert_loc(s: &Storage, node: Node) -> Location {
-        Location::first_insert_loc_impl(s, node, true)
-    }
-
-    fn first_insert_loc_impl(s: &Storage, node: Node, top_level: bool) -> Location {
         match node.arity(s) {
             Arity::Texty => Location::end_of_text(s, node).bug(),
             Arity::Listy(_) => Location::before_children(s, node).bug(),
             Arity::Fixed(_) => {
                 if let Some(child) = node.first_child(s) {
-                    Location::first_insert_loc_impl(s, child, false)
-                } else if top_level {
-                    Location::after(s, node)
+                    Location::first_insert_loc(s, child)
                 } else {
-                    Location::before(s, node)
+                    Location(AtNode(node))
                 }
             }
         }
@@ -116,13 +97,13 @@ impl Location {
 
     pub fn mode(self) -> Mode {
         match self.0 {
-            LocationInner::InText(_, _) => Mode::Text,
+            InText(_, _) => Mode::Text,
             _ => Mode::Tree,
         }
     }
 
     pub fn text_pos(self) -> Option<(Node, usize)> {
-        if let LocationInner::InText(node, char_pos) = self.0 {
+        if let InText(node, char_pos) = self.0 {
             Some((node, char_pos))
         } else {
             None
@@ -130,7 +111,7 @@ impl Location {
     }
 
     pub fn text_pos_mut(&mut self) -> Option<(Node, &mut usize)> {
-        if let LocationInner::InText(node, char_pos) = &mut self.0 {
+        if let InText(node, char_pos) = &mut self.0 {
             Some((*node, char_pos))
         } else {
             None
@@ -140,14 +121,17 @@ impl Location {
     /// Find a path from the root node to a node near this location, together with
     /// a `FocusTarget` specifying where this location is relative to that node.
     pub fn path_from_root(self, s: &Storage) -> (Vec<usize>, ppp::FocusTarget) {
-        use LocationInner::*;
-
         let mut path_to_root = Vec::new();
         let (mut node, target) = match self.0 {
-            BeforeNode(node) => (node, ppp::FocusTarget::Start),
-            AfterNode(node) => (node, ppp::FocusTarget::End),
-            // NOTE: This relies on the node's notation containing a `Notation::FocusMark`.
-            BelowNode(node) => (node, ppp::FocusTarget::Mark),
+            BelowNode(node) => {
+                if let Some(last_child) = node.last_child(s) {
+                    (last_child, ppp::FocusTarget::End)
+                } else {
+                    // NOTE: This relies on the node's notation containing a `Notation::FocusMark`.
+                    (node, ppp::FocusTarget::Mark)
+                }
+            }
+            AtNode(node) => (node, ppp::FocusTarget::Start),
             InText(node, char_pos) => (node, ppp::FocusTarget::Text(char_pos)),
         };
         while let Some(parent) = node.parent(s) {
@@ -167,146 +151,117 @@ impl Location {
      **************/
 
     pub fn prev_cousin(self, s: &Storage) -> Option<Location> {
-        use LocationInner::{AfterNode, BeforeNode, BelowNode, InText};
-
-        match self.0 {
-            InText(_, _) => return None,
-            AfterNode(node) => return Some(Location::before(s, node)),
-            BeforeNode(_) | BelowNode(_) => (),
+        if matches!(self.0, InText(_, _)) {
+            return None;
         }
-
+        if let Some(sibling) = self.prev_sibling(s) {
+            return Some(sibling);
+        }
         Location::after_children(s, self.parent_node(s)?.prev_cousin(s)?)
     }
 
     pub fn next_cousin(self, s: &Storage) -> Option<Location> {
-        use LocationInner::{AfterNode, BeforeNode, BelowNode, InText};
-
-        match self.0 {
-            InText(_, _) => return None,
-            BeforeNode(node) => return Some(Location::after(s, node)),
-            AfterNode(node) => {
-                if let Some(sibling) = node.next_sibling(s) {
-                    return Some(Location::after(s, sibling));
-                }
-            }
-            BelowNode(_) => (),
+        if matches!(self.0, InText(_, _)) {
+            return None;
         }
-
+        if let Some(sibling) = self.next_sibling(s) {
+            return Some(sibling);
+        }
         Location::before_children(s, self.parent_node(s)?.next_cousin(s)?)
     }
 
     pub fn prev_sibling(self, s: &Storage) -> Option<Location> {
-        use LocationInner::{AfterNode, BeforeNode, BelowNode, InText};
-
         match self.0 {
-            AfterNode(node) => Some(Location::before(s, node)),
-            InText(_, _) | BeforeNode(_) | BelowNode(_) => None,
+            AtNode(node) => Some(Location(AtNode(node.prev_sibling(s)?))),
+            BelowNode(parent) => parent.last_child(s).map(|child| Location(AtNode(child))),
+            InText(_, _) => None,
         }
     }
 
     pub fn next_sibling(self, s: &Storage) -> Option<Location> {
-        use LocationInner::{AfterNode, BeforeNode, BelowNode, InText};
-
-        match self.0 {
-            AfterNode(node) => Some(Location::after(s, node.next_sibling(s)?)),
-            BeforeNode(node) => Some(Location::after(s, node)),
-            InText(_, _) | BelowNode(_) => None,
+        let node = match self.0 {
+            AtNode(node) => node,
+            InText(_, _) | BelowNode(_) => return None,
+        };
+        if let Some(sibling) = node.next_sibling(s) {
+            return Some(Location(AtNode(sibling)));
         }
-    }
-
-    pub fn first(self, s: &Storage) -> Option<Location> {
-        use LocationInner::{AfterNode, BeforeNode, BelowNode, InText};
-
-        match self.0 {
-            InText(_, _) => None,
-            AfterNode(node) => Some(Location::before(s, node.first_sibling(s))),
-            BeforeNode(_) | BelowNode(_) => Some(self),
-        }
-    }
-
-    pub fn last(self, s: &Storage) -> Option<Location> {
-        use LocationInner::{AfterNode, BeforeNode, BelowNode, InText};
-
-        match self.0 {
-            InText(_, _) => None,
-            BeforeNode(node) | AfterNode(node) => Some(Location::after(s, node.last_sibling(s))),
-            BelowNode(_) => Some(self),
-        }
-    }
-
-    pub fn before_parent(self, s: &Storage) -> Option<Location> {
-        Some(Location::before(s, self.parent_node(s)?))
-    }
-
-    pub fn after_parent(self, s: &Storage) -> Option<Location> {
-        Some(Location::after(s, self.parent_node(s)?))
-    }
-
-    /// Returns the next location in an inorder tree traversal.
-    pub fn inorder_next(self, s: &Storage) -> Option<Location> {
-        if let Some(right_node) = self.right_node(s) {
-            if let Some(loc) = Location::before_children(s, right_node) {
-                Some(loc)
-            } else {
-                Some(Location::after(s, right_node))
-            }
-        } else {
-            self.after_parent(s)
-        }
-    }
-
-    /// Returns the previous location in an inorder tree traversal.
-    pub fn inorder_prev(self, s: &Storage) -> Option<Location> {
-        if let Some(left_node) = self.left_node(s) {
-            if let Some(loc) = Location::after_children(s, left_node) {
-                Some(loc)
-            } else {
-                Some(Location::before(s, left_node))
-            }
-        } else {
-            self.before_parent(s)
-        }
-    }
-
-    /// If the location is in text, returns the location after that text node.
-    pub fn exit_text(self) -> Option<Location> {
-        if let LocationInner::InText(node, _) = self.0 {
-            // already in normal form
-            Some(Location(LocationInner::AfterNode(node)))
+        let parent = node.parent(s)?;
+        if matches!(parent.arity(s), Arity::Listy(_)) {
+            Some(Location(BelowNode(parent)))
         } else {
             None
         }
     }
 
-    /**********************
-     * Navigation to Node *
-     **********************/
+    /// Get the left-most location among this node's siblings.
+    pub fn first_sibling(self, s: &Storage) -> Option<Location> {
+        Location::before_children(s, self.parent_node(s)?)
+    }
 
-    pub fn left_node(self, _s: &Storage) -> Option<Node> {
-        use LocationInner::{AfterNode, BeforeNode, BelowNode, InText};
+    /// Get the right-most location among this node's siblings.
+    pub fn last_sibling(self, s: &Storage) -> Option<Location> {
+        Location::after_children(s, self.parent_node(s)?)
+    }
 
-        match self.0 {
-            AfterNode(node) => Some(node),
-            InText(_, _) | BeforeNode(_) | BelowNode(_) => None,
+    /// Get the location at the next "leaf" node (node with no children).
+    pub fn next_leaf(self, s: &Storage) -> Option<Location> {
+        let mut node = match self.0 {
+            InText(_, _) => return None,
+            AtNode(node) => {
+                if let Some(child) = node.first_child(s) {
+                    return Some(Location(AtNode(child.first_leaf(s))));
+                } else {
+                    node
+                }
+            }
+            BelowNode(node) => node,
+        };
+        while node.next_sibling(s).is_none() {
+            node = node.parent(s)?;
+        }
+        Some(Location(AtNode(node.next_sibling(s).bug().first_leaf(s))))
+    }
+
+    /// Get the location at the previous "leaf" node (node with no children).
+    pub fn prev_leaf(mut self, s: &Storage) -> Option<Location> {
+        while self.prev_sibling(s).is_none() {
+            self = self.parent(s)?;
+        }
+        Some(Location(AtNode(
+            self.node(s)?.prev_sibling(s)?.last_leaf(s),
+        )))
+    }
+
+    /// Get the location at this node's parent.
+    pub fn parent(self, s: &Storage) -> Option<Location> {
+        Some(Location(AtNode(self.parent_node(s)?)))
+    }
+
+    /// If the location is in text, returns the location after that text node.
+    pub fn exit_text(self) -> Option<Location> {
+        if let InText(node, _) = self.0 {
+            Some(Location(AtNode(node)))
+        } else {
+            None
         }
     }
 
-    pub fn right_node(self, s: &Storage) -> Option<Node> {
-        use LocationInner::{AfterNode, BeforeNode, BelowNode, InText};
+    /*****************
+     * Getting Nodes *
+     *****************/
 
+    pub fn node(self, _s: &Storage) -> Option<Node> {
         match self.0 {
-            AfterNode(node) => node.next_sibling(s),
-            BeforeNode(node) => Some(node),
+            AtNode(node) => Some(node),
             InText(_, _) | BelowNode(_) => None,
         }
     }
 
     pub fn parent_node(self, s: &Storage) -> Option<Node> {
-        use LocationInner::{AfterNode, BeforeNode, BelowNode, InText};
-
         match self.0 {
             InText(_, _) => None,
-            BeforeNode(node) | AfterNode(node) => node.parent(s),
+            AtNode(node) => node.parent(s),
             BelowNode(node) => Some(node),
         }
     }
@@ -319,29 +274,26 @@ impl Location {
      * Mutation *
      ************/
 
-    /// In a listy sequence, inserts `new_node` at this location and returns `Ok(None)`. In a fixed
-    /// sequence, replaces the node after this location with `new_node` and returns
-    /// `Ok(Some(old_node))`. Either way, moves `self` to after the new node.
+    /// In a listy sequence, inserts `new_node` to the left of this location and returns
+    /// `Ok(None)`. In a fixed sequence, replaces the node at this location with `new_node` and
+    /// returns `Ok(Some(old_node))`. Either way, moves `self` to the new node.
     ///
     /// If we cannot insert, returns `Err(())` and does not modify `self`. This can happen for any
     /// of the following reasons:
     ///
     /// - This location is in text.
-    /// - This location is before or after a root node.
-    /// - This location is after the last node in a fixed sequence.
+    /// - This location is at the root.
     /// - The new node does not match the required sort.
     #[allow(clippy::result_unit_err)]
     pub fn insert(&mut self, s: &mut Storage, new_node: Node) -> Result<Option<Node>, ()> {
-        use LocationInner::*;
-
         let parent = self.parent_node(s).ok_or(())?;
 
         match parent.arity(s) {
             Arity::Texty => bug!("insert: texty parent"),
             Arity::Fixed(_) => {
-                let old_node = self.right_node(s).ok_or(())?;
+                let old_node = self.node(s).ok_or(())?;
                 if new_node.swap(s, old_node) {
-                    *self = Location::after(s, new_node);
+                    *self = Location(AtNode(new_node));
                     Ok(Some(old_node))
                 } else {
                     Err(())
@@ -350,12 +302,11 @@ impl Location {
             Arity::Listy(_) => {
                 let success = match self.0 {
                     InText(_, _) => bug!("insert: bug in textiness check"),
-                    AfterNode(left_node) => left_node.insert_after(s, new_node),
-                    BeforeNode(right_node) => right_node.insert_before(s, new_node),
+                    AtNode(node) => node.insert_before(s, new_node),
                     BelowNode(_) => parent.insert_last_child(s, new_node),
                 };
                 if success {
-                    *self = Location::after(s, new_node);
+                    *self = Location(AtNode(new_node));
                     Ok(None)
                 } else {
                     Err(())
@@ -364,55 +315,41 @@ impl Location {
         }
     }
 
-    /// In a listy sequence, deletes the node before (after) the cursor. In a fixed sequence,
-    /// replaces the node before (after) the cursor with a hole, and moves the cursor before (after)
-    /// it. Returns the node that was deleted and the location where the undo command should be
+    /// Deletes the node at the cursor. If in a listy sequence, attempts to move the cursor left or
+    /// right. Returns the node that was deleted and the location where the undo command should be
     /// executed from.
     #[must_use]
-    pub fn delete_neighbor(
-        &mut self,
-        s: &mut Storage,
-        delete_before: bool,
-    ) -> Option<(Node, Location)> {
-        let parent = self.parent_node(s)?;
-        let node = if delete_before {
-            self.left_node(s)?
-        } else {
-            self.right_node(s)?
+    pub fn delete(&mut self, s: &mut Storage, move_left: bool) -> Option<(Node, Location)> {
+        let node = match self.0 {
+            InText(_, _) | BelowNode(_) => return None,
+            AtNode(node) => node,
         };
-
+        let parent = node.parent(s)?;
         match parent.arity(s) {
+            Arity::Texty => bug!("texty parent"),
             Arity::Fixed(_) => {
-                // NOTE: Think about what language the hole should be in once we start supporting
-                // multi-language docs
                 let hole = Node::new_hole(s, node.language(s));
                 if node.swap(s, hole) {
-                    if delete_before {
-                        *self = Location::before(s, hole);
-                        Some((node, *self))
-                    } else {
-                        *self = Location::after(s, hole);
-                        Some((node, Location::before(s, hole)))
-                    }
-                } else {
-                    None
-                }
-            }
-            Arity::Listy(_) => {
-                let prev_node = node.prev_sibling(s);
-                let next_node = node.next_sibling(s);
-                if node.detach(s) {
-                    *self = match (prev_node, next_node) {
-                        (Some(prev), _) => Location(LocationInner::AfterNode(prev)),
-                        (None, Some(next)) => Location(LocationInner::BeforeNode(next)),
-                        (None, None) => Location(LocationInner::BelowNode(parent)),
-                    };
+                    *self = Location(AtNode(hole));
                     Some((node, *self))
                 } else {
                     None
                 }
             }
-            Arity::Texty => bug!("delete_neighbor: texty parent"),
+            Arity::Listy(_) => {
+                let next_loc = self.next_sibling(s).bug();
+                let opt_prev_loc = self.prev_sibling(s);
+                if node.detach(s) {
+                    *self = if move_left {
+                        opt_prev_loc.unwrap_or(next_loc)
+                    } else {
+                        next_loc
+                    };
+                    Some((node, next_loc))
+                } else {
+                    None
+                }
+            }
         }
     }
 
@@ -443,26 +380,20 @@ impl Location {
 
 impl LocationInner {
     fn normalize(self, s: &Storage) -> LocationInner {
-        use LocationInner::{AfterNode, BeforeNode, BelowNode, InText};
-
         match self {
             InText(node, i) => {
                 let text_len = node.text(s).bug().num_chars();
                 InText(node, i.min(text_len))
             }
-            AfterNode(_) => self,
-            BeforeNode(node) => node.prev_sibling(s).map(AfterNode).unwrap_or(self),
-            BelowNode(parent) => parent.last_child(s).map(AfterNode).unwrap_or(self),
+            AtNode(_) | BelowNode(_) => self,
         }
     }
 
-    /// Get the node this location is defined relative to. May be before, after, or above this
+    /// Get the node this location is defined relative to. May be at or above this
     /// location!
     fn reference_node(self) -> Node {
-        use LocationInner::{AfterNode, BeforeNode, BelowNode, InText};
-
         match self {
-            InText(node, _) | AfterNode(node) | BeforeNode(node) | BelowNode(node) => node,
+            InText(node, _) | AtNode(node) | BelowNode(node) => node,
         }
     }
 }

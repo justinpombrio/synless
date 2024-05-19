@@ -1,6 +1,6 @@
 use crate::language::Storage;
 use crate::style::{
-    Condition, Style, StyleLabel, ValidNotation, HOLE_STYLE, LEFT_CURSOR_STYLE, RIGHT_CURSOR_STYLE,
+    Condition, Style, StyleLabel, ValidNotation, CLOSE_STYLE, CURSOR_STYLE, HOLE_STYLE,
 };
 use crate::tree::{Location, Node, NodeId};
 use crate::util::{error, SynlessBug, SynlessError};
@@ -90,20 +90,12 @@ impl<'d> ppp::PrettyDoc<'d> for DocRef<'d> {
     fn lookup_style(self, style_label: StyleLabel) -> Result<Style, Self::Error> {
         Ok(match style_label {
             StyleLabel::Hole => HOLE_STYLE,
-            StyleLabel::Open => {
-                let parent = self.cursor_loc.parent_node(self.storage);
-                let left = self.cursor_loc.left_node(self.storage);
-                if parent == Some(self.node) && left.is_none() {
-                    LEFT_CURSOR_STYLE
-                } else {
-                    Style::default()
-                }
-            }
+            StyleLabel::Open => Style::default(),
             StyleLabel::Close => {
                 let parent = self.cursor_loc.parent_node(self.storage);
-                let right = self.cursor_loc.right_node(self.storage);
-                if parent == Some(self.node) && right.is_none() {
-                    RIGHT_CURSOR_STYLE
+                let node_at_cursor = self.cursor_loc.node(self.storage);
+                if parent == Some(self.node) && node_at_cursor.is_none() {
+                    CLOSE_STYLE
                 } else {
                     Style::default()
                 }
@@ -126,10 +118,8 @@ impl<'d> ppp::PrettyDoc<'d> for DocRef<'d> {
     }
 
     fn node_style(self) -> Result<Style, Self::Error> {
-        let style = if self.cursor_loc.left_node(self.storage) == Some(self.node) {
-            LEFT_CURSOR_STYLE
-        } else if self.cursor_loc.right_node(self.storage) == Some(self.node) {
-            RIGHT_CURSOR_STYLE
+        let style = if self.cursor_loc.node(self.storage) == Some(self.node) {
+            CURSOR_STYLE
         } else {
             Style::default()
         };

@@ -64,7 +64,8 @@ impl Doc {
             return None;
         }
         Some(Doc {
-            cursor: Location::before_children(s, root_node).bug(),
+            cursor: Location::before_children(s, root_node)
+                .bug_msg("Root constructs must be able to have at least 1 child"),
             recent: None,
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
@@ -256,32 +257,25 @@ fn execute_tree_ed(
 
     match cmd {
         Insert(node) => match cursor.insert(s, node) {
-            Ok(None) => Ok(vec![(*cursor, Backspace.into())]),
-            Ok(Some(detached_node)) => Ok(vec![(
-                cursor.prev_sibling(s).bug(),
-                Insert(detached_node).into(),
-            )]),
+            Ok(None) => Ok(vec![(*cursor, Delete.into())]),
+            Ok(Some(detached_node)) => Ok(vec![(*cursor, Insert(detached_node).into())]),
             Err(()) => Err(EditError::CannotPlaceNode),
         },
         Replace(new_node) => {
-            let old_node = cursor.left_node(s).ok_or(EditError::NoNodeHere)?;
+            let old_node = cursor.node(s).ok_or(EditError::NoNodeHere)?;
             if old_node.swap(s, new_node) {
-                *cursor = Location::after(s, new_node);
+                *cursor = Location::at(s, new_node);
                 Ok(vec![(*cursor, Replace(old_node).into())])
             } else {
                 Err(EditError::CannotPlaceNode)
             }
         }
         Backspace => {
-            let (old_node, undo_location) = cursor
-                .delete_neighbor(s, true)
-                .ok_or(EditError::NoNodeHere)?;
+            let (old_node, undo_location) = cursor.delete(s, true).ok_or(EditError::NoNodeHere)?;
             Ok(vec![(undo_location, Insert(old_node).into())])
         }
         Delete => {
-            let (old_node, undo_location) = cursor
-                .delete_neighbor(s, false)
-                .ok_or(EditError::NoNodeHere)?;
+            let (old_node, undo_location) = cursor.delete(s, false).ok_or(EditError::NoNodeHere)?;
             Ok(vec![(undo_location, Insert(old_node).into())])
         }
     }
@@ -332,7 +326,7 @@ fn execute_clipboard(
 
     match cmd {
         Copy => {
-            let node = cursor.left_node(s).ok_or(EditError::NoNodeHere)?;
+            let node = cursor.node(s).ok_or(EditError::NoNodeHere)?;
             clipboard.push(node.deep_copy(s));
             Ok(Vec::new())
         }
@@ -346,9 +340,9 @@ fn execute_clipboard(
         }
         PasteSwap => {
             let clip_node = clipboard.pop().ok_or(EditError::EmptyClipboard)?;
-            let doc_node = cursor.right_node(s).ok_or(EditError::NoNodeHere)?;
+            let doc_node = cursor.node(s).ok_or(EditError::NoNodeHere)?;
             if doc_node.swap(s, clip_node) {
-                *cursor = Location::after(s, clip_node);
+                *cursor = Location::at(s, clip_node);
                 clipboard.push(doc_node.deep_copy(s));
                 Ok(vec![(*cursor, TreeEdCommand::Replace(doc_node).into())])
             } else {
@@ -383,23 +377,22 @@ fn execute_tree_nav(
     let new_loc = match cmd {
         Prev => cursor.prev_cousin(s),
         Next => cursor.next_cousin(s),
-        First => cursor.first(s),
-        Last => cursor.last(s),
-        BeforeParent => cursor.before_parent(s),
-        AfterParent => cursor.after_parent(s),
-        ChildLeft => cursor
-            .left_node(s)
-            .and_then(|node| Location::after_children(s, node)),
-        ChildRight => cursor
-            .right_node(s)
+        First => cursor.first_sibling(s),
+        Last => cursor.last_sibling(s),
+        PrevLeaf => cursor.prev_leaf(s),
+        NextLeaf => cursor.next_leaf(s),
+        Parent => cursor.parent(s),
+        FirstChild => cursor
+            .node(s)
             .and_then(|node| Location::before_children(s, node)),
-        InorderNext => cursor.inorder_next(s),
-        InorderPrev => cursor.inorder_prev(s),
+        LastChild => cursor
+            .node(s)
+            .and_then(|node| Location::after_children(s, node)),
         EnterText => cursor
-            .left_node(s)
+            .node(s)
             .and_then(|node| Location::end_of_text(s, node)),
         FirstInsertLoc => cursor
-            .left_node(s)
+            .node(s)
             .map(|node| Location::first_insert_loc(s, node)),
     };
 

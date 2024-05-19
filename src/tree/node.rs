@@ -318,6 +318,20 @@ impl Node {
         }
     }
 
+    pub fn first_leaf(mut self, s: &Storage) -> Node {
+        while let Some(child) = self.first_child(s) {
+            self = child;
+        }
+        self
+    }
+
+    pub fn last_leaf(mut self, s: &Storage) -> Node {
+        while let Some(child) = self.last_child(s) {
+            self = child;
+        }
+        self
+    }
+
     pub fn root(self, s: &Storage) -> Node {
         Node(s.forest().root(self.0))
     }

@@ -24,7 +24,7 @@ impl Default for Settings {
         Settings {
             max_source_width: 100,
             max_display_width: 120,
-            focus_height: 0.5,
+            focus_height: 0.25,
         }
     }
 }

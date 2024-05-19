@@ -23,17 +23,16 @@ pub enum NavCommand {
 
 #[derive(Debug)]
 pub enum TreeEdCommand {
-    /// In a listy sequence, insert the given node at the cursor position. In a fixed sequence,
-    /// replace the node after the cursor with the given node. Either way, move the cursor after
-    /// the new node.
+    /// In a listy sequence, insert the given node before the cursor. In a fixed sequence, replace
+    /// the node at the cursor with the given node. Either way, move the cursor to the new node.
     Insert(Node),
-    /// Replace the node to the left of the cursor with the given node.
+    /// Replace the node at the cursor with the given node.
     Replace(Node),
-    /// In a listy sequence, delete the node before the cursor. In a fixed sequence,
-    /// replace the node before the cursor with a hole, and move the cursor before it.
+    /// In a listy sequence, delete the node at the cursor and move the cursor to the left. In a
+    /// fixed sequence, replace the node at the cursor with a hole.
     Backspace,
-    /// In a listy sequence, delete the node after the cursor. In a fixed sequence,
-    /// replace the node after the cursor with a hole, and move the cursor after it.
+    /// In a listy sequence, delete the node at the cursor and move the cursor to the right. In a
+    /// fixed sequence, replace the node at the cursor with a hole.
     Delete,
 }
 
@@ -51,12 +50,12 @@ pub enum TextEdCommand {
 // TODO: cut=copy,backspace  paste-copy=dup,paste
 #[derive(Debug)]
 pub enum ClipboardCommand {
-    /// Copy the node to the left of the cursor and push it onto the clipboard stack.
+    /// Copy the node at the cursor and push it onto the clipboard stack.
     Copy,
     /// Pop the top node from the clipboard stack, and insert it at the cursor (in the same manner
     /// as [`TreeEdCommand::Insert`]).
     Paste,
-    /// Swap the top node in the clipboard stack with the node to the left of the cursor.
+    /// Swap the top node in the clipboard stack with the node at the cursor.
     PasteSwap,
     /// Duplicate the top node in the clipboard stack.
     Dup,
@@ -69,28 +68,27 @@ pub enum ClipboardCommand {
 pub enum TreeNavCommand {
     /// Move the cursor back one node.
     Prev,
-    /// Move the cursor to before the first sibling.
+    /// Move the cursor to the first sibling.
     First,
     /// Move the cursor forward one node.
     Next,
-    /// Move the cursor to after the last sibling.
+    /// Move the cursor to the last sibling, or after it in a listy sequence.
     Last,
-    /// Move the cursor to the next location in-order.
-    InorderNext,
-    /// Move the cursor to the previous location in-order.
-    InorderPrev,
-    /// Move the cursor after its parent.
-    AfterParent,
-    /// Move the cursor before its parent.
-    BeforeParent,
-    /// Move the cursor to before the first child of the node after the cursor.
-    ChildRight,
-    /// Move the cursor to after the last child of the node before the cursor.
-    ChildLeft,
-    /// If the node before the cursor is texty, enter text mode, placing the cursor at the
+    /// Move the cursor to its parent node.
+    Parent,
+    /// Move the cursor to the first child of the node at the cursor.
+    FirstChild,
+    /// Move the cursor to the last child of the node at the cursor, or after it in a listy
+    /// sequence.
+    LastChild,
+    /// Move the cursor to the next leaf node (node with no children).
+    NextLeaf,
+    /// Move the cursor to the previous leaf node (node with no children).
+    PrevLeaf,
+    /// If the node at the cursor is texty, enter text mode, placing the cursor at the
     /// end of the text.
     EnterText,
-    /// Use this when the node before the cursor has just been `Insert`ed, to move the cursor to a
+    /// Use this when the node at the cursor has just been `Insert`ed, to move the cursor to a
     /// convenient editing location.
     FirstInsertLoc,
 }

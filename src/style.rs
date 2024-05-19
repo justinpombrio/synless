@@ -9,21 +9,21 @@ pub const HOLE_STYLE: Style = Style {
     ..Style::const_default()
 };
 
-pub const LEFT_CURSOR_STYLE: Style = Style {
+pub const CLOSE_STYLE: Style = Style {
+    cursor: Some(CursorHalf::Left),
+    fg_color: Some((Base16Color::Base00, Priority::High)),
+    bg_color: Some((Base16Color::Base04, Priority::High)),
+    ..Style::const_default()
+};
+
+pub const CURSOR_STYLE: Style = Style {
     cursor: Some(CursorHalf::Left),
     bg_color: Some((Base16Color::Base02, Priority::High)),
     ..Style::const_default()
 };
 
-pub const RIGHT_CURSOR_STYLE: Style = Style {
-    cursor: Some(CursorHalf::Right),
-    bg_color: Some((Base16Color::Base00, Priority::High)),
-    ..Style::const_default()
-};
-
 pub const FG_COLOR: Base16Color = Base16Color::Base05;
-// NOTE: we might want to use Base00 as the default background, to follow the base16 conventions.
-pub const BG_COLOR: Base16Color = Base16Color::Base01;
+pub const BG_COLOR: Base16Color = Base16Color::Base00;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ConcreteStyle {
@@ -233,12 +233,13 @@ impl Style {
 }
 
 impl ColorTheme {
-    /// The "default dark" Base16 colorscheme, by Chris Kempson (http://chriskempson.com)
+    /// The "default dark" Base16 colorscheme, by Chris Kempson
+    /// [link](https://github.com/chriskempson/base16-default-schemes)
     pub fn default_dark() -> ColorTheme {
         ColorTheme {
-            base00: Rgb::from_hex("#103030").bug(),
-            base01: Rgb::from_hex("#111111").bug(),
-            base02: Rgb::from_hex("#312121").bug(),
+            base00: Rgb::from_hex("#181818").bug(),
+            base01: Rgb::from_hex("#282828").bug(),
+            base02: Rgb::from_hex("#383838").bug(),
             base03: Rgb::from_hex("#585858").bug(),
             base04: Rgb::from_hex("#b8b8b8").bug(),
             base05: Rgb::from_hex("#d8d8d8").bug(),
