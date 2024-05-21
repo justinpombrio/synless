@@ -359,7 +359,7 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
 
     pub fn cut(&mut self) -> Result<(), SynlessError> {
         self.engine.execute(ClipboardCommand::Copy)?;
-        self.engine.execute(TreeEdCommand::Delete)
+        self.engine.execute(TreeEdCommand::Backspace)
     }
 
     /***********
@@ -564,6 +564,11 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         register!(module, rt, TreeNavCommand::First as tree_nav_first);
         register!(module, rt, TreeNavCommand::Next as tree_nav_next);
         register!(module, rt, TreeNavCommand::Last as tree_nav_last);
+        register!(
+            module,
+            rt,
+            TreeNavCommand::BeforeFirstChild as tree_nav_before_first_child
+        );
         register!(
             module,
             rt,

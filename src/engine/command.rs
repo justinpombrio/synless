@@ -23,7 +23,7 @@ pub enum NavCommand {
 
 #[derive(Debug)]
 pub enum TreeEdCommand {
-    /// In a listy sequence, insert the given node before the cursor. In a fixed sequence, replace
+    /// In a listy sequence, insert the given node after the cursor. In a fixed sequence, replace
     /// the node at the cursor with the given node. Either way, move the cursor to the new node.
     Insert(Node),
     /// Replace the node at the cursor with the given node.
@@ -76,10 +76,12 @@ pub enum TreeNavCommand {
     Last,
     /// Move the cursor to its parent node.
     Parent,
+    /// Move the cursor to the before the first child of the node at the cursor, if possible
+    /// (otherwise to the first child).
+    BeforeFirstChild,
     /// Move the cursor to the first child of the node at the cursor.
     FirstChild,
-    /// Move the cursor to the last child of the node at the cursor, or after it in a listy
-    /// sequence.
+    /// Move the cursor to the last child of the node at the cursor.
     LastChild,
     /// Move the cursor to the next leaf node (node with no children).
     NextLeaf,

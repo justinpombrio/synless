@@ -1,6 +1,6 @@
 use crate::language::Storage;
 use crate::style::{
-    Condition, Style, StyleLabel, ValidNotation, CLOSE_STYLE, CURSOR_STYLE, HOLE_STYLE,
+    Condition, Style, StyleLabel, ValidNotation, CURSOR_STYLE, HOLE_STYLE, OPEN_STYLE,
 };
 use crate::tree::{Location, Node, NodeId};
 use crate::util::{error, SynlessBug, SynlessError};
@@ -90,16 +90,16 @@ impl<'d> ppp::PrettyDoc<'d> for DocRef<'d> {
     fn lookup_style(self, style_label: StyleLabel) -> Result<Style, Self::Error> {
         Ok(match style_label {
             StyleLabel::Hole => HOLE_STYLE,
-            StyleLabel::Open => Style::default(),
-            StyleLabel::Close => {
+            StyleLabel::Open => {
                 let parent = self.cursor_loc.parent_node(self.storage);
                 let node_at_cursor = self.cursor_loc.node(self.storage);
                 if parent == Some(self.node) && node_at_cursor.is_none() {
-                    CLOSE_STYLE
+                    OPEN_STYLE
                 } else {
                     Style::default()
                 }
             }
+            StyleLabel::Close => Style::default(),
             StyleLabel::Properties {
                 fg_color,
                 bg_color,

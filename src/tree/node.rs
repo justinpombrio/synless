@@ -423,6 +423,22 @@ impl Node {
         }
     }
 
+    /// Attempts to insert `new_child` as the first child of `self`.
+    /// Returns false and does nothing if any of:
+    ///
+    /// - `self` is not listy.
+    /// - The `new_child` is incompatible with the arity of `self`.
+    /// - The `new_child` is not a root.
+    /// - The `new_child` is the root of `self`.
+    #[must_use]
+    pub fn insert_first_child(self, s: &mut Storage, new_child: Node) -> bool {
+        if self.is_listy_and_accepts_child(s, new_child) {
+            s.forest_mut().insert_first_child(self.0, new_child.0)
+        } else {
+            false
+        }
+    }
+
     /// Attempts to insert `new_child` as the last child of `self`.
     /// Returns false and does nothing if any of:
     ///

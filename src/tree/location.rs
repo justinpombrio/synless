@@ -18,7 +18,7 @@ enum LocationInner {
     /// The usize is an index between chars (so it can be equal to the len)
     InText(Node, usize),
     AtNode(Node),
-    /// After the last child of `Node`; requires that `Node` be listy.
+    /// Before the first child of `Node`; requires that `Node` be listy.
     BelowNode(Node),
 }
 use LocationInner::{AtNode, BelowNode, InText};
@@ -41,23 +41,28 @@ impl Location {
     /// Returns the left-most location in the node's child sequence.
     /// (Returns `None` for a texty node or a fixed node with no children.)
     pub fn before_children(s: &Storage, node: Node) -> Option<Location> {
-        if !node.can_have_children(s) {
-            return None;
+        match node.arity(s) {
+            Arity::Texty => None,
+            Arity::Fixed(_) => node.first_child(s).map(|child| Location(AtNode(child))),
+            Arity::Listy(_) => Some(Location(BelowNode(node))),
         }
-        if let Some(first_child) = node.first_child(s) {
-            Some(Location(AtNode(first_child)))
-        } else {
-            Some(Location(BelowNode(node)))
-        }
+    }
+
+    /// Returns the location at the node's first child, if any.
+    pub fn at_first_child(s: &Storage, node: Node) -> Option<Location> {
+        node.first_child(s).map(|child| Location(AtNode(child)))
     }
 
     /// Returns the right-most location in the node's child sequence.
     /// (Returns `None` for a texty node or a fixed node with no children.)
     pub fn after_children(s: &Storage, node: Node) -> Option<Location> {
-        match node.arity(s) {
-            Arity::Texty => None,
-            Arity::Fixed(_) => node.last_child(s).map(|child| Location(AtNode(child))),
-            Arity::Listy(_) => Some(Location(BelowNode(node))),
+        if !node.can_have_children(s) {
+            return None;
+        }
+        if let Some(last_child) = node.last_child(s) {
+            Some(Location(AtNode(last_child)))
+        } else {
+            Some(Location(BelowNode(node)))
         }
     }
 
@@ -124,8 +129,8 @@ impl Location {
         let mut path_to_root = Vec::new();
         let (mut node, target) = match self.0 {
             BelowNode(node) => {
-                if let Some(last_child) = node.last_child(s) {
-                    (last_child, ppp::FocusTarget::End)
+                if let Some(first_child) = node.first_child(s) {
+                    (first_child, ppp::FocusTarget::Start)
                 } else {
                     // NOTE: This relies on the node's notation containing a `Notation::FocusMark`.
                     (node, ppp::FocusTarget::Mark)
@@ -171,19 +176,11 @@ impl Location {
     }
 
     pub fn prev_sibling(self, s: &Storage) -> Option<Location> {
-        match self.0 {
-            AtNode(node) => Some(Location(AtNode(node.prev_sibling(s)?))),
-            BelowNode(parent) => parent.last_child(s).map(|child| Location(AtNode(child))),
-            InText(_, _) => None,
-        }
-    }
-
-    pub fn next_sibling(self, s: &Storage) -> Option<Location> {
         let node = match self.0 {
             AtNode(node) => node,
             InText(_, _) | BelowNode(_) => return None,
         };
-        if let Some(sibling) = node.next_sibling(s) {
+        if let Some(sibling) = node.prev_sibling(s) {
             return Some(Location(AtNode(sibling)));
         }
         let parent = node.parent(s)?;
@@ -191,6 +188,14 @@ impl Location {
             Some(Location(BelowNode(parent)))
         } else {
             None
+        }
+    }
+
+    pub fn next_sibling(self, s: &Storage) -> Option<Location> {
+        match self.0 {
+            AtNode(node) => Some(Location(AtNode(node.next_sibling(s)?))),
+            BelowNode(parent) => parent.first_child(s).map(|child| Location(AtNode(child))),
+            InText(_, _) => None,
         }
     }
 
@@ -294,7 +299,7 @@ impl Location {
      * Mutation *
      ************/
 
-    /// In a listy sequence, inserts `new_node` to the left of this location and returns
+    /// In a listy sequence, inserts `new_node` to the right of this location and returns
     /// `Ok(None)`. In a fixed sequence, replaces the node at this location with `new_node` and
     /// returns `Ok(Some(old_node))`. Either way, moves `self` to the new node.
     ///
@@ -322,8 +327,8 @@ impl Location {
             Arity::Listy(_) => {
                 let success = match self.0 {
                     InText(_, _) => bug!("insert: bug in textiness check"),
-                    AtNode(node) => node.insert_before(s, new_node),
-                    BelowNode(_) => parent.insert_last_child(s, new_node),
+                    AtNode(node) => node.insert_after(s, new_node),
+                    BelowNode(_) => parent.insert_first_child(s, new_node),
                 };
                 if success {
                     *self = Location(AtNode(new_node));
@@ -340,10 +345,7 @@ impl Location {
     /// executed from.
     #[must_use]
     pub fn delete(&mut self, s: &mut Storage, move_left: bool) -> Option<(Node, Location)> {
-        let node = match self.0 {
-            InText(_, _) | BelowNode(_) => return None,
-            AtNode(node) => node,
-        };
+        let node = self.node(s)?;
         let parent = node.parent(s)?;
         match parent.arity(s) {
             Arity::Texty => bug!("texty parent"),
@@ -357,15 +359,15 @@ impl Location {
                 }
             }
             Arity::Listy(_) => {
-                let next_loc = self.next_sibling(s).bug();
-                let opt_prev_loc = self.prev_sibling(s);
+                let prev_loc = self.prev_sibling(s).bug();
+                let opt_next_loc = self.next_sibling(s);
                 if node.detach(s) {
                     *self = if move_left {
-                        opt_prev_loc.unwrap_or(next_loc)
+                        prev_loc
                     } else {
-                        next_loc
+                        opt_next_loc.unwrap_or(prev_loc)
                     };
-                    Some((node, next_loc))
+                    Some((node, prev_loc))
                 } else {
                     None
                 }

@@ -28,7 +28,6 @@ fn test_selection_lang() {
         let construct = lang.construct(s, construct_name).unwrap();
         let node = Node::with_text(s, construct, text.to_owned()).unwrap();
         cursor.insert(s, node).unwrap();
-        *cursor = cursor.next_sibling(s).unwrap();
     };
 
     add_elem(s, &mut cursor, "Input", "oo");

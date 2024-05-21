@@ -33,7 +33,6 @@ fn test_keyhint_lang() {
         let hint_node = Node::with_text(s, c_hint, hint.to_owned()).unwrap();
         let entry_node = Node::with_children(s, c_entry, [key_node, hint_node]).unwrap();
         cursor.insert(s, entry_node).unwrap();
-        *cursor = cursor.next_sibling(s).unwrap();
     };
 
     add_entry(s, &mut cursor, "h", "left");
