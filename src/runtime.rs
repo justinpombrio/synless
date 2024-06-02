@@ -454,6 +454,18 @@ fn list_files_and_dirs(dir: &str) -> Result<rhai::Map, SynlessError> {
     Ok(map)
 }
 
+fn path_file_name(path: &str) -> Result<rhai::Dynamic, SynlessError> {
+    use std::path::Path;
+    let os_str = Path::new(path)
+        .file_name()
+        .ok_or_else(|| error!(FileSystem, "Path ends in `..`: {path}"))?;
+
+    Ok(os_str
+        .to_str()
+        .ok_or_else(|| error!(FileSystem, "Path is not valid unicode: {path}"))?
+        .into())
+}
+
 macro_rules! register {
     ($module:expr, $runtime:ident . $method:ident($( $param:ident : $type:ty ),*)) => {
         register!($module, $runtime . $method($( $param : $type ),*) as $method)
@@ -547,6 +559,7 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
 
         // Filesystem
         register!(module, list_files_and_dirs(dir: &str)?);
+        register!(module, path_file_name(path: &str)?);
 
         // Doc management
         register!(module, rt.current_dir()?);

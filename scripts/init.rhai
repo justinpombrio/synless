@@ -36,16 +36,19 @@ fn open_file_menu(dir) {
     let contents = s::list_files_and_dirs(dir);
     let keymap = new_keymap();
     for file in contents.files {
-        keymap.add_regular_candidate(file);
+        keymap.add_regular_candidate(s::path_file_name(file), file);
     }
     for child_dir in contents.dirs {
-        let prog =  || {
-            // TODO could we hit recursion depth limit when opening many dirs?
-            open_file_menu(child_dir);
-        };
-        keymap.bind_key_for_special_candidate("enter", child_dir, "ViewDirectory", prog);
+        let child_dir_copy = child_dir;
+        let prog =  || open_file_menu(child_dir_copy);
+        keymap.bind_key_for_special_candidate(
+            "enter",
+            s::path_file_name(child_dir_copy) + "/",
+            "ViewDir",
+            prog
+        );
     }
-    keymap.bind_key_for_special_candidate("enter", "..", "ViewDirectory", || {
+    keymap.bind_key_for_special_candidate("enter", "..", "ViewDir", || {
         open_file_menu(dir + "/..");
     });
 
