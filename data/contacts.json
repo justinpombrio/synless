@@ -1,0 +1,144 @@
+{
+  "people": [
+    {
+      "name": "John Doe",
+      "email": "john.doe@gmail.com",
+      "phoneNumbers": [
+        {
+          "number": "1-541-754-3010",
+          "type": "Mobile"
+        },
+        {
+          "number": "1-267-8974-1678",
+          "type": "Home"
+        }
+      ] 
+    },
+    {
+      "name": "Moose Arugula",
+      "email": "moose@techhouse.org",
+      "phoneNumbers": [
+        {
+          "number": "1-762-1875-4561",
+          "type": "Mobile"
+        }
+      ] 
+    },
+    {
+        "name": "Jane Smith",
+        "email": "jane.smith@example.com",
+        "phoneNumbers": [
+            {
+                "number": "1-523-789-4567",
+                "type": "Work"
+            },
+            {
+                "number": "1-321-654-0987",
+                "type": "Home"
+            }
+        ]
+    },
+    {
+        "name": "Sam Johnson",
+        "email": "sam.johnson@workmail.com",
+        "phoneNumbers": [
+            {
+                "number": "1-987-654-3210",
+                "type": "Mobile"
+            }
+        ]
+    },
+    {
+        "name": "Emily Davis",
+        "email": "emily.davis@university.edu",
+        "phoneNumbers": [
+            {
+                "number": "1-123-456-7890",
+                "type": "Mobile"
+            },
+            {
+                "number": "1-987-123-4567",
+                "type": "Work"
+            }
+        ]
+    },
+    {
+        "name": "Michael Brown",
+        "email": "michael.brown@webmail.com",
+        "phoneNumbers": [
+            {
+                "number": "1-654-789-1234",
+                "type": "Mobile"
+            }
+        ]
+    },
+    {
+        "name": "Linda Wilson",
+        "email": "linda.wilson@service.com",
+        "phoneNumbers": [
+            {
+                "number": "1-456-123-7890",
+                "type": "Home"
+            },
+            {
+                "number": "1-789-456-1230",
+                "type": "Mobile"
+            }
+        ]
+    },
+    {
+        "name": "James White",
+        "email": "james.white@domain.com",
+        "phoneNumbers": [
+            {
+                "number": "1-321-789-4560",
+                "type": "Mobile"
+            }
+        ]
+    },
+    {
+        "name": "Patricia Miller",
+        "email": "patricia.miller@company.com",
+        "phoneNumbers": [
+            {
+                "number": "1-654-321-7894",
+                "type": "Work"
+            }
+        ]
+    },
+    {
+        "name": "Robert Taylor",
+        "email": "robert.taylor@personalmail.com",
+        "phoneNumbers": [
+            {
+                "number": "1-789-654-3217",
+                "type": "Mobile"
+            },
+            {
+                "number": "1-123-789-6543",
+                "type": "Home"
+            }
+        ]
+    },
+    {
+        "name": "Barbara Anderson",
+        "email": "barbara.anderson@myemail.com",
+        "phoneNumbers": [
+            {
+                "number": "1-321-456-7893",
+                "type": "Mobile"
+            }
+        ]
+    },
+    {
+        "name": "Kevin Martinez",
+        "email": "kevin.martinez@businessmail.com",
+        "phoneNumbers": [
+            {
+                "number": "1-654-789-3218",
+                "type": "Work"
+            }
+        ]
+    }
+  ]
+}

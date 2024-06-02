@@ -5,3 +5,5 @@ Cargo.lock
 *.html
 .#*
 log.txt
+
+data/big.json
