@@ -19,6 +19,7 @@ pub enum MenuSelectionCmd {
 /// An open menu. Keeps track of the state of its candidate selection.
 pub struct Menu {
     name: MenuName,
+    description: String,
     keymap: Keymap,
     selection: Option<MenuSelection>,
 }
@@ -136,12 +137,17 @@ impl MenuSelection {
 }
 
 impl Menu {
-    pub fn new(name: MenuName, keymap: Keymap) -> Menu {
+    pub fn new(name: MenuName, description: String, keymap: Keymap) -> Menu {
         Menu {
             name,
+            description,
             selection: MenuSelection::new(&keymap),
             keymap,
         }
+    }
+
+    pub fn description(&self) -> &str {
+        &self.description
     }
 
     #[must_use]

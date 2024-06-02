@@ -15,8 +15,13 @@ use std::time::Duration;
 
 // TODO: Rename Runtime -> Editor, put it in src/editor.rs?
 
-const KEYHINTS_DOC_NAME: &str = "keyhints";
-const CANDIDATE_SELECTION_DOC_NAME: &str = "selection_menu";
+const KEYHINTS_DOC_LABEL: &str = "keyhints";
+const CANDIDATE_SELECTION_DOC_LABEL: &str = "selection_menu";
+const MENU_NAME_LABEL: &str = "menu_name";
+const MODE_LABEL: &str = "mode";
+const FILENAME_LABEL: &str = "filename";
+const SIBLING_INDEX_LABEL: &str = "sibling_index";
+
 const KEYHINTS_PANE_WIDTH: usize = 15;
 
 pub struct Runtime<F: Frontend<Style = Style>> {
@@ -57,18 +62,25 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         self.layers.remove_global_layer(layer_name)
     }
 
-    pub fn open_menu(&mut self, menu_name: String) -> Result<(), SynlessError> {
+    pub fn open_menu(
+        &mut self,
+        menu_name: String,
+        description: String,
+    ) -> Result<(), SynlessError> {
         let doc_name = self.engine.visible_doc_name();
-        self.layers.open_menu(doc_name, menu_name, None)
+        self.layers
+            .open_menu(doc_name, menu_name, description, None)
     }
 
     pub fn open_menu_with_keymap(
         &mut self,
         menu_name: String,
+        description: String,
         keymap: Keymap,
     ) -> Result<(), SynlessError> {
         let doc_name = self.engine.visible_doc_name();
-        self.layers.open_menu(doc_name, menu_name, Some(keymap))
+        self.layers
+            .open_menu(doc_name, menu_name, description, Some(keymap))
     }
 
     pub fn close_menu(&mut self) {
@@ -132,7 +144,12 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
             .map_err(|err| error!(Frontend, "{}", err))?;
 
         let get_content = |doc_label| self.engine.get_content(doc_label);
-        pane::display_pane(&mut self.frontend, &self.pane_notation, &get_content)?;
+        pane::display_pane(
+            &mut self.frontend,
+            &self.pane_notation,
+            &Style::default(),
+            &get_content,
+        )?;
 
         self.frontend
             .end_frame()
@@ -140,7 +157,11 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
     }
 
     fn update_auxilliary_docs(&mut self) {
-        for (name, node) in [self.make_keyhint_doc(), self.make_candidate_selection_doc()] {
+        for (name, node) in [
+            self.make_keyhint_doc(),
+            self.make_candidate_selection_doc(),
+            self.make_menu_name_doc(),
+        ] {
             let _ = self.engine.delete_doc(&name);
             if let Some(node) = node {
                 self.engine.add_doc(&name, node).bug();
@@ -152,7 +173,7 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         let storage = self.engine.raw_storage_mut();
         let node = self.layers.make_candidate_selection_doc(storage);
         (
-            DocName::Auxilliary(CANDIDATE_SELECTION_DOC_NAME.to_owned()),
+            DocName::Auxilliary(CANDIDATE_SELECTION_DOC_LABEL.to_owned()),
             node,
         )
     }
@@ -168,7 +189,15 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         let node = self
             .layers
             .make_keyhint_doc(storage, mode, visible_doc_name.as_ref());
-        (DocName::Auxilliary(KEYHINTS_DOC_NAME.to_owned()), node)
+        (DocName::Auxilliary(KEYHINTS_DOC_LABEL.to_owned()), node)
+    }
+
+    fn make_menu_name_doc(&mut self) -> (DocName, Option<Node>) {
+        let opt_node = self
+            .layers
+            .menu_description()
+            .map(|menu_name| self.engine.make_string_doc(menu_name.to_owned()));
+        (DocName::Auxilliary(MENU_NAME_LABEL.to_owned()), opt_node)
     }
 
     /******************
@@ -357,33 +386,45 @@ fn make_pane_notation(_include_menu: bool) -> pane::PaneNotation<DocDisplayLabel
     use crate::style::{Base16Color, Priority};
     use pane::{PaneNotation, PaneSize};
 
-    let divider = PaneNotation::Fill {
-        ch: ' ',
-        style: Style::default().with_bg(Base16Color::Base04, Priority::Low),
+    let bar_style = Style::default()
+        .with_bg(Base16Color::Base04, Priority::Low)
+        .with_fg(Base16Color::Base00, Priority::Low)
+        .with_bold(true, Priority::Low);
+    let divider = PaneNotation::Style {
+        style: bar_style.clone(),
+        notation: Box::new(PaneNotation::Fill { ch: ' ' }),
     };
-    let padding = PaneNotation::Fill {
-        ch: ' ',
-        style: Style::default(),
-    };
+    let padding = PaneNotation::Fill { ch: ' ' };
 
     let keyhints_doc = PaneNotation::Doc {
-        label: DocDisplayLabel::Auxilliary(KEYHINTS_DOC_NAME.to_owned()),
+        label: DocDisplayLabel::Auxilliary(KEYHINTS_DOC_LABEL.to_owned()),
     };
     let keyhints = PaneNotation::Vert(vec![
         (PaneSize::Proportional(1), padding.clone()),
         (PaneSize::Dynamic, keyhints_doc),
-        (PaneSize::Fixed(1), padding),
+        (PaneSize::Fixed(1), padding.clone()),
     ]);
 
     let main_doc = PaneNotation::Doc {
         label: DocDisplayLabel::Visible,
     };
     let menu_doc = PaneNotation::Doc {
-        label: DocDisplayLabel::Auxilliary(CANDIDATE_SELECTION_DOC_NAME.to_owned()),
+        label: DocDisplayLabel::Auxilliary(CANDIDATE_SELECTION_DOC_LABEL.to_owned()),
     };
+    let menu_name = PaneNotation::Doc {
+        label: DocDisplayLabel::Auxilliary(MENU_NAME_LABEL.to_owned()),
+    };
+    let menu_bar = PaneNotation::Style {
+        style: bar_style,
+        notation: Box::new(PaneNotation::Horz(vec![
+            (PaneSize::Dynamic, menu_name),
+            (PaneSize::Proportional(1), padding.clone()),
+        ])),
+    };
+
     let main_doc_and_menu = PaneNotation::Vert(vec![
         (PaneSize::Proportional(1), main_doc),
-        (PaneSize::Fixed(1), divider.clone()),
+        (PaneSize::Fixed(1), menu_bar),
         (PaneSize::Dynamic, menu_doc),
     ]);
 
@@ -438,11 +479,23 @@ fn list_files_and_dirs(dir: &str) -> Result<rhai::Map, SynlessError> {
 
 fn path_file_name(path: &str) -> Result<rhai::Dynamic, SynlessError> {
     use std::path::Path;
+
     let os_str = Path::new(path)
         .file_name()
         .ok_or_else(|| error!(FileSystem, "Path ends in `..`: {path}"))?;
 
     Ok(os_str
+        .to_str()
+        .ok_or_else(|| error!(FileSystem, "Path is not valid unicode: {path}"))?
+        .into())
+}
+
+fn canonicalize_path(path: &str) -> Result<rhai::Dynamic, SynlessError> {
+    use std::path::Path;
+
+    Ok(Path::new(path)
+        .canonicalize()
+        .map_err(|_| error!(FileSystem, "Invalid path: {path}"))?
         .to_str()
         .ok_or_else(|| error!(FileSystem, "Path is not valid unicode: {path}"))?
         .into())
@@ -531,8 +584,12 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         register!(module, rt.register_layer(layer: Layer));
         register!(module, rt.add_global_layer(layer_name: &str)?);
         register!(module, rt.remove_global_layer(layer_name: &str)?);
-        register!(module, rt.open_menu(menu_name: String)?);
-        register!(module, rt.open_menu_with_keymap(menu_name: String, keymap: Keymap)? as open_menu);
+        register!(module, rt.open_menu(menu_name: String, description: String)?);
+        register!(module, rt.open_menu_with_keymap(
+                menu_name: String,
+                description: String,
+                keymap: Keymap
+            )? as open_menu);
         register!(module, rt.close_menu());
         register!(module, escape()?);
         register!(module, rt.menu_selection_up()?);
@@ -542,6 +599,7 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         // Filesystem
         register!(module, list_files_and_dirs(dir: &str)?);
         register!(module, path_file_name(path: &str)?);
+        register!(module, canonicalize_path(path: &str)?);
 
         // Doc management
         register!(module, rt.current_dir()?);

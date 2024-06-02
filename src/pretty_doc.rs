@@ -16,13 +16,17 @@ pub enum PrettyDocError {
 #[derive(Clone, Copy)]
 pub struct DocRef<'d> {
     storage: &'d Storage,
-    cursor_loc: Location,
+    cursor_loc: Option<Location>,
     node: Node,
     use_source_notation: bool,
 }
 
 impl<'d> DocRef<'d> {
-    pub fn new_display(storage: &'d Storage, cursor_loc: Location, node: Node) -> DocRef<'d> {
+    pub fn new_display(
+        storage: &'d Storage,
+        cursor_loc: Option<Location>,
+        node: Node,
+    ) -> DocRef<'d> {
         DocRef {
             storage,
             cursor_loc,
@@ -31,7 +35,11 @@ impl<'d> DocRef<'d> {
         }
     }
 
-    pub fn new_source(storage: &'d Storage, cursor_loc: Location, node: Node) -> DocRef<'d> {
+    pub fn new_source(
+        storage: &'d Storage,
+        cursor_loc: Option<Location>,
+        node: Node,
+    ) -> DocRef<'d> {
         DocRef {
             storage,
             cursor_loc,
@@ -91,10 +99,14 @@ impl<'d> ppp::PrettyDoc<'d> for DocRef<'d> {
         Ok(match style_label {
             StyleLabel::Hole => HOLE_STYLE,
             StyleLabel::Open => {
-                let parent = self.cursor_loc.parent_node(self.storage);
-                let node_at_cursor = self.cursor_loc.node(self.storage);
-                if parent == Some(self.node) && node_at_cursor.is_none() {
-                    OPEN_STYLE
+                if let Some(cursor_loc) = self.cursor_loc {
+                    let parent = cursor_loc.parent_node(self.storage);
+                    let node_at_cursor = cursor_loc.node(self.storage);
+                    if parent == Some(self.node) && node_at_cursor.is_none() {
+                        OPEN_STYLE
+                    } else {
+                        Style::default()
+                    }
                 } else {
                     Style::default()
                 }
@@ -118,7 +130,7 @@ impl<'d> ppp::PrettyDoc<'d> for DocRef<'d> {
     }
 
     fn node_style(self) -> Result<Style, Self::Error> {
-        let style = if self.cursor_loc.node(self.storage) == Some(self.node) {
+        let style = if self.cursor_loc.and_then(|loc| loc.node(self.storage)) == Some(self.node) {
             CURSOR_STYLE
         } else {
             Style::default()

@@ -33,6 +33,7 @@ fn make_char_node_selection_keymap(language_name) {
 }
 
 fn open_file_menu(dir) {
+    let dir = s::canonicalize_path(dir);
     let contents = s::list_files_and_dirs(dir);
     let keymap = new_keymap();
     for file in contents.files {
@@ -52,12 +53,13 @@ fn open_file_menu(dir) {
         open_file_menu(dir + "/..");
     });
 
-    s::open_menu("file_selection", keymap);
+    s::open_menu("file_selection", `Open file in ${dir}`, keymap);
 }
 
 s::load_language("data/keyhints_lang.ron");
 s::load_language("data/selection_lang.ron");
 s::load_language("data/json_lang.ron");
+s::load_language("data/string_lang.ron");
 
 s::open_doc("data/pokemon.json");
 

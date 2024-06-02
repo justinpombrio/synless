@@ -1,7 +1,7 @@
 use partial_pretty_printer as ppp;
 use synless::{
-    AritySpec, ConstructSpec, DocRef, GrammarSpec, LanguageSpec, Location, Node, NotationSetSpec,
-    SortSpec, Storage,
+    AritySpec, ConstructSpec, DocRef, GrammarSpec, LanguageSpec, Node, NotationSetSpec, SortSpec,
+    Storage,
 };
 
 // e.g. example.com?p1=v1,p2=v2,p3,p4=v4
@@ -120,7 +120,7 @@ fn test_doc_ref() {
     let params = node_with_children(&mut s, "urllang", "Params", [eq_1, eq_2, done]);
     let url = node_with_children(&mut s, "urllang", "Url", [domain, params]);
 
-    let doc_ref = DocRef::new_display(&s, Location::at(&s, url), url);
+    let doc_ref = DocRef::new_display(&s, None, url);
 
     let actual = match ppp::pretty_print_to_string(doc_ref, 80) {
         Ok(actual) => actual,

@@ -1,0 +1,26 @@
+LanguageSpec(
+    name: "string",
+    file_extensions: [],
+    grammar: GrammarSpec(
+        constructs: [
+            ConstructSpec(
+                name: "Root",
+                arity: Fixed([SortSpec(["String"])]),
+            ),
+            ConstructSpec(
+                name: "String",
+                arity: Texty,
+            ),
+        ],
+        sorts: [],
+        root_construct: "Root",
+    ),
+    default_display_notation: "DefaultDisplay",
+    default_source_notation: None,
+    notations: [
+        NotationSetSpec(
+            name: "DefaultDisplay",
+            notations: [("Root", Child(0)), ("String", Text)],
+        )
+    ]
+)

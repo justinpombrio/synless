@@ -73,12 +73,22 @@ impl Doc {
         })
     }
 
-    pub fn doc_ref_source<'d>(&self, s: &'d Storage) -> DocRef<'d> {
-        DocRef::new_source(s, self.cursor, self.cursor.root_node(s))
+    pub fn doc_ref_source<'d>(&self, s: &'d Storage, highlight_cursor: bool) -> DocRef<'d> {
+        let opt_cursor = if highlight_cursor {
+            Some(self.cursor)
+        } else {
+            None
+        };
+        DocRef::new_source(s, opt_cursor, self.cursor.root_node(s))
     }
 
-    pub fn doc_ref_display<'d>(&self, s: &'d Storage) -> DocRef<'d> {
-        DocRef::new_display(s, self.cursor, self.cursor.root_node(s))
+    pub fn doc_ref_display<'d>(&self, s: &'d Storage, highlight_cursor: bool) -> DocRef<'d> {
+        let opt_cursor = if highlight_cursor {
+            Some(self.cursor)
+        } else {
+            None
+        };
+        DocRef::new_display(s, opt_cursor, self.cursor.root_node(s))
     }
 
     pub fn cursor(&self) -> Location {

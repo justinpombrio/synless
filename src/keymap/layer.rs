@@ -203,19 +203,20 @@ impl LayerManager {
         &mut self,
         doc_name: Option<&DocName>,
         menu_name: String,
+        description: String,
         dynamic_keymap: Option<Keymap>,
     ) -> Result<(), SynlessError> {
         let composite_layer = self.composite_layer(doc_name);
         let label = KeymapLabel::Menu(menu_name.clone());
         let menu = match (dynamic_keymap, composite_layer.keymaps.get(&label)) {
             (None, None) => return Err(error!(Keymap, "No keymap for menu '{menu_name}'")),
-            (Some(keymap), None) => Menu::new(menu_name, keymap),
+            (Some(keymap), None) => Menu::new(menu_name, description, keymap),
             (Some(dyn_keymap), Some(composite_keymap)) => {
                 let mut keymap = composite_keymap.to_owned();
                 keymap.append(dyn_keymap);
-                Menu::new(menu_name, keymap)
+                Menu::new(menu_name, description, keymap)
             }
-            (None, Some(keymap)) => Menu::new(menu_name, keymap.to_owned()),
+            (None, Some(keymap)) => Menu::new(menu_name, description, keymap.to_owned()),
         };
         self.active_menu = Some(menu);
         Ok(())
@@ -242,6 +243,10 @@ impl LayerManager {
 
     pub fn has_open_menu(&self) -> bool {
         self.active_menu.is_some()
+    }
+
+    pub fn menu_description(&self) -> Option<&str> {
+        self.active_menu.as_ref().map(|menu| menu.description())
     }
 
     /*********

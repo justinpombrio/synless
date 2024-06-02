@@ -15,6 +15,8 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::path::Path;
 
+const STRING_LANGUAGE_NAME: &str = "string";
+
 #[derive(thiserror::Error, Debug)]
 pub enum DocError {
     #[error("Did not find doc named '{0}'")]
@@ -243,7 +245,7 @@ impl Engine {
             .doc_set
             .get_doc(doc_name)
             .ok_or_else(|| DocError::DocNotFound(doc_name.to_owned()))?;
-        let doc_ref = doc.doc_ref_source(&self.storage);
+        let doc_ref = doc.doc_ref_source(&self.storage, false);
         let source = ppp::pretty_print_to_string(doc_ref, self.settings.max_source_width)?;
         Ok(source)
     }
@@ -251,6 +253,17 @@ impl Engine {
     pub fn get_content(&self, label: DocDisplayLabel) -> Option<(DocRef, pane::PrintingOptions)> {
         self.doc_set
             .get_content(&self.storage, label, &self.settings)
+    }
+
+    pub fn make_string_doc(&mut self, string: String) -> Node {
+        let lang = self
+            .storage
+            .language(STRING_LANGUAGE_NAME)
+            .bug_msg("Missing String lang");
+        let c_root = lang.root_construct(&self.storage);
+        let c_string = lang.construct(&self.storage, "String").bug();
+        let string_node = Node::with_text(&mut self.storage, c_string, string).bug();
+        Node::with_children(&mut self.storage, c_root, [string_node]).bug()
     }
 
     /***********

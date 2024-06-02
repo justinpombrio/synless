@@ -147,7 +147,7 @@ impl DocSet {
             set_focus: false,
         };
 
-        let (doc, opts) = match label {
+        let (doc, opts, highlight_cursor) = match label {
             DocDisplayLabel::Visible => {
                 let doc = self.get_doc(self.visible_doc_name()?)?;
                 let (focus_path, focus_target) = doc.cursor().path_from_root(s);
@@ -158,17 +158,17 @@ impl DocSet {
                     width_strategy: pane::WidthStrategy::NoMoreThan(settings.max_display_width),
                     set_focus: doc.cursor().node(s).is_none(),
                 };
-                (doc, options)
+                (doc, options, true)
             }
             DocDisplayLabel::Metadata(name) => {
                 let doc = self.get_doc(&DocName::Metadata(name))?;
-                (doc, meta_and_aux_options)
+                (doc, meta_and_aux_options, false)
             }
             DocDisplayLabel::Auxilliary(name) => {
                 let doc = self.get_doc(&DocName::Auxilliary(name))?;
-                (doc, meta_and_aux_options)
+                (doc, meta_and_aux_options, false)
             }
         };
-        Some((doc.doc_ref_display(s), opts))
+        Some((doc.doc_ref_display(s, highlight_cursor), opts))
     }
 }

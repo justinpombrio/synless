@@ -36,7 +36,7 @@ struct Searcher(Vec<Regex>);
 impl Searcher {
     fn new(input: &str) -> Result<Searcher, regex::Error> {
         let pattern = input
-            .split(" ")
+            .split(' ')
             .map(regex::escape)
             .collect::<Vec<_>>()
             .join(".*");
