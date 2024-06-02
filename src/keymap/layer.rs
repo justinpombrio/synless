@@ -27,7 +27,7 @@ pub enum KeyLookupResult {
  *********/
 
 /// A collection of Keymaps, with up to one Keymap per `MenuName` or `Mode`. Layers can be stacked
-/// on top of each other to combine their functionality; see [`LayerManager`].
+/// on top of each other to combine their functionality.
 #[derive(Debug, Clone)]
 pub struct Layer {
     name: String,

@@ -176,24 +176,24 @@ impl rhai::CustomType for KeyProg {
 /// ```
 ///
 /// Many keymaps don't need candidate selection. These will only contain _general bindings_, added
-/// with the method [`add_binding()`]. This method binds a key to a function that takes no
+/// with the method [`Keymap::bind_key()`]. This method binds a key to a function that takes no
 /// arguments. If you only add general bindings, then no prompt or candidate list will be shown.
 ///
 /// For keymaps with candidate selection, there are three kinds of candidates:
 ///
-/// - _The custom candidate._ The method [`bind_key_for_custom_candidate()`] binds a key to a
+/// - _The custom candidate._ The method [`Keymap::bind_key_for_custom_candidate()`] binds a key to a
 /// function that takes the user's input string as an argument. The custom candidate is only shown
 /// in the list if there is at least one binding for it. In the file example, the entry prefixed
 /// with `[new file]` is a custom candidate.
 ///
-/// - _Regular candidates._ The method [`add_regular_candidate()`] adds a regular candidate to the
-/// candidate list. This candidate has both a display string and a _value_. The method
-/// [`bind_key_for_regular_candidates()`] binds a key to a function that takes the selected
-/// candidate's value as an argument. Each such binding applies to _all_ regular candidates. In
-/// the file example, the file names "baz.rs" and "foobar.rs" are regular candidates and "enter" is
+/// - _Regular candidates._ The method [`Keymap::add_regular_candidate()`] adds a regular candidate
+/// to the candidate list. This candidate has both a display string and a _value_. The method
+/// [`Keymap::bind_key_for_regular_candidates()`] binds a key to a function that takes the selected
+/// candidate's value as an argument. Each such binding applies to _all_ regular candidates. In the
+/// file example, the file names "baz.rs" and "foobar.rs" are regular candidates and "enter" is
 /// bound to "open file by name" for both of them.
 ///
-/// - _Special candidates._ The method [`bind_key_for_special_candidate()`] adds a special
+/// - _Special candidates._ The method [`Keymap::bind_key_for_special_candidate()`] adds a special
 /// candidate to the candidate list, and gives it a binding from a key to a function that takes no
 /// arguments. You can call it more than once for the same special candidate to give it multiple
 /// bindings. In the file example, `..` is a special candidate, for which "enter" is bound to "open
@@ -305,7 +305,7 @@ impl Keymap {
     }
 
     /// Add a regular candidate to the list of candidates (used together with
-    /// [`bind_key_for_regular_candidates`]).
+    /// [`Keymap::bind_key_for_regular_candidates`]).
     pub fn add_regular_candidate(&mut self, display: String, value: rhai::Dynamic) {
         for (existing_display, existing_value) in &mut self.regular_candidates {
             if existing_display == &display {
