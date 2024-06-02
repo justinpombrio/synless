@@ -28,77 +28,14 @@ pub struct Runtime<F: Frontend<Style = Style>> {
 
 impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
     pub fn new(settings: Settings, frontend: F) -> Runtime<F> {
-        use crate::style::{Base16Color, Priority};
-
         let mut engine = Engine::new(settings);
 
         // Magic initialization
         engine.add_parser("json", crate::parsing::JsonParser);
 
-        // TODO load pane notation from file
-        let pane_notation = pane::PaneNotation::Horz(vec![
-            (
-                pane::PaneSize::Proportional(1),
-                pane::PaneNotation::Vert(vec![
-                    (
-                        pane::PaneSize::Proportional(1),
-                        pane::PaneNotation::Doc {
-                            label: DocDisplayLabel::Visible,
-                        },
-                    ),
-                    (
-                        pane::PaneSize::Fixed(1),
-                        pane::PaneNotation::Fill {
-                            ch: ' ',
-                            style: Style::default().with_bg(Base16Color::Base04, Priority::Low),
-                        },
-                    ),
-                    (
-                        pane::PaneSize::Dynamic,
-                        pane::PaneNotation::Doc {
-                            label: DocDisplayLabel::Auxilliary(
-                                CANDIDATE_SELECTION_DOC_NAME.to_owned(),
-                            ),
-                        },
-                    ),
-                ]),
-            ),
-            (
-                pane::PaneSize::Fixed(1),
-                pane::PaneNotation::Fill {
-                    ch: ' ',
-                    style: Style::default().with_bg(Base16Color::Base04, Priority::Low),
-                },
-            ),
-            (
-                pane::PaneSize::Fixed(KEYHINTS_PANE_WIDTH),
-                pane::PaneNotation::Vert(vec![
-                    (
-                        pane::PaneSize::Proportional(1),
-                        pane::PaneNotation::Fill {
-                            ch: ' ',
-                            style: Style::default(),
-                        },
-                    ),
-                    (
-                        pane::PaneSize::Dynamic,
-                        pane::PaneNotation::Doc {
-                            label: DocDisplayLabel::Auxilliary(KEYHINTS_DOC_NAME.to_owned()),
-                        },
-                    ),
-                    (
-                        pane::PaneSize::Fixed(1),
-                        pane::PaneNotation::Fill {
-                            ch: ' ',
-                            style: Style::default(),
-                        },
-                    ),
-                ]),
-            ),
-        ]);
         Runtime {
             engine,
-            pane_notation,
+            pane_notation: make_pane_notation(false),
             frontend,
             layers: LayerManager::new(),
         }
@@ -410,6 +347,51 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
             }
         }
     }
+}
+
+/******************
+ * Pane Notations *
+ ******************/
+
+fn make_pane_notation(_include_menu: bool) -> pane::PaneNotation<DocDisplayLabel, Style> {
+    use crate::style::{Base16Color, Priority};
+    use pane::{PaneNotation, PaneSize};
+
+    let divider = PaneNotation::Fill {
+        ch: ' ',
+        style: Style::default().with_bg(Base16Color::Base04, Priority::Low),
+    };
+    let padding = PaneNotation::Fill {
+        ch: ' ',
+        style: Style::default(),
+    };
+
+    let keyhints_doc = PaneNotation::Doc {
+        label: DocDisplayLabel::Auxilliary(KEYHINTS_DOC_NAME.to_owned()),
+    };
+    let keyhints = PaneNotation::Vert(vec![
+        (PaneSize::Proportional(1), padding.clone()),
+        (PaneSize::Dynamic, keyhints_doc),
+        (PaneSize::Fixed(1), padding),
+    ]);
+
+    let main_doc = PaneNotation::Doc {
+        label: DocDisplayLabel::Visible,
+    };
+    let menu_doc = PaneNotation::Doc {
+        label: DocDisplayLabel::Auxilliary(CANDIDATE_SELECTION_DOC_NAME.to_owned()),
+    };
+    let main_doc_and_menu = PaneNotation::Vert(vec![
+        (PaneSize::Proportional(1), main_doc),
+        (PaneSize::Fixed(1), divider.clone()),
+        (PaneSize::Dynamic, menu_doc),
+    ]);
+
+    PaneNotation::Horz(vec![
+        (PaneSize::Proportional(1), main_doc_and_menu),
+        (PaneSize::Fixed(1), divider),
+        (PaneSize::Fixed(KEYHINTS_PANE_WIDTH), keyhints),
+    ])
 }
 
 /***********
