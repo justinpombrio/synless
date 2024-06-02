@@ -2,7 +2,7 @@ use super::keymap::{Candidate, KeyProg, Keymap};
 use crate::frontends::Key;
 use crate::language::Storage;
 use crate::tree::Node;
-use crate::util::{bug_assert, SynlessBug};
+use crate::util::{bug_assert, fuzzy_search, SynlessBug};
 
 const SELECTION_LANGUAGE_NAME: &str = "selection_menu";
 
@@ -27,6 +27,7 @@ pub struct Menu {
 struct MenuSelection {
     custom_candidate: Option<Candidate>,
     candidates: Vec<Candidate>,
+    filtered_candidates: Vec<Candidate>,
     input: String,
     index: usize,
     default_index: usize,
@@ -40,13 +41,16 @@ impl MenuSelection {
             return None;
         }
         let default_index = if custom_candidate.is_some() { 1 } else { 0 };
-        Some(MenuSelection {
+        let mut menu = MenuSelection {
             custom_candidate,
             candidates,
+            filtered_candidates: Vec::new(),
             input: String::new(),
             index: default_index,
             default_index,
-        })
+        };
+        menu.update_filtered_candidates();
+        Some(menu)
     }
 
     fn execute(&mut self, cmd: MenuSelectionCmd) {
@@ -54,13 +58,18 @@ impl MenuSelection {
 
         match cmd {
             Up => self.index = self.index.saturating_sub(1),
-            Down => self.index += 1,
+            Down => {
+                if self.index + 1 < self.filtered_candidates.len() {
+                    self.index += 1;
+                }
+            }
             Backspace => {
                 self.input.pop();
                 if let Some(Candidate::Custom { input }) = &mut self.custom_candidate {
                     input.pop();
                 }
                 self.index = self.default_index;
+                self.update_filtered_candidates();
             }
             Insert(ch) => {
                 self.input.push(ch);
@@ -68,28 +77,23 @@ impl MenuSelection {
                     input.push(ch);
                 }
                 self.index = self.default_index;
+                self.update_filtered_candidates();
             }
         }
     }
 
-    // TODO: Implement fuzzy search
-    fn filtered_candidates(&self) -> Vec<&Candidate> {
-        let mut filtered = Vec::new();
+    fn update_filtered_candidates(&mut self) {
+        self.filtered_candidates =
+            fuzzy_search(&self.input, self.candidates.clone(), |candidate| {
+                candidate.display_str()
+            });
         if let Some(candidate) = &self.custom_candidate {
-            filtered.push(candidate);
+            self.filtered_candidates.insert(0, candidate.to_owned());
         }
-        for candidate in &self.candidates {
-            if candidate.display_str().contains(&self.input) {
-                filtered.push(candidate);
-            }
-        }
-        filtered
     }
 
     fn selected_candidate(&self) -> Option<&Candidate> {
-        let candidates = self.filtered_candidates();
-        let index = self.index.min(candidates.len().saturating_sub(1));
-        candidates.get(index).copied()
+        self.filtered_candidates.get(self.index)
     }
 
     fn make_candidate_selection_doc(&self, s: &mut Storage) -> Node {
@@ -114,16 +118,14 @@ impl MenuSelection {
         bug_assert!(root.insert_last_child(s, input_node));
 
         // Add candidate entries, highlighting the one at self.index
-        let candidates = self.filtered_candidates();
-        let index = self.index.min(candidates.len().saturating_sub(1));
-        for (i, candidate) in candidates.iter().enumerate() {
+        for (i, candidate) in self.filtered_candidates.iter().enumerate() {
             let construct = match candidate {
                 Custom { .. } => c_custom,
                 Regular { .. } => c_regular,
                 Special { .. } => c_special,
             };
             let mut node = Node::with_text(s, construct, candidate.display_str().to_owned()).bug();
-            if i == index {
+            if i == self.index {
                 node = Node::with_children(s, c_selected, [node]).bug();
             }
             bug_assert!(root.insert_last_child(s, node));
