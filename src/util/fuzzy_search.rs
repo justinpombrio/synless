@@ -21,6 +21,7 @@ pub fn fuzzy_search<T>(input: &str, items: Vec<T>, get_str: impl Fn(&T) -> &str)
 
 /// Searches using regexes. Searching for `Baz` will return, in priority order:
 ///
+/// ```text
 ///     Baz
 ///     baZ
 ///     Baz.js
@@ -29,6 +30,7 @@ pub fn fuzzy_search<T>(input: &str, items: Vec<T>, get_str: impl Fn(&T) -> &str)
 ///     foObaZ
 ///     FooBaz.js
 ///     foObaZ.js
+/// ```
 struct Searcher(Vec<Regex>);
 
 impl Searcher {
@@ -72,11 +74,11 @@ impl Searcher {
 #[test]
 fn test_fuzzy_search() {
     let items = vec!["foo", "bar", "foobarz"];
-    let sorted = fuzzy_search("ba", |x| x, items);
+    let sorted = fuzzy_search("ba", items, |x| x);
     assert_eq!(sorted, vec!["bar", "foobarz"]);
 
     let items = vec!["foobarz", "bar", "foo"];
-    let sorted = fuzzy_search("fo", |x| x, items);
+    let sorted = fuzzy_search("fo", items, |x| x);
     assert_eq!(sorted, vec!["foo", "foobarz"]);
 
     let items = vec![
@@ -92,7 +94,7 @@ fn test_fuzzy_search() {
         "bar.rs.rs",
     ];
 
-    let sorted = fuzzy_search("foo", |x| x, items.clone());
+    let sorted = fuzzy_search("foo", items.clone(), |x| x);
     assert_eq!(
         sorted,
         vec![
@@ -106,7 +108,7 @@ fn test_fuzzy_search() {
         ]
     );
 
-    let sorted = fuzzy_search("", |x| x, items.clone());
+    let sorted = fuzzy_search("", items, |x| x);
     assert_eq!(
         sorted,
         vec![
@@ -124,7 +126,7 @@ fn test_fuzzy_search() {
     );
 
     assert_eq!(
-        fuzzy_search("json", |x| x, vec!["foo.json", "json.cpp"]),
+        fuzzy_search("json", vec!["foo.json", "json.cpp"], |x| x),
         vec!["json.cpp", "foo.json"]
     );
 }
