@@ -7,7 +7,7 @@ use super::Settings;
 use crate::language::{Language, LanguageSpec, NotationSetSpec, Storage};
 use crate::parsing::{Parse, ParseError};
 use crate::pretty_doc::DocRef;
-use crate::tree::Node;
+use crate::tree::{Mode, Node};
 use crate::util::{error, SynlessBug, SynlessError};
 use partial_pretty_printer as ppp;
 use partial_pretty_printer::pane;
@@ -196,6 +196,13 @@ impl Engine {
 
     pub fn get_doc_mut(&mut self, doc_name: &DocName) -> Option<&mut Doc> {
         self.doc_set.get_doc_mut(doc_name)
+    }
+
+    pub fn mode(&self) -> Mode {
+        self.doc_set
+            .visible_doc()
+            .map(|doc| doc.mode())
+            .unwrap_or(Mode::Tree)
     }
 
     /****************************

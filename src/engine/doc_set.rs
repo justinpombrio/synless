@@ -63,7 +63,7 @@ impl fmt::Display for DocName {
         use DocName::*;
 
         match self {
-            File(path) => write!(f, "file:{}", path.to_string_lossy()),
+            File(path) => write!(f, "{}", path.to_string_lossy()),
             Metadata(name) => write!(f, "metadata:{}", name),
             Auxilliary(name) => write!(f, "auxilliary:{}", name),
         }

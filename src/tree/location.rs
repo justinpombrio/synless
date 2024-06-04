@@ -151,6 +151,15 @@ impl Location {
         (path_from_root, target)
     }
 
+    /// Return the _one-indexed_ sibling index and number of siblings of this location. Being in
+    /// text is treated the same as being at the texty node.
+    pub fn sibling_index_info(self, s: &Storage) -> (usize, usize) {
+        match self.0 {
+            InText(node, _) | AtNode(node) => (node.sibling_index(s) + 1, node.num_siblings(s)),
+            BelowNode(node) => (0, node.num_children(s).bug()),
+        }
+    }
+
     /**************
      * Navigation *
      **************/

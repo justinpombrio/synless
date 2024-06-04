@@ -100,13 +100,13 @@ tree_keymap.bind_key("p", "Paste", || s::paste());
 tree_keymap.bind_key("P", "PasteSwap", || s::paste_swap());
 
 tree_keymap.bind_key("I", "Insert", || {
-    s::open_menu("candidate_node_selection");
+    s::open_menu("candidate_node_selection", "Select node to insert");
     let construct = s::block();
     s::insert_node(construct);
 });
 
 tree_keymap.bind_key("i", "QuickInsert", || {
-    s::open_menu("char_node_selection");
+    s::open_menu("char_node_selection", "Select node to insert");
     let construct = s::block();
     s::insert_node(construct);
 });

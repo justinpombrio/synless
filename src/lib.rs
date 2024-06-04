@@ -17,8 +17,8 @@ pub use engine::{DocName, Engine, Settings};
 pub use frontends::Terminal;
 pub use keymap::{KeyProg, Keymap, Layer};
 pub use language::{
-    AritySpec, Construct, ConstructSpec, GrammarSpec, LanguageSpec, NotationSetSpec, SortSpec,
-    Storage,
+    AritySpec, Construct, ConstructSpec, GrammarSpec, Language, LanguageSpec, NotationSetSpec,
+    SortSpec, Storage,
 };
 pub use pretty_doc::DocRef;
 pub use runtime::Runtime;

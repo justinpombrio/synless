@@ -21,12 +21,14 @@ const MENU_NAME_LABEL: &str = "menu_name";
 const MODE_LABEL: &str = "mode";
 const FILENAME_LABEL: &str = "filename";
 const SIBLING_INDEX_LABEL: &str = "sibling_index";
+const ERROR_LABEL: &str = "error";
 
 const KEYHINTS_PANE_WIDTH: usize = 15;
 
 pub struct Runtime<F: Frontend<Style = Style>> {
     engine: Engine,
-    pane_notation: pane::PaneNotation<DocDisplayLabel, Style>,
+    default_pane_notation: pane::PaneNotation<DocDisplayLabel, Style>,
+    menu_pane_notation: pane::PaneNotation<DocDisplayLabel, Style>,
     frontend: F,
     layers: LayerManager,
 }
@@ -40,7 +42,8 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
 
         Runtime {
             engine,
-            pane_notation: make_pane_notation(false),
+            default_pane_notation: make_pane_notation(false),
+            menu_pane_notation: make_pane_notation(true),
             frontend,
             layers: LayerManager::new(),
         }
@@ -144,12 +147,12 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
             .map_err(|err| error!(Frontend, "{}", err))?;
 
         let get_content = |doc_label| self.engine.get_content(doc_label);
-        pane::display_pane(
-            &mut self.frontend,
-            &self.pane_notation,
-            &Style::default(),
-            &get_content,
-        )?;
+        let note = if self.layers.has_open_menu() {
+            &self.menu_pane_notation
+        } else {
+            &self.default_pane_notation
+        };
+        pane::display_pane(&mut self.frontend, note, &Style::default(), &get_content)?;
 
         self.frontend
             .end_frame()
@@ -161,6 +164,9 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
             self.make_keyhint_doc(),
             self.make_candidate_selection_doc(),
             self.make_menu_name_doc(),
+            self.make_mode_doc(),
+            self.make_filename_doc(),
+            self.make_sibling_index_doc(),
         ] {
             let _ = self.engine.delete_doc(&name);
             if let Some(node) = node {
@@ -180,11 +186,7 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
 
     fn make_keyhint_doc(&mut self) -> (DocName, Option<Node>) {
         let visible_doc_name = self.engine.visible_doc_name().cloned();
-        let mode = if let Some(doc) = self.engine.visible_doc() {
-            doc.mode()
-        } else {
-            Mode::Tree
-        };
+        let mode = self.engine.mode();
         let storage = self.engine.raw_storage_mut();
         let node = self
             .layers
@@ -198,6 +200,43 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
             .menu_description()
             .map(|menu_name| self.engine.make_string_doc(menu_name.to_owned()));
         (DocName::Auxilliary(MENU_NAME_LABEL.to_owned()), opt_node)
+    }
+
+    fn make_mode_doc(&mut self) -> (DocName, Option<Node>) {
+        let mode = match self.engine.mode() {
+            Mode::Tree => "TREE".to_owned(),
+            Mode::Text => "TEXT".to_owned(),
+        };
+        let node = self.engine.make_string_doc(mode);
+        (DocName::Auxilliary(MODE_LABEL.to_owned()), Some(node))
+    }
+
+    fn make_filename_doc(&mut self) -> (DocName, Option<Node>) {
+        let opt_doc_name = self.engine.visible_doc_name();
+        let opt_label = opt_doc_name.map(|doc_name| match doc_name {
+            DocName::File(path) => {
+                let os_str = path.file_name().unwrap_or_else(|| path.as_os_str());
+                os_str.to_string_lossy().into_owned()
+            }
+            DocName::Metadata(label) => format!("metadata:{}", label),
+            DocName::Auxilliary(label) => format!("auxilliary:{}", label),
+        });
+        let opt_node = opt_label.map(|label| self.engine.make_string_doc(label));
+        (DocName::Auxilliary(FILENAME_LABEL.to_owned()), opt_node)
+    }
+
+    fn make_sibling_index_doc(&mut self) -> (DocName, Option<Node>) {
+        let opt_label = self.engine.visible_doc().map(|doc| {
+            let cursor = doc.cursor();
+            let s = self.engine.raw_storage();
+            let (numerator, denominator) = cursor.sibling_index_info(s);
+            format!("sibling {}/{}", numerator, denominator)
+        });
+        let opt_node = opt_label.map(|label| self.engine.make_string_doc(label));
+        (
+            DocName::Auxilliary(SIBLING_INDEX_LABEL.to_owned()),
+            opt_node,
+        )
     }
 
     /******************
@@ -382,7 +421,7 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
  * Pane Notations *
  ******************/
 
-fn make_pane_notation(_include_menu: bool) -> pane::PaneNotation<DocDisplayLabel, Style> {
+fn make_pane_notation(include_menu: bool) -> pane::PaneNotation<DocDisplayLabel, Style> {
     use crate::style::{Base16Color, Priority};
     use pane::{PaneNotation, PaneSize};
 
@@ -390,6 +429,11 @@ fn make_pane_notation(_include_menu: bool) -> pane::PaneNotation<DocDisplayLabel
         .with_bg(Base16Color::Base04, Priority::Low)
         .with_fg(Base16Color::Base00, Priority::Low)
         .with_bold(true, Priority::Low);
+    let status_bar_style = Style::default()
+        .with_bg(Base16Color::Base06, Priority::Low)
+        .with_fg(Base16Color::Base00, Priority::Low)
+        .with_bold(true, Priority::Low);
+
     let divider = PaneNotation::Style {
         style: bar_style.clone(),
         notation: Box::new(PaneNotation::Fill { ch: ' ' }),
@@ -415,23 +459,53 @@ fn make_pane_notation(_include_menu: bool) -> pane::PaneNotation<DocDisplayLabel
         label: DocDisplayLabel::Auxilliary(MENU_NAME_LABEL.to_owned()),
     };
     let menu_bar = PaneNotation::Style {
-        style: bar_style,
+        style: bar_style.clone(),
         notation: Box::new(PaneNotation::Horz(vec![
             (PaneSize::Dynamic, menu_name),
             (PaneSize::Proportional(1), padding.clone()),
         ])),
     };
 
-    let main_doc_and_menu = PaneNotation::Vert(vec![
-        (PaneSize::Proportional(1), main_doc),
-        (PaneSize::Fixed(1), menu_bar),
-        (PaneSize::Dynamic, menu_doc),
-    ]);
+    let mode_doc = PaneNotation::Doc {
+        label: DocDisplayLabel::Auxilliary(MODE_LABEL.to_owned()),
+    };
+    let filename_doc = PaneNotation::Doc {
+        label: DocDisplayLabel::Auxilliary(FILENAME_LABEL.to_owned()),
+    };
+    let sibling_index_doc = PaneNotation::Doc {
+        label: DocDisplayLabel::Auxilliary(SIBLING_INDEX_LABEL.to_owned()),
+    };
+    let status_bar = PaneNotation::Style {
+        style: status_bar_style,
+        notation: Box::new(PaneNotation::Horz(vec![
+            (PaneSize::Dynamic, mode_doc),
+            (PaneSize::Fixed(1), padding.clone()),
+            (PaneSize::Dynamic, filename_doc),
+            (PaneSize::Proportional(1), padding.clone()),
+            (PaneSize::Dynamic, sibling_index_doc),
+            (PaneSize::Fixed(1), padding),
+        ])),
+    };
 
-    PaneNotation::Horz(vec![
-        (PaneSize::Proportional(1), main_doc_and_menu),
-        (PaneSize::Fixed(1), divider),
-        (PaneSize::Fixed(KEYHINTS_PANE_WIDTH), keyhints),
+    let mut main_doc_and_menu = vec![(PaneSize::Proportional(1), main_doc)];
+    if include_menu {
+        main_doc_and_menu.push((PaneSize::Fixed(1), menu_bar));
+        main_doc_and_menu.push((PaneSize::Dynamic, menu_doc));
+    }
+
+    PaneNotation::Vert(vec![
+        (
+            PaneSize::Proportional(1),
+            PaneNotation::Horz(vec![
+                (
+                    PaneSize::Proportional(1),
+                    PaneNotation::Vert(main_doc_and_menu),
+                ),
+                (PaneSize::Fixed(1), divider),
+                (PaneSize::Fixed(KEYHINTS_PANE_WIDTH), keyhints),
+            ]),
+        ),
+        (PaneSize::Fixed(1), status_bar),
     ])
 }
 
