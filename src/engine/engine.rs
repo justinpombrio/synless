@@ -12,7 +12,6 @@ use crate::util::{error, SynlessBug, SynlessError};
 use partial_pretty_printer as ppp;
 use partial_pretty_printer::pane;
 use std::collections::HashMap;
-use std::error::Error;
 use std::path::Path;
 
 const STRING_LANGUAGE_NAME: &str = "string";
@@ -53,15 +52,6 @@ impl Engine {
             clipboard: Vec::new(),
             settings,
         }
-    }
-
-    /******************
-     * Error Handling *
-     ******************/
-
-    pub fn report_error(&mut self, _error: &impl Error) {
-        // make sure to display the actual cause
-        todo!()
     }
 
     /*************

@@ -16,9 +16,10 @@ pub struct Log {
 }
 
 // TODO: time stamps
+#[derive(Debug, Clone)]
 pub struct LogEntry {
-    level: LogLevel,
-    message: String,
+    pub level: LogLevel,
+    pub message: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -78,6 +79,11 @@ impl Default for Log {
 impl LogEntry {
     pub fn new(level: LogLevel, message: String) -> LogEntry {
         LogEntry { level, message }
+    }
+
+    /// Adds this entry to the log. Prefer the `log!` macro when possible.
+    pub fn log(self) {
+        Log::with_log(|log| log.push(self));
     }
 }
 

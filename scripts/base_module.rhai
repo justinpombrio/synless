@@ -3,6 +3,7 @@ fn block() {
         let keyprog = ();
         try {
             synless_internals::display();
+            s::clear_last_log();
             keyprog = synless_internals::block_on_key();
         } catch (err) {
             log_caught_error(err);

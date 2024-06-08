@@ -7,7 +7,7 @@ use crate::keymap::{KeyLookupResult, KeyProg, Keymap, Layer, LayerManager, MenuS
 use crate::language::{Construct, Language};
 use crate::style::Style;
 use crate::tree::{Mode, Node};
-use crate::util::{error, log, SynlessBug, SynlessError};
+use crate::util::{error, log, LogEntry, LogLevel, SynlessBug, SynlessError};
 use partial_pretty_printer::pane;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -21,9 +21,11 @@ const MENU_NAME_LABEL: &str = "menu_name";
 const MODE_LABEL: &str = "mode";
 const FILENAME_LABEL: &str = "filename";
 const SIBLING_INDEX_LABEL: &str = "sibling_index";
-const ERROR_LABEL: &str = "error";
+const LAST_LOG_LABEL: &str = "last_log";
 
 const KEYHINTS_PANE_WIDTH: usize = 15;
+
+const LOG_LEVEL_TO_DISPLAY: LogLevel = LogLevel::Info;
 
 pub struct Runtime<F: Frontend<Style = Style>> {
     engine: Engine,
@@ -31,6 +33,7 @@ pub struct Runtime<F: Frontend<Style = Style>> {
     menu_pane_notation: pane::PaneNotation<DocDisplayLabel, Style>,
     frontend: F,
     layers: LayerManager,
+    last_log: Option<LogEntry>,
 }
 
 impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
@@ -46,6 +49,7 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
             menu_pane_notation: make_pane_notation(true),
             frontend,
             layers: LayerManager::new(),
+            last_log: None,
         }
     }
 
@@ -136,6 +140,49 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
     }
 
     /***********
+     * Logging *
+     ***********/
+
+    pub fn log_error(&mut self, message: String) {
+        self.log(LogLevel::Error, message);
+    }
+
+    pub fn log_warn(&mut self, message: String) {
+        self.log(LogLevel::Warn, message);
+    }
+
+    pub fn log_info(&mut self, message: String) {
+        self.log(LogLevel::Info, message);
+    }
+
+    pub fn log_debug(&mut self, message: String) {
+        self.log(LogLevel::Debug, message);
+    }
+
+    pub fn log_trace(&mut self, message: String) {
+        self.log(LogLevel::Trace, message);
+    }
+
+    fn log(&mut self, level: LogLevel, message: String) {
+        let entry = LogEntry::new(level, message);
+        if level >= LOG_LEVEL_TO_DISPLAY {
+            if self
+                .last_log
+                .as_ref()
+                .map(|old| level > old.level)
+                .unwrap_or(true)
+            {
+                self.last_log = Some(entry.clone());
+            }
+        }
+        entry.log();
+    }
+
+    pub fn clear_last_log(&mut self) {
+        self.last_log = None;
+    }
+
+    /***********
      * Display *
      ***********/
 
@@ -167,6 +214,7 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
             self.make_mode_doc(),
             self.make_filename_doc(),
             self.make_sibling_index_doc(),
+            self.make_last_log_doc(),
         ] {
             let _ = self.engine.delete_doc(&name);
             if let Some(node) = node {
@@ -237,6 +285,12 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
             DocName::Auxilliary(SIBLING_INDEX_LABEL.to_owned()),
             opt_node,
         )
+    }
+
+    fn make_last_log_doc(&mut self) -> (DocName, Option<Node>) {
+        let opt_message = self.last_log.as_ref().map(|entry| entry.to_string());
+        let opt_node = opt_message.map(|msg| self.engine.make_string_doc(msg));
+        (DocName::Auxilliary(LAST_LOG_LABEL.to_owned()), opt_node)
     }
 
     /******************
@@ -486,6 +540,9 @@ fn make_pane_notation(include_menu: bool) -> pane::PaneNotation<DocDisplayLabel,
             (PaneSize::Fixed(1), padding),
         ])),
     };
+    let log_doc = PaneNotation::Doc {
+        label: DocDisplayLabel::Auxilliary(LAST_LOG_LABEL.to_owned()),
+    };
 
     let mut main_doc_and_menu = vec![(PaneSize::Proportional(1), main_doc)];
     if include_menu {
@@ -506,6 +563,7 @@ fn make_pane_notation(include_menu: bool) -> pane::PaneNotation<DocDisplayLabel,
             ]),
         ),
         (PaneSize::Fixed(1), status_bar),
+        (PaneSize::Fixed(1), log_doc),
     ])
 }
 
@@ -743,20 +801,11 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         register!(module, rt.redo()?);
 
         // Logging
-        rhai::FuncRegistration::new("log_trace")
-            .in_internal_namespace()
-            .set_into_module(module, |msg: String| log!(Trace, "{}", msg));
-        rhai::FuncRegistration::new("log_debug")
-            .in_internal_namespace()
-            .set_into_module(module, |msg: String| log!(Debug, "{}", msg));
-        rhai::FuncRegistration::new("log_info")
-            .in_internal_namespace()
-            .set_into_module(module, |msg: String| log!(Info, "{}", msg));
-        rhai::FuncRegistration::new("log_warn")
-            .in_internal_namespace()
-            .set_into_module(module, |msg: String| log!(Warn, "{}", msg));
-        rhai::FuncRegistration::new("log_error")
-            .in_internal_namespace()
-            .set_into_module(module, |msg: String| log!(Error, "{}", msg));
+        register!(module, rt.log_trace(msg: String));
+        register!(module, rt.log_debug(msg: String));
+        register!(module, rt.log_info(msg: String));
+        register!(module, rt.log_warn(msg: String));
+        register!(module, rt.log_error(msg: String));
+        register!(module, rt.clear_last_log());
     }
 }
