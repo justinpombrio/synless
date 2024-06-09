@@ -165,15 +165,14 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
 
     fn log(&mut self, level: LogLevel, message: String) {
         let entry = LogEntry::new(level, message);
-        if level >= LOG_LEVEL_TO_DISPLAY {
-            if self
+        if level >= LOG_LEVEL_TO_DISPLAY
+            && self
                 .last_log
                 .as_ref()
                 .map(|old| level > old.level)
                 .unwrap_or(true)
-            {
-                self.last_log = Some(entry.clone());
-            }
+        {
+            self.last_log = Some(entry.clone());
         }
         entry.log();
     }
@@ -246,16 +245,18 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         let opt_node = self
             .layers
             .menu_description()
-            .map(|menu_name| self.engine.make_string_doc(menu_name.to_owned()));
+            .map(|menu_name| self.engine.make_string_doc(menu_name.to_owned(), None));
         (DocName::Auxilliary(MENU_NAME_LABEL.to_owned()), opt_node)
     }
 
     fn make_mode_doc(&mut self) -> (DocName, Option<Node>) {
-        let mode = match self.engine.mode() {
-            Mode::Tree => "TREE".to_owned(),
-            Mode::Text => "TEXT".to_owned(),
+        use crate::style::Base16Color;
+
+        let (mode, color) = match self.engine.mode() {
+            Mode::Tree => ("[TREE]".to_owned(), None),
+            Mode::Text => ("[TEXT]".to_owned(), Some(Base16Color::Base0B)),
         };
-        let node = self.engine.make_string_doc(mode);
+        let node = self.engine.make_string_doc(mode, color);
         (DocName::Auxilliary(MODE_LABEL.to_owned()), Some(node))
     }
 
@@ -269,7 +270,7 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
             DocName::Metadata(label) => format!("metadata:{}", label),
             DocName::Auxilliary(label) => format!("auxilliary:{}", label),
         });
-        let opt_node = opt_label.map(|label| self.engine.make_string_doc(label));
+        let opt_node = opt_label.map(|label| self.engine.make_string_doc(label, None));
         (DocName::Auxilliary(FILENAME_LABEL.to_owned()), opt_node)
     }
 
@@ -280,7 +281,7 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
             let (numerator, denominator) = cursor.sibling_index_info(s);
             format!("sibling {}/{}", numerator, denominator)
         });
-        let opt_node = opt_label.map(|label| self.engine.make_string_doc(label));
+        let opt_node = opt_label.map(|label| self.engine.make_string_doc(label, None));
         (
             DocName::Auxilliary(SIBLING_INDEX_LABEL.to_owned()),
             opt_node,
@@ -289,7 +290,7 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
 
     fn make_last_log_doc(&mut self) -> (DocName, Option<Node>) {
         let opt_message = self.last_log.as_ref().map(|entry| entry.to_string());
-        let opt_node = opt_message.map(|msg| self.engine.make_string_doc(msg));
+        let opt_node = opt_message.map(|msg| self.engine.make_string_doc(msg, None));
         (DocName::Auxilliary(LAST_LOG_LABEL.to_owned()), opt_node)
     }
 

@@ -7,8 +7,9 @@ use super::Settings;
 use crate::language::{Language, LanguageSpec, NotationSetSpec, Storage};
 use crate::parsing::{Parse, ParseError};
 use crate::pretty_doc::DocRef;
+use crate::style::Base16Color;
 use crate::tree::{Mode, Node};
-use crate::util::{error, SynlessBug, SynlessError};
+use crate::util::{bug, error, SynlessBug, SynlessError};
 use partial_pretty_printer as ppp;
 use partial_pretty_printer::pane;
 use std::collections::HashMap;
@@ -252,7 +253,7 @@ impl Engine {
             .get_content(&self.storage, label, &self.settings)
     }
 
-    pub fn make_string_doc(&mut self, string: String) -> Node {
+    pub fn make_string_doc(&mut self, string: String, bg_color: Option<Base16Color>) -> Node {
         let lang = self
             .storage
             .language(STRING_LANGUAGE_NAME)
@@ -260,7 +261,17 @@ impl Engine {
         let c_root = lang.root_construct(&self.storage);
         let c_string = lang.construct(&self.storage, "String").bug();
         let string_node = Node::with_text(&mut self.storage, c_string, string).bug();
-        Node::with_children(&mut self.storage, c_root, [string_node]).bug()
+        let node = if let Some(color) = bg_color {
+            let c_color = match color {
+                Base16Color::Base08 => lang.construct(&self.storage, "BgBase08").bug(),
+                Base16Color::Base0B => lang.construct(&self.storage, "BgBase0B").bug(),
+                _ => bug!("make_string_doc: specified bg color not yet supported"),
+            };
+            Node::with_children(&mut self.storage, c_color, [string_node]).bug()
+        } else {
+            string_node
+        };
+        Node::with_children(&mut self.storage, c_root, [node]).bug()
     }
 
     /***********
