@@ -49,8 +49,8 @@ pub struct Construct {
 /// A single language in which documents can be written. Consists of:
 /// - The structure of a language, e.g. which constructs can appear
 ///   in which positions.
-/// - [`NotationSet`]s saying how those constructs should be displayed.
-/// - The currently selected [`NotationSet`].
+/// - `NotationSet`s saying how those constructs should be displayed.
+/// - The currently selected `NotationSet`.
 #[derive(Debug, Clone, Copy)]
 pub struct Language {
     language: LanguageId,

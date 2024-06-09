@@ -149,16 +149,16 @@ impl rhai::CustomType for KeyProg {
 /// This menu contains:
 ///
 /// - A prompt where the user can enter text. It can be used to filter the candidates or to
-/// create a new file with a custom name.
+///   create a new file with a custom name.
 ///
 /// - A list of candidates. This includes the name of each file in the directory, a special
-/// candidate `..` that opens a new selection menu for the parent directory, and a custom candidate
-/// that creates a new file with whatever name was entered at the prompt. There is always one
-/// selected candidate, shown here with `->`.
+///   candidate `..` that opens a new selection menu for the parent directory, and a custom
+///   candidate that creates a new file with whatever name was entered at the prompt. There is
+///   always one selected candidate, shown here with `->`.
 ///
 /// - A list of key hints, showing which keys can be pressed and what they will do. These change
-/// depending on which candidate is currently selected. For example, normal files can be "opened" or
-/// "deleted", `..` can be "opened", and the custom candidate can be "created".
+///   depending on which candidate is currently selected. For example, normal files can be "opened"
+///   or "deleted", `..` can be "opened", and the custom candidate can be "created".
 ///
 /// If the user types "foo" and presses the up arrow, the candidates list will be filtered, the
 /// selection will move to the custom "[new file] foo" candidate, and the key hints will be updated
@@ -182,22 +182,22 @@ impl rhai::CustomType for KeyProg {
 /// For keymaps with candidate selection, there are three kinds of candidates:
 ///
 /// - _The custom candidate._ The method [`Keymap::bind_key_for_custom_candidate()`] binds a key to a
-/// function that takes the user's input string as an argument. The custom candidate is only shown
-/// in the list if there is at least one binding for it. In the file example, the entry prefixed
-/// with `[new file]` is a custom candidate.
+///   function that takes the user's input string as an argument. The custom candidate is only shown
+///   in the list if there is at least one binding for it. In the file example, the entry prefixed
+///   with `[new file]` is a custom candidate.
 ///
 /// - _Regular candidates._ The method [`Keymap::add_regular_candidate()`] adds a regular candidate
-/// to the candidate list. This candidate has both a display string and a _value_. The method
-/// [`Keymap::bind_key_for_regular_candidates()`] binds a key to a function that takes the selected
-/// candidate's value as an argument. Each such binding applies to _all_ regular candidates. In the
-/// file example, the file names "baz.rs" and "foobar.rs" are regular candidates and "enter" is
-/// bound to "open file by name" for both of them.
+///   to the candidate list. This candidate has both a display string and a _value_. The method
+///   [`Keymap::bind_key_for_regular_candidates()`] binds a key to a function that takes the
+///   selected candidate's value as an argument. Each such binding applies to _all_ regular
+///   candidates. In the file example, the file names "baz.rs" and "foobar.rs" are regular
+///   candidates and "enter" is bound to "open file by name" for both of them.
 ///
 /// - _Special candidates._ The method [`Keymap::bind_key_for_special_candidate()`] adds a special
-/// candidate to the candidate list, and gives it a binding from a key to a function that takes no
-/// arguments. You can call it more than once for the same special candidate to give it multiple
-/// bindings. In the file example, `..` is a special candidate, for which "enter" is bound to "open
-/// menu for parent directory".
+///   candidate to the candidate list, and gives it a binding from a key to a function that takes
+///   no arguments. You can call it more than once for the same special candidate to give it
+///   multiple bindings. In the file example, `..` is a special candidate, for which "enter" is
+///   bound to "open menu for parent directory".
 ///
 /// You can have both candidate selection and general bindings in one keymap. In the file example,
 /// "esc" is bound to "exit menu" with a general binding. The key hints pane shows the key bindings
@@ -206,13 +206,13 @@ impl rhai::CustomType for KeyProg {
 /// ### Conflict Resolution
 ///
 /// - If you add multiple general bindings for the same key, the latest binding overrides the
-/// previous ones.
+///   previous ones.
 ///
 /// - If you add multiple candidate-specific bindings for the same key and candidate, the latest binding
-/// overrides the previous ones.
+///   overrides the previous ones.
 ///
 /// - If you add a general binding and candidate-specific binding with the same key, the
-/// candidate-specific binding takes priority.
+///   candidate-specific binding takes priority.
 #[derive(Debug, Clone, Default)]
 pub struct Keymap {
     /// If the user types `Key`, execute `KeyProgSpec`.
