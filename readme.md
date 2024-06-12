@@ -66,7 +66,7 @@ To verify your installation, run the executable from any working directory:
 
     synless
 
-### Clean up generated files
+### Remove generated files
 
 This will remove the `target` directory:
 
