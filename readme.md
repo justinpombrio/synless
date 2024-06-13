@@ -74,10 +74,6 @@ This will remove the `target` directory:
 
 ### Uninstall
 
-This will remove the executable from the default installation directory:
+This will remove the executable named `synless` that is in the current path:
 
     make uninstall
-
-You may specify the installation directory with `INSTALL_DIR`:
-  
-    make uninstall INSTALL_DIR=/path/to/bin
