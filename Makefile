@@ -7,7 +7,8 @@ ifneq ("$(wildcard $(shell which synless))","")
 EXISTING_BIN_PATH = $(shell which synless)
 endif
 
-SOURCES = $(wildcard src/**)
+# If these files change, we know we need to rebuild the executable
+SOURCES = $(wildcard src/**) Cargo.toml
 
 # Build synless executable
 ./target/debug/synless: $(SOURCES)
