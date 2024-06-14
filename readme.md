@@ -41,3 +41,39 @@ To learn more:
 [The Synless Design Documentation](doc/design.md) (for developers)
 
 [An Incomplete Survey of Tree Editors](doc/survey.md)
+
+## Install from source (Linux)
+
+### Prerequisites
+
+1. [Install Rust](https://www.rust-lang.org/tools/install)
+2. Clone this repository
+3. `cd` into the repository (i.e. `cd synless`)
+
+### Build and install the executable
+
+This will build and install the executable to a default installation directory:
+
+    make install
+
+You may specify the installation directory with `INSTALL_DIR`:
+
+    make install INSTALL_DIR=/path/to/bin
+
+#### Run the executable
+
+To verify your installation, run the executable from any working directory:
+
+    synless
+
+### Remove generated files
+
+This will remove the `target` directory:
+
+    make clean
+
+### Uninstall
+
+This will remove the executable named `synless` that is in the current path:
+
+    make uninstall
