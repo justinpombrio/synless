@@ -7,7 +7,7 @@ use crate::keymap::{KeyLookupResult, KeyProg, Keymap, Layer, LayerManager, MenuS
 use crate::language::{Construct, Language};
 use crate::style::Style;
 use crate::tree::{Mode, Node};
-use crate::util::{error, log, LogEntry, LogLevel, SynlessBug, SynlessError};
+use crate::util::{error, fs_util, log, LogEntry, LogLevel, SynlessBug, SynlessError};
 use partial_pretty_printer::pane;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -69,25 +69,15 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         self.layers.remove_global_layer(layer_name)
     }
 
-    pub fn open_menu(
-        &mut self,
-        menu_name: String,
-        description: String,
-    ) -> Result<(), SynlessError> {
+    pub fn open_menu(&mut self, menu: MenuBuilder) -> Result<(), SynlessError> {
         let doc_name = self.engine.visible_doc_name();
-        self.layers
-            .open_menu(doc_name, menu_name, description, None)
-    }
-
-    pub fn open_menu_with_keymap(
-        &mut self,
-        menu_name: String,
-        description: String,
-        keymap: Keymap,
-    ) -> Result<(), SynlessError> {
-        let doc_name = self.engine.visible_doc_name();
-        self.layers
-            .open_menu(doc_name, menu_name, description, Some(keymap))
+        self.layers.open_menu(
+            doc_name,
+            menu.name,
+            menu.description,
+            menu.keymap,
+            menu.default_to_custom_candidate,
+        )
     }
 
     pub fn close_menu(&mut self) {
@@ -300,21 +290,9 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
 
     /// If there is a visible doc, return the directory it's in. Fall back to the cwd.
     pub fn current_dir(&self) -> Result<String, SynlessError> {
-        use std::path::Path;
-
-        fn path_to_string(path: &Path) -> Result<String, SynlessError> {
-            path.to_str().map(|s| s.to_owned()).ok_or_else(|| {
-                error!(
-                    FileSystem,
-                    "Path '{}' is not valid Unicode",
-                    path.to_string_lossy()
-                )
-            })
-        }
-
         if let Some(DocName::File(path)) = self.engine.visible_doc_name() {
             if let Some(parent_path) = path.parent() {
-                return path_to_string(parent_path);
+                return fs_util::path_to_string(parent_path);
             }
         }
 
@@ -324,7 +302,7 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
                 "Failed to get current working directory ({err})"
             )
         })?;
-        path_to_string(&cwd)
+        fs_util::path_to_string(&cwd)
     }
 
     pub fn open_doc(&mut self, path: &str) -> Result<(), SynlessError> {
@@ -358,6 +336,31 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         self.engine
             .load_doc_from_source(doc_name.clone(), &language_name, &source)?;
         self.engine.set_visible_doc(&doc_name)
+    }
+
+    pub fn save_doc(&mut self) -> Result<(), SynlessError> {
+        self.save_doc_impl(None)
+    }
+
+    pub fn save_doc_as(&mut self, path: String) -> Result<(), SynlessError> {
+        self.save_doc_impl(Some(path))
+    }
+
+    fn save_doc_impl(&mut self, path: Option<String>) -> Result<(), SynlessError> {
+        if let Some(doc_name) = self.engine.visible_doc_name() {
+            let source = self.engine.print_source(doc_name)?;
+            let path = if let Some(path) = path {
+                path
+            } else if let DocName::File(path_buf) = doc_name {
+                fs_util::path_to_string(path_buf)?
+            } else {
+                return Err(error!(Doc, "Document does not have a path. Try save-as."));
+            };
+            std::fs::write(&path, source)
+                .map_err(|err| error!(FileSystem, "Failed to write to file '{path}' ({err})"))
+        } else {
+            Err(error!(Doc, "No open document"))
+        }
     }
 
     /*************
@@ -470,6 +473,35 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
             }
         }
     }
+}
+
+/*********************
+ * Menu Construction *
+ *********************/
+
+#[derive(Debug, Clone)]
+pub struct MenuBuilder {
+    name: String,
+    description: String,
+    keymap: Option<Keymap>,
+    default_to_custom_candidate: bool,
+}
+
+pub fn make_menu(menu_name: String, description: String) -> MenuBuilder {
+    MenuBuilder {
+        name: menu_name,
+        description,
+        keymap: None,
+        default_to_custom_candidate: false,
+    }
+}
+
+pub fn set_menu_keymap(menu: &mut MenuBuilder, keymap: Keymap) {
+    menu.keymap = Some(keymap);
+}
+
+pub fn set_menu_default_to_custom_candidate(menu: &mut MenuBuilder, setting: bool) {
+    menu.default_to_custom_candidate = setting;
 }
 
 /******************
@@ -610,30 +642,6 @@ fn list_files_and_dirs(dir: &str) -> Result<rhai::Map, SynlessError> {
     Ok(map)
 }
 
-fn path_file_name(path: &str) -> Result<rhai::Dynamic, SynlessError> {
-    use std::path::Path;
-
-    let os_str = Path::new(path)
-        .file_name()
-        .ok_or_else(|| error!(FileSystem, "Path ends in `..`: {path}"))?;
-
-    Ok(os_str
-        .to_str()
-        .ok_or_else(|| error!(FileSystem, "Path is not valid unicode: {path}"))?
-        .into())
-}
-
-fn canonicalize_path(path: &str) -> Result<rhai::Dynamic, SynlessError> {
-    use std::path::Path;
-
-    Ok(Path::new(path)
-        .canonicalize()
-        .map_err(|_| error!(FileSystem, "Invalid path: {path}"))?
-        .to_str()
-        .ok_or_else(|| error!(FileSystem, "Path is not valid unicode: {path}"))?
-        .into())
-}
-
 macro_rules! register {
     ($module:expr, $runtime:ident . $method:ident($( $param:ident : $type:ty ),*)) => {
         register!($module, $runtime . $method($( $param : $type ),*) as $method)
@@ -713,16 +721,16 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
     }
 
     pub fn register_external_methods(rt: Rc<RefCell<Runtime<F>>>, module: &mut rhai::Module) {
+        use fs_util::{join_path, path_file_name};
+
         // Keymaps
         register!(module, rt.register_layer(layer: Layer));
         register!(module, rt.add_global_layer(layer_name: &str)?);
         register!(module, rt.remove_global_layer(layer_name: &str)?);
-        register!(module, rt.open_menu(menu_name: String, description: String)?);
-        register!(module, rt.open_menu_with_keymap(
-                menu_name: String,
-                description: String,
-                keymap: Keymap
-            )? as open_menu);
+        register!(module, make_menu);
+        register!(module, set_menu_keymap);
+        register!(module, set_menu_default_to_custom_candidate);
+        register!(module, rt.open_menu(menu: MenuBuilder)?);
         register!(module, rt.close_menu());
         register!(module, escape()?);
         register!(module, rt.menu_selection_up()?);
@@ -732,11 +740,13 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         // Filesystem
         register!(module, list_files_and_dirs(dir: &str)?);
         register!(module, path_file_name(path: &str)?);
-        register!(module, canonicalize_path(path: &str)?);
+        register!(module, join_path(path_1: &str, path_2: &str)?);
 
         // Doc management
         register!(module, rt.current_dir()?);
         register!(module, rt.open_doc(path: &str)?);
+        register!(module, rt.save_doc()?);
+        register!(module, rt.save_doc_as(path: String)?);
 
         // Languages
         register!(module, rt.load_language(path: &str)?);

@@ -239,6 +239,7 @@ impl Engine {
     }
 
     pub fn print_source(&self, doc_name: &DocName) -> Result<String, SynlessError> {
+        // TODO (optimization): consider returning an iterator of lines for memory efficiency
         let doc = self
             .doc_set
             .get_doc(doc_name)

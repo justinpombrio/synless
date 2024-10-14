@@ -5,6 +5,8 @@ mod indexed_map;
 mod log;
 mod ordered_map;
 
+pub mod fs_util;
+
 pub use bug::{bug, bug_assert, format_bug, SynlessBug};
 pub use error::{error, ErrorCategory, SynlessError};
 pub use fuzzy_search::fuzzy_search;

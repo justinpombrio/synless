@@ -31,24 +31,23 @@ struct MenuSelection {
     filtered_candidates: Vec<Candidate>,
     input: String,
     index: usize,
-    default_index: usize,
+    default_to_custom_candidate: bool,
 }
 
 impl MenuSelection {
-    fn new(keymap: &Keymap) -> Option<MenuSelection> {
+    fn new(keymap: &Keymap, default_to_custom_candidate: bool) -> Option<MenuSelection> {
         let custom_candidate = keymap.has_custom_candidate().then(Candidate::new_custom);
         let candidates = keymap.candidates().collect::<Vec<_>>();
         if candidates.is_empty() && custom_candidate.is_none() {
             return None;
         }
-        let default_index = if custom_candidate.is_some() { 1 } else { 0 };
         let mut menu = MenuSelection {
             custom_candidate,
             candidates,
             filtered_candidates: Vec::new(),
             input: String::new(),
-            index: default_index,
-            default_index,
+            index: 0, // about to be updated
+            default_to_custom_candidate,
         };
         menu.update_filtered_candidates();
         Some(menu)
@@ -69,7 +68,6 @@ impl MenuSelection {
                 if let Some(Candidate::Custom { input }) = &mut self.custom_candidate {
                     input.pop();
                 }
-                self.index = self.default_index;
                 self.update_filtered_candidates();
             }
             Insert(ch) => {
@@ -77,7 +75,6 @@ impl MenuSelection {
                 if let Some(Candidate::Custom { input }) = &mut self.custom_candidate {
                     input.push(ch);
                 }
-                self.index = self.default_index;
                 self.update_filtered_candidates();
             }
         }
@@ -88,9 +85,22 @@ impl MenuSelection {
             fuzzy_search(&self.input, self.candidates.clone(), |candidate| {
                 candidate.display_str()
             });
+        let is_exact_match = self
+            .filtered_candidates
+            .first()
+            .map(|c| c.display_str() == self.input)
+            .unwrap_or(false);
         if let Some(candidate) = &self.custom_candidate {
             self.filtered_candidates.insert(0, candidate.to_owned());
         }
+
+        self.index = if self.custom_candidate.is_some()
+            && (is_exact_match || !self.default_to_custom_candidate)
+        {
+            1
+        } else {
+            0
+        };
     }
 
     fn selected_candidate(&self) -> Option<&Candidate> {
@@ -137,11 +147,16 @@ impl MenuSelection {
 }
 
 impl Menu {
-    pub fn new(name: MenuName, description: String, keymap: Keymap) -> Menu {
+    pub fn new(
+        name: MenuName,
+        description: String,
+        keymap: Keymap,
+        default_to_custom_candidate: bool,
+    ) -> Menu {
         Menu {
             name,
             description,
-            selection: MenuSelection::new(&keymap),
+            selection: MenuSelection::new(&keymap, default_to_custom_candidate),
             keymap,
         }
     }

@@ -36,8 +36,8 @@ fn make_space_menu_keymap() {
     let keymap = new_keymap();
     keymap.bind_key("esc", "ExitMenu", || s::escape());
     keymap.bind_key("q", "Quit", || s::abort());
-    // keymap.bind_key("s", "Save", || s::save_doc());
-    // keymap.bind_key("S", "SaveAs", || save_file_menu(s::current_dir()));
+    keymap.bind_key("s", "Save", || s::save_doc());
+    keymap.bind_key("S", "SaveAs", || save_file_menu(s::current_dir()));
     keymap.bind_key("o", "Open", || open_file_menu(s::current_dir()));
     keymap
 }
@@ -74,19 +74,22 @@ fn make_tree_keymap() {
     keymap.bind_key("P", "PasteSwap", || s::paste_swap());
     
     keymap.bind_key("I", "Insert", || {
-        s::open_menu("candidate_node_selection", "Select node to insert");
+        let menu = s::make_menu("candidate_node_selection", "Select node to insert");
+        s::open_menu(menu);
         let construct = s::block();
         s::insert_node(construct);
     });
     
     keymap.bind_key("i", "QuickInsert", || {
-        s::open_menu("char_node_selection", "Select node to insert");
+        let menu = s::make_menu("char_node_selection", "Select node to insert");
+        s::open_menu(menu);
         let construct = s::block();
         s::insert_node(construct);
     });
     
     keymap.bind_key(" ", "Menu", || {
-        s::open_menu("space_menu", "");
+        let menu = s::make_menu("space_menu", "Space Menu");
+        s::open_menu(menu);
     });
 
     keymap
@@ -113,17 +116,15 @@ fn make_text_keymap() {
     keymap
 }
 
-fn open_file_menu(dir) {
+fn file_selection_keymap(dir, open_dir) {
     let keymap = make_candidate_keymap();
-
-    let dir = s::canonicalize_path(dir);
     let contents = s::list_files_and_dirs(dir);
     for file in contents.files {
         keymap.add_regular_candidate(s::path_file_name(file), file);
     }
     for child_dir in contents.dirs {
         let child_dir_copy = child_dir;
-        let prog = || open_file_menu(child_dir_copy);
+        let prog = || open_dir.call(child_dir_copy);
         keymap.bind_key_for_special_candidate(
             "enter",
             s::path_file_name(child_dir_copy) + "/",
@@ -132,11 +133,29 @@ fn open_file_menu(dir) {
         );
     }
     keymap.bind_key_for_special_candidate("enter", "..", "ViewDir", || {
-        open_file_menu(dir + "/..");
+        open_dir.call(s::join_path(dir, ".."));
     });
-    keymap.bind_key_for_regular_candidates("enter", "OpenFile", |path| s::open_doc(path));
+    keymap
+}
 
-    s::open_menu("file_selection", `Open file in ${dir}`, keymap);
+fn open_file_menu(dir) {
+    let keymap = file_selection_keymap(dir, |dir| open_file_menu(dir));
+    keymap.bind_key_for_regular_candidates("enter", "OpenFile", |path| s::open_doc(path));
+    let menu = s::make_menu("open_file_menu", `Open file in ${dir}/`);
+    s::set_menu_keymap(menu, keymap);
+    s::open_menu(menu)
+}
+
+fn save_file_menu(dir) {
+    let keymap = file_selection_keymap(dir, |dir| save_file_menu(dir));
+    keymap.bind_key_for_regular_candidates("enter", "SaveFile", |path| s::save_doc_as(path));
+    keymap.bind_key_for_custom_candidate("enter", "SaveFile",
+        |name| s::save_doc_as(s::join_path(dir, name))
+    );
+    let menu = s::make_menu("save_file_menu", `Save file in ${dir}/`);
+    s::set_menu_keymap(menu, keymap);
+    s::set_menu_default_to_custom_candidate(menu, true);
+    s::open_menu(menu)
 }
 
 // ~~ Builtin Languages ~~~
