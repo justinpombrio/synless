@@ -42,7 +42,7 @@ To learn more:
 
 [An Incomplete Survey of Tree Editors](doc/survey.md)
 
-## Install from source (Linux)
+## Install from source
 
 ### Prerequisites
 
@@ -52,13 +52,9 @@ To learn more:
 
 ### Build and install the executable
 
-This will build and install the executable to a default installation directory:
+This will build and install the executable into a cargo-specific bin directory:
 
-    make install
-
-You may specify the installation directory with `INSTALL_DIR`:
-
-    make install INSTALL_DIR=/path/to/bin
+    cargo install --path .
 
 #### Run the executable
 
@@ -66,14 +62,8 @@ To verify your installation, run the executable from any working directory:
 
     synless
 
-### Remove generated files
-
-This will remove the `target` directory:
-
-    make clean
-
 ### Uninstall
 
 This will remove the executable named `synless` that is in the current path:
 
-    make uninstall
+    cargo uninstall synless
