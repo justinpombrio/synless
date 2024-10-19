@@ -218,18 +218,17 @@ impl Location {
         Location::after_children(s, self.parent_node(s)?)
     }
 
-    /// Get the location at the next "leaf" node (node with no children).
+    /// Get the location at the next leaf node.
     pub fn next_leaf(self, s: &Storage) -> Option<Location> {
         let mut node = match self.0 {
             InText(_, _) => return None,
-            AtNode(node) => {
+            AtNode(node) | BelowNode(node) => {
                 if let Some(child) = node.first_child(s) {
                     return Some(Location(AtNode(child.first_leaf(s))));
                 } else {
                     node
                 }
             }
-            BelowNode(node) => node,
         };
         while node.next_sibling(s).is_none() {
             node = node.parent(s)?;
@@ -237,14 +236,16 @@ impl Location {
         Some(Location(AtNode(node.next_sibling(s).bug().first_leaf(s))))
     }
 
-    /// Get the location at the previous "leaf" node (node with no children).
-    pub fn prev_leaf(mut self, s: &Storage) -> Option<Location> {
-        while self.prev_sibling(s).is_none() {
-            self = self.parent(s)?;
+    /// Get the location at the previous leaf node.
+    pub fn prev_leaf(self, s: &Storage) -> Option<Location> {
+        let mut node = match self.0 {
+            InText(_, _) => return None,
+            AtNode(node) | BelowNode(node) => node,
+        };
+        while node.prev_sibling(s).is_none() {
+            node = node.parent(s)?;
         }
-        Some(Location(AtNode(
-            self.node(s)?.prev_sibling(s)?.last_leaf(s),
-        )))
+        Some(Location(AtNode(node.prev_sibling(s).bug().last_leaf(s))))
     }
 
     /// Get the location at the next texty node.
