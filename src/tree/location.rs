@@ -270,7 +270,11 @@ impl Location {
 
     /// Get the location at this node's parent.
     pub fn parent(self, s: &Storage) -> Option<Location> {
-        Some(Location(AtNode(self.parent_node(s)?)))
+        let parent_node = self.parent_node(s)?;
+        if parent_node.is_root(s) {
+            return None;
+        }
+        Some(Location(AtNode(parent_node)))
     }
 
     /// If the location is in text, returns the location after that text node.
