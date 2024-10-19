@@ -34,10 +34,11 @@ pub struct Runtime<F: Frontend<Style = Style>> {
     frontend: F,
     layers: LayerManager,
     last_log: Option<LogEntry>,
+    cli_args: rhai::Map,
 }
 
 impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
-    pub fn new(settings: Settings, frontend: F) -> Runtime<F> {
+    pub fn new(settings: Settings, frontend: F, cli_args: rhai::Map) -> Runtime<F> {
         let mut engine = Engine::new(settings);
 
         // Magic initialization
@@ -50,6 +51,7 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
             frontend,
             layers: LayerManager::new(),
             last_log: None,
+            cli_args,
         }
     }
 
@@ -423,6 +425,13 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
     pub fn cut(&mut self) -> Result<(), SynlessError> {
         self.engine.execute(ClipboardCommand::Copy)?;
         self.engine.execute(TreeEdCommand::Backspace)
+    }
+
+    /*************
+     * Variables *
+     *************/
+    pub fn cli_args(&self) -> rhai::Map {
+        self.cli_args.clone()
     }
 
     /***********
@@ -810,6 +819,9 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         // Editing: Meta
         register!(module, rt.undo()?);
         register!(module, rt.redo()?);
+
+        // Variables
+        register!(module, rt.cli_args());
 
         // Logging
         register!(module, rt.log_trace(msg: String));

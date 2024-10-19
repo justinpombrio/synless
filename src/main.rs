@@ -1,3 +1,4 @@
+use clap::Parser;
 use std::cell::RefCell;
 use std::panic;
 use std::rc::Rc;
@@ -8,6 +9,24 @@ const BASE_MODULE_PATH: &str = "scripts/base_module.rhai";
 const INTERNALS_MODULE_PATH: &str = "scripts/internals_module.rhai";
 const INIT_PATH: &str = "scripts/init.rhai";
 const MAIN_PATH: &str = "scripts/main.rhai";
+
+/// Synless tree editor
+#[derive(Parser)]
+#[command(version, about, long_about = None)]
+struct CliArgs {
+    /// Optional file to open
+    file_path: Option<String>,
+}
+
+impl CliArgs {
+    fn rhai_args(&self) -> rhai::Map {
+        let mut map = rhai::Map::new();
+        if let Some(file_path) = &self.file_path {
+            map.insert("file_path".into(), rhai::Dynamic::from(file_path.clone()));
+        }
+        map
+    }
+}
 
 #[allow(unused)]
 fn print_signatures(engine: &rhai::Engine) {
@@ -38,15 +57,16 @@ fn make_engine() -> rhai::Engine {
     engine
 }
 
-fn make_runtime() -> Rc<RefCell<Runtime<Terminal>>> {
+fn make_runtime(args: CliArgs) -> Rc<RefCell<Runtime<Terminal>>> {
     let settings = Settings::default();
     let terminal =
         Terminal::new(ColorTheme::default_dark()).bug_msg("Failed to construct terminal frontend");
-    let runtime = Runtime::new(settings, terminal);
+
+    let runtime = Runtime::new(settings, terminal, args.rhai_args());
     Rc::new(RefCell::new(runtime))
 }
 
-fn run() -> Result<(), Box<rhai::EvalAltResult>> {
+fn run(args: CliArgs) -> Result<(), Box<rhai::EvalAltResult>> {
     // TODO: Log which rhai script failed to compile (instead of simple ?s)
     let mut engine = make_engine();
 
@@ -63,7 +83,8 @@ fn run() -> Result<(), Box<rhai::EvalAltResult>> {
     };
 
     // Register runtime methods into internals_module and base_module
-    let runtime = make_runtime();
+    let runtime = make_runtime(args);
+
     Runtime::register_internal_methods(runtime.clone(), &mut internals_mod);
     engine.register_static_module("synless_internals", internals_mod.into());
     Runtime::register_external_methods(runtime, &mut base_mod);
@@ -99,6 +120,8 @@ fn display_error(error: Box<rhai::EvalAltResult>) {
 fn main() {
     log!(Info, "Synless is starting");
 
+    let args = CliArgs::parse();
+
     // Set up panic handling. We can't simply print the panic message to stderr,
     // because it would be swallowed by the terminal's alternate screen. Instead,
     // we'll log it and print the log once the terminal has been dropped.
@@ -118,7 +141,7 @@ fn main() {
 
     // Run the editor, catching any panics, then print the log.
     let _ = panic::catch_unwind(|| {
-        if let Err(err) = run() {
+        if let Err(err) = run(args) {
             display_error(err);
         }
     });

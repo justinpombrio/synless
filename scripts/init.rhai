@@ -178,7 +178,3 @@ layer.add_menu_keymap("space_menu", make_space_menu_keymap());
 
 s::register_layer(layer);
 s::add_global_layer("default");
-
-// ~~~ Setup ~~~
-
-s::open_doc("data/pokemon.json");

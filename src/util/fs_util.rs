@@ -16,8 +16,6 @@ pub fn path_to_string(path: &Path) -> Result<String, SynlessError> {
 }
 
 pub fn path_file_name(path: &str) -> Result<String, SynlessError> {
-    use std::path::Path;
-
     let os_str = Path::new(path)
         .file_name()
         .ok_or_else(|| error!(FileSystem, "Path ends in `..`: {path}"))?;
