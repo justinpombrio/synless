@@ -1,7 +1,6 @@
 
 /target/
 **/*.rs.bk
-Cargo.lock
 *.html
 .#*
 log.txt
