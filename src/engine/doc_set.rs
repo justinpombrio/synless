@@ -70,11 +70,16 @@ impl fmt::Display for DocName {
     }
 }
 
+/// Abstract counter saying when a doc was last viewed.
+type Timestamp = u64;
+
 #[derive(Debug)]
 pub struct DocSet {
     // TODO: consider more efficient ways to store docs in DocSet
-    docs: HashMap<DocName, Doc>,
+    /// Timestamp is when the Doc last became visible (bigger is later)
+    docs: HashMap<DocName, (Doc, Timestamp)>,
     visible_doc: Option<DocName>,
+    next_timestamp: Timestamp,
 }
 
 impl DocSet {
@@ -82,6 +87,7 @@ impl DocSet {
         DocSet {
             docs: HashMap::new(),
             visible_doc: None,
+            next_timestamp: 1,
         }
     }
 
@@ -90,7 +96,7 @@ impl DocSet {
         if self.docs.contains_key(&doc_name) {
             return false;
         }
-        self.docs.insert(doc_name, doc);
+        self.docs.insert(doc_name, (doc, 0));
         true
     }
 
@@ -101,7 +107,9 @@ impl DocSet {
 
     #[must_use]
     pub fn set_visible_doc(&mut self, doc_name: &DocName) -> bool {
-        if self.docs.contains_key(doc_name) {
+        if let Some((_, timestamp)) = self.docs.get_mut(doc_name) {
+            *timestamp = self.next_timestamp;
+            self.next_timestamp += 1;
             self.visible_doc = Some(doc_name.to_owned());
             true
         } else {
@@ -114,11 +122,15 @@ impl DocSet {
     }
 
     pub fn visible_doc(&self) -> Option<&Doc> {
-        self.docs.get(self.visible_doc.as_ref()?)
+        self.docs
+            .get(self.visible_doc.as_ref()?)
+            .map(|(doc, _)| doc)
     }
 
     pub fn visible_doc_mut(&mut self) -> Option<&mut Doc> {
-        self.docs.get_mut(self.visible_doc.as_ref()?)
+        self.docs
+            .get_mut(self.visible_doc.as_ref()?)
+            .map(|(doc, _)| doc)
     }
 
     pub fn contains_doc(&self, doc_name: &DocName) -> bool {
@@ -126,11 +138,19 @@ impl DocSet {
     }
 
     pub fn get_doc(&self, doc_name: &DocName) -> Option<&Doc> {
-        self.docs.get(doc_name)
+        self.docs.get(doc_name).map(|(doc, _)| doc)
     }
 
     pub fn get_doc_mut(&mut self, doc_name: &DocName) -> Option<&mut Doc> {
-        self.docs.get_mut(doc_name)
+        self.docs.get_mut(doc_name).map(|(doc, _)| doc)
+    }
+
+    /// The DocNames and timestamps of all open documents.
+    pub fn all_doc_names(&self) -> Vec<(&DocName, Timestamp)> {
+        self.docs
+            .iter()
+            .map(|(name, (_, ts))| (name, *ts))
+            .collect::<Vec<_>>()
     }
 
     pub fn get_content<'s>(

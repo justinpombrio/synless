@@ -205,6 +205,7 @@ impl LayerManager {
         menu_name: String,
         description: String,
         dynamic_keymap: Option<Keymap>,
+        is_candidate_menu: bool,
         default_to_custom_candidate: bool,
     ) -> Result<(), SynlessError> {
         let composite_layer = self.composite_layer(doc_name);
@@ -223,6 +224,7 @@ impl LayerManager {
             menu_name,
             description,
             keymap,
+            is_candidate_menu,
             default_to_custom_candidate,
         ));
         Ok(())

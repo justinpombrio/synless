@@ -35,12 +35,9 @@ struct MenuSelection {
 }
 
 impl MenuSelection {
-    fn new(keymap: &Keymap, default_to_custom_candidate: bool) -> Option<MenuSelection> {
+    fn new(keymap: &Keymap, default_to_custom_candidate: bool) -> MenuSelection {
         let custom_candidate = keymap.has_custom_candidate().then(Candidate::new_custom);
         let candidates = keymap.candidates().collect::<Vec<_>>();
-        if candidates.is_empty() && custom_candidate.is_none() {
-            return None;
-        }
         let mut menu = MenuSelection {
             custom_candidate,
             candidates,
@@ -50,7 +47,7 @@ impl MenuSelection {
             default_to_custom_candidate,
         };
         menu.update_filtered_candidates();
-        Some(menu)
+        menu
     }
 
     fn execute(&mut self, cmd: MenuSelectionCmd) {
@@ -151,13 +148,19 @@ impl Menu {
         name: MenuName,
         description: String,
         keymap: Keymap,
+        is_candidate_menu: bool,
         default_to_custom_candidate: bool,
     ) -> Menu {
+        let selection = if is_candidate_menu {
+            Some(MenuSelection::new(&keymap, default_to_custom_candidate))
+        } else {
+            None
+        };
         Menu {
             name,
             description,
-            selection: MenuSelection::new(&keymap, default_to_custom_candidate),
             keymap,
+            selection,
         }
     }
 

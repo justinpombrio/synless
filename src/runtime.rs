@@ -78,6 +78,7 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
             menu.name,
             menu.description,
             menu.keymap,
+            menu.is_candidate_menu,
             menu.default_to_custom_candidate,
         )
     }
@@ -340,6 +341,21 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         self.engine.set_visible_doc(&doc_name)
     }
 
+    pub fn doc_switching_candidates(&self) -> Result<Vec<rhai::Dynamic>, SynlessError> {
+        self.engine
+            .doc_switching_candidates()
+            .into_iter()
+            .map(|path| Ok(rhai::Dynamic::from(fs_util::path_to_string(path)?)))
+            .collect::<Result<Vec<_>, _>>()
+    }
+
+    pub fn switch_to_doc(&mut self, path: &str) -> Result<(), SynlessError> {
+        use std::path::PathBuf;
+
+        self.engine
+            .set_visible_doc(&DocName::File(PathBuf::from(path)))
+    }
+
     pub fn save_doc(&mut self) -> Result<(), SynlessError> {
         self.save_doc_impl(None)
     }
@@ -493,6 +509,7 @@ pub struct MenuBuilder {
     name: String,
     description: String,
     keymap: Option<Keymap>,
+    is_candidate_menu: bool,
     default_to_custom_candidate: bool,
 }
 
@@ -501,8 +518,13 @@ pub fn make_menu(menu_name: String, description: String) -> MenuBuilder {
         name: menu_name,
         description,
         keymap: None,
+        is_candidate_menu: false,
         default_to_custom_candidate: false,
     }
+}
+
+pub fn set_menu_is_candidate_menu(menu: &mut MenuBuilder, setting: bool) {
+    menu.is_candidate_menu = setting;
 }
 
 pub fn set_menu_keymap(menu: &mut MenuBuilder, keymap: Keymap) {
@@ -739,6 +761,7 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         register!(module, make_menu);
         register!(module, set_menu_keymap);
         register!(module, set_menu_default_to_custom_candidate);
+        register!(module, set_menu_is_candidate_menu);
         register!(module, rt.open_menu(menu: MenuBuilder)?);
         register!(module, rt.close_menu());
         register!(module, escape()?);
@@ -754,6 +777,8 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         // Doc management
         register!(module, rt.current_dir()?);
         register!(module, rt.open_doc(path: &str)?);
+        register!(module, rt.doc_switching_candidates()?);
+        register!(module, rt.switch_to_doc(path: &str)?);
         register!(module, rt.save_doc()?);
         register!(module, rt.save_doc_as(path: String)?);
 

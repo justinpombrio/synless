@@ -39,6 +39,7 @@ fn make_space_menu_keymap() {
     keymap.bind_key("s", "Save", || s::save_doc());
     keymap.bind_key("S", "SaveAs", || save_file_menu(s::current_dir()));
     keymap.bind_key("o", "Open", || open_file_menu(s::current_dir()));
+    keymap.bind_key("d", "SwitchDoc", || doc_switching_menu());
     keymap
 }
 
@@ -75,6 +76,7 @@ fn make_tree_keymap() {
     
     keymap.bind_key("I", "Insert", || {
         let menu = s::make_menu("candidate_node_selection", "Select node to insert");
+        s::set_menu_is_candidate_menu(menu, true);
         s::open_menu(menu);
         let construct = s::block();
         s::insert_node(construct);
@@ -143,6 +145,7 @@ fn open_file_menu(dir) {
     keymap.bind_key_for_regular_candidates("enter", "OpenFile", |path| s::open_doc(path));
     let menu = s::make_menu("open_file_menu", `Open file in ${dir}/`);
     s::set_menu_keymap(menu, keymap);
+    s::set_menu_is_candidate_menu(menu, true);
     s::open_menu(menu)
 }
 
@@ -154,7 +157,23 @@ fn save_file_menu(dir) {
     );
     let menu = s::make_menu("save_file_menu", `Save file in ${dir}/`);
     s::set_menu_keymap(menu, keymap);
+    s::set_menu_is_candidate_menu(menu, true);
     s::set_menu_default_to_custom_candidate(menu, true);
+    s::open_menu(menu)
+}
+
+fn doc_switching_menu() {
+    let keymap = make_candidate_keymap();
+    for path in s::doc_switching_candidates() {
+        let name = `${s::path_file_name(path)} (${path})`;
+        keymap.add_regular_candidate(name, path);
+    }
+    keymap.bind_key_for_regular_candidates("enter", "SwitchTo", |path| {
+        s::switch_to_doc(path);
+    });
+    let menu = s::make_menu("doc_switching_menu", "Switch which doc is visible");
+    s::set_menu_keymap(menu, keymap);
+    s::set_menu_is_candidate_menu(menu, true);
     s::open_menu(menu)
 }
 

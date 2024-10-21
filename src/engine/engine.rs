@@ -181,12 +181,39 @@ impl Engine {
         self.doc_set.visible_doc()
     }
 
+    pub fn set_visible_doc(&mut self, doc_name: &DocName) -> Result<(), SynlessError> {
+        if self.doc_set.set_visible_doc(doc_name) {
+            Ok(())
+        } else {
+            Err(DocError::DocNotFound(doc_name.to_owned()).into())
+        }
+    }
+
     pub fn get_doc(&self, doc_name: &DocName) -> Option<&Doc> {
         self.doc_set.get_doc(doc_name)
     }
 
     pub fn get_doc_mut(&mut self, doc_name: &DocName) -> Option<&mut Doc> {
         self.doc_set.get_doc_mut(doc_name)
+    }
+
+    /// Docs that can become the visible doc. Excludes the current visible doc, and sorts by most
+    /// recently visible.
+    pub fn doc_switching_candidates(&self) -> Vec<&Path> {
+        let mut names_and_timestamps = self.doc_set.all_doc_names();
+        names_and_timestamps.sort_by_key(|(_, ts)| -(*ts as i64));
+        names_and_timestamps
+            .into_iter()
+            .filter_map(|(name, _)| {
+                if Some(name) == self.visible_doc_name() {
+                    return None;
+                }
+                match name {
+                    DocName::File(path) => Some(path.as_ref()),
+                    DocName::Metadata(_) | DocName::Auxilliary(_) => None,
+                }
+            })
+            .collect::<Vec<_>>()
     }
 
     pub fn mode(&self) -> Mode {
@@ -228,14 +255,6 @@ impl Engine {
             return Err(DocError::DocAlreadyOpen(doc_name).into());
         }
         Ok(())
-    }
-
-    pub fn set_visible_doc(&mut self, doc_name: &DocName) -> Result<(), SynlessError> {
-        if self.doc_set.set_visible_doc(doc_name) {
-            Ok(())
-        } else {
-            Err(DocError::DocNotFound(doc_name.to_owned()).into())
-        }
     }
 
     pub fn print_source(&self, doc_name: &DocName) -> Result<String, SynlessError> {
