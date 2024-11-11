@@ -2,7 +2,7 @@ mod json_parser;
 
 use crate::language::Storage;
 use crate::tree::Node;
-use crate::util::{error, SynlessError};
+use crate::util::{bug, error, SynlessError};
 use partial_pretty_printer as ppp;
 use std::fmt;
 use std::path::Path;
@@ -18,6 +18,26 @@ pub trait Parse: fmt::Debug {
         file_name: &str,
         source: &str,
     ) -> Result<Node, SynlessError>;
+}
+
+/// Convert holes in `source` from `invalid_hole_syntax` to `valid_hole_syntax`, so that they can
+/// be parsed with a standard parser for the language.
+pub fn preprocess(source: &str, invalid_hole_syntax: &str, valid_hole_syntax: &str) -> String {
+    source.replace(invalid_hole_syntax, valid_hole_syntax)
+}
+
+/// Replace every texty node within `root` that contains `hole_text` with a hole.
+pub fn postprocess(s: &mut Storage, root: Node, hole_text: &str) {
+    root.walk_tree(s, |s: &mut Storage, node: Node| {
+        if let Some(text) = node.text(s) {
+            if text.as_str() == hole_text {
+                let hole = Node::new_hole(s, node.language(s));
+                if !node.swap(s, hole) {
+                    bug!("Failed to replace node with hole in parser postprocess()")
+                }
+            }
+        }
+    });
 }
 
 #[derive(Debug)]

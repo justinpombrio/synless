@@ -194,6 +194,10 @@ impl Node {
         s.forest().data(self.0).text.is_some()
     }
 
+    pub fn is_hole(self, s: &Storage) -> bool {
+        s.forest().data(self.0).construct.is_hole(s)
+    }
+
     pub fn can_have_children(self, s: &Storage) -> bool {
         match self.arity(s) {
             Arity::Texty => false,
@@ -497,6 +501,30 @@ impl Node {
             }
         };
         Node(s.node_forest.forest.deep_copy(self.0, &mut clone_data))
+    }
+
+    /***********
+     * Walking *
+     ***********/
+
+    /// Invoke `callback` on every descendant of this node, in an unspecified order.
+    pub fn walk_tree(self, s: &mut Storage, mut callback: impl FnMut(&mut Storage, Node)) {
+        // Remaining nodes to walk are `n.first_child()` and `n.next_sibling()` for every `n` in
+        // `stack`.
+        let mut stack = Vec::new();
+        if let Some(node) = self.first_child(s) {
+            stack.push(node);
+        }
+        callback(s, self);
+        while let Some(node) = stack.pop() {
+            if let Some(n) = node.first_child(s) {
+                stack.push(n);
+            }
+            if let Some(n) = node.next_sibling(s) {
+                stack.push(n);
+            }
+            callback(s, node);
+        }
     }
 
     /*************

@@ -3,6 +3,11 @@
 LanguageSpec(
     name: "json",
     file_extensions: [".json"],
+    hole_syntax: Some(HoleSyntax(
+        invalid: "SYNLESS_HOLE_6CB3433C86C14E599F9F12637A47F6DA",
+        valid: "\"SYNLESS_HOLE_6CB3433C86C14E599F9F12637A47F6DA\"",
+        text: "SYNLESS_HOLE_6CB3433C86C14E599F9F12637A47F6DA",
+    )),
     grammar: GrammarSpec(
         constructs: [
             ConstructSpec(

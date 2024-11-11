@@ -4,7 +4,7 @@ use super::compiled::{
 };
 use super::specs::NotationSetSpec;
 use super::storage::Storage;
-use super::LanguageError;
+use super::{HoleSyntax, LanguageError};
 use crate::style::ValidNotation;
 use crate::util::bug;
 
@@ -198,6 +198,18 @@ impl Language {
         Ok(())
     }
 
+    pub fn hole_syntax(self, s: &Storage) -> Option<&HoleSyntax> {
+        s.languages[self.language].hole_syntax.as_ref()
+    }
+
+    pub fn hole_display_notation(self, s: &Storage) -> &ValidNotation {
+        &s.languages[self.language].hole_display_notation
+    }
+
+    pub fn hole_source_notation(self, s: &Storage) -> Option<&ValidNotation> {
+        s.languages[self.language].hole_source_notation.as_ref()
+    }
+
     fn notation_id(self, s: &Storage, notation_set_name: &str) -> Result<usize, LanguageError> {
         if let Some(id) = s.languages[self.language]
             .notation_sets
@@ -301,11 +313,19 @@ impl Construct {
     }
 
     pub fn display_notation(self, s: &Storage) -> &ValidNotation {
-        self.language().display_notation(s).notation(s, self)
+        if self.is_hole(s) {
+            self.language().hole_display_notation(s)
+        } else {
+            self.language().display_notation(s).notation(s, self)
+        }
     }
 
     pub fn source_notation(self, s: &Storage) -> Option<&ValidNotation> {
-        Some(self.language().source_notation(s)?.notation(s, self))
+        if self.is_hole(s) {
+            self.language().hole_source_notation(s)
+        } else {
+            Some(self.language().source_notation(s)?.notation(s, self))
+        }
     }
 
     pub fn is_comment_or_ws(self, s: &Storage) -> bool {

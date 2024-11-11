@@ -5,7 +5,7 @@ use super::doc::Doc;
 use super::doc_set::{DocDisplayLabel, DocName, DocSet};
 use super::Settings;
 use crate::language::{Language, LanguageSpec, NotationSetSpec, Storage};
-use crate::parsing::{Parse, ParseError};
+use crate::parsing::{self, Parse, ParseError};
 use crate::pretty_doc::DocRef;
 use crate::style::Base16Color;
 use crate::tree::{Mode, Node};
@@ -249,7 +249,23 @@ impl Engine {
             .parsers
             .get_mut(language_name)
             .ok_or_else(|| error!(Language, "No parser for language {}", language_name))?;
+        let hole_syntax = self
+            .storage
+            .language(language_name)?
+            .hole_syntax(&self.storage)
+            .ok_or_else(|| {
+                error!(
+                    Language,
+                    "No hole syntax for language {}, but it's required for loading from source",
+                    language_name
+                )
+            })?
+            .to_owned();
+
+        let source = &parsing::preprocess(source, &hole_syntax.invalid, &hole_syntax.valid);
         let root_node = parser.parse(&mut self.storage, &doc_name.to_string(), source)?;
+        parsing::postprocess(&mut self.storage, root_node, &hole_syntax.text);
+
         let doc = Doc::new(&self.storage, root_node).bug_msg("Invalid root");
         if !self.doc_set.add_doc(doc_name.clone(), doc) {
             return Err(DocError::DocAlreadyOpen(doc_name).into());

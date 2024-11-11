@@ -54,6 +54,7 @@ fn urllang() -> LanguageSpec {
         },
         default_display_notation: "Testlang_notation".to_owned(),
         default_source_notation: None,
+        hole_syntax: None,
         notations: vec![NotationSetSpec {
             name: "Testlang_notation".to_owned(),
             notations: vec![

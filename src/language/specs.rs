@@ -65,4 +65,20 @@ pub struct LanguageSpec {
     pub default_source_notation: Option<String>,
     /// Load files with these extensions using this language. Must include the `.`.
     pub file_extensions: Vec<String>,
+    pub hole_syntax: Option<HoleSyntax>,
+}
+
+/// The syntax to use when saving and loading holes.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HoleSyntax {
+    /// What to save each hole as in a source file. It should ideally cause a syntax error when
+    /// parsed with the language's standard parser.
+    pub invalid: String,
+    /// Something syntactically valid to convert holes into, before Synless parses it with a
+    /// standard parser for the language.
+    pub valid: String,
+    /// After a `HoleSyntax.valid` is parsed into a texty node, this is the contents of that node.
+    /// It will then be replaced by a hole, completing the cycle.
+    pub text: String,
 }

@@ -1,5 +1,5 @@
 use super::specs::{
-    AritySpec, ConstructSpec, GrammarSpec, LanguageSpec, NotationSetSpec, SortSpec,
+    AritySpec, ConstructSpec, GrammarSpec, HoleSyntax, LanguageSpec, NotationSetSpec, SortSpec,
 };
 use crate::language::LanguageError;
 use crate::style::{StyleLabel, ValidNotation};
@@ -58,6 +58,9 @@ pub struct LanguageCompiled {
     pub display_notation: NotationSetId,
     /// Load files with these extensions using this language. Must include the `.`.
     pub file_extensions: Vec<String>,
+    pub hole_syntax: Option<HoleSyntax>,
+    pub hole_source_notation: Option<ValidNotation>,
+    pub hole_display_notation: ValidNotation,
 }
 
 #[derive(Debug)]
@@ -92,6 +95,25 @@ pub fn compile_language(language_spec: LanguageSpec) -> Result<LanguageCompiled,
         None
     };
 
+    let (hole_source_notation, hole_display_notation) = {
+        use ppp::notation_constructors::{lit, style};
+
+        let display_notation = style(StyleLabel::Hole, lit(HOLE_LITERAL)).validate().bug();
+        let source_notation = language_spec
+            .hole_syntax
+            .as_ref()
+            .map(|hole_syntax| {
+                style(StyleLabel::Hole, lit(&hole_syntax.invalid))
+                    .validate()
+                    .map_err(|err| {
+                        LanguageError::InvalidHoleNotation(language_spec.name.clone(), err)
+                    })
+            })
+            .transpose()?;
+
+        (source_notation, display_notation)
+    };
+
     Ok(LanguageCompiled {
         name: language_spec.name,
         grammar,
@@ -99,23 +121,16 @@ pub fn compile_language(language_spec: LanguageSpec) -> Result<LanguageCompiled,
         source_notation,
         display_notation,
         file_extensions: language_spec.file_extensions,
+        hole_syntax: language_spec.hole_syntax,
+        hole_source_notation,
+        hole_display_notation,
     })
 }
 
-fn inject_notation_set_builtins(notation_set_spec: &mut NotationSetSpec) {
-    use ppp::notation_constructors::{lit, style};
-    let hole_notation = style(StyleLabel::Hole, lit(HOLE_LITERAL));
-    notation_set_spec
-        .notations
-        .push((HOLE_NAME.to_owned(), hole_notation));
-}
-
 pub(super) fn compile_notation_set(
-    mut notation_set: NotationSetSpec,
+    notation_set: NotationSetSpec,
     grammar: &GrammarCompiled,
 ) -> Result<NotationSetCompiled, LanguageError> {
-    inject_notation_set_builtins(&mut notation_set);
-
     // Put notations in a HashMap, checking for duplicate entries.
     let mut notations_map = HashMap::new();
     for (construct_name, notation) in notation_set.notations {
@@ -144,7 +159,8 @@ pub(super) fn compile_notation_set(
                 )
             })?;
             notations.push(valid_notation);
-        } else {
+        } else if construct.name != HOLE_NAME {
+            // Every construct except for $hole must have a notation.
             return Err(LanguageError::MissingNotation(
                 notation_set.name,
                 construct.name.clone(),

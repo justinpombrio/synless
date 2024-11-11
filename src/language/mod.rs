@@ -8,7 +8,9 @@ use partial_pretty_printer as ppp;
 use std::fmt;
 
 pub use interface::{Arity, Construct, Language};
-pub use specs::{AritySpec, ConstructSpec, GrammarSpec, LanguageSpec, NotationSetSpec, SortSpec};
+pub use specs::{
+    AritySpec, ConstructSpec, GrammarSpec, HoleSyntax, LanguageSpec, NotationSetSpec, SortSpec,
+};
 pub use storage::Storage;
 
 #[derive(thiserror::Error, fmt::Debug)]
@@ -45,6 +47,8 @@ pub enum LanguageError {
     DuplicateNotation(String, String),
     #[error("Invalid notation for construct '{1}' in notation set '{0}':\n{2}")]
     InvalidNotation(String, String, ppp::NotationError),
+    #[error("Invalid notation for holes in language '{0}':\n{1}")]
+    InvalidHoleNotation(String, ppp::NotationError),
 
     // Languages
     #[error("Duplicate name '{0}' used for two languages")]
