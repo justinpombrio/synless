@@ -356,6 +356,10 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
             .set_visible_doc(&DocName::File(PathBuf::from(path)))
     }
 
+    pub fn close_visible_doc(&mut self) -> Result<(), SynlessError> {
+        self.engine.close_visible_doc()
+    }
+
     pub fn save_doc(&mut self) -> Result<(), SynlessError> {
         self.save_doc_impl(None)
     }
@@ -779,6 +783,7 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         register!(module, rt.open_doc(path: &str)?);
         register!(module, rt.doc_switching_candidates()?);
         register!(module, rt.switch_to_doc(path: &str)?);
+        register!(module, rt.close_visible_doc()?);
         register!(module, rt.save_doc()?);
         register!(module, rt.save_doc_as(path: String)?);
 

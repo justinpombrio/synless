@@ -2,11 +2,12 @@ use super::doc::Doc;
 use super::Settings;
 use crate::language::Storage;
 use crate::pretty_doc::DocRef;
+use crate::util::bug_assert;
 use partial_pretty_printer as ppp;
 use partial_pretty_printer::pane;
 use std::collections::HashMap;
 use std::fmt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Label for documents that might be displayed on the screen.  Not every document will have such a
 /// label, and multiple labels may refer to the same document.
@@ -102,7 +103,17 @@ impl DocSet {
 
     #[must_use]
     pub fn delete_doc(&mut self, doc_name: &DocName) -> bool {
-        self.docs.remove(doc_name).is_some()
+        let deleted = self.docs.remove(doc_name).is_some();
+        if deleted && self.visible_doc.as_ref() == Some(doc_name) {
+            if let Some(most_recent_doc_path) = self.doc_switching_candidates().first() {
+                bug_assert!(
+                    self.set_visible_doc(&DocName::File(PathBuf::from(most_recent_doc_path)))
+                );
+            } else {
+                self.visible_doc = None;
+            }
+        }
+        deleted
     }
 
     #[must_use]
@@ -145,11 +156,26 @@ impl DocSet {
         self.docs.get_mut(doc_name).map(|(doc, _)| doc)
     }
 
-    /// The DocNames and timestamps of all open documents.
-    pub fn all_doc_names(&self) -> Vec<(&DocName, Timestamp)> {
-        self.docs
+    /// Docs that can become the visible doc. Excludes the current visible doc, and sorts by most
+    /// recently visible.
+    pub fn doc_switching_candidates(&self) -> Vec<&Path> {
+        let mut names_and_timestamps = self
+            .docs
             .iter()
             .map(|(name, (_, ts))| (name, *ts))
+            .collect::<Vec<_>>();
+        names_and_timestamps.sort_by_key(|(_, ts)| -(*ts as i64));
+        names_and_timestamps
+            .into_iter()
+            .filter_map(|(name, _)| {
+                if Some(name) == self.visible_doc_name() {
+                    return None;
+                }
+                match name {
+                    DocName::File(path) => Some(path.as_ref()),
+                    DocName::Metadata(_) | DocName::Auxilliary(_) => None,
+                }
+            })
             .collect::<Vec<_>>()
     }
 

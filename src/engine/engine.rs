@@ -189,6 +189,18 @@ impl Engine {
         }
     }
 
+    pub fn close_visible_doc(&mut self) -> Result<(), SynlessError> {
+        if let Some(doc_name) = self.doc_set.visible_doc_name().cloned() {
+            if self.doc_set.delete_doc(&doc_name) {
+                Ok(())
+            } else {
+                bug!("close_visible_doc: doc '{}' not found", doc_name)
+            }
+        } else {
+            Err(DocError::NoVisibleDoc.into())
+        }
+    }
+
     pub fn get_doc(&self, doc_name: &DocName) -> Option<&Doc> {
         self.doc_set.get_doc(doc_name)
     }
@@ -200,20 +212,7 @@ impl Engine {
     /// Docs that can become the visible doc. Excludes the current visible doc, and sorts by most
     /// recently visible.
     pub fn doc_switching_candidates(&self) -> Vec<&Path> {
-        let mut names_and_timestamps = self.doc_set.all_doc_names();
-        names_and_timestamps.sort_by_key(|(_, ts)| -(*ts as i64));
-        names_and_timestamps
-            .into_iter()
-            .filter_map(|(name, _)| {
-                if Some(name) == self.visible_doc_name() {
-                    return None;
-                }
-                match name {
-                    DocName::File(path) => Some(path.as_ref()),
-                    DocName::Metadata(_) | DocName::Auxilliary(_) => None,
-                }
-            })
-            .collect::<Vec<_>>()
+        self.doc_set.doc_switching_candidates()
     }
 
     pub fn mode(&self) -> Mode {

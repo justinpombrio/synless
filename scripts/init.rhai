@@ -38,6 +38,7 @@ fn make_space_menu_keymap() {
     keymap.bind_key("q", "Quit", || s::abort());
     keymap.bind_key("s", "Save", || s::save_doc());
     keymap.bind_key("S", "SaveAs", || save_file_menu(s::current_dir()));
+    keymap.bind_key("c", "Close", || s::close_visible_doc());
     keymap.bind_key("o", "Open", || open_file_menu(s::current_dir()));
     keymap.bind_key("d", "SwitchDoc", || doc_switching_menu());
     keymap
