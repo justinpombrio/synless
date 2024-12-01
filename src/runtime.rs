@@ -308,6 +308,23 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         fs_util::path_to_string(&cwd)
     }
 
+    pub fn new_doc(&mut self, path: &str) -> Result<(), SynlessError> {
+        use std::path::PathBuf;
+
+        let path_buf = PathBuf::from(path);
+        if path_buf.exists() {
+            return Err(error!(
+                FileSystem,
+                "File already exists: {}",
+                path_buf.display()
+            ));
+        }
+        let language_name = self.language_name_from_file_extension(&path_buf)?;
+        let doc_name = DocName::File(path_buf);
+        self.engine.add_empty_doc(&doc_name, &language_name)?;
+        self.engine.set_visible_doc(&doc_name)
+    }
+
     pub fn open_doc(&mut self, path: &str) -> Result<(), SynlessError> {
         use std::fs::read_to_string;
         use std::path::PathBuf;
@@ -315,30 +332,39 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         let source = read_to_string(path)
             .map_err(|err| error!(FileSystem, "Failed to read file at '{path}' ({err})"))?;
         let path_buf = PathBuf::from(path);
-        let ext = path_buf
+        let language_name = self.language_name_from_file_extension(&path_buf)?;
+        let doc_name = DocName::File(path_buf);
+        self.engine
+            .load_doc_from_source(doc_name.clone(), &language_name, &source)?;
+        self.engine.set_visible_doc(&doc_name)
+    }
+
+    fn language_name_from_file_extension(
+        &self,
+        path: &std::path::Path,
+    ) -> Result<String, SynlessError> {
+        let extension = path
             .extension()
             .ok_or_else(|| {
                 error!(
                     Doc,
-                    "Can't open file at '{path}' because it doesn't have an extension"
+                    "Can't determine language of '{}' because it doesn't have an extension",
+                    path.display()
                 )
             })?
             .to_str()
             .ok_or_else(|| {
                 error!(
                     Doc,
-                    "Can't open file at '{path}' because its extension is not valid Unicode"
+                    "Can't determine language of '{}' because its extension is not valid Unicode",
+                    path.display()
                 )
             })?;
-        let language_name = self
+        Ok(self
             .engine
-            .lookup_file_extension(&format!(".{ext}"))
-            .ok_or_else(|| error!(Doc, "No language registered for extension '{ext}'"))?
-            .to_owned();
-        let doc_name = DocName::File(path_buf);
-        self.engine
-            .load_doc_from_source(doc_name.clone(), &language_name, &source)?;
-        self.engine.set_visible_doc(&doc_name)
+            .lookup_file_extension(&format!(".{extension}"))
+            .ok_or_else(|| error!(Doc, "No language registered for extension '{extension}'"))?
+            .to_owned())
     }
 
     pub fn doc_switching_candidates(&self) -> Result<Vec<rhai::Dynamic>, SynlessError> {
@@ -780,6 +806,7 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
 
         // Doc management
         register!(module, rt.current_dir()?);
+        register!(module, rt.new_doc(path: &str)?);
         register!(module, rt.open_doc(path: &str)?);
         register!(module, rt.doc_switching_candidates()?);
         register!(module, rt.switch_to_doc(path: &str)?);

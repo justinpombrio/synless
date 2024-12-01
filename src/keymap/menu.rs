@@ -87,11 +87,13 @@ impl MenuSelection {
             .first()
             .map(|c| c.display_str() == self.input)
             .unwrap_or(false);
+        let has_regular_candidates = !self.filtered_candidates.is_empty();
         if let Some(candidate) = &self.custom_candidate {
             self.filtered_candidates.insert(0, candidate.to_owned());
         }
 
         self.index = if self.custom_candidate.is_some()
+            && has_regular_candidates
             && (is_exact_match || !self.default_to_custom_candidate)
         {
             1

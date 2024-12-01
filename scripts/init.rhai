@@ -144,6 +144,9 @@ fn file_selection_keymap(dir, open_dir) {
 fn open_file_menu(dir) {
     let keymap = file_selection_keymap(dir, |dir| open_file_menu(dir));
     keymap.bind_key_for_regular_candidates("enter", "OpenFile", |path| s::open_doc(path));
+    keymap.bind_key_for_custom_candidate("enter", "NewFile",
+        |name| s::new_doc(s::join_path(dir, name))
+    );
     let menu = s::make_menu("open_file_menu", `Open file in ${dir}/`);
     s::set_menu_keymap(menu, keymap);
     s::set_menu_is_candidate_menu(menu, true);
