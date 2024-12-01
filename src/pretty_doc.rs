@@ -168,7 +168,7 @@ impl<'d> ppp::PrettyDoc<'d> for DocRef<'d> {
     }
 }
 
-impl<'d> fmt::Debug for DocRef<'d> {
+impl fmt::Debug for DocRef<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,

@@ -544,7 +544,7 @@ pub struct NodeDisplay<'s> {
     node: Node,
 }
 
-impl<'s> fmt::Display for NodeDisplay<'s> {
+impl fmt::Display for NodeDisplay<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "(")?;
         write!(

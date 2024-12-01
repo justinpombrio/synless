@@ -99,7 +99,7 @@ impl<T> IndexMut<usize> for IndexedMap<T> {
     }
 }
 
-impl<'a, T> IntoIterator for &'a IndexedMap<T> {
+impl<T> IntoIterator for &IndexedMap<T> {
     type Item = usize;
     type IntoIter = std::ops::Range<usize>;
 

@@ -179,7 +179,7 @@ impl ScreenBuf {
     }
 }
 
-impl<'a> ScreenBufIter<'a> {
+impl ScreenBufIter<'_> {
     fn next_pos(&self, pos: Pos, char_width: CharWidth) -> Option<Pos> {
         if pos.col + char_width as Width >= self.size.width {
             // At the last column of a line
@@ -203,7 +203,7 @@ impl<'a> ScreenBufIter<'a> {
     }
 }
 
-impl<'a> Iterator for ScreenBufIter<'a> {
+impl Iterator for ScreenBufIter<'_> {
     type Item = ScreenOp;
 
     fn next(&mut self) -> Option<ScreenOp> {
