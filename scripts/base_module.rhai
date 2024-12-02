@@ -36,3 +36,23 @@ fn abort() {
     synless_internals::prepare_to_abort();
     exit();
 }
+
+fn close() {
+    if s::has_unsaved_changes() {
+        s::log_error(`Doc has unsaved changes. Use ' C' to close without saving.`);
+    } else {
+        s::force_close_visible_doc();
+    }
+}
+
+fn quit() {
+    while s::has_visible_doc() {
+        if s::has_unsaved_changes() {
+            s::log_error(`Doc has unsaved changes. Use ' C' to close it without saving, or ' Q' to quit without saving any docs.`);
+            return;
+        } else {
+            s::force_close_visible_doc();
+        }
+    }
+    s::abort();
+}

@@ -397,7 +397,7 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         self.engine.has_unsaved_changes()
     }
 
-    pub fn close_visible_doc(&mut self) -> Result<(), SynlessError> {
+    pub fn force_close_visible_doc(&mut self) -> Result<(), SynlessError> {
         self.engine.close_visible_doc()
     }
 
@@ -829,7 +829,7 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         register!(module, rt.switch_to_doc(path: &str)?);
         register!(module, rt.has_visible_doc());
         register!(module, rt.has_unsaved_changes());
-        register!(module, rt.close_visible_doc()?);
+        register!(module, rt.force_close_visible_doc()?);
         register!(module, rt.save_doc()?);
         register!(module, rt.save_doc_as(path: String)?);
 

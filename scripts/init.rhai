@@ -35,10 +35,12 @@ fn make_char_node_selection_keymap(language_name) {
 fn make_space_menu_keymap() {
     let keymap = new_keymap();
     keymap.bind_key("esc", "ExitMenu", || s::escape());
-    keymap.bind_key("q", "Quit", || s::abort());
+    keymap.bind_key("q", "Quit", || s::quit());
+    keymap.bind_key("Q", "ForceQuit", || s::abort());
     keymap.bind_key("s", "Save", || s::save_doc());
     keymap.bind_key("S", "SaveAs", || save_file_menu(s::current_dir()));
-    keymap.bind_key("c", "Close", || s::close_visible_doc());
+    keymap.bind_key("c", "Close", || s::close());
+    keymap.bind_key("C", "ForceClose", || s::force_close_visible_doc());
     keymap.bind_key("o", "Open", || open_file_menu(s::current_dir()));
     keymap.bind_key("d", "SwitchDoc", || doc_switching_menu());
     keymap
