@@ -312,22 +312,6 @@ impl Construct {
         }
     }
 
-    pub fn display_notation(self, s: &Storage) -> &ValidNotation {
-        if self.is_hole(s) {
-            self.language().hole_display_notation(s)
-        } else {
-            self.language().display_notation(s).notation(s, self)
-        }
-    }
-
-    pub fn source_notation(self, s: &Storage) -> Option<&ValidNotation> {
-        if self.is_hole(s) {
-            self.language().hole_source_notation(s)
-        } else {
-            Some(self.language().source_notation(s)?.notation(s, self))
-        }
-    }
-
     pub fn is_comment_or_ws(self, s: &Storage) -> bool {
         grammar(s, self.language).constructs[self.construct].is_comment_or_ws
     }

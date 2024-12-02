@@ -1,7 +1,6 @@
 use super::forest;
 use super::text::Text;
 use crate::language::{Arity, Construct, Language, Storage};
-use crate::style::ValidNotation;
 use crate::util::{bug, bug_assert, SynlessBug};
 use std::fmt;
 
@@ -180,14 +179,6 @@ impl Node {
     /// ("ws" means "whitespace")
     pub fn is_comment_or_ws(self, s: &Storage) -> bool {
         s.forest().data(self.0).construct.is_comment_or_ws(s)
-    }
-
-    pub fn display_notation(self, s: &Storage) -> &ValidNotation {
-        s.forest().data(self.0).construct.display_notation(s)
-    }
-
-    pub fn source_notation(self, s: &Storage) -> Option<&ValidNotation> {
-        s.forest().data(self.0).construct.source_notation(s)
     }
 
     pub fn is_texty(self, s: &Storage) -> bool {

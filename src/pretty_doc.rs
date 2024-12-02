@@ -61,13 +61,24 @@ impl<'d> ppp::PrettyDoc<'d> for DocRef<'d> {
     }
 
     fn notation(self) -> Result<&'d ValidNotation, Self::Error> {
+        let s = self.storage;
+        let construct = self.node.construct(s);
+        let lang = self.node.language(s);
+
+        #[allow(clippy::collapsible_else_if)]
         if self.use_source_notation {
-            self.node.source_notation(self.storage).ok_or_else(|| {
-                let lang = self.node.language(self.storage);
-                PrettyDocError::NoSourceNotation(lang.name(self.storage).to_owned())
-            })
+            let notation = if construct.is_hole(s) {
+                lang.hole_source_notation(s)
+            } else {
+                lang.source_notation(s).map(|ns| ns.notation(s, construct))
+            };
+            notation.ok_or_else(|| PrettyDocError::NoSourceNotation(lang.name(s).to_owned()))
         } else {
-            Ok(self.node.display_notation(self.storage))
+            if construct.is_hole(s) {
+                Ok(lang.hole_display_notation(s))
+            } else {
+                Ok(lang.display_notation(s).notation(s, construct))
+            }
         }
     }
 
