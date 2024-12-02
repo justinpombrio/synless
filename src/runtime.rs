@@ -210,7 +210,9 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         ] {
             let _ = self.engine.delete_doc(&name);
             if let Some(node) = node {
-                self.engine.add_doc(&name, node).bug();
+                // is_saved = true because auxilliary docs should be treated as never having
+                // unsaved changes.
+                self.engine.add_doc(&name, node, true).bug();
             }
         }
     }
@@ -258,7 +260,12 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         let opt_label = opt_doc_name.map(|doc_name| match doc_name {
             DocName::File(path) => {
                 let os_str = path.file_name().unwrap_or_else(|| path.as_os_str());
-                os_str.to_string_lossy().into_owned()
+                let name = os_str.to_string_lossy().into_owned();
+                if self.engine.has_unsaved_changes() {
+                    format!("{}*", name)
+                } else {
+                    name
+                }
             }
             DocName::Metadata(label) => format!("metadata:{}", label),
             DocName::Auxilliary(label) => format!("auxilliary:{}", label),
@@ -382,6 +389,14 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
             .set_visible_doc(&DocName::File(PathBuf::from(path)))
     }
 
+    pub fn has_visible_doc(&self) -> bool {
+        self.engine.visible_doc().is_some()
+    }
+
+    pub fn has_unsaved_changes(&self) -> bool {
+        self.engine.has_unsaved_changes()
+    }
+
     pub fn close_visible_doc(&mut self) -> Result<(), SynlessError> {
         self.engine.close_visible_doc()
     }
@@ -395,17 +410,18 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
     }
 
     fn save_doc_impl(&mut self, path: Option<String>) -> Result<(), SynlessError> {
-        if let Some(doc_name) = self.engine.visible_doc_name() {
-            let source = self.engine.print_source(doc_name)?;
+        if let Some(doc_name) = self.engine.visible_doc_name().cloned() {
+            let source = self.engine.print_source(&doc_name)?;
             let path = if let Some(path) = path {
                 path
-            } else if let DocName::File(path_buf) = doc_name {
+            } else if let DocName::File(path_buf) = &doc_name {
                 fs_util::path_to_string(path_buf)?
             } else {
                 return Err(error!(Doc, "Document does not have a path. Try save-as."));
             };
             std::fs::write(&path, source)
-                .map_err(|err| error!(FileSystem, "Failed to write to file '{path}' ({err})"))
+                .map_err(|err| error!(FileSystem, "Failed to write to file '{path}' ({err})"))?;
+            self.engine.mark_doc_as_saved(&doc_name)
         } else {
             Err(error!(Doc, "No open document"))
         }
@@ -473,9 +489,10 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         self.engine.execute(TreeEdCommand::Backspace)
     }
 
-    /*************
-     * Variables *
-     *************/
+    /**************************
+     * Command Line Interface *
+     **************************/
+
     pub fn cli_args(&self) -> rhai::Map {
         self.cli_args.clone()
     }
@@ -810,6 +827,8 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         register!(module, rt.open_doc(path: &str)?);
         register!(module, rt.doc_switching_candidates()?);
         register!(module, rt.switch_to_doc(path: &str)?);
+        register!(module, rt.has_visible_doc());
+        register!(module, rt.has_unsaved_changes());
         register!(module, rt.close_visible_doc()?);
         register!(module, rt.save_doc()?);
         register!(module, rt.save_doc_as(path: String)?);

@@ -151,15 +151,20 @@ impl Engine {
         let language = self.storage.language(language_name)?;
         let root_construct = language.root_construct(&self.storage);
         let root_node = Node::new(&mut self.storage, root_construct);
-        let doc = Doc::new(&self.storage, root_node).bug_msg("Invalid root");
+        let doc = Doc::new(&self.storage, root_node, false).bug_msg("Invalid root");
         if !self.doc_set.add_doc(doc_name.to_owned(), doc) {
             Err(DocError::DocAlreadyOpen(doc_name.to_owned()))?;
         }
         Ok(())
     }
 
-    pub fn add_doc(&mut self, doc_name: &DocName, root_node: Node) -> Result<(), SynlessError> {
-        let doc = Doc::new(&self.storage, root_node).ok_or(DocError::InvalidRootNode)?;
+    pub fn add_doc(
+        &mut self,
+        doc_name: &DocName,
+        root_node: Node,
+        is_saved: bool,
+    ) -> Result<(), SynlessError> {
+        let doc = Doc::new(&self.storage, root_node, is_saved).ok_or(DocError::InvalidRootNode)?;
         if !self.doc_set.add_doc(doc_name.to_owned(), doc) {
             Err(DocError::DocAlreadyOpen(doc_name.to_owned()))?;
         }
@@ -198,6 +203,22 @@ impl Engine {
             }
         } else {
             Err(DocError::NoVisibleDoc.into())
+        }
+    }
+
+    pub fn has_unsaved_changes(&self) -> bool {
+        self.doc_set
+            .visible_doc()
+            .map(|doc| doc.has_unsaved_changes())
+            .unwrap_or(false)
+    }
+
+    pub fn mark_doc_as_saved(&mut self, doc_name: &DocName) -> Result<(), SynlessError> {
+        if let Some(doc) = self.doc_set.get_doc_mut(doc_name) {
+            doc.mark_as_saved();
+            Ok(())
+        } else {
+            Err(DocError::DocNotFound(doc_name.to_owned()).into())
         }
     }
 
@@ -265,7 +286,7 @@ impl Engine {
         let root_node = parser.parse(&mut self.storage, &doc_name.to_string(), source)?;
         parsing::postprocess(&mut self.storage, root_node, &hole_syntax.text);
 
-        let doc = Doc::new(&self.storage, root_node).bug_msg("Invalid root");
+        let doc = Doc::new(&self.storage, root_node, true).bug_msg("Invalid root");
         if !self.doc_set.add_doc(doc_name.clone(), doc) {
             return Err(DocError::DocAlreadyOpen(doc_name).into());
         }

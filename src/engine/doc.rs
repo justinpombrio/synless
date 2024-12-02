@@ -48,18 +48,35 @@ impl From<EditError> for SynlessError {
     }
 }
 
+/// When the document was most recently saved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SavePoint {
+    /// Not saved.
+    None,
+    /// Saved before the n'th UndoGroup in the `undo_stack`.
+    Undo(usize),
+    /// Saved after the edits in the `recent` UndoGroup.
+    /// INVARIANT: Doc::recent must be Some(_).
+    Recent,
+    /// Saved before the n'th UndoGroup in the `redo_stack`.
+    Redo(usize),
+}
+
 #[derive(Debug)]
 pub struct Doc {
     cursor: Location,
-    recent: Option<UndoGroup>,
     undo_stack: Vec<UndoGroup>,
+    recent: Option<UndoGroup>,
     redo_stack: Vec<UndoGroup>,
     bookmarks: HashMap<char, Bookmark>,
+    save_point: SavePoint,
 }
 
 impl Doc {
     /// Constructs a new Doc. Returns `None` if the node is not a root with the root construct.
-    pub fn new(s: &Storage, root_node: Node) -> Option<Self> {
+    ///
+    /// `is_saved` says whether the document represented by `root_node` exists on disk.
+    pub fn new(s: &Storage, root_node: Node, is_saved: bool) -> Option<Self> {
         if !root_node.construct(s).is_root(s) || !root_node.is_root(s) {
             return None;
         }
@@ -70,6 +87,11 @@ impl Doc {
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
             bookmarks: HashMap::new(),
+            save_point: if is_saved {
+                SavePoint::Undo(0)
+            } else {
+                SavePoint::None
+            },
         })
     }
 
@@ -125,6 +147,10 @@ impl Doc {
         } else {
             self.recent = Some(UndoGroup::new(restore_loc, undos));
         }
+        if self.save_point == SavePoint::Recent {
+            // Someone managed to save in between two edits in an undo group.
+            self.save_point = SavePoint::None;
+        }
         Ok(())
     }
 
@@ -134,6 +160,9 @@ impl Doc {
     pub fn end_undo_group(&mut self) {
         if let Some(recent) = self.recent.take() {
             self.undo_stack.push(recent);
+            if self.save_point == SavePoint::Recent {
+                self.save_point = SavePoint::Undo(self.undo_stack.len());
+            }
         }
     }
 
@@ -147,6 +176,9 @@ impl Doc {
         let undo_group = self.undo_stack.pop().ok_or(EditError::NothingToUndo)?;
         let redo_group = undo_group.execute(s, &mut self.cursor);
         self.redo_stack.push(redo_group);
+        if self.save_point == SavePoint::Undo(self.undo_stack.len() + 1) {
+            self.save_point = SavePoint::Redo(self.redo_stack.len() - 1);
+        }
         Ok(())
     }
 
@@ -160,7 +192,26 @@ impl Doc {
         );
         let undo_group = redo_group.execute(s, &mut self.cursor);
         self.undo_stack.push(undo_group);
+        if self.save_point == SavePoint::Redo(self.redo_stack.len()) {
+            self.save_point = SavePoint::Undo(self.undo_stack.len());
+        }
         Ok(())
+    }
+
+    pub fn mark_as_saved(&mut self) {
+        self.save_point = if self.recent.is_some() {
+            SavePoint::Recent
+        } else {
+            SavePoint::Undo(self.undo_stack.len())
+        };
+    }
+
+    pub fn has_unsaved_changes(&self) -> bool {
+        if self.recent.is_some() {
+            self.save_point != SavePoint::Recent
+        } else {
+            self.save_point != SavePoint::Undo(self.undo_stack.len())
+        }
     }
 
     /// Deletes the document and all of its nodes.
@@ -175,6 +226,9 @@ impl Doc {
         for group in self.redo_stack.drain(..) {
             group.delete_trees(s);
         }
+        if let SavePoint::Redo(_) = self.save_point {
+            self.save_point = SavePoint::None;
+        }
     }
 
     fn clear_undos(&mut self, s: &mut Storage) {
@@ -183,6 +237,9 @@ impl Doc {
         }
         if let Some(group) = self.recent.take() {
             group.delete_trees(s);
+        }
+        if matches!(self.save_point, SavePoint::Undo(_) | SavePoint::Recent) {
+            self.save_point = SavePoint::None;
         }
     }
 }
