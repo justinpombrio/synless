@@ -40,6 +40,8 @@ pub enum EditError {
     NoNodeHere,
     #[error("Clipboard is empty")]
     EmptyClipboard,
+    #[error("Text is invalid. Either fix it or revert.")]
+    InvalidText,
 }
 
 impl From<EditError> for SynlessError {
@@ -512,7 +514,13 @@ fn execute_text_nav(
         }
         Beginning => *char_index = 0,
         End => *char_index = text.num_chars(),
-        ExitText => *cursor = cursor.exit_text().bug(),
+        ExitText => {
+            if node.is_invalid_text(s) {
+                return Err(EditError::InvalidText);
+            } else {
+                *cursor = cursor.exit_text().bug();
+            }
+        }
     }
     Ok(())
 }
