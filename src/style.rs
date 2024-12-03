@@ -24,6 +24,8 @@ pub const CURSOR_STYLE: Style = Style {
 
 pub const INVALID_TEXT_STYLE: Style = Style {
     fg_color: Some((Base16Color::Base08, Priority::High)),
+    underlined: Some((true, Priority::High)),
+    bold: Some((true, Priority::High)),
     ..Style::const_default()
 };
 
