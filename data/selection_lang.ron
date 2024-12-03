@@ -9,7 +9,7 @@ LanguageSpec(
             ),
             ConstructSpec(
                 name: "Input",
-                arity: Texty,
+                arity: Texty(None),
             ),
             ConstructSpec(
                 name: "Selected",
@@ -17,15 +17,15 @@ LanguageSpec(
             ),
             ConstructSpec(
                 name: "Custom",
-                arity: Texty,
+                arity: Texty(None),
             ),
             ConstructSpec(
                 name: "Regular",
-                arity: Texty,
+                arity: Texty(None),
             ),
             ConstructSpec(
                 name: "Special",
-                arity: Texty,
+                arity: Texty(None),
             ),
         ],
         sorts: [

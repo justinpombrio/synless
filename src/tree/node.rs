@@ -176,6 +176,19 @@ impl Node {
         s.forest().data(self.0).construct.arity(s)
     }
 
+    pub fn is_invalid_text(self, s: &Storage) -> bool {
+        let data = s.forest().data(self.0);
+        if let Some(text) = &data.text {
+            if let Some(regex) = data.construct.text_validation_regex(s) {
+                !regex.is_match(text.as_str())
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    }
+
     /// ("ws" means "whitespace")
     pub fn is_comment_or_ws(self, s: &Storage) -> bool {
         s.forest().data(self.0).construct.is_comment_or_ws(s)

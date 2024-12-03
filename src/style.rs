@@ -22,6 +22,11 @@ pub const CURSOR_STYLE: Style = Style {
     ..Style::const_default()
 };
 
+pub const INVALID_TEXT_STYLE: Style = Style {
+    fg_color: Some((Base16Color::Base08, Priority::High)),
+    ..Style::const_default()
+};
+
 pub const FG_COLOR: Base16Color = Base16Color::Base05;
 pub const BG_COLOR: Base16Color = Base16Color::Base00;
 
@@ -82,6 +87,7 @@ pub enum StyleLabel {
 #[serde(deny_unknown_fields)]
 pub enum Condition {
     IsEmptyText,
+    IsInvalidText,
     IsCommentOrWs,
     NeedsSeparator,
 }

@@ -17,7 +17,7 @@ fn urllang() -> LanguageSpec {
             constructs: vec![
                 ConstructSpec {
                     name: "String".to_owned(),
-                    arity: AritySpec::Texty,
+                    arity: AritySpec::Texty(Some("[a-zA-Z.]+".to_owned())),
                     is_comment_or_ws: false,
                     key: Some('s'),
                 },
@@ -136,4 +136,10 @@ fn test_doc_ref() {
     };
     let expected = "example.com?\n    param1=val1\n    &param2=val2\n    &done";
     assert_eq!(actual, expected);
+
+    let good_text = node_with_text(&mut s, "urllang", "String", "abc");
+    let bad_text = node_with_text(&mut s, "urllang", "String", "!!!");
+    assert!(!good_text.is_invalid_text(&s));
+    assert!(bad_text.is_invalid_text(&s));
+    assert!(!eq_1.is_invalid_text(&s));
 }

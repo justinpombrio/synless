@@ -30,6 +30,8 @@ pub enum LanguageError {
     UndefinedConstruct(String),
     #[error("Root construct '{0}' must not be texty")]
     TextyRoot(String),
+    #[error("Failed to compile regex '{0}' for construct {1}: {2}")]
+    InvalidRegex(String, String, String),
     // TODO: Check for cycles
     // #[error("Sort '{0}' refers to itself")]
     // InfiniteSort(String),

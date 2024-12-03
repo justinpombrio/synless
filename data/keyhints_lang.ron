@@ -13,11 +13,11 @@ LanguageSpec(
             ),
             ConstructSpec(
                 name: "Key",
-                arity: Texty,
+                arity: Texty(None),
             ),
             ConstructSpec(
                 name: "Hint",
-                arity: Texty,
+                arity: Texty(None),
             ),
         ],
         sorts: [],

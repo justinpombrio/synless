@@ -6,6 +6,7 @@ use crate::style::{StyleLabel, ValidNotation};
 use crate::util::{IndexedMap, SynlessBug};
 use bit_set::BitSet;
 use partial_pretty_printer as ppp;
+use regex::Regex;
 use std::collections::HashMap;
 
 const HOLE_NAME: &str = "$hole";
@@ -28,7 +29,7 @@ pub struct ConstructCompiled {
 
 #[derive(Debug)]
 pub enum ArityCompiled {
-    Texty,
+    Texty(Option<Regex>),
     Fixed(Vec<(SortId, SortSpec)>),
     Listy(SortId, SortSpec),
 }
@@ -265,7 +266,7 @@ impl GrammarCompiler {
 
         if matches!(
             self.constructs.get(root_construct).bug().arity,
-            AritySpec::Texty
+            AritySpec::Texty(_)
         ) {
             return Err(LanguageError::TextyRoot(self.root_construct.to_owned()));
         }
@@ -326,7 +327,33 @@ impl GrammarCompiler {
         construct: &ConstructSpec,
     ) -> Result<(), LanguageError> {
         let arity = match &construct.arity {
-            AritySpec::Texty => ArityCompiled::Texty,
+            AritySpec::Texty(None) => ArityCompiled::Texty(None),
+            AritySpec::Texty(Some(regex_str)) => {
+                let regex_str_full_match = format!("^{}$", regex_str);
+                match Regex::new(&regex_str_full_match) {
+                    Ok(regex) => ArityCompiled::Texty(Some(regex)),
+                    Err(bad_err) => {
+                        // Re-compile the regex with the user-supplied string for a better error
+                        // meessage.
+                        match Regex::new(regex_str) {
+                            Ok(_) => {
+                                return Err(LanguageError::InvalidRegex(
+                                    regex_str_full_match.to_owned(),
+                                    construct.name.clone(),
+                                    bad_err.to_string(),
+                                ))
+                            }
+                            Err(good_err) => {
+                                return Err(LanguageError::InvalidRegex(
+                                    regex_str.to_owned(),
+                                    construct.name.clone(),
+                                    good_err.to_string(),
+                                ))
+                            }
+                        }
+                    }
+                }
+            }
             AritySpec::Fixed(sort_specs) => ArityCompiled::Fixed(
                 sort_specs
                     .iter()

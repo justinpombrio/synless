@@ -1,6 +1,7 @@
 use crate::language::Storage;
 use crate::style::{
-    Condition, Style, StyleLabel, ValidNotation, CURSOR_STYLE, HOLE_STYLE, OPEN_STYLE,
+    Condition, Style, StyleLabel, ValidNotation, CURSOR_STYLE, HOLE_STYLE, INVALID_TEXT_STYLE,
+    OPEN_STYLE,
 };
 use crate::tree::{Location, Node, NodeId};
 use crate::util::{error, SynlessBug, SynlessError};
@@ -67,7 +68,7 @@ impl<'d> ppp::PrettyDoc<'d> for DocRef<'d> {
 
         #[allow(clippy::collapsible_else_if)]
         if self.use_source_notation {
-            let notation = if construct.is_hole(s) {
+            let notation = if construct.is_hole(s) || self.node.is_invalid_text(s) {
                 lang.hole_source_notation(s)
             } else {
                 lang.source_notation(s).map(|ns| ns.notation(s, construct))
@@ -89,6 +90,7 @@ impl<'d> ppp::PrettyDoc<'d> for DocRef<'d> {
                 .text(self.storage)
                 .map(|text| text.as_str().is_empty())
                 .unwrap_or(false),
+            Condition::IsInvalidText => self.node.is_invalid_text(self.storage),
             Condition::IsCommentOrWs => self.node.is_comment_or_ws(self.storage),
             Condition::NeedsSeparator => {
                 if self.node.is_comment_or_ws(self.storage) {
@@ -141,12 +143,14 @@ impl<'d> ppp::PrettyDoc<'d> for DocRef<'d> {
     }
 
     fn node_style(self) -> Result<Style, Self::Error> {
-        let style = if self.cursor_loc.and_then(|loc| loc.node(self.storage)) == Some(self.node) {
-            CURSOR_STYLE
-        } else {
-            Style::default()
-        };
-        Ok(style)
+        let is_cursor = self.cursor_loc.and_then(|loc| loc.node(self.storage)) == Some(self.node);
+        let is_invalid = self.node.is_invalid_text(self.storage);
+        match (is_cursor, is_invalid) {
+            (false, false) => Ok(Style::default()),
+            (true, false) => Ok(CURSOR_STYLE),
+            (false, true) => Ok(INVALID_TEXT_STYLE),
+            (true, true) => Ok(ppp::Style::combine(&CURSOR_STYLE, &INVALID_TEXT_STYLE)),
+        }
     }
 
     fn num_children(self) -> Result<Option<usize>, Self::Error> {

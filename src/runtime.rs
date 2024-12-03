@@ -896,7 +896,7 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         register!(module, rt.undo()?);
         register!(module, rt.redo()?);
 
-        // Variables
+        // Command Line Interface
         register!(module, rt.cli_args());
 
         // Logging

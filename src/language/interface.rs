@@ -7,6 +7,7 @@ use super::storage::Storage;
 use super::{HoleSyntax, LanguageError};
 use crate::style::ValidNotation;
 use crate::util::bug;
+use regex::Regex;
 
 // NOTE: Why all the wrapper types, instead of using indexes? Two reasons:
 //
@@ -298,9 +299,16 @@ impl Construct {
         grammar(s, self.language).constructs[self.construct].key
     }
 
+    pub fn text_validation_regex(self, s: &Storage) -> Option<&Regex> {
+        match &grammar(s, self.language).constructs[self.construct].arity {
+            ArityCompiled::Texty(regex) => regex.as_ref(),
+            _ => None,
+        }
+    }
+
     pub fn arity(self, s: &Storage) -> Arity {
         match grammar(s, self.language).constructs[self.construct].arity {
-            ArityCompiled::Texty => Arity::Texty,
+            ArityCompiled::Texty(_) => Arity::Texty,
             ArityCompiled::Fixed(_) => Arity::Fixed(FixedSorts {
                 language: self.language,
                 construct: self.construct,

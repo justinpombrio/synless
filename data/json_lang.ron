@@ -32,12 +32,12 @@ LanguageSpec(
             ),
             ConstructSpec(
                 name: "String",
-                arity: Texty,
+                arity: Texty(None),
                 key: Some('s'),
             ),
             ConstructSpec(
                 name: "Number",
-                arity: Texty,
+                arity: Texty(Some("-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?")),
                 key: Some('n'),
             ),
             ConstructSpec(
@@ -47,7 +47,7 @@ LanguageSpec(
             ),
             ConstructSpec(
                 name: "Key",
-                arity: Texty,
+                arity: Texty(None),
                 // TODO: Remove key binding for Json.Key in favor of automatic insertion
                 key: Some('k'),
             ),
@@ -206,8 +206,7 @@ LanguageSpec(
                 ("True", Literal("true")),
                 ("False", Literal("false")),
                 ("String", Concat(Literal("\""), Concat(Text, Literal("\"")))),
-                // TODO: decide how to represent empty numbers in source notation
-                ("Number", Check(IsEmptyText, Here, Concat(Literal("•"), Text), Text)),
+                ("Number", Text),
                 ("Array",
                     Count(
                         zero: Concat(Literal("["), Concat(FocusMark, Literal("]"))),

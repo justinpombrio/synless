@@ -1,6 +1,6 @@
 mod json_parser;
 
-use crate::language::Storage;
+use crate::language::{Arity, Storage};
 use crate::tree::Node;
 use crate::util::{bug, error, SynlessError};
 use partial_pretty_printer as ppp;
@@ -26,14 +26,26 @@ pub fn preprocess(source: &str, invalid_hole_syntax: &str, valid_hole_syntax: &s
     source.replace(invalid_hole_syntax, valid_hole_syntax)
 }
 
-/// Replace every texty node within `root` that contains `hole_text` with a hole.
+/// Find every texty node within `root` that contains `hole_text` with a hole. If its parent is
+/// fixed, replace it with a hole, otherwise delete it (since you can't have holes under a listy
+/// parent).
 pub fn postprocess(s: &mut Storage, root: Node, hole_text: &str) {
     root.walk_tree(s, |s: &mut Storage, node: Node| {
         if let Some(text) = node.text(s) {
             if text.as_str() == hole_text {
-                let hole = Node::new_hole(s, node.language(s));
-                if !node.swap(s, hole) {
-                    bug!("Failed to replace node with hole in parser postprocess()")
+                let should_delete = if let Some(parent) = node.parent(s) {
+                    matches!(parent.arity(s), Arity::Listy(_))
+                } else {
+                    false
+                };
+                if should_delete {
+                    let _ = node.detach(s);
+                    node.delete_root(s);
+                } else {
+                    let hole = Node::new_hole(s, node.language(s));
+                    if !node.swap(s, hole) {
+                        bug!("Failed to replace node with hole in parser postprocess()")
+                    }
                 }
             }
         }

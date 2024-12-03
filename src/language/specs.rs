@@ -23,8 +23,8 @@ pub struct SortSpec(pub Vec<String>);
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub enum AritySpec {
-    /// Designates a pure text node.
-    Texty,
+    /// Designates a pure text node. Optionally constrained to match a regex.
+    Texty(Option<String>),
     /// Designates a node containing a fixed number of tree children.
     /// `Vec<ConstructSet>` contains the sort of each of its children respectively.
     Fixed(Vec<SortSpec>),

@@ -17,7 +17,7 @@ LanguageSpec(
             ),
             ConstructSpec(
                 name: "String",
-                arity: Texty,
+                arity: Texty(None),
             ),
         ],
         sorts: [("any", SortSpec(["BgBase08", "BgBase0B", "String"]))],
