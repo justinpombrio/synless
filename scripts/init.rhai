@@ -102,8 +102,8 @@ fn make_tree_keymap() {
 
 fn make_text_keymap() {
     let keymap = new_keymap();
-    keymap.bind_key("esc", "ExitText", || s::text_nav_exit());
-    keymap.bind_key("enter", "ExitText", || s::text_nav_exit());
+    keymap.bind_key("enter", "Confirm", || s::text_nav_exit());
+    keymap.bind_key("esc", "Revert", || s::revert());
     keymap.bind_key("left", "Left", || s::text_nav_left());
     keymap.bind_key("right", "Right", || s::text_nav_right());
     keymap.bind_key("bksp", "Backspace", || s::text_ed_backspace());

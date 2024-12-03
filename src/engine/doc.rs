@@ -166,6 +166,17 @@ impl Doc {
         }
     }
 
+    /// Instead of ending the current undo group, permanently revert its changes.
+    pub fn revert_undo_group(&mut self, s: &mut Storage) {
+        if let Some(recent) = self.recent.take() {
+            let redos = recent.execute(s, &mut self.cursor);
+            redos.delete_trees(s);
+            if self.save_point == SavePoint::Recent {
+                self.save_point = SavePoint::None;
+            }
+        }
+    }
+
     /// Undoes the last undo group on the undo stack and moves it to the redo stack.
     /// Returns `Err(EditError::NothingToUndo)` if the undo stack is empty.
     /// If there were recent edits _not_ completed with a call to end_undo_group(),

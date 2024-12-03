@@ -109,7 +109,7 @@ pub enum TextNavCommand {
     Beginning,
     /// Move the cursor to the end of the text.
     End,
-    /// Exit text mode, placing the cursor after the texty node.
+    /// Exit text mode, keeping the edits.
     ExitText,
 }
 

@@ -474,6 +474,10 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         self.engine.redo()
     }
 
+    pub fn revert(&mut self) -> Result<(), SynlessError> {
+        self.engine.revert_undo_group()
+    }
+
     pub fn insert_node(&mut self, construct: Construct) -> Result<(), SynlessError> {
         let node = Node::new_with_auto_fill(self.engine.raw_storage_mut(), construct);
         self.engine.execute(TreeEdCommand::Insert(node))?;
@@ -895,6 +899,7 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         // Editing: Meta
         register!(module, rt.undo()?);
         register!(module, rt.redo()?);
+        register!(module, rt.revert()?);
 
         // Command Line Interface
         register!(module, rt.cli_args());

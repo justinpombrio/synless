@@ -370,6 +370,15 @@ impl Engine {
         Ok(())
     }
 
+    pub fn revert_undo_group(&mut self) -> Result<(), SynlessError> {
+        let doc = self
+            .doc_set
+            .visible_doc_mut()
+            .ok_or(DocError::NoVisibleDoc)?;
+        doc.revert_undo_group(&mut self.storage);
+        Ok(())
+    }
+
     /**********************
      * Raw Storage Access *
      **********************/
