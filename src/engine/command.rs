@@ -87,9 +87,9 @@ pub enum TreeNavCommand {
     PrevLeaf,
     /// Move the cursor to the next leaf node (node with no children).
     NextLeaf,
-    /// Move the cursor to the previous node inorder of the given construct.
+    /// Move the cursor to the (inorder) previous node of the given construct.
     PrevConstruct(Construct),
-    /// Move the cursor to the next node inorder of the given construct.
+    /// Move the cursor to the (inorder) next node of the given construct.
     NextConstruct(Construct),
     /// Move the cursor to the previous texty node.
     PrevText,
