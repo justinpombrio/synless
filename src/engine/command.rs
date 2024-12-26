@@ -1,4 +1,4 @@
-use crate::language::Storage;
+use crate::language::{Construct, Storage};
 use crate::tree::Node;
 
 #[derive(Debug)]
@@ -83,14 +83,18 @@ pub enum TreeNavCommand {
     FirstChild,
     /// Move the cursor to the last child of the node at the cursor.
     LastChild,
-    /// Move the cursor to the next leaf node (node with no children).
-    NextLeaf,
     /// Move the cursor to the previous leaf node (node with no children).
     PrevLeaf,
-    /// Move the cursor to the next texty node.
-    NextText,
+    /// Move the cursor to the next leaf node (node with no children).
+    NextLeaf,
+    /// Move the cursor to the previous node inorder of the given construct.
+    PrevConstruct(Construct),
+    /// Move the cursor to the next node inorder of the given construct.
+    NextConstruct(Construct),
     /// Move the cursor to the previous texty node.
     PrevText,
+    /// Move the cursor to the next texty node.
+    NextText,
     /// If the node at the cursor is texty, enter text mode, placing the cursor at the
     /// end of the text.
     EnterText,

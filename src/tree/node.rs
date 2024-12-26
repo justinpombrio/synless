@@ -340,6 +340,29 @@ impl Node {
         self
     }
 
+    pub fn prev_inorder(self, s: &Storage) -> Option<Node> {
+        if let Some(node) = self.prev_sibling(s) {
+            return Some(node.last_leaf(s));
+        }
+        self.parent(s)
+    }
+
+    pub fn next_inorder(mut self, s: &Storage) -> Option<Node> {
+        if let Some(node) = self.first_child(s) {
+            return Some(node);
+        }
+        loop {
+            if let Some(node) = self.next_sibling(s) {
+                return Some(node);
+            }
+            if let Some(parent) = self.parent(s) {
+                self = parent;
+            } else {
+                return None;
+            }
+        }
+    }
+
     pub fn root(self, s: &Storage) -> Node {
         Node(s.forest().root(self.0))
     }

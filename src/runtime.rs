@@ -861,6 +861,12 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         );
         register!(module, rt, TreeNavCommand::PrevLeaf as tree_nav_prev_leaf);
         register!(module, rt, TreeNavCommand::NextLeaf as tree_nav_next_leaf);
+        register!(module, rt, TreeNavCommand::PrevConstruct(construct: Construct)
+            as tree_nav_prev_construct
+        );
+        register!(module, rt, TreeNavCommand::NextConstruct(construct: Construct)
+            as tree_nav_next_construct
+        );
         register!(module, rt, TreeNavCommand::PrevText as tree_nav_prev_text);
         register!(module, rt, TreeNavCommand::NextText as tree_nav_next_text);
         register!(module, rt, TreeNavCommand::LastChild as tree_nav_last_child);

@@ -461,6 +461,8 @@ fn execute_tree_nav(
         Last => cursor.last_sibling(s),
         PrevLeaf => cursor.prev_leaf(s),
         NextLeaf => cursor.next_leaf(s),
+        PrevConstruct(construct) => cursor.prev_construct(construct, s),
+        NextConstruct(construct) => cursor.next_construct(construct, s),
         PrevText => cursor.prev_text(s),
         NextText => cursor.next_text(s),
         Parent => cursor.parent(s),

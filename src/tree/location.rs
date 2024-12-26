@@ -1,5 +1,5 @@
 use super::node::Node;
-use crate::language::{Arity, Storage};
+use crate::language::{Arity, Construct, Storage};
 use crate::util::{bug, SynlessBug};
 use partial_pretty_printer as ppp;
 use std::fmt;
@@ -266,6 +266,37 @@ impl Location {
                 return Some(self);
             }
         }
+    }
+
+    /// Get the location of the next node of the given construct.
+    pub fn next_construct(self, construct: Construct, s: &Storage) -> Option<Location> {
+        let mut node = match self.0 {
+            AtNode(node) | InText(node, _) | BelowNode(node) => node,
+        };
+        while let Some(next_node) = node.next_inorder(s) {
+            if next_node.construct(s) == construct {
+                return Some(Location::at(s, next_node));
+            }
+            node = next_node;
+        }
+        None
+    }
+
+    /// Get the location of the previous node of the given construct.
+    pub fn prev_construct(self, construct: Construct, s: &Storage) -> Option<Location> {
+        let mut node = match self.0 {
+            BelowNode(node) if node.construct(s) == construct => {
+                return Some(Location::at(s, node))
+            }
+            AtNode(node) | InText(node, _) | BelowNode(node) => node,
+        };
+        while let Some(prev_node) = node.prev_inorder(s) {
+            if prev_node.construct(s) == construct {
+                return Some(Location::at(s, prev_node));
+            }
+            node = prev_node;
+        }
+        None
     }
 
     /// Get the location at this node's parent.
