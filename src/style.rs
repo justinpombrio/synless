@@ -2,39 +2,39 @@ use crate::util::SynlessBug;
 use partial_pretty_printer as ppp;
 use serde::{Deserialize, Serialize};
 
-pub const HOLE_STYLE: Style = Style {
+const HOLE_STYLE: Style = Style {
     fg_color: Some((Base16Color::Base0F, Priority::High)),
     bold: Some((true, Priority::High)),
     ..Style::const_default()
 };
 
-pub const OPEN_STYLE: Style = Style {
+const OPEN_STYLE: Style = Style {
     fg_color: Some((Base16Color::Base00, Priority::High)),
     bg_color: Some((Base16Color::Base04, Priority::High)),
     ..Style::const_default()
 };
 
-pub const HIGHLIGHT_STYLE: Style = Style {
+const HIGHLIGHT_STYLE: Style = Style {
     fg_color: Some((Base16Color::Base00, Priority::High)),
     bg_color: Some((Base16Color::Base0A, Priority::High)),
     bold: Some((true, Priority::High)),
     ..Style::const_default()
 };
 
-pub const CURSOR_STYLE: Style = Style {
+const CURSOR_STYLE: Style = Style {
     bg_color: Some((Base16Color::Base02, Priority::High)),
     ..Style::const_default()
 };
 
-pub const INVALID_TEXT_STYLE: Style = Style {
+const INVALID_TEXT_STYLE: Style = Style {
     fg_color: Some((Base16Color::Base08, Priority::High)),
     underlined: Some((true, Priority::High)),
     bold: Some((true, Priority::High)),
     ..Style::const_default()
 };
 
-pub const FG_COLOR: Base16Color = Base16Color::Base05;
-pub const BG_COLOR: Base16Color = Base16Color::Base00;
+const FG_COLOR: Base16Color = Base16Color::Base05;
+const BG_COLOR: Base16Color = Base16Color::Base00;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ConcreteStyle {
@@ -292,6 +292,9 @@ impl ColorTheme {
         }
         if style.cursor == Some(CursorKind::AtNode) {
             full_style = ppp::Style::combine(&full_style, &CURSOR_STYLE);
+        }
+        if style.cursor == Some(CursorKind::BelowNode) {
+            full_style = ppp::Style::combine(&full_style, &OPEN_STYLE);
         }
 
         ConcreteStyle {
