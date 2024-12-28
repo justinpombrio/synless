@@ -192,6 +192,10 @@ impl Doc {
                 self.save_point = SavePoint::None;
             }
         }
+        // Always end in tree mode.
+        if let Some(new_cursor) = self.cursor.exit_text() {
+            self.cursor = new_cursor;
+        }
     }
 
     /// Undoes the last undo group on the undo stack and moves it to the redo stack.
