@@ -1,7 +1,8 @@
 use super::command::{
-    BookmarkCommand, ClipboardCommand, Command, EdCommand, NavCommand, TextEdCommand,
-    TextNavCommand, TreeEdCommand, TreeNavCommand,
+    BookmarkCommand, ClipboardCommand, Command, EdCommand, NavCommand, SearchCommand,
+    TextEdCommand, TextNavCommand, TreeEdCommand, TreeNavCommand,
 };
+use super::search::Search;
 use crate::language::Storage;
 use crate::pretty_doc::DocRef;
 use crate::tree::{Bookmark, Location, Mode, Node};
@@ -30,6 +31,12 @@ pub enum EditError {
     NothingToRedo,
     #[error("Cannot move there")]
     CannotMove,
+    #[error("No previous match")]
+    NoPrevMatch,
+    #[error("No next match")]
+    NoNextMatch,
+    #[error("No active search")]
+    NoSearch,
     #[error("Bookmark not found")]
     BookmarkNotFound,
     #[error("Cannot delete character here")]
@@ -72,6 +79,7 @@ pub struct Doc {
     redo_stack: Vec<UndoGroup>,
     bookmarks: HashMap<char, Bookmark>,
     save_point: SavePoint,
+    search: Option<Search>,
 }
 
 impl Doc {
@@ -94,6 +102,7 @@ impl Doc {
             } else {
                 SavePoint::None
             },
+            search: None,
         })
     }
 
@@ -106,13 +115,13 @@ impl Doc {
         DocRef::new_source(s, opt_cursor, self.cursor.root_node(s))
     }
 
-    pub fn doc_ref_display<'d>(&self, s: &'d Storage, highlight_cursor: bool) -> DocRef<'d> {
+    pub fn doc_ref_display<'d>(&'d self, s: &'d Storage, highlight_cursor: bool) -> DocRef<'d> {
         let opt_cursor = if highlight_cursor {
             Some(self.cursor)
         } else {
             None
         };
-        DocRef::new_display(s, opt_cursor, self.cursor.root_node(s))
+        DocRef::new_display(s, opt_cursor, self.cursor.root_node(s), &self.search)
     }
 
     pub fn cursor(&self) -> Location {
@@ -136,7 +145,13 @@ impl Doc {
             Command::Ed(cmd) => execute_ed(s, cmd, &mut self.cursor)?,
             Command::Clipboard(cmd) => execute_clipboard(s, cmd, &mut self.cursor, clipboard)?,
             Command::Nav(cmd) => {
-                execute_nav(s, cmd, &mut self.cursor, &mut self.bookmarks)?;
+                execute_nav(
+                    s,
+                    cmd,
+                    &mut self.cursor,
+                    &mut self.bookmarks,
+                    &mut self.search,
+                )?;
                 Vec::new()
             }
         };
@@ -316,11 +331,13 @@ fn execute_nav(
     cmd: NavCommand,
     cursor: &mut Location,
     bookmarks: &mut HashMap<char, Bookmark>,
+    search: &mut Option<Search>,
 ) -> Result<(), EditError> {
     match cmd {
         NavCommand::Tree(cmd) => execute_tree_nav(s, cmd, cursor),
         NavCommand::Text(cmd) => execute_text_nav(s, cmd, cursor),
         NavCommand::Bookmark(cmd) => execute_bookmark(s, cmd, cursor, bookmarks),
+        NavCommand::Search(cmd) => execute_search(s, cmd, cursor, search),
     }
 }
 
@@ -342,7 +359,7 @@ fn execute_tree_ed(
             Err(()) => Err(EditError::CannotPlaceNode),
         },
         Replace(new_node) => {
-            let old_node = cursor.node(s).ok_or(EditError::NoNodeHere)?;
+            let old_node = cursor.at_node(s).ok_or(EditError::NoNodeHere)?;
             if old_node.swap(s, new_node) {
                 *cursor = Location::at(s, new_node);
                 Ok(vec![(*cursor, Replace(old_node).into())])
@@ -406,7 +423,7 @@ fn execute_clipboard(
 
     match cmd {
         Copy => {
-            let node = cursor.node(s).ok_or(EditError::NoNodeHere)?;
+            let node = cursor.at_node(s).ok_or(EditError::NoNodeHere)?;
             clipboard.push(node.deep_copy(s));
             Ok(Vec::new())
         }
@@ -420,7 +437,7 @@ fn execute_clipboard(
         }
         PasteSwap => {
             let clip_node = clipboard.pop().ok_or(EditError::EmptyClipboard)?;
-            let doc_node = cursor.node(s).ok_or(EditError::NoNodeHere)?;
+            let doc_node = cursor.at_node(s).ok_or(EditError::NoNodeHere)?;
             if doc_node.swap(s, clip_node) {
                 *cursor = Location::at(s, clip_node);
                 clipboard.push(doc_node.deep_copy(s));
@@ -461,25 +478,23 @@ fn execute_tree_nav(
         Last => cursor.last_sibling(s),
         PrevLeaf => cursor.prev_leaf(s),
         NextLeaf => cursor.next_leaf(s),
-        PrevConstruct(construct) => cursor.prev_construct(construct, s),
-        NextConstruct(construct) => cursor.next_construct(construct, s),
         PrevText => cursor.prev_text(s),
         NextText => cursor.next_text(s),
         Parent => cursor.parent(s),
-        FirstChild => cursor.node(s).and_then(|node| {
+        FirstChild => cursor.at_node(s).and_then(|node| {
             Location::at_first_child(s, node).or_else(|| Location::before_children(s, node))
         }),
         BeforeFirstChild => cursor
-            .node(s)
+            .at_node(s)
             .and_then(|node| Location::before_children(s, node)),
         LastChild => cursor
-            .node(s)
+            .at_node(s)
             .and_then(|node| Location::after_children(s, node)),
         EnterText => cursor
-            .node(s)
+            .at_node(s)
             .and_then(|node| Location::end_of_text(s, node)),
         FirstInsertLoc => cursor
-            .node(s)
+            .at_node(s)
             .map(|node| Location::first_insert_loc(s, node)),
     };
 
@@ -550,4 +565,41 @@ fn execute_bookmark(
             }
         }
     }
+}
+
+fn execute_search(
+    s: &Storage,
+    cmd: SearchCommand,
+    cursor: &mut Location,
+    search: &mut Option<Search>,
+) -> Result<(), EditError> {
+    match cmd {
+        SearchCommand::Set(new_search) => *search = Some(new_search),
+        SearchCommand::NoHighlight => {
+            if let Some(search) = search {
+                search.highlight = false;
+            }
+        }
+        SearchCommand::Prev => {
+            if let Some(search) = search {
+                search.highlight = true;
+                *cursor = cursor
+                    .prev_match(s, |node| search.matches(s, node))
+                    .ok_or(EditError::NoPrevMatch)?;
+            } else {
+                return Err(EditError::NoSearch);
+            }
+        }
+        SearchCommand::Next => {
+            if let Some(search) = search {
+                search.highlight = true;
+                *cursor = cursor
+                    .next_match(s, |node| search.matches(s, node))
+                    .ok_or(EditError::NoNextMatch)?;
+            } else {
+                return Err(EditError::NoSearch);
+            }
+        }
+    };
+    Ok(())
 }

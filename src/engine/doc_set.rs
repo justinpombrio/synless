@@ -180,7 +180,7 @@ impl DocSet {
     }
 
     pub fn get_content<'s>(
-        &self,
+        &'s self,
         s: &'s Storage,
         label: DocDisplayLabel,
         settings: &Settings,
@@ -202,7 +202,7 @@ impl DocSet {
                     focus_target,
                     focus_height: settings.focus_height,
                     width_strategy: pane::WidthStrategy::NoMoreThan(settings.max_display_width),
-                    set_focus: doc.cursor().node(s).is_none(),
+                    set_focus: doc.cursor().at_node(s).is_none(),
                 };
                 (doc, options, true)
             }

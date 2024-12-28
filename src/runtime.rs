@@ -1,6 +1,6 @@
 use crate::engine::{
-    BookmarkCommand, ClipboardCommand, DocDisplayLabel, DocName, Engine, Settings, TextEdCommand,
-    TextNavCommand, TreeEdCommand, TreeNavCommand,
+    BookmarkCommand, ClipboardCommand, DocDisplayLabel, DocName, Engine, Search, SearchCommand,
+    Settings, TextEdCommand, TextNavCommand, TreeEdCommand, TreeNavCommand,
 };
 use crate::frontends::{Event, Frontend, Key};
 use crate::keymap::{KeyLookupResult, KeyProg, Keymap, Layer, LayerManager, MenuSelectionCmd};
@@ -484,6 +484,11 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         self.engine.execute(TreeNavCommand::FirstInsertLoc)
     }
 
+    pub fn search_for_construct(&mut self, construct: Construct) -> Result<(), SynlessError> {
+        self.engine
+            .execute(SearchCommand::Set(Search::new_construct(construct)))
+    }
+
     /*************
      * Clipboard *
      *************/
@@ -861,12 +866,6 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         );
         register!(module, rt, TreeNavCommand::PrevLeaf as tree_nav_prev_leaf);
         register!(module, rt, TreeNavCommand::NextLeaf as tree_nav_next_leaf);
-        register!(module, rt, TreeNavCommand::PrevConstruct(construct: Construct)
-            as tree_nav_prev_construct
-        );
-        register!(module, rt, TreeNavCommand::NextConstruct(construct: Construct)
-            as tree_nav_next_construct
-        );
         register!(module, rt, TreeNavCommand::PrevText as tree_nav_prev_text);
         register!(module, rt, TreeNavCommand::NextText as tree_nav_next_text);
         register!(module, rt, TreeNavCommand::LastChild as tree_nav_last_child);
@@ -893,6 +892,16 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         // Editing: Bookmark
         register!(module, rt, BookmarkCommand::Save(ch: char) as save_bookmark);
         register!(module, rt, BookmarkCommand::Goto(ch: char) as goto_bookmark);
+
+        // Editing: Search
+        register!(module, rt.search_for_construct(construct: Construct)?);
+        register!(
+            module,
+            rt,
+            SearchCommand::NoHighlight as search_highlight_off
+        );
+        register!(module, rt, SearchCommand::Prev as search_prev);
+        register!(module, rt, SearchCommand::Next as search_next);
 
         // Clipboard
         register!(module, rt.cut()?);

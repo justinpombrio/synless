@@ -16,6 +16,12 @@ pub const OPEN_STYLE: Style = Style {
     ..Style::const_default()
 };
 
+pub const SEARCH_HIGHLIGHT_STYLE: Style = Style {
+    fg_color: Some((Base16Color::Base00, Priority::High)),
+    bg_color: Some((Base16Color::Base0A, Priority::High)),
+    ..Style::const_default()
+};
+
 pub const CURSOR_STYLE: Style = Style {
     cursor: Some(CursorHalf::Left),
     bg_color: Some((Base16Color::Base02, Priority::High)),

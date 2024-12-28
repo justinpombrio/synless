@@ -1,9 +1,10 @@
+use crate::engine::Search;
 use crate::language::Storage;
 use crate::style::{
     Condition, Style, StyleLabel, ValidNotation, CURSOR_STYLE, HOLE_STYLE, INVALID_TEXT_STYLE,
-    OPEN_STYLE,
+    OPEN_STYLE, SEARCH_HIGHLIGHT_STYLE,
 };
-use crate::tree::{Location, Node, NodeId};
+use crate::tree::{Location, Mode, Node, NodeId};
 use crate::util::{error, SynlessBug, SynlessError};
 use partial_pretty_printer as ppp;
 use std::fmt;
@@ -20,6 +21,7 @@ pub struct DocRef<'d> {
     cursor_loc: Option<Location>,
     node: Node,
     use_source_notation: bool,
+    search: Option<&'d Search>,
 }
 
 impl<'d> DocRef<'d> {
@@ -27,12 +29,14 @@ impl<'d> DocRef<'d> {
         storage: &'d Storage,
         cursor_loc: Option<Location>,
         node: Node,
+        search: &'d Option<Search>,
     ) -> DocRef<'d> {
         DocRef {
             storage,
             cursor_loc,
             node,
             use_source_notation: false,
+            search: search.as_ref(),
         }
     }
 
@@ -46,6 +50,7 @@ impl<'d> DocRef<'d> {
             cursor_loc,
             node,
             use_source_notation: true,
+            search: None,
         }
     }
 }
@@ -114,7 +119,7 @@ impl<'d> ppp::PrettyDoc<'d> for DocRef<'d> {
             StyleLabel::Open => {
                 if let Some(cursor_loc) = self.cursor_loc {
                     let parent = cursor_loc.parent_node(self.storage);
-                    let node_at_cursor = cursor_loc.node(self.storage);
+                    let node_at_cursor = cursor_loc.at_node(self.storage);
                     if parent == Some(self.node) && node_at_cursor.is_none() {
                         OPEN_STYLE
                     } else {
@@ -143,14 +148,33 @@ impl<'d> ppp::PrettyDoc<'d> for DocRef<'d> {
     }
 
     fn node_style(self) -> Result<Style, Self::Error> {
-        let is_cursor = self.cursor_loc.and_then(|loc| loc.node(self.storage)) == Some(self.node);
+        use Mode::{Text, Tree};
+
+        let cursor = self.cursor_loc.and_then(|cursor| {
+            if cursor.at_node(self.storage) == Some(self.node) {
+                Some(Mode::Tree)
+            } else if cursor.in_text_node(self.storage) == Some(self.node) {
+                Some(Mode::Text)
+            } else {
+                None
+            }
+        });
         let is_invalid = self.node.is_invalid_text(self.storage);
-        match (is_cursor, is_invalid) {
-            (false, false) => Ok(Style::default()),
-            (true, false) => Ok(CURSOR_STYLE),
-            (false, true) => Ok(INVALID_TEXT_STYLE),
-            (true, true) => Ok(ppp::Style::combine(&CURSOR_STYLE, &INVALID_TEXT_STYLE)),
-        }
+        let is_highlighted = self
+            .search
+            .map(|search| search.highlight && search.matches(self.storage, self.node))
+            .unwrap_or(false);
+
+        Ok(match (is_highlighted, is_invalid, cursor) {
+            (false, false, None) => Style::default(),
+            (true, false, None) => SEARCH_HIGHLIGHT_STYLE,
+            (false, true, None) => INVALID_TEXT_STYLE,
+            (true, true, None) => ppp::Style::combine(&SEARCH_HIGHLIGHT_STYLE, &INVALID_TEXT_STYLE),
+            (_, false, Some(Tree)) => CURSOR_STYLE,
+            (_, true, Some(Tree)) => ppp::Style::combine(&INVALID_TEXT_STYLE, &CURSOR_STYLE),
+            (_, false, Some(Text)) => Style::default(),
+            (_, true, Some(Text)) => INVALID_TEXT_STYLE,
+        })
     }
 
     fn num_children(self) -> Result<Option<usize>, Self::Error> {

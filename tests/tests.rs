@@ -121,7 +121,7 @@ fn test_doc_ref() {
     let params = node_with_children(&mut s, "urllang", "Params", [eq_1, eq_2, done]);
     let url = node_with_children(&mut s, "urllang", "Url", [domain, params]);
 
-    let doc_ref = DocRef::new_display(&s, None, url);
+    let doc_ref = DocRef::new_display(&s, None, url, &None);
 
     let actual = match ppp::pretty_print_to_string(doc_ref, 80) {
         Ok(actual) => actual,

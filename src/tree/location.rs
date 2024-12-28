@@ -1,5 +1,5 @@
 use super::node::Node;
-use crate::language::{Arity, Construct, Storage};
+use crate::language::{Arity, Storage};
 use crate::util::{bug, SynlessBug};
 use partial_pretty_printer as ppp;
 use std::fmt;
@@ -252,7 +252,7 @@ impl Location {
     pub fn next_text(mut self, s: &Storage) -> Option<Location> {
         loop {
             self = self.next_leaf(s)?;
-            if self.node(s).bug().is_texty(s) {
+            if self.at_node(s).bug().is_texty(s) {
                 return Some(self);
             }
         }
@@ -262,39 +262,37 @@ impl Location {
     pub fn prev_text(mut self, s: &Storage) -> Option<Location> {
         loop {
             self = self.prev_leaf(s)?;
-            if self.node(s).bug().is_texty(s) {
+            if self.at_node(s).bug().is_texty(s) {
                 return Some(self);
             }
         }
     }
 
-    /// Get the location of the next node of the given construct.
-    pub fn next_construct(self, construct: Construct, s: &Storage) -> Option<Location> {
+    /// The location of the previous node (inorder) that matches the given predicate.
+    pub fn prev_match(self, s: &Storage, predicate: impl Fn(Node) -> bool) -> Option<Location> {
         let mut node = match self.0 {
+            BelowNode(node) if predicate(node) => return Some(Location::at(s, node)),
             AtNode(node) | InText(node, _) | BelowNode(node) => node,
         };
-        while let Some(next_node) = node.next_inorder(s) {
-            if next_node.construct(s) == construct {
-                return Some(Location::at(s, next_node));
+        while let Some(prev_node) = node.prev_inorder(s) {
+            if predicate(prev_node) {
+                return Some(Location::at(s, prev_node));
             }
-            node = next_node;
+            node = prev_node;
         }
         None
     }
 
-    /// Get the location of the previous node of the given construct.
-    pub fn prev_construct(self, construct: Construct, s: &Storage) -> Option<Location> {
+    /// The location of the next node (inorder) that matches the given predicate.
+    pub fn next_match(self, s: &Storage, predicate: impl Fn(Node) -> bool) -> Option<Location> {
         let mut node = match self.0 {
-            BelowNode(node) if node.construct(s) == construct => {
-                return Some(Location::at(s, node))
-            }
             AtNode(node) | InText(node, _) | BelowNode(node) => node,
         };
-        while let Some(prev_node) = node.prev_inorder(s) {
-            if prev_node.construct(s) == construct {
-                return Some(Location::at(s, prev_node));
+        while let Some(next_node) = node.next_inorder(s) {
+            if predicate(next_node) {
+                return Some(Location::at(s, next_node));
             }
-            node = prev_node;
+            node = next_node;
         }
         None
     }
@@ -321,10 +319,17 @@ impl Location {
      * Getting Nodes *
      *****************/
 
-    pub fn node(self, _s: &Storage) -> Option<Node> {
+    pub fn at_node(self, _s: &Storage) -> Option<Node> {
         match self.0 {
             AtNode(node) => Some(node),
             InText(_, _) | BelowNode(_) => None,
+        }
+    }
+
+    pub fn in_text_node(self, _s: &Storage) -> Option<Node> {
+        match self.0 {
+            InText(node, _) => Some(node),
+            AtNode(_) | BelowNode(_) => None,
         }
     }
 
@@ -361,7 +366,7 @@ impl Location {
         match parent.arity(s) {
             Arity::Texty => bug!("insert: texty parent"),
             Arity::Fixed(_) => {
-                let old_node = self.node(s).ok_or(())?;
+                let old_node = self.at_node(s).ok_or(())?;
                 if new_node.swap(s, old_node) {
                     *self = Location(AtNode(new_node));
                     Ok(Some(old_node))
@@ -390,7 +395,7 @@ impl Location {
     /// executed from.
     #[must_use]
     pub fn delete(&mut self, s: &mut Storage, move_left: bool) -> Option<(Node, Location)> {
-        let node = self.node(s)?;
+        let node = self.at_node(s)?;
         let parent = node.parent(s)?;
         match parent.arity(s) {
             Arity::Texty => bug!("texty parent"),

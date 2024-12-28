@@ -63,16 +63,21 @@ fn make_tree_keymap() {
         let menu = s::make_menu("char_node_selection", "Select node to jump backwards to");
         s::open_menu(menu);
         let construct = s::block();
-        s::tree_nav_prev_construct(construct);
+        s::search_for_construct(construct);
+        s::search_prev();
     });
-    keymap.bind_key("f", "NextvConstruct", || {
+    keymap.bind_key("f", "NextConstruct", || {
         let menu = s::make_menu("char_node_selection", "Select node to jump forwards to");
         s::open_menu(menu);
         let construct = s::block();
-        s::tree_nav_next_construct(construct);
+        s::search_for_construct(construct);
+        s::search_next();
     });
+
+    keymap.bind_key("N", "PrevSearch", || s::search_prev());
+    keymap.bind_key("n", "NextSearch", || s::search_next());
+    keymap.bind_key("~", "ClearSearch", || s::search_highlight_off());
     
-    keymap.bind_key(";", "Parent", || s::tree_nav_parent());
     keymap.bind_key("^", "First", || s::tree_nav_first());
     keymap.bind_key("$", "Last", || s::tree_nav_last());
     

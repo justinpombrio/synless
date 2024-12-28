@@ -1,4 +1,5 @@
-use crate::language::{Construct, Storage};
+use super::search::Search;
+use crate::language::Storage;
 use crate::tree::Node;
 
 #[derive(Debug)]
@@ -19,6 +20,7 @@ pub enum NavCommand {
     Tree(TreeNavCommand),
     Text(TextNavCommand),
     Bookmark(BookmarkCommand),
+    Search(SearchCommand),
 }
 
 #[derive(Debug)]
@@ -87,10 +89,6 @@ pub enum TreeNavCommand {
     PrevLeaf,
     /// Move the cursor to the next leaf node (node with no children).
     NextLeaf,
-    /// Move the cursor to the (inorder) previous node of the given construct.
-    PrevConstruct(Construct),
-    /// Move the cursor to the (inorder) next node of the given construct.
-    NextConstruct(Construct),
     /// Move the cursor to the previous texty node.
     PrevText,
     /// Move the cursor to the next texty node.
@@ -124,6 +122,18 @@ pub enum BookmarkCommand {
     /// Move the cursor to the bookmark saved under the given character. The bookmark follows, in
     /// priority order: (i) the left node, (ii) the right node, (iii) the parent node.
     Goto(char),
+}
+
+#[derive(Debug)]
+pub enum SearchCommand {
+    /// Set the search pattern.
+    Set(Search),
+    /// Disable search highlighting. It will be re-enabled if Prev or Next are invoked.
+    NoHighlight,
+    /// Move the cursor to the previous search match.
+    Prev,
+    /// Move the cursor to the next search match.
+    Next,
 }
 
 impl EdCommand {
@@ -221,5 +231,17 @@ impl From<BookmarkCommand> for NavCommand {
 impl From<BookmarkCommand> for Command {
     fn from(cmd: BookmarkCommand) -> Command {
         Command::Nav(NavCommand::Bookmark(cmd))
+    }
+}
+
+impl From<SearchCommand> for NavCommand {
+    fn from(cmd: SearchCommand) -> NavCommand {
+        NavCommand::Search(cmd)
+    }
+}
+
+impl From<SearchCommand> for Command {
+    fn from(cmd: SearchCommand) -> Command {
+        Command::Nav(NavCommand::Search(cmd))
     }
 }
