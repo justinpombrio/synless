@@ -9,6 +9,7 @@ use partial_pretty_printer as ppp;
 use regex::Regex;
 use std::collections::HashMap;
 
+const HOLE_KEY: char = '?';
 const HOLE_NAME: &str = "$hole";
 
 // Other options: ✵ ✶ ✦ ✳ ✪ ✺ ⍟ ❂ ★ ◯ ☐ ☉ ◼
@@ -250,7 +251,7 @@ impl GrammarCompiler {
             name: HOLE_NAME.to_owned(),
             arity: AritySpec::Fixed(Vec::new()),
             is_comment_or_ws: false,
-            key: None,
+            key: Some(HOLE_KEY),
         })
     }
 
