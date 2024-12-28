@@ -2,7 +2,7 @@ use super::specs::{
     AritySpec, ConstructSpec, GrammarSpec, HoleSyntax, LanguageSpec, NotationSetSpec, SortSpec,
 };
 use crate::language::LanguageError;
-use crate::style::{StyleLabel, ValidNotation};
+use crate::style::ValidNotation;
 use crate::util::{IndexedMap, SynlessBug};
 use bit_set::BitSet;
 use partial_pretty_printer as ppp;
@@ -97,18 +97,16 @@ pub fn compile_language(language_spec: LanguageSpec) -> Result<LanguageCompiled,
     };
 
     let (hole_source_notation, hole_display_notation) = {
-        use ppp::notation_constructors::{lit, style};
+        use ppp::notation_constructors::lit;
 
-        let display_notation = style(StyleLabel::Hole, lit(HOLE_LITERAL)).validate().bug();
+        let display_notation = lit(HOLE_LITERAL).validate().bug();
         let source_notation = language_spec
             .hole_syntax
             .as_ref()
             .map(|hole_syntax| {
-                style(StyleLabel::Hole, lit(&hole_syntax.invalid))
-                    .validate()
-                    .map_err(|err| {
-                        LanguageError::InvalidHoleNotation(language_spec.name.clone(), err)
-                    })
+                lit(&hole_syntax.invalid).validate().map_err(|err| {
+                    LanguageError::InvalidHoleNotation(language_spec.name.clone(), err)
+                })
             })
             .transpose()?;
 

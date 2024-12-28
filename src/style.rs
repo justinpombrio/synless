@@ -3,27 +3,25 @@ use partial_pretty_printer as ppp;
 use serde::{Deserialize, Serialize};
 
 pub const HOLE_STYLE: Style = Style {
-    is_hole: true,
     fg_color: Some((Base16Color::Base0F, Priority::High)),
     bold: Some((true, Priority::High)),
     ..Style::const_default()
 };
 
 pub const OPEN_STYLE: Style = Style {
-    cursor: Some(CursorHalf::Left),
     fg_color: Some((Base16Color::Base00, Priority::High)),
     bg_color: Some((Base16Color::Base04, Priority::High)),
     ..Style::const_default()
 };
 
-pub const SEARCH_HIGHLIGHT_STYLE: Style = Style {
+pub const HIGHLIGHT_STYLE: Style = Style {
     fg_color: Some((Base16Color::Base00, Priority::High)),
     bg_color: Some((Base16Color::Base0A, Priority::High)),
+    bold: Some((true, Priority::High)),
     ..Style::const_default()
 };
 
 pub const CURSOR_STYLE: Style = Style {
-    cursor: Some(CursorHalf::Left),
     bg_color: Some((Base16Color::Base02, Priority::High)),
     ..Style::const_default()
 };
@@ -52,8 +50,10 @@ pub struct Style {
     pub bg_color: Option<(Base16Color, Priority)>,
     pub bold: Option<(bool, Priority)>,
     pub underlined: Option<(bool, Priority)>,
-    pub cursor: Option<CursorHalf>,
+    pub cursor: Option<CursorKind>,
     pub is_hole: bool,
+    pub is_highlighted: bool,
+    pub is_invalid: bool,
 }
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
@@ -64,10 +64,11 @@ pub enum Priority {
     High,
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum CursorHalf {
-    Left,
-    Right,
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CursorKind {
+    BelowNode,
+    AtNode,
+    InText,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -75,7 +76,6 @@ pub enum CursorHalf {
 pub enum StyleLabel {
     Open,
     Close,
-    Hole,
     Properties {
         #[serde(default)]
         fg_color: Option<Base16Color>,
@@ -203,18 +203,21 @@ fn prioritize<T>(
 impl ppp::Style for Style {
     fn combine(outer: &Self, inner: &Self) -> Self {
         Style {
-            cursor: outer.cursor.or(inner.cursor),
             fg_color: prioritize(outer.fg_color, inner.fg_color),
             bg_color: prioritize(outer.bg_color, inner.bg_color),
             bold: prioritize(outer.bold, inner.bold),
             underlined: prioritize(outer.underlined, inner.underlined),
+
+            cursor: inner.cursor.or(outer.cursor),
             is_hole: outer.is_hole || inner.is_hole,
+            is_highlighted: outer.is_highlighted || inner.is_highlighted,
+            is_invalid: outer.is_invalid || inner.is_invalid,
         }
     }
 }
 
 impl Style {
-    const fn const_default() -> Style {
+    pub const fn const_default() -> Style {
         Style {
             fg_color: None,
             bg_color: None,
@@ -222,6 +225,8 @@ impl Style {
             underlined: None,
             cursor: None,
             is_hole: false,
+            is_highlighted: false,
+            is_invalid: false,
         }
     }
 
@@ -271,16 +276,29 @@ impl ColorTheme {
     }
 
     pub fn concrete_style(&self, style: &Style) -> ConcreteStyle {
-        let unwrap_color = |pair: Option<(Base16Color, Priority)>, default: Base16Color| {
-            self.color(pair.map(|(base16, _)| base16).unwrap_or(default))
-        };
-        let unwrap_bool = |pair: Option<(bool, Priority)>| pair.map(|(b, _)| b).unwrap_or_default();
+        fn unwrap_property<T>(property: Option<(T, Priority)>, default: T) -> T {
+            property.map(|(val, _)| val).unwrap_or(default)
+        }
+
+        let mut full_style = style.to_owned();
+        if style.is_hole {
+            full_style = ppp::Style::combine(&full_style, &HOLE_STYLE);
+        }
+        if style.is_highlighted && style.cursor.is_none() {
+            full_style = ppp::Style::combine(&full_style, &HIGHLIGHT_STYLE);
+        }
+        if style.is_invalid {
+            full_style = ppp::Style::combine(&full_style, &INVALID_TEXT_STYLE);
+        }
+        if style.cursor == Some(CursorKind::AtNode) {
+            full_style = ppp::Style::combine(&full_style, &CURSOR_STYLE);
+        }
 
         ConcreteStyle {
-            fg_color: unwrap_color(style.fg_color, FG_COLOR),
-            bg_color: unwrap_color(style.bg_color, BG_COLOR),
-            bold: unwrap_bool(style.bold),
-            underlined: unwrap_bool(style.underlined),
+            fg_color: self.color(unwrap_property(full_style.fg_color, FG_COLOR)),
+            bg_color: self.color(unwrap_property(full_style.bg_color, BG_COLOR)),
+            bold: unwrap_property(full_style.bold, false),
+            underlined: unwrap_property(full_style.underlined, false),
         }
     }
 

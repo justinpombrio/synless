@@ -1,10 +1,7 @@
 use crate::engine::Search;
 use crate::language::Storage;
-use crate::style::{
-    Condition, Style, StyleLabel, ValidNotation, CURSOR_STYLE, HOLE_STYLE, INVALID_TEXT_STYLE,
-    OPEN_STYLE, SEARCH_HIGHLIGHT_STYLE,
-};
-use crate::tree::{Location, Mode, Node, NodeId};
+use crate::style::{Condition, CursorKind, Style, StyleLabel, ValidNotation};
+use crate::tree::{Location, Node, NodeId};
 use crate::util::{error, SynlessBug, SynlessError};
 use partial_pretty_printer as ppp;
 use std::fmt;
@@ -115,13 +112,15 @@ impl<'d> ppp::PrettyDoc<'d> for DocRef<'d> {
 
     fn lookup_style(self, style_label: StyleLabel) -> Result<Style, Self::Error> {
         Ok(match style_label {
-            StyleLabel::Hole => HOLE_STYLE,
             StyleLabel::Open => {
                 if let Some(cursor_loc) = self.cursor_loc {
                     let parent = cursor_loc.parent_node(self.storage);
                     let node_at_cursor = cursor_loc.at_node(self.storage);
                     if parent == Some(self.node) && node_at_cursor.is_none() {
-                        OPEN_STYLE
+                        Style {
+                            cursor: Some(CursorKind::BelowNode),
+                            ..Style::const_default()
+                        }
                     } else {
                         Style::default()
                     }
@@ -137,43 +136,41 @@ impl<'d> ppp::PrettyDoc<'d> for DocRef<'d> {
                 underlined,
                 priority,
             } => Style {
-                fg_color: fg_color.map(|x| (x, priority)),
-                bg_color: bg_color.map(|x| (x, priority)),
-                bold: bold.map(|x| (x, priority)),
-                underlined: underlined.map(|x| (x, priority)),
+                fg_color: fg_color.map(|c| (c, priority)),
+                bg_color: bg_color.map(|c| (c, priority)),
+                bold: bold.map(|b| (b, priority)),
+                underlined: underlined.map(|b| (b, priority)),
                 cursor: None,
                 is_hole: false,
+                is_highlighted: false,
+                is_invalid: false,
             },
         })
     }
 
     fn node_style(self) -> Result<Style, Self::Error> {
-        use Mode::{Text, Tree};
-
         let cursor = self.cursor_loc.and_then(|cursor| {
             if cursor.at_node(self.storage) == Some(self.node) {
-                Some(Mode::Tree)
+                Some(CursorKind::AtNode)
             } else if cursor.in_text_node(self.storage) == Some(self.node) {
-                Some(Mode::Text)
+                Some(CursorKind::InText)
             } else {
                 None
             }
         });
-        let is_invalid = self.node.is_invalid_text(self.storage);
+        let is_hole = self.node.construct(self.storage).is_hole(self.storage);
         let is_highlighted = self
             .search
             .map(|search| search.highlight && search.matches(self.storage, self.node))
             .unwrap_or(false);
+        let is_invalid = self.node.is_invalid_text(self.storage);
 
-        Ok(match (is_highlighted, is_invalid, cursor) {
-            (false, false, None) => Style::default(),
-            (true, false, None) => SEARCH_HIGHLIGHT_STYLE,
-            (false, true, None) => INVALID_TEXT_STYLE,
-            (true, true, None) => ppp::Style::combine(&SEARCH_HIGHLIGHT_STYLE, &INVALID_TEXT_STYLE),
-            (_, false, Some(Tree)) => CURSOR_STYLE,
-            (_, true, Some(Tree)) => ppp::Style::combine(&INVALID_TEXT_STYLE, &CURSOR_STYLE),
-            (_, false, Some(Text)) => Style::default(),
-            (_, true, Some(Text)) => INVALID_TEXT_STYLE,
+        Ok(Style {
+            cursor,
+            is_hole,
+            is_highlighted,
+            is_invalid,
+            ..Style::const_default()
         })
     }
 
