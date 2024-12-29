@@ -485,8 +485,24 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
     }
 
     pub fn search_for_construct(&mut self, construct: Construct) -> Result<(), SynlessError> {
-        self.engine
-            .execute(SearchCommand::Set(Search::new_construct(construct)))
+        let search = Search::new_construct(construct);
+        self.engine.execute(SearchCommand::Set(search))
+    }
+
+    pub fn search_for_node_at_cursor(&mut self) -> Result<(), SynlessError> {
+        let node = self.engine.node_at_cursor(true)?; // deep copy
+        let search = Search::new_node(node);
+        self.engine.execute(SearchCommand::Set(search))
+    }
+
+    pub fn search_for_substring(&mut self, substring: String) -> Result<(), SynlessError> {
+        let search = Search::new_substring(substring);
+        self.engine.execute(SearchCommand::Set(search))
+    }
+
+    pub fn search_for_regex(&mut self, regex: String) -> Result<(), SynlessError> {
+        let search = Search::new_regex(&regex)?;
+        self.engine.execute(SearchCommand::Set(search))
     }
 
     /*************
@@ -895,11 +911,14 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
 
         // Editing: Search
         register!(module, rt.search_for_construct(construct: Construct)?);
+        register!(module, rt.search_for_node_at_cursor()?);
         register!(
             module,
             rt,
             SearchCommand::NoHighlight as search_highlight_off
         );
+        register!(module, rt.search_for_substring(substring: String));
+        register!(module, rt.search_for_regex(regex: String)?);
         register!(module, rt, SearchCommand::Prev as search_prev);
         register!(module, rt, SearchCommand::Next as search_next);
 

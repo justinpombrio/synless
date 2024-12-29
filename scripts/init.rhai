@@ -2,10 +2,18 @@
 
 fn make_candidate_keymap() {
     let keymap = new_keymap();
-    keymap.bind_key("esc", "ExitMenu", || s::escape());
+    keymap.bind_key("esc", "Cancel", || s::escape());
     keymap.bind_key("up", "Up", || s::menu_selection_up(), false);
     keymap.bind_key("down", "Down", || s::menu_selection_down(), false);
     keymap.bind_key("bksp", "Backspace", || s::menu_selection_backspace(), false);
+    keymap
+}
+
+fn make_input_string_keymap() {
+    let keymap = new_keymap();
+    keymap.bind_key("esc", "Cancel", || s::escape());
+    keymap.bind_key("bksp", "Backspace", || s::menu_selection_backspace(), false);
+    keymap.bind_key_for_custom_candidate("enter", "Confirm", |string| string);
     keymap
 }
 
@@ -28,13 +36,13 @@ fn make_char_node_selection_keymap(language_name) {
             keymap.bind_key(key, s::construct_name(construct), prog);
         }
     }
-    keymap.bind_key("esc", "ExitMenu", || s::escape());
+    keymap.bind_key("esc", "Cancel", || s::escape());
     keymap
 }
 
 fn make_space_menu_keymap() {
     let keymap = new_keymap();
-    keymap.bind_key("esc", "ExitMenu", || s::escape());
+    keymap.bind_key("esc", "Cancel", || s::escape());
     keymap.bind_key("q", "Quit", || s::quit());
     keymap.bind_key("Q", "ForceQuit", || s::abort());
     keymap.bind_key("s", "Save", || s::save_doc());
@@ -71,6 +79,23 @@ fn make_tree_keymap() {
         s::open_menu(menu);
         let construct = s::block();
         s::search_for_construct(construct);
+        s::search_next();
+    });
+    keymap.bind_key("*", "FindEq", || s::search_for_node_at_cursor());
+    keymap.bind_key("/", "FindRegex", || {
+        let menu = s::make_menu("input_string", "Enter search regex");
+        s::set_menu_is_candidate_menu(menu, true);
+        s::open_menu(menu);
+        let regex = s::block();
+        s::search_for_regex(regex);
+        s::search_next();
+    });
+    keymap.bind_key("\\", "FindString", || {
+        let menu = s::make_menu("input_string", "Enter search string");
+        s::set_menu_is_candidate_menu(menu, true);
+        s::open_menu(menu);
+        let string = s::block();
+        s::search_for_substring(string);
         s::search_next();
     });
 
@@ -218,6 +243,7 @@ layer.add_mode_keymap("Text", make_text_keymap());
 layer.add_menu_keymap("candidate_node_selection", make_candidate_node_selection_keymap("json"));
 layer.add_menu_keymap("char_node_selection", make_char_node_selection_keymap("json"));
 layer.add_menu_keymap("space_menu", make_space_menu_keymap());
+layer.add_menu_keymap("input_string", make_input_string_keymap());
 
 s::register_layer(layer);
 s::add_global_layer("default");

@@ -330,6 +330,19 @@ impl Engine {
         Node::with_children(&mut self.storage, c_root, [node]).bug()
     }
 
+    /*************
+     * Accessing *
+     *************/
+
+    pub fn node_at_cursor(&mut self, deep_copy: bool) -> Result<Node, SynlessError> {
+        let doc = self.doc_set.visible_doc().ok_or(DocError::NoVisibleDoc)?;
+        let mut node = doc.node_at_cursor(&self.storage)?;
+        if deep_copy {
+            node = node.deep_copy(&mut self.storage);
+        }
+        Ok(node)
+    }
+
     /***********
      * Editing *
      ***********/

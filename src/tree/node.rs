@@ -507,9 +507,9 @@ impl Node {
         }
     }
 
-    /*************
-     * Ownership *
-     *************/
+    /******************
+     * Entire Subtree *
+     ******************/
 
     /// Deletes this node and its descendants. Panics if `self` is not a root.
     pub fn delete_root(self, s: &mut Storage) {
@@ -530,9 +530,34 @@ impl Node {
         Node(s.node_forest.forest.deep_copy(self.0, &mut clone_data))
     }
 
-    /***********
-     * Walking *
-     ***********/
+    /// Deep structural equality check.
+    pub fn equals(self, s: &Storage, other: Node) -> bool {
+        let f = s.forest();
+        if f.data(self.0).id == f.data(other.0).id {
+            return true;
+        }
+        if f.data(self.0).construct != f.data(other.0).construct {
+            return false;
+        }
+        if f.data(self.0).text.as_ref().map(|text| text.as_str())
+            != f.data(other.0).text.as_ref().map(|text| text.as_str())
+        {
+            return false;
+        }
+        if f.num_children(self.0) != f.num_children(other.0) {
+            return false;
+        }
+        let mut child_a = f.first_child(self.0);
+        let mut child_b = f.first_child(other.0);
+        while let (Some(a), Some(b)) = (child_a, child_b) {
+            if !Node(a).equals(s, Node(b)) {
+                return false;
+            }
+            child_a = f.next_sibling(a);
+            child_b = f.next_sibling(b);
+        }
+        true
+    }
 
     /// Invoke `callback` on every descendant of this node, in an unspecified order.
     pub fn walk_tree(self, s: &mut Storage, mut callback: impl FnMut(&mut Storage, Node)) {

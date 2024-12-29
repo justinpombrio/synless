@@ -128,6 +128,10 @@ impl Doc {
         self.cursor
     }
 
+    pub fn node_at_cursor(&self, s: &Storage) -> Result<Node, EditError> {
+        self.cursor.at_node(s).ok_or(EditError::NoNodeHere)
+    }
+
     pub fn mode(&self) -> Mode {
         self.cursor.mode()
     }
@@ -331,7 +335,7 @@ fn execute_ed(
 }
 
 fn execute_nav(
-    s: &Storage,
+    s: &mut Storage,
     cmd: NavCommand,
     cursor: &mut Location,
     bookmarks: &mut HashMap<char, Bookmark>,
@@ -572,13 +576,18 @@ fn execute_bookmark(
 }
 
 fn execute_search(
-    s: &Storage,
+    s: &mut Storage,
     cmd: SearchCommand,
     cursor: &mut Location,
     search: &mut Option<Search>,
 ) -> Result<(), EditError> {
     match cmd {
-        SearchCommand::Set(new_search) => *search = Some(new_search),
+        SearchCommand::Set(new_search) => {
+            if let Some(old_search) = search.take() {
+                old_search.delete(s);
+            }
+            *search = Some(new_search)
+        }
         SearchCommand::NoHighlight => {
             if let Some(search) = search {
                 search.highlight = false;
