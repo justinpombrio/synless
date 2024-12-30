@@ -54,6 +54,10 @@ impl Storage {
     pub fn lookup_file_extension(&self, extension: &str) -> Option<Language> {
         self.file_extensions.get(extension).copied()
     }
+
+    pub fn num_nodes(&self) -> usize {
+        self.node_forest.num_nodes()
+    }
 }
 
 impl Default for Storage {

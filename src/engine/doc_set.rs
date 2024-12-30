@@ -102,8 +102,13 @@ impl DocSet {
     }
 
     #[must_use]
-    pub fn delete_doc(&mut self, doc_name: &DocName) -> bool {
-        let deleted = self.docs.remove(doc_name).is_some();
+    pub fn delete_doc(&mut self, s: &mut Storage, doc_name: &DocName) -> bool {
+        let deleted = if let Some((doc, _)) = self.docs.remove(doc_name) {
+            doc.delete(s);
+            true
+        } else {
+            false
+        };
         if deleted && self.visible_doc.as_ref() == Some(doc_name) {
             if let Some(most_recent_doc_path) = self.doc_switching_candidates().first() {
                 bug_assert!(
@@ -114,6 +119,13 @@ impl DocSet {
             }
         }
         deleted
+    }
+
+    pub fn delete_all_docs(&mut self, s: &mut Storage) {
+        for (_, (doc, _)) in self.docs.drain() {
+            doc.delete(s);
+        }
+        self.visible_doc = None;
     }
 
     #[must_use]

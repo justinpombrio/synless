@@ -29,6 +29,7 @@ pub enum LogLevel {
     Info,
     Warn,
     Error,
+    Bug,
 }
 
 impl fmt::Display for LogLevel {
@@ -108,6 +109,15 @@ impl fmt::Display for Log {
 macro_rules! log {
     ($level:ident, $message:literal) => {
         $crate::log!($level, $message,)
+    };
+    (Bug, $message:literal, $( $arg:expr ),*) => {
+        let level = $crate::LogLevel::Bug;
+        let message = $crate::util::format_bug(
+            format!("{}:{}:{}", file!(), line!(), column!()),
+            &format!($message, $( $arg ),*)
+        );
+        let entry = $crate::LogEntry::new(level, message);
+        $crate::Log::with_log(|log| log.push(entry));
     };
     ($level:ident, $message:literal, $( $arg:expr ),*) => {
         {

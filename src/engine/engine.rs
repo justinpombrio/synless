@@ -9,7 +9,7 @@ use crate::parsing::{self, Parse, ParseError};
 use crate::pretty_doc::DocRef;
 use crate::style::Base16Color;
 use crate::tree::{Mode, Node};
-use crate::util::{bug, error, SynlessBug, SynlessError};
+use crate::util::{bug, error, log, SynlessBug, SynlessError};
 use partial_pretty_printer as ppp;
 use partial_pretty_printer::pane;
 use std::collections::HashMap;
@@ -172,7 +172,7 @@ impl Engine {
     }
 
     pub fn delete_doc(&mut self, doc_name: &DocName) -> Result<(), SynlessError> {
-        if self.doc_set.delete_doc(doc_name) {
+        if self.doc_set.delete_doc(&mut self.storage, doc_name) {
             Err(DocError::DocNotFound(doc_name.to_owned()))?;
         }
         Ok(())
@@ -196,7 +196,7 @@ impl Engine {
 
     pub fn close_visible_doc(&mut self) -> Result<(), SynlessError> {
         if let Some(doc_name) = self.doc_set.visible_doc_name().cloned() {
-            if self.doc_set.delete_doc(&doc_name) {
+            if self.doc_set.delete_doc(&mut self.storage, &doc_name) {
                 Ok(())
             } else {
                 bug!("close_visible_doc: doc '{}' not found", doc_name)
@@ -402,5 +402,21 @@ impl Engine {
 
     pub fn raw_storage_mut(&mut self) -> &mut Storage {
         &mut self.storage
+    }
+}
+
+impl Drop for Engine {
+    fn drop(&mut self) {
+        // Delete all nodes that we know about.
+        self.doc_set.delete_all_docs(&mut self.storage);
+        for node in self.clipboard.drain(..) {
+            node.delete_root(&mut self.storage);
+        }
+
+        // Check that there are no remaining nodes.
+        let num_nodes = self.storage.num_nodes();
+        if num_nodes != 0 {
+            log!(Bug, "Memory leak! Leaked {} nodes", num_nodes);
+        }
     }
 }

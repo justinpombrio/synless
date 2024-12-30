@@ -635,6 +635,10 @@ impl NodeForest {
             next_id: 0,
         }
     }
+
+    pub fn num_nodes(&self) -> usize {
+        self.forest.num_nodes()
+    }
 }
 
 fn inc_id(id: &mut usize) -> NodeId {

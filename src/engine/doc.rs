@@ -256,6 +256,9 @@ impl Doc {
         self.clear_redos(s);
         let root = self.cursor.root_node(s);
         root.delete_root(s);
+        if let Some(search) = self.search {
+            search.delete(s);
+        }
     }
 
     fn clear_redos(&mut self, s: &mut Storage) {

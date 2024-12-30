@@ -1,5 +1,6 @@
 use crate::util::{bug, SynlessBug};
 use generational_arena::Arena;
+use std::fmt::Debug;
 
 /// An index into a Forest, which represents a node in a tree.
 pub type NodeIndex = generational_arena::Index;
@@ -23,7 +24,7 @@ pub type NodeIndex = generational_arena::Index;
 ///   Along the same lines, preventing cycles at compile time.
 /// - Removing the need to pass the `Forest` in to every method call.
 #[derive(Debug)]
-pub struct Forest<D> {
+pub struct Forest<D: Debug> {
     // TODO: Try making roots linked in a cycle internally
     arena: Arena<Node<D>>,
     /// Exists solely for the swap() method. Avoids messiness when swapping adjacent siblings.
@@ -35,7 +36,7 @@ pub struct Forest<D> {
 /// a parent).  Parents store only their first child. The siblings are linked to
 /// each other in a circle.
 #[derive(Debug)]
-struct Node<D> {
+struct Node<D: Debug> {
     parent: Option<NodeIndex>,
     /// The first child, if any.
     child: Option<NodeIndex>,
@@ -46,7 +47,7 @@ struct Node<D> {
     data: D,
 }
 
-impl<D> Forest<D> {
+impl<D: Debug> Forest<D> {
     /// Create a new empty forest. The `dummy_data` will never be used (don't worry about it).
     pub fn new(dummy_data: D) -> Forest<D> {
         let mut arena = Arena::new();
@@ -335,6 +336,11 @@ impl<D> Forest<D> {
         true
     }
 
+    pub fn num_nodes(&self) -> usize {
+        // Account for the swap_dummy node.
+        self.arena.len() - 1
+    }
+
     fn overlaps(&self, node_1: NodeIndex, node_2: NodeIndex) -> bool {
         self.is_ancestor_of(node_1, node_2) || self.is_ancestor_of(node_2, node_1)
     }
@@ -371,11 +377,6 @@ impl<D> Forest<D> {
             .filter(|(_, node)| node.parent.is_none())
             .map(|(i, _)| i)
     }
-
-    #[cfg(test)]
-    fn num_nodes(&self) -> usize {
-        self.arena.len()
-    }
 }
 
 // NOTE: Never create two adjacent cracks. It'll be like that episode of The Good Place.
@@ -393,7 +394,7 @@ enum Crack {
 }
 
 impl Crack {
-    fn new_before<D>(f: &Forest<D>, node: NodeIndex) -> Option<Crack> {
+    fn new_before<D: Debug>(f: &Forest<D>, node: NodeIndex) -> Option<Crack> {
         f.arena[node].parent.map(|parent| Crack::WithSiblings {
             parent,
             prev: f.arena[node].prev,
@@ -402,7 +403,7 @@ impl Crack {
         })
     }
 
-    fn new_after<D>(f: &Forest<D>, node: NodeIndex) -> Option<Crack> {
+    fn new_after<D: Debug>(f: &Forest<D>, node: NodeIndex) -> Option<Crack> {
         f.arena[node].parent.map(|parent| Crack::WithSiblings {
             parent,
             prev: node,
@@ -411,7 +412,7 @@ impl Crack {
         })
     }
 
-    fn new_first_child<D>(f: &Forest<D>, parent: NodeIndex) -> Crack {
+    fn new_first_child<D: Debug>(f: &Forest<D>, parent: NodeIndex) -> Crack {
         if let Some(old_first_child) = f.arena[parent].child {
             Crack::WithSiblings {
                 parent,
@@ -424,7 +425,7 @@ impl Crack {
         }
     }
 
-    fn new_last_child<D>(f: &Forest<D>, parent: NodeIndex) -> Crack {
+    fn new_last_child<D: Debug>(f: &Forest<D>, parent: NodeIndex) -> Crack {
         if let Some(old_first_child) = f.arena[parent].child {
             Crack::WithSiblings {
                 parent,
@@ -437,7 +438,7 @@ impl Crack {
         }
     }
 
-    fn new_remove<D>(f: &mut Forest<D>, node: NodeIndex) -> Crack {
+    fn new_remove<D: Debug>(f: &mut Forest<D>, node: NodeIndex) -> Crack {
         if let Some(parent) = f.arena[node].parent {
             let crack = if f.arena[node].next == node {
                 Crack::WithoutSiblings { parent }
@@ -459,7 +460,7 @@ impl Crack {
         }
     }
 
-    fn seal<D>(self, f: &mut Forest<D>) {
+    fn seal<D: Debug>(self, f: &mut Forest<D>) {
         match self {
             Crack::Root => (),
             Crack::WithoutSiblings { parent } => {
@@ -479,7 +480,7 @@ impl Crack {
         }
     }
 
-    fn fill<D>(self, f: &mut Forest<D>, node: NodeIndex) {
+    fn fill<D: Debug>(self, f: &mut Forest<D>, node: NodeIndex) {
         if f.parent(node).is_some() {
             bug!("Forest - can only fill with a root");
         }
@@ -537,9 +538,7 @@ mod forest_tests {
         fn verify(mut self) -> String {
             // Walk each tree
             for root in self.forest.all_roots() {
-                if root == self.forest.swap_dummy {
-                    self.node_count += 1;
-                } else {
+                if root != self.forest.swap_dummy {
                     self.verify_tree(root, None, root);
                 }
             }
@@ -694,7 +693,7 @@ mod forest_tests {
 
     #[test]
     fn test_mutation() {
-        fn nth_child<D>(f: &Forest<D>, n: usize, parent: NodeIndex) -> NodeIndex {
+        fn nth_child<D: Debug>(f: &Forest<D>, n: usize, parent: NodeIndex) -> NodeIndex {
             let mut child = f.first_child(parent).unwrap();
             for _ in 0..n {
                 child = f.next_sibling(child).unwrap();
