@@ -2,7 +2,7 @@ use super::keymap::{Candidate, KeyProg, Keymap};
 use crate::frontends::Key;
 use crate::language::Storage;
 use crate::tree::Node;
-use crate::util::{bug, bug_assert, fuzzy_search, SynlessBug};
+use crate::util::{bug_assert, fuzzy_search, SynlessBug};
 
 const SELECTION_LANGUAGE_NAME: &str = "selection_menu";
 
@@ -37,12 +37,10 @@ enum MenuState {
     InputString(InputStringMenu),
 }
 
-// The state of an input string menu
 struct InputStringMenu {
-    input: Candidate,
+    input: String,
 }
 
-/// The state of a candidate selection menu
 struct CandidateMenu {
     custom_candidate: Option<Candidate>,
     candidates: Vec<Candidate>,
@@ -52,13 +50,73 @@ struct CandidateMenu {
     default_to_custom_candidate: bool,
 }
 
-impl InputStringMenu {
-    fn new() -> InputStringMenu {
-        InputStringMenu {
-            input: Candidate::new_custom(),
+impl Menu {
+    pub fn new(
+        name: MenuName,
+        description: String,
+        keymap: Keymap,
+        kind: MenuKind,
+        ) -> Menu {
+        let state = match kind {
+            MenuKind::Char => MenuState::Char,
+            MenuKind::Candidate{default_to_custom_candidate} => MenuState::Candidate(CandidateMenu::new(&keymap, default_to_custom_candidate)),
+            MenuKind::InputString =>  MenuState::InputString(InputStringMenu::new()),
+        };
+        Menu {
+            name,
+            description,
+            keymap,
+            state,
         }
     }
 
+    pub fn description(&self) -> &str {
+        &self.description
+    }
+
+    #[must_use]
+    pub fn execute(&mut self, cmd: MenuSelectionCmd) -> bool {
+        match &mut self.state {
+            MenuState::Char => false,
+            MenuState::Candidate(menu) => menu.execute(cmd),
+            MenuState::InputString(menu) => menu.execute(cmd),
+        }
+    }
+
+    pub fn lookup(&self, key: Key) -> Option<KeyProg> {
+        self.keymap.lookup(key, self.selected_candidate().as_ref())
+    }
+
+    pub fn make_candidate_selection_doc(&self, s: &mut Storage) -> Option<Node> {
+        match &self.state {
+            MenuState::Char => None,
+            MenuState::Candidate(menu) => Some(menu.make_candidate_selection_doc(s)),
+            MenuState::InputString(menu) => Some(menu.make_doc(s)),
+        }
+    }
+
+    pub fn make_keyhint_doc(&self, s: &mut Storage) -> Node {
+        self.keymap.make_keyhint_doc(s, self.selected_candidate().as_ref())
+    }
+
+    fn selected_candidate(&self) -> Option<Candidate> {
+        match &self.state {
+            MenuState::Char => None,
+            MenuState::Candidate(menu) => menu.selected_candidate().cloned(),
+            MenuState::InputString(menu) => Some(Candidate::Custom { input: menu.input.clone() }),
+        }
+    }
+
+}
+
+impl InputStringMenu {
+    fn new() -> InputStringMenu {
+        InputStringMenu {
+            input: String::new(),
+        }
+    }
+
+    #[must_use]
     fn execute(&mut self, cmd: MenuSelectionCmd) -> bool {
         use MenuSelectionCmd::{Backspace, Down, Insert, Up};
 
@@ -66,46 +124,25 @@ impl InputStringMenu {
             Up => false,
             Down => false,
             Backspace => {
-                if let Candidate::Custom { input } = &mut self.input {
-                    input.pop();
-                } else {
-                    bug!("candidate not custom")
-                }
+                    self.input.pop();
                 true
             }
             Insert(ch) => {
-                if let Candidate::Custom { input } = &mut self.input {
-                    input.push(ch);
-                } else {
-                    bug!("candidate not custom")
-                }
+                    self.input.push(ch);
                 true
             }
         }
     }
 
-    fn input_candidate(&self) -> &Candidate {
-        &self.input
-    }
-
     fn make_doc(&self, s: &mut Storage) -> Node {
-        // Lookup selection menu language and constructs
         let lang = s
             .language(SELECTION_LANGUAGE_NAME)
             .bug_msg("Missing selection menu lang");
         let c_root = lang.root_construct(s);
         let c_input = lang.construct(s, "Input").bug();
 
-        // Construct root node
         let root = Node::new(s, c_root);
-
-        let input = if let Candidate::Custom { input } = &self.input {
-            input.clone()
-        } else {
-            bug!("candidate not custom")
-        };
-        // Add input entry
-        let input_node = Node::with_text(s, c_input, input).bug();
+        let input_node = Node::with_text(s, c_input, self.input.clone()).bug();
         bug_assert!(root.insert_last_child(s, input_node));
         root
     }
@@ -127,6 +164,7 @@ impl CandidateMenu {
         menu
     }
 
+    #[must_use]
     fn execute(&mut self, cmd: MenuSelectionCmd) -> bool {
         use MenuSelectionCmd::{Backspace, Down, Insert, Up};
 
@@ -223,60 +261,3 @@ impl CandidateMenu {
     }
 }
 
-impl Menu {
-    pub fn new(
-        name: MenuName,
-        description: String,
-        keymap: Keymap,
-        kind: MenuKind,
-        ) -> Menu {
-        let state = match kind {
-            MenuKind::Char => MenuState::Char,
-            MenuKind::Candidate{default_to_custom_candidate} => MenuState::Candidate(CandidateMenu::new(&keymap, default_to_custom_candidate)),
-            MenuKind::InputString =>  MenuState::InputString(InputStringMenu::new()),
-        };
-        Menu {
-            name,
-            description,
-            keymap,
-            state,
-        }
-    }
-
-    pub fn description(&self) -> &str {
-        &self.description
-    }
-
-    #[must_use]
-    pub fn execute(&mut self, cmd: MenuSelectionCmd) -> bool {
-        match &mut self.state {
-            MenuState::Char => false,
-            MenuState::Candidate(menu) => menu.execute(cmd),
-            MenuState::InputString(menu) => menu.execute(cmd),
-        }
-    }
-
-    pub fn lookup(&self, key: Key) -> Option<KeyProg> {
-        self.keymap.lookup(key, self.selected_candidate())
-    }
-
-    pub fn make_candidate_selection_doc(&self, s: &mut Storage) -> Option<Node> {
-        match &self.state {
-            MenuState::Char => None,
-            MenuState::Candidate(menu) => Some(menu.make_candidate_selection_doc(s)),
-            MenuState::InputString(menu) => Some(menu.make_doc(s)),
-        }
-    }
-
-    pub fn make_keyhint_doc(&self, s: &mut Storage) -> Node {
-        self.keymap.make_keyhint_doc(s, self.selected_candidate())
-    }
-
-    fn selected_candidate(&self) -> Option<&Candidate> {
-        match &self.state {
-            MenuState::Char => None,
-            MenuState::Candidate(menu) => menu.selected_candidate(),
-            MenuState::InputString(menu) => Some(menu.input_candidate()),
-        }
-    }
-}
