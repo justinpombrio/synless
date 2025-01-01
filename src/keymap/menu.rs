@@ -71,6 +71,7 @@ impl Menu {
         &self.description
     }
 
+    /// Returns true if this kind of menu can (ever) execute that command
     #[must_use]
     pub fn execute(&mut self, cmd: MenuSelectionCmd) -> bool {
         match &mut self.state {
