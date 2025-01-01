@@ -3,7 +3,7 @@ use crate::engine::{
     Settings, TextEdCommand, TextNavCommand, TreeEdCommand, TreeNavCommand,
 };
 use crate::frontends::{Event, Frontend, Key};
-use crate::keymap::{KeyLookupResult, KeyProg, Keymap, Layer, LayerManager, MenuSelectionCmd};
+use crate::keymap::{KeyLookupResult, KeyProg, Keymap, Layer, LayerManager, MenuSelectionCmd, MenuKind};
 use crate::language::{Construct, Language};
 use crate::style::Style;
 use crate::tree::{Mode, Node};
@@ -78,8 +78,7 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
             menu.name,
             menu.description,
             menu.keymap,
-            menu.is_candidate_menu,
-            menu.default_to_custom_candidate,
+            menu.kind,
         )
     }
 
@@ -581,8 +580,7 @@ pub struct MenuBuilder {
     name: String,
     description: String,
     keymap: Option<Keymap>,
-    is_candidate_menu: bool,
-    default_to_custom_candidate: bool,
+    kind: MenuKind,
 }
 
 pub fn make_menu(menu_name: String, description: String) -> MenuBuilder {
@@ -590,22 +588,26 @@ pub fn make_menu(menu_name: String, description: String) -> MenuBuilder {
         name: menu_name,
         description,
         keymap: None,
-        is_candidate_menu: false,
-        default_to_custom_candidate: false,
+        kind: MenuKind::Char,
     }
 }
 
-pub fn set_menu_is_candidate_menu(menu: &mut MenuBuilder, setting: bool) {
-    menu.is_candidate_menu = setting;
+pub fn set_menu_kind_to_candidate(menu: &mut MenuBuilder, default_to_custom_candidate: bool) {
+    menu.kind = MenuKind::Candidate {default_to_custom_candidate};
+}
+
+pub fn set_menu_kind_to_input_string(menu: &mut MenuBuilder) {
+    menu.kind = MenuKind::InputString;
+}
+
+pub fn set_menu_kind_to_char(menu: &mut MenuBuilder) {
+    menu.kind = MenuKind::Char;
 }
 
 pub fn set_menu_keymap(menu: &mut MenuBuilder, keymap: Keymap) {
     menu.keymap = Some(keymap);
 }
 
-pub fn set_menu_default_to_custom_candidate(menu: &mut MenuBuilder, setting: bool) {
-    menu.default_to_custom_candidate = setting;
-}
 
 /******************
  * Pane Notations *
@@ -832,8 +834,9 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         register!(module, rt.remove_global_layer(layer_name: &str)?);
         register!(module, make_menu);
         register!(module, set_menu_keymap);
-        register!(module, set_menu_default_to_custom_candidate);
-        register!(module, set_menu_is_candidate_menu);
+        register!(module, set_menu_kind_to_candidate);
+        register!(module, set_menu_kind_to_input_string);
+        register!(module, set_menu_kind_to_char);
         register!(module, rt.open_menu(menu: MenuBuilder)?);
         register!(module, rt.close_menu());
         register!(module, escape()?);

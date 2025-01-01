@@ -84,7 +84,7 @@ fn make_tree_keymap() {
     keymap.bind_key("*", "FindEq", || s::search_for_node_at_cursor());
     keymap.bind_key("/", "FindRegex", || {
         let menu = s::make_menu("input_string", "Enter search regex");
-        s::set_menu_is_candidate_menu(menu, true);
+        s::set_menu_kind_to_input_string(menu);
         s::open_menu(menu);
         let regex = s::block();
         s::search_for_regex(regex);
@@ -92,7 +92,7 @@ fn make_tree_keymap() {
     });
     keymap.bind_key("\\", "FindString", || {
         let menu = s::make_menu("input_string", "Enter search string");
-        s::set_menu_is_candidate_menu(menu, true);
+        s::set_menu_kind_to_input_string(menu);
         s::open_menu(menu);
         let string = s::block();
         s::search_for_substring(string);
@@ -102,39 +102,39 @@ fn make_tree_keymap() {
     keymap.bind_key("N", "PrevSearch", || s::search_prev());
     keymap.bind_key("n", "NextSearch", || s::search_next());
     keymap.bind_key("~", "ClearSearch", || s::search_highlight_off());
-    
+
     keymap.bind_key("^", "First", || s::tree_nav_first());
     keymap.bind_key("$", "Last", || s::tree_nav_last());
-    
+
     keymap.bind_key("enter", "EnterText", || s::tree_nav_enter_text());
     keymap.bind_key("bksp", "Backspace", || s::tree_ed_backspace());
     keymap.bind_key("del", "Delete", || s::tree_ed_delete());
     keymap.bind_key("u", "Undo", || s::undo());
     keymap.bind_key("r", "Redo", || s::redo());
-    
+
     keymap.bind_key("m", "SaveBookmark", || s::save_bookmark('a'));
     keymap.bind_key("'", "GoToBookmark", || s::goto_bookmark('a'));
-    
+
     keymap.bind_key("y", "Copy", || s::copy());
     keymap.bind_key("d", "Cut", || s::cut());
     keymap.bind_key("p", "Paste", || s::paste());
     keymap.bind_key("P", "PasteSwap", || s::paste_swap());
-    
+
     keymap.bind_key("I", "Insert", || {
         let menu = s::make_menu("candidate_node_selection", "Select node to insert");
-        s::set_menu_is_candidate_menu(menu, true);
+        s::set_menu_kind_to_candidate(menu, false);
         s::open_menu(menu);
         let construct = s::block();
         s::insert_node(construct);
     });
-    
+
     keymap.bind_key("i", "QuickInsert", || {
         let menu = s::make_menu("char_node_selection", "Select node to insert");
         s::open_menu(menu);
         let construct = s::block();
         s::insert_node(construct);
     });
-    
+
     keymap.bind_key(" ", "Menu", || {
         let menu = s::make_menu("space_menu", "Space Menu");
         s::open_menu(menu);
@@ -194,7 +194,7 @@ fn open_file_menu(dir) {
     );
     let menu = s::make_menu("open_file_menu", `Open file in ${dir}/`);
     s::set_menu_keymap(menu, keymap);
-    s::set_menu_is_candidate_menu(menu, true);
+    s::set_menu_kind_to_candidate(menu, false);
     s::open_menu(menu)
 }
 
@@ -202,12 +202,11 @@ fn save_file_menu(dir) {
     let keymap = file_selection_keymap(dir, |dir| save_file_menu(dir));
     keymap.bind_key_for_regular_candidates("enter", "SaveFile", |path| s::save_doc_as(path));
     keymap.bind_key_for_custom_candidate("enter", "SaveFile",
-        |name| s::save_doc_as(s::join_path(dir, name))
+                                         |name| s::save_doc_as(s::join_path(dir, name))
     );
     let menu = s::make_menu("save_file_menu", `Save file in ${dir}/`);
     s::set_menu_keymap(menu, keymap);
-    s::set_menu_is_candidate_menu(menu, true);
-    s::set_menu_default_to_custom_candidate(menu, true);
+    s::set_menu_kind_to_candidate(menu, true);
     s::open_menu(menu)
 }
 
@@ -222,7 +221,7 @@ fn doc_switching_menu() {
     });
     let menu = s::make_menu("doc_switching_menu", "Switch which doc is visible");
     s::set_menu_keymap(menu, keymap);
-    s::set_menu_is_candidate_menu(menu, true);
+    s::set_menu_kind_to_candidate(menu, false);
     s::open_menu(menu)
 }
 

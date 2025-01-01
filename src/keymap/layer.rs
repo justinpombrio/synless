@@ -1,5 +1,5 @@
 use super::keymap::{KeyProg, Keymap};
-use super::menu::{Menu, MenuName, MenuSelectionCmd};
+use super::menu::{Menu, MenuName, MenuSelectionCmd, MenuKind};
 use crate::engine::DocName;
 use crate::frontends::Key;
 use crate::language::Storage;
@@ -205,8 +205,7 @@ impl LayerManager {
         menu_name: String,
         description: String,
         dynamic_keymap: Option<Keymap>,
-        is_candidate_menu: bool,
-        default_to_custom_candidate: bool,
+        kind: MenuKind,
     ) -> Result<(), SynlessError> {
         let composite_layer = self.composite_layer(doc_name);
         let label = KeymapLabel::Menu(menu_name.clone());
@@ -224,8 +223,7 @@ impl LayerManager {
             menu_name,
             description,
             keymap,
-            is_candidate_menu,
-            default_to_custom_candidate,
+            kind,
         ));
         Ok(())
     }
