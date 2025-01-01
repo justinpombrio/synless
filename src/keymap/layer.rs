@@ -1,5 +1,5 @@
 use super::keymap::{KeyProg, Keymap};
-use super::menu::{Menu, MenuName, MenuSelectionCmd, MenuKind};
+use super::menu::{Menu, MenuKind, MenuName, MenuSelectionCmd};
 use crate::engine::DocName;
 use crate::frontends::Key;
 use crate::language::Storage;
@@ -219,12 +219,7 @@ impl LayerManager {
             }
             (None, Some(keymap)) => keymap.to_owned(),
         };
-        self.active_menu = Some(Menu::new(
-            menu_name,
-            description,
-            keymap,
-            kind,
-        ));
+        self.active_menu = Some(Menu::new(menu_name, description, keymap, kind));
         Ok(())
     }
 

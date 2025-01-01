@@ -4,4 +4,4 @@ mod menu;
 
 pub use keymap::{KeyProg, Keymap};
 pub use layer::{KeyLookupResult, Layer, LayerManager};
-pub use menu::{MenuSelectionCmd, MenuKind};
+pub use menu::{MenuKind, MenuSelectionCmd};

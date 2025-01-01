@@ -3,7 +3,9 @@ use crate::engine::{
     Settings, TextEdCommand, TextNavCommand, TreeEdCommand, TreeNavCommand,
 };
 use crate::frontends::{Event, Frontend, Key};
-use crate::keymap::{KeyLookupResult, KeyProg, Keymap, Layer, LayerManager, MenuSelectionCmd, MenuKind};
+use crate::keymap::{
+    KeyLookupResult, KeyProg, Keymap, Layer, LayerManager, MenuKind, MenuSelectionCmd,
+};
 use crate::language::{Construct, Language};
 use crate::style::Style;
 use crate::tree::{Mode, Node};
@@ -593,7 +595,9 @@ pub fn make_menu(menu_name: String, description: String) -> MenuBuilder {
 }
 
 pub fn set_menu_kind_to_candidate(menu: &mut MenuBuilder, default_to_custom_candidate: bool) {
-    menu.kind = MenuKind::Candidate {default_to_custom_candidate};
+    menu.kind = MenuKind::Candidate {
+        default_to_custom_candidate,
+    };
 }
 
 pub fn set_menu_kind_to_input_string(menu: &mut MenuBuilder) {
@@ -607,7 +611,6 @@ pub fn set_menu_kind_to_char(menu: &mut MenuBuilder) {
 pub fn set_menu_keymap(menu: &mut MenuBuilder, keymap: Keymap) {
     menu.keymap = Some(keymap);
 }
-
 
 /******************
  * Pane Notations *

@@ -27,7 +27,7 @@ pub struct Menu {
 #[derive(Debug, Clone)]
 pub enum MenuKind {
     Char,
-    Candidate {default_to_custom_candidate: bool},
+    Candidate { default_to_custom_candidate: bool },
     InputString,
 }
 
@@ -51,16 +51,13 @@ struct CandidateMenu {
 }
 
 impl Menu {
-    pub fn new(
-        name: MenuName,
-        description: String,
-        keymap: Keymap,
-        kind: MenuKind,
-        ) -> Menu {
+    pub fn new(name: MenuName, description: String, keymap: Keymap, kind: MenuKind) -> Menu {
         let state = match kind {
             MenuKind::Char => MenuState::Char,
-            MenuKind::Candidate{default_to_custom_candidate} => MenuState::Candidate(CandidateMenu::new(&keymap, default_to_custom_candidate)),
-            MenuKind::InputString =>  MenuState::InputString(InputStringMenu::new()),
+            MenuKind::Candidate {
+                default_to_custom_candidate,
+            } => MenuState::Candidate(CandidateMenu::new(&keymap, default_to_custom_candidate)),
+            MenuKind::InputString => MenuState::InputString(InputStringMenu::new()),
         };
         Menu {
             name,
@@ -91,22 +88,24 @@ impl Menu {
         match &self.state {
             MenuState::Char => None,
             MenuState::Candidate(menu) => Some(menu.make_candidate_selection_doc(s)),
-            MenuState::InputString(menu) => Some(menu.make_doc(s)),
+            MenuState::InputString(menu) => Some(menu.make_candidate_selection_doc(s)),
         }
     }
 
     pub fn make_keyhint_doc(&self, s: &mut Storage) -> Node {
-        self.keymap.make_keyhint_doc(s, self.selected_candidate().as_ref())
+        self.keymap
+            .make_keyhint_doc(s, self.selected_candidate().as_ref())
     }
 
     fn selected_candidate(&self) -> Option<Candidate> {
         match &self.state {
             MenuState::Char => None,
             MenuState::Candidate(menu) => menu.selected_candidate().cloned(),
-            MenuState::InputString(menu) => Some(Candidate::Custom { input: menu.input.clone() }),
+            MenuState::InputString(menu) => Some(Candidate::Custom {
+                input: menu.input.clone(),
+            }),
         }
     }
-
 }
 
 impl InputStringMenu {
@@ -124,17 +123,17 @@ impl InputStringMenu {
             Up => false,
             Down => false,
             Backspace => {
-                    self.input.pop();
+                self.input.pop();
                 true
             }
             Insert(ch) => {
-                    self.input.push(ch);
+                self.input.push(ch);
                 true
             }
         }
     }
 
-    fn make_doc(&self, s: &mut Storage) -> Node {
+    fn make_candidate_selection_doc(&self, s: &mut Storage) -> Node {
         let lang = s
             .language(SELECTION_LANGUAGE_NAME)
             .bug_msg("Missing selection menu lang");
@@ -260,4 +259,3 @@ impl CandidateMenu {
         root
     }
 }
-
