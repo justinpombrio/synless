@@ -5,7 +5,7 @@ use regex::{self, Regex};
 
 #[derive(thiserror::Error, Debug)]
 pub enum SearchError {
-    #[error("{}", .0)]
+    #[error("{0}")]
     InvalidRegex(regex::Error),
 }
 

@@ -14,6 +14,27 @@ pub struct ConstructSpec {
     pub key: Option<char>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReplacementTableSpec {
+    pub name: String,
+    pub entries: Vec<ReplacementSpec>,
+    pub banned_prefixes: Vec<char>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub enum ReplacementSpec {
+    String {
+        source: String,
+        display: String,
+    },
+    Regex {
+        source_pattern: String,
+        display_template: String,
+    },
+}
+
 /// A set of constructs. Can both include and be included by other sorts.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Hash)]
 #[serde(deny_unknown_fields)]
@@ -23,8 +44,13 @@ pub struct SortSpec(pub Vec<String>);
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub enum AritySpec {
-    /// Designates a pure text node. Optionally constrained to match a regex.
-    Texty(Option<String>),
+    /// Designates a pure text node. Optionally constrained to match a regex and use a replacement table.
+    Texty {
+        #[serde(default)]
+        validation_regex: Option<String>,
+        #[serde(default)]
+        replacement_table: Option<String>,
+    },
     /// Designates a node containing a fixed number of tree children.
     /// `Vec<ConstructSet>` contains the sort of each of its children respectively.
     Fixed(Vec<SortSpec>),
@@ -41,6 +67,7 @@ pub struct GrammarSpec {
     pub constructs: Vec<ConstructSpec>,
     pub sorts: Vec<(String, SortSpec)>,
     pub root_construct: String,
+    pub replacement_tables: Vec<ReplacementTableSpec>,
 }
 
 /// Describes how to display every construct in a language.

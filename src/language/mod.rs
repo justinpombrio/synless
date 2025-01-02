@@ -7,7 +7,7 @@ use crate::util::{error, SynlessError};
 use partial_pretty_printer as ppp;
 use std::fmt;
 
-pub use interface::{Arity, Construct, Language};
+pub use interface::{Arity, Construct, Language, ReplacementTable};
 pub use specs::{
     AritySpec, ConstructSpec, GrammarSpec, HoleSyntax, LanguageSpec, NotationSetSpec, SortSpec,
 };
@@ -30,8 +30,18 @@ pub enum LanguageError {
     UndefinedConstruct(String),
     #[error("Root construct '{0}' must not be texty")]
     TextyRoot(String),
-    #[error("Failed to compile regex '{0}' for construct {1}: {2}")]
-    InvalidRegex(String, String, String),
+    #[error("Failed to compile text validation regex '{0}' for construct {1}: {2}")]
+    InvalidTextValidationRegex(String, String, String),
+    #[error("Failed to compile regex '{0}' for replacement table {1}: {2}")]
+    InvalidReplacementTableRegex(String, String, String),
+    #[error("Name '{0}' is not a known replacement table")]
+    UndefinedReplacementTable(String),
+    #[error("Duplicate name '{0}' used for two replacement tables")]
+    DuplicateReplacementTable(String),
+    #[error("String '{0}' in replacement table {1} starts with a character that is not banned")]
+    UnbannedPrefixInReplacementTable(String, String),
+    #[error("Empty string in replacement table {0}")]
+    EmptyStringInReplacementTable(String),
     // TODO: Check for cycles
     // #[error("Sort '{0}' refers to itself")]
     // InfiniteSort(String),

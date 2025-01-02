@@ -1,5 +1,6 @@
 use super::specs::{
-    AritySpec, ConstructSpec, GrammarSpec, HoleSyntax, LanguageSpec, NotationSetSpec, SortSpec,
+    AritySpec, ConstructSpec, GrammarSpec, HoleSyntax, LanguageSpec, NotationSetSpec,
+    ReplacementSpec, ReplacementTableSpec, SortSpec,
 };
 use crate::language::LanguageError;
 use crate::style::ValidNotation;
@@ -17,6 +18,7 @@ const HOLE_LITERAL: &str = "☐";
 
 pub type SortId = usize;
 pub type ConstructId = usize;
+pub type ReplacementTableId = usize;
 pub type LanguageId = usize;
 pub type NotationSetId = usize;
 
@@ -29,8 +31,34 @@ pub struct ConstructCompiled {
 }
 
 #[derive(Debug)]
+pub struct ReplacementTableCompiled {
+    pub entries: Vec<ReplacementCompiled>,
+    pub banned_prefixes: Vec<char>,
+}
+
+#[derive(Debug)]
+pub enum ReplacementCompiled {
+    String {
+        source: String,
+        display: String,
+    },
+    Regex {
+        // Ends with a $
+        source_at_end: Regex,
+        // Starts with a ^
+        source_at_start: Regex,
+        // Starts with a ^ and ends with a $
+        source_exact: Regex,
+        display_template: String,
+    },
+}
+
+#[derive(Debug)]
 pub enum ArityCompiled {
-    Texty(Option<Regex>),
+    Texty {
+        validation_regex: Option<Regex>,
+        replacement_table: Option<ReplacementTableId>,
+    },
     Fixed(Vec<(SortId, SortSpec)>),
     Listy(SortId, SortSpec),
 }
@@ -49,6 +77,8 @@ pub struct GrammarCompiled {
     pub hole_construct: ConstructId,
     /// Key -> ConstructId
     pub keymap: HashMap<char, ConstructId>,
+    /// ReplacementTableId -> ReplacementTableCompiled
+    pub replacement_tables: Vec<ReplacementTableCompiled>,
 }
 
 #[derive(Debug)]
@@ -182,9 +212,83 @@ pub(super) fn compile_notation_set(
     })
 }
 
+impl ReplacementTableSpec {
+    fn compile(self) -> Result<ReplacementTableCompiled, LanguageError> {
+        Ok(ReplacementTableCompiled {
+            banned_prefixes: self.banned_prefixes,
+            entries: self
+                .entries
+                .into_iter()
+                .map(|entry| entry.compile(&self.name, &self.banned_prefixes))
+                .collect::<Result<_, _>>()?,
+        })
+    }
+}
+
+impl ReplacementSpec {
+    fn compile(
+        self,
+        table_name: &str,
+        banned_prefixes: &[char],
+    ) -> Result<ReplacementCompiled, LanguageError> {
+        let compile_regex = |pattern: &str| -> Result<Regex, LanguageError> {
+            Regex::new(pattern).map_err(|err| {
+                LanguageError::InvalidReplacementTableRegex(
+                    pattern.into(),
+                    table_name.into(),
+                    err.to_string(),
+                )
+            })
+        };
+
+        match self {
+            ReplacementSpec::String { source, display } => {
+                let prefix = source.chars().next().ok_or_else(|| {
+                    LanguageError::EmptyStringInReplacementTable(table_name.to_owned())
+                })?;
+                if !banned_prefixes.contains(&prefix) {
+                    return Err(LanguageError::UnbannedPrefixInReplacementTable(
+                        source.to_owned(),
+                        table_name.to_owned(),
+                    ));
+                }
+                if display.is_empty() {
+                    return Err(LanguageError::EmptyStringInReplacementTable(
+                        table_name.to_owned(),
+                    ));
+                }
+                Ok(ReplacementCompiled::String { source, display })
+            }
+            ReplacementSpec::Regex {
+                source_pattern,
+                display_template,
+            } => {
+                if source_pattern.is_empty() || display_template.is_empty() {
+                    return Err(LanguageError::EmptyStringInReplacementTable(
+                        table_name.to_owned(),
+                    ));
+                }
+
+                // Try compiling the original pattern first for a better error message, even though we're not using it directly.
+                let _ = compile_regex(&source_pattern)?;
+                let source_at_end = compile_regex(&format!("(?:{})$", source_pattern))?;
+                let source_at_start = compile_regex(&format!("^(?:{})", source_pattern))?;
+                let source_exact = compile_regex(&format!("^(?:{})$", source_pattern))?;
+                Ok(ReplacementCompiled::Regex {
+                    source_at_end,
+                    source_at_start,
+                    source_exact,
+                    display_template,
+                })
+            }
+        }
+    }
+}
+
 struct GrammarCompiler {
     constructs: IndexedMap<ConstructSpec>,
     sorts: HashMap<String, SortSpec>,
+    replacement_tables: IndexedMap<ReplacementTableSpec>,
     root_construct: String,
 }
 
@@ -197,6 +301,9 @@ impl GrammarSpec {
         for (name, sort) in self.sorts {
             builder.add_sort(name, sort)?;
         }
+        for table in self.replacement_tables {
+            builder.add_table(table)?;
+        }
         builder.finish()
     }
 }
@@ -206,6 +313,7 @@ impl GrammarCompiler {
         GrammarCompiler {
             constructs: IndexedMap::new(),
             sorts: HashMap::new(),
+            replacement_tables: IndexedMap::new(),
             root_construct,
         }
     }
@@ -232,6 +340,16 @@ impl GrammarCompiler {
         }
 
         self.sorts.insert(name, sort);
+        Ok(())
+    }
+
+    fn add_table(&mut self, table: ReplacementTableSpec) -> Result<(), LanguageError> {
+        if self.replacement_tables.contains_name(&table.name) {
+            return Err(LanguageError::DuplicateReplacementTable(
+                table.name.to_owned(),
+            ));
+        }
+        self.replacement_tables.insert(table.name.clone(), table);
         Ok(())
     }
 
@@ -265,7 +383,7 @@ impl GrammarCompiler {
 
         if matches!(
             self.constructs.get(root_construct).bug().arity,
-            AritySpec::Texty(_)
+            AritySpec::Texty { .. }
         ) {
             return Err(LanguageError::TextyRoot(self.root_construct.to_owned()));
         }
@@ -276,6 +394,7 @@ impl GrammarCompiler {
             root_construct,
             hole_construct: self.constructs.id(HOLE_NAME).bug(),
             keymap: HashMap::new(),
+            replacement_tables: Vec::new(),
         };
 
         for sort in self.sorts.values() {
@@ -285,7 +404,11 @@ impl GrammarCompiler {
             let construct = &self.constructs[id];
             self.compile_construct(&mut grammar, id, construct)?;
         }
-
+        grammar.replacement_tables = self
+            .replacement_tables
+            .into_iter()
+            .map(|table| table.compile())
+            .collect::<Result<_, _>>()?;
         Ok(grammar)
     }
 
@@ -326,31 +449,39 @@ impl GrammarCompiler {
         construct: &ConstructSpec,
     ) -> Result<(), LanguageError> {
         let arity = match &construct.arity {
-            AritySpec::Texty(None) => ArityCompiled::Texty(None),
-            AritySpec::Texty(Some(regex_str)) => {
-                let regex_str_full_match = format!("^{}$", regex_str);
-                match Regex::new(&regex_str_full_match) {
-                    Ok(regex) => ArityCompiled::Texty(Some(regex)),
-                    Err(bad_err) => {
-                        // Re-compile the regex with the user-supplied string for a better error
-                        // meessage.
-                        match Regex::new(regex_str) {
-                            Ok(_) => {
-                                return Err(LanguageError::InvalidRegex(
-                                    regex_str_full_match.to_owned(),
-                                    construct.name.clone(),
-                                    bad_err.to_string(),
-                                ))
-                            }
-                            Err(good_err) => {
-                                return Err(LanguageError::InvalidRegex(
-                                    regex_str.to_owned(),
-                                    construct.name.clone(),
-                                    good_err.to_string(),
-                                ))
-                            }
-                        }
-                    }
+            AritySpec::Texty {
+                validation_regex,
+                replacement_table,
+            } => {
+                let regex = if let Some(pattern) = validation_regex {
+                    let compile_regex = |pattern: &str| -> Result<Regex, LanguageError> {
+                        Regex::new(pattern).map_err(|err| {
+                            LanguageError::InvalidTextValidationRegex(
+                                pattern.to_owned(),
+                                construct.name.to_owned(),
+                                err.to_string(),
+                            )
+                        })
+                    };
+
+                    // Try compiling the original pattern first for a better error message, even though we're not using it directly.
+                    let _ = compile_regex(pattern)?;
+                    Some(compile_regex(&format!("^(?:{})$", pattern))?)
+                } else {
+                    None
+                };
+                let id = if let Some(name) = replacement_table {
+                    Some(
+                        self.replacement_tables
+                            .id(name)
+                            .ok_or(LanguageError::UndefinedReplacementTable(name.to_owned()))?,
+                    )
+                } else {
+                    None
+                };
+                ArityCompiled::Texty {
+                    validation_regex: regex,
+                    replacement_table: id,
                 }
             }
             AritySpec::Fixed(sort_specs) => ArityCompiled::Fixed(

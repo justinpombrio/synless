@@ -99,6 +99,15 @@ impl<T> IndexMut<usize> for IndexedMap<T> {
     }
 }
 
+impl<T> IntoIterator for IndexedMap<T> {
+    type Item = T;
+    type IntoIter = std::vec::IntoIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.values.into_iter()
+    }
+}
+
 impl<T> IntoIterator for &IndexedMap<T> {
     type Item = usize;
     type IntoIter = std::ops::Range<usize>;

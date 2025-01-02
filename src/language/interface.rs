@@ -1,12 +1,12 @@
 use super::compiled::{
     compile_notation_set, ArityCompiled, ConstructId, GrammarCompiled, LanguageId, NotationSetId,
-    SortId,
+    ReplacementCompiled, ReplacementTableCompiled, ReplacementTableId, SortId,
 };
 use super::specs::NotationSetSpec;
 use super::storage::Storage;
 use super::{HoleSyntax, LanguageError};
 use crate::style::ValidNotation;
-use crate::util::bug;
+use crate::util::{bug, SynlessBug};
 use regex::Regex;
 
 // NOTE: Why all the wrapper types, instead of using indexes? Two reasons:
@@ -45,6 +45,12 @@ pub struct FixedSorts {
 pub struct Construct {
     language: LanguageId,
     construct: ConstructId,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct ReplacementTable {
+    language: LanguageId,
+    table: ReplacementTableId,
 }
 
 /// A single language in which documents can be written. Consists of:
@@ -301,14 +307,28 @@ impl Construct {
 
     pub fn text_validation_regex(self, s: &Storage) -> Option<&Regex> {
         match &grammar(s, self.language).constructs[self.construct].arity {
-            ArityCompiled::Texty(regex) => regex.as_ref(),
+            ArityCompiled::Texty {
+                validation_regex, ..
+            } => validation_regex.as_ref(),
+            _ => None,
+        }
+    }
+
+    pub fn text_replacement_table(self, s: &Storage) -> Option<ReplacementTable> {
+        match &grammar(s, self.language).constructs[self.construct].arity {
+            ArityCompiled::Texty {
+                replacement_table, ..
+            } => replacement_table.map(|table| ReplacementTable {
+                table,
+                language: self.language,
+            }),
             _ => None,
         }
     }
 
     pub fn arity(self, s: &Storage) -> Arity {
         match grammar(s, self.language).constructs[self.construct].arity {
-            ArityCompiled::Texty(_) => Arity::Texty,
+            ArityCompiled::Texty { .. } => Arity::Texty,
             ArityCompiled::Fixed(_) => Arity::Fixed(FixedSorts {
                 language: self.language,
                 construct: self.construct,
@@ -362,6 +382,117 @@ impl FixedSorts {
             })
         } else {
             bug!("Language - FixedSort of wrong arity (get)");
+        }
+    }
+}
+
+impl ReplacementTable {
+    /// Returns the length of the matching source and display strings, in bytes.
+    pub fn match_at_end(&self, s: &Storage, source_haystack: &str) -> Option<(usize, usize)> {
+        self.table(s)
+            .entries
+            .iter()
+            .find_map(|entry| entry.match_at_end(source_haystack))
+    }
+
+    /// Returns the length of the matching source and display strings, in bytes.
+    pub fn match_at_start(&self, s: &Storage, source_haystack: &str) -> Option<(usize, usize)> {
+        self.table(s)
+            .entries
+            .iter()
+            .find_map(|entry| entry.match_at_start(source_haystack))
+    }
+
+    /// If the source string exactly matches an entry in the table, return the corresponding display string.
+    pub fn source_to_display(&self, s: &Storage, exact_source: &str) -> Option<String> {
+        self.table(s)
+            .entries
+            .iter()
+            .find_map(|entry| entry.source_to_display(exact_source))
+    }
+
+    pub fn is_banned(&self, s: &Storage, character: char) -> bool {
+        self.table(s).banned_prefixes.contains(&character)
+    }
+
+    fn table<'a>(&'a self, s: &'a Storage) -> &'a ReplacementTableCompiled {
+        &grammar(s, self.language).replacement_tables[self.table]
+    }
+}
+
+impl ReplacementCompiled {
+    fn match_at_start(&self, source_haystack: &str) -> Option<(usize, usize)> {
+        match self {
+            ReplacementCompiled::String { source, display } => {
+                if source_haystack.starts_with(source) {
+                    Some((source.len(), display.len()))
+                } else {
+                    None
+                }
+            }
+            ReplacementCompiled::Regex {
+                source_at_start,
+                display_template,
+                ..
+            } => {
+                if let Some(captures) = source_at_start.captures(source_haystack) {
+                    let mut display = String::new();
+                    captures.expand(&display_template, &mut display);
+                    Some((captures.get(0).bug().len(), display.len()))
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
+    fn match_at_end(&self, source_haystack: &str) -> Option<(usize, usize)> {
+        match self {
+            ReplacementCompiled::String { source, display } => {
+                if source_haystack.ends_with(source) {
+                    Some((source.len(), display.len()))
+                } else {
+                    None
+                }
+            }
+            ReplacementCompiled::Regex {
+                source_at_end,
+                display_template,
+                ..
+            } => {
+                if let Some(captures) = source_at_end.captures(source_haystack) {
+                    let mut display = String::new();
+                    captures.expand(&display_template, &mut display);
+                    Some((captures.get(0).bug().len(), display.len()))
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
+    fn source_to_display(&self, exact_source: &str) -> Option<String> {
+        match self {
+            ReplacementCompiled::String { source, display } => {
+                if source == exact_source {
+                    Some(display.clone())
+                } else {
+                    None
+                }
+            }
+            ReplacementCompiled::Regex {
+                source_exact,
+                display_template,
+                ..
+            } => {
+                if let Some(captures) = source_exact.captures(exact_source) {
+                    let mut display = String::new();
+                    captures.expand(&display_template, &mut display);
+                    Some(display)
+                } else {
+                    None
+                }
+            }
         }
     }
 }
