@@ -1,14 +1,51 @@
-use super::{Parse, ParseError};
-use crate::language::{Language, Storage};
+//! A custom Json parser.
+//!
+//! Why not use an existing one? We haven't found a Json parser written in Rust that has the
+//! properties required to work well with an editor (as opposed to being read as data):
+//!
+//! - It must preserve the order of object keys.
+//! - It must not de-duplicate object keys.
+//! - For full fidelity, it should read numbers as strings (f64s have limited precision).
+
+use super::json_tokenizer::{Token, Tokenizer};
+use super::Parse;
+use crate::language::{Construct, Language, Storage};
 use crate::tree::Node;
 use crate::util::{bug_assert, error, SynlessBug, SynlessError};
-use partial_pretty_printer as ppp;
 
 const LANGUAGE_NAME: &str = "json";
 const PARSER_NAME: &str = "builtin_json_parser";
 
+/*************
+ * Interface *
+ *************/
+
 #[derive(Debug)]
-pub struct JsonParser;
+pub struct JsonParser {
+    // Must be lazily loaded, because the JSON language doesn't exist when `new()` is called!
+    constructs: Option<JsonConstructs>,
+}
+
+impl JsonParser {
+    pub fn new() -> JsonParser {
+        JsonParser { constructs: None }
+    }
+
+    fn constructs(&mut self, s: &Storage) -> Result<&JsonConstructs, SynlessError> {
+        if self.constructs.is_none() {
+            let lang = s.language(LANGUAGE_NAME)?;
+            let constructs = JsonConstructs::new(s, lang)?;
+            self.constructs = Some(constructs);
+        }
+        Ok(self.constructs.as_ref().bug())
+    }
+}
+
+impl Default for JsonParser {
+    fn default() -> JsonParser {
+        JsonParser::new()
+    }
+}
 
 impl Parse for JsonParser {
     fn name(&self) -> &str {
@@ -21,83 +58,330 @@ impl Parse for JsonParser {
         file_name: &str,
         source: &str,
     ) -> Result<Node, SynlessError> {
-        // Serde json uses 1-indexed positions; we use 0-indexed positions.
-        let json = serde_json::from_str(source).map_err(|err| ParseError {
-            pos: Some(ppp::Pos {
-                row: (err.line() as ppp::Row).saturating_sub(1),
-                col: (err.column() as ppp::Col).saturating_sub(1),
-            }),
-            file_name: file_name.to_owned(),
-            message: format!("{}", err),
-        })?;
-
-        let json_lang = s.language(LANGUAGE_NAME)?;
-        let json_node = json_to_node(s, json, json_lang).map_err(|construct| {
-            error!(
-                Parse,
-                "Construct '{}' missing from json language spec", construct
-            )
-        })?;
-        let root_node = Node::with_children(s, json_lang.root_construct(s), [json_node])
-            .ok_or_else(|| error!(Parse, "Bug in json parser: root node arity mismatch"))?;
-        Ok(root_node)
+        let tokens = Tokenizer::new(file_name, source);
+        let constructs = self.constructs(s)?;
+        let mut builder = JsonBuilder::new(s, constructs, tokens);
+        builder.parse()
     }
 }
 
-fn json_to_node(
-    s: &mut Storage,
-    json: serde_json::Value,
-    json_lang: Language,
-) -> Result<Node, &'static str> {
-    use serde_json::Value::{Array, Bool, Null, Number, Object, String};
+/**************
+ * Constructs *
+ **************/
 
-    let make_node = |s: &mut Storage, construct_name: &'static str| -> Result<Node, &'static str> {
-        let construct = json_lang
-            .construct(s, construct_name)
-            .ok_or(construct_name)?;
-        Ok(Node::new(s, construct))
-    };
+/// Loads constructs from the language exactly once, when constructing the parser.
+#[derive(Debug)]
+struct JsonConstructs {
+    root: Construct,
+    null: Construct,
+    c_false: Construct,
+    c_true: Construct,
+    string: Construct,
+    number: Construct,
+    array: Construct,
+    object: Construct,
+    key: Construct,
+    pair: Construct,
+}
 
-    match json {
-        Null => make_node(s, "Null"),
-        Bool(false) => make_node(s, "False"),
-        Bool(true) => make_node(s, "True"),
-        String(string) => {
-            let node = make_node(s, "String")?;
-            node.text_mut(s).unwrap().set(string);
-            Ok(node)
+impl JsonConstructs {
+    fn new(s: &Storage, lang: Language) -> Result<JsonConstructs, SynlessError> {
+        Ok(JsonConstructs {
+            root: Self::lookup_construct(s, lang, "Root")?,
+            null: Self::lookup_construct(s, lang, "Null")?,
+            c_false: Self::lookup_construct(s, lang, "False")?,
+            c_true: Self::lookup_construct(s, lang, "True")?,
+            string: Self::lookup_construct(s, lang, "String")?,
+            number: Self::lookup_construct(s, lang, "Number")?,
+            array: Self::lookup_construct(s, lang, "Array")?,
+            object: Self::lookup_construct(s, lang, "Object")?,
+            key: Self::lookup_construct(s, lang, "Key")?,
+            pair: Self::lookup_construct(s, lang, "ObjectPair")?,
+        })
+    }
+
+    fn lookup_construct(
+        s: &Storage,
+        lang: Language,
+        name: &str,
+    ) -> Result<Construct, SynlessError> {
+        match lang.construct(s, name) {
+            Some(construct) => Ok(construct),
+            None => Err(error!(
+                Parse,
+                "Construct '{}' missing from json language spec", name
+            )),
         }
-        Number(n) => {
-            let node = make_node(s, "Number")?;
-            node.text_mut(s).unwrap().set(n.to_string());
-            Ok(node)
+    }
+}
+
+/******************
+ * Error Messages *
+ ******************/
+
+enum JsonError {
+    ExpectedValueFoundComma,
+    ExpectedValueFoundColon,
+    ExpectedValueFoundEndArray,
+    ExpectedValueFoundEndObject,
+    ExpectedArrayComma,
+    UnclosedArray,
+    ExpectedObjectComma,
+    ExpectedObjectColon,
+    IncompletePair,
+    NotAKey,
+    UnclosedObject,
+    TrailingComma,
+    EmptyFile,
+    ExtraToken,
+}
+
+impl JsonError {
+    fn message_and_label(&self) -> (&'static str, &'static str) {
+        use JsonError::*;
+
+        match self {
+            ExpectedValueFoundComma => ("Expected JSON value, found ','.", "unexpected"),
+            ExpectedValueFoundColon => ("Expected JSON value, found ':'.", "unexpected"),
+            ExpectedValueFoundEndArray => {
+                ("Extra ']' does not match any opening '['.", "unmatched")
+            }
+            ExpectedValueFoundEndObject => {
+                ("Extra '}' does not match any opening '{'.", "unmatched")
+            }
+            ExpectedArrayComma => (
+                "Array elements must be separated by commas.",
+                "expected ',' or ']'",
+            ),
+            UnclosedArray => ("Array not closed.", "expected ']'."),
+            ExpectedObjectComma => (
+                "Object elements must be separated by commas.",
+                "expected ',' or '}'",
+            ),
+            ExpectedObjectColon => ("Object keys must be followed by ':'.", "expected ':'"),
+            IncompletePair => ("Missing value after object key.", "expected JSON value"),
+            NotAKey => ("Object key must be a string.", "expected string"),
+            UnclosedObject => ("Object not closed.", "expected '}'"),
+            TrailingComma => ("Trailing commas aren't allowed in JSON.", "trailing comma"),
+            EmptyFile => ("File is empty.", "expected JSON value"),
+            ExtraToken => ("Expected end of file, found extra token.", "unexpected"),
         }
-        Array(array) => {
-            let node = make_node(s, "Array")?;
-            for value in array {
-                let child = json_to_node(s, value, json_lang)?;
+    }
+}
+
+/***********
+ * Builder *
+ ***********/
+
+/// Converts a token stream into a JSON value.
+// TODO: This parses recursively, and thus will overflow the stack on deeply nested arrays/objects.
+// This is true of many JSON parsers, but we should aim higher.
+struct JsonBuilder<'a> {
+    storage: &'a mut Storage,
+    constructs: &'a JsonConstructs,
+    tokens: Tokenizer<'a>,
+}
+
+impl<'a> JsonBuilder<'a> {
+    fn new(
+        s: &'a mut Storage,
+        constructs: &'a JsonConstructs,
+        tokens: Tokenizer<'a>,
+    ) -> JsonBuilder<'a> {
+        JsonBuilder {
+            storage: s,
+            constructs,
+            tokens,
+        }
+    }
+
+    /// Parse a JSON value, and ensure the file ends afterwards.
+    fn parse(&mut self) -> Result<Node, SynlessError> {
+        use JsonError::*;
+
+        let token = match self.tokens.next() {
+            None => return Err(self.error(EmptyFile)),
+            Some(result) => result?,
+        };
+        let json = self.parse_value(token)?;
+        if self.tokens.next().transpose()?.is_some() {
+            return Err(self.error(ExtraToken));
+        }
+        let root = Node::with_children(self.storage, self.constructs.root, [json])
+            .bug_msg("Wrong arity in json Root");
+        Ok(root)
+    }
+
+    /// Parse a key value pair (like `"key" : 17`) that starts with the given token.
+    fn parse_key_value_pair(&mut self, token: Token) -> Result<Node, SynlessError> {
+        use JsonError::*;
+        use Token::*;
+
+        let key = Node::new(self.storage, self.constructs.key);
+        match token {
+            // "key"
+            PlainString(token) => {
+                key.text_mut(self.storage).bug().set(token.to_owned());
+            }
+            // "key"
+            EscapedString(token) => {
+                key.text_mut(self.storage).bug().set(token);
+            }
+            // 17
+            _ => return Err(self.error(NotAKey)),
+        }
+
+        if let Some(token) = self.tokens.next().transpose()? {
+            if token == Colon {
+                // "key" :
+                if let Some(token) = self.tokens.next().transpose()? {
+                    // "key" : 17
+                    let value = self.parse_value(token)?;
+                    let pair =
+                        Node::with_children(self.storage, self.constructs.pair, [key, value])
+                            .bug_msg("Wrong arity in json ObjectPair");
+                    Ok(pair)
+                } else {
+                    // "key": EOF
+                    Err(self.error(IncompletePair))
+                }
+            } else {
+                // "key" 17
+                Err(self.error(ExpectedObjectColon))
+            }
+        } else {
+            // "key" EOF
+            Err(self.error(ExpectedObjectColon))
+        }
+    }
+
+    /// Parse a JSON value that starts with the given token.
+    fn parse_value(&mut self, token: Token) -> Result<Node, SynlessError> {
+        use JsonError::*;
+        use Token::*;
+
+        match token {
+            Null => Ok(Node::new(self.storage, self.constructs.null)),
+            True => Ok(Node::new(self.storage, self.constructs.c_true)),
+            False => Ok(Node::new(self.storage, self.constructs.c_false)),
+            Number(token) => {
+                let node = Node::new(self.storage, self.constructs.number);
+                node.text_mut(self.storage).bug().set(token.to_owned());
+                Ok(node)
+            }
+            PlainString(string) => {
+                let node = Node::new(self.storage, self.constructs.string);
+                node.text_mut(self.storage).bug().set(string.to_owned());
+                Ok(node)
+            }
+            EscapedString(string) => {
+                let node = Node::new(self.storage, self.constructs.string);
+                node.text_mut(self.storage).bug().set(string);
+                Ok(node)
+            }
+            StartArray => {
+                // [
+                let array = Node::new(self.storage, self.constructs.array);
+                let token = match self.tokens.next().transpose()? {
+                    Some(token) => token,
+                    // [ EOF
+                    None => return Err(self.error(UnclosedArray)),
+                };
+                if token == EndArray {
+                    // [ ]
+                    return Ok(array);
+                }
+                // [ 5
+                let elem = self.parse_value(token)?;
                 bug_assert!(
-                    node.insert_last_child(s, child),
+                    array.insert_last_child(self.storage, elem),
                     "Wrong arity in json Array"
                 );
+                while let Some(token) = self.tokens.next().transpose()? {
+                    if token == EndArray {
+                        // [ 5 ]
+                        return Ok(array);
+                    }
+                    if token != Comma {
+                        // [ 5 6
+                        return Err(self.error(ExpectedArrayComma));
+                    }
+                    // [ 5 ,
+                    let token = match self.tokens.next().transpose()? {
+                        Some(token) => token,
+                        // [ 5 , EOF
+                        None => return Err(self.error(UnclosedArray)),
+                    };
+                    if token == EndArray {
+                        // [ 5 , ]
+                        return Err(self.error(TrailingComma));
+                    }
+                    // [ 5 , 6
+                    let elem = self.parse_value(token)?;
+                    bug_assert!(
+                        array.insert_last_child(self.storage, elem),
+                        "Wrong arity in json Array"
+                    );
+                }
+                // [ 5 EOF
+                Err(self.error(UnclosedArray))
             }
-            Ok(node)
-        }
-        Object(object) => {
-            let node = make_node(s, "Object")?;
-            for (key, value) in object {
-                let key_node = make_node(s, "Key")?;
-                key_node.text_mut(s).unwrap().set(key);
-                let value_node = json_to_node(s, value, json_lang)?;
-                let pair_construct = json_lang.construct(s, "ObjectPair").ok_or("ObjectPair")?;
-                let child = Node::with_children(s, pair_construct, [key_node, value_node])
-                    .bug_msg("Wrong arity in json ObjectPair");
+            StartObject => {
+                // {
+                let object = Node::new(self.storage, self.constructs.object);
+                let token = match self.tokens.next().transpose()? {
+                    Some(token) => token,
+                    // { EOF
+                    None => return Err(self.error(UnclosedObject)),
+                };
+                if token == EndObject {
+                    // { }
+                    return Ok(object);
+                }
+                // { "key" : "value"
+                let pair = self.parse_key_value_pair(token)?;
                 bug_assert!(
-                    node.insert_last_child(s, child),
+                    object.insert_last_child(self.storage, pair),
                     "Wrong arity in json Object"
                 );
+                while let Some(token) = self.tokens.next().transpose()? {
+                    if token == EndObject {
+                        // { "key" : "value" }
+                        return Ok(object);
+                    }
+                    if token != Comma {
+                        // { "key" : "value" 17
+                        return Err(self.error(ExpectedObjectComma));
+                    }
+                    // { "key" : "value" ,
+                    let token = match self.tokens.next().transpose()? {
+                        Some(token) => token,
+                        // { "key" : "value" , EOF
+                        None => return Err(self.error(UnclosedObject)),
+                    };
+                    if token == EndObject {
+                        // { "key" : "value" , }
+                        return Err(self.error(TrailingComma));
+                    }
+                    // { "key" : "value", "key2" : "value2"
+                    let pair = self.parse_key_value_pair(token)?;
+                    bug_assert!(
+                        object.insert_last_child(self.storage, pair),
+                        "Wrong arity in json Object"
+                    );
+                }
+                // { "key" : "value" EOF
+                Err(self.error(UnclosedObject))
             }
-            Ok(node)
+            Comma => Err(self.error(ExpectedValueFoundComma)),
+            Colon => Err(self.error(ExpectedValueFoundColon)),
+            EndArray => Err(self.error(ExpectedValueFoundEndArray)),
+            EndObject => Err(self.error(ExpectedValueFoundEndObject)),
         }
+    }
+
+    fn error(&self, error: JsonError) -> SynlessError {
+        let (message, label) = error.message_and_label();
+        self.tokens.error(message, label)
     }
 }
