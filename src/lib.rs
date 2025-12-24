@@ -13,6 +13,7 @@ mod util;
 
 pub mod parsing;
 
+pub use engine::command;
 pub use engine::{DocName, Engine, Settings};
 pub use frontends::Terminal;
 pub use keymap::{KeyProg, Keymap, Layer};

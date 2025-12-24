@@ -137,7 +137,8 @@ impl Doc {
     }
 
     /// Executes a single command. Clears the redo stack if it was an editing command (but not if
-    /// it was a navigation command).
+    /// it was a navigation command). Takes ownership of the command, so if it contains a node but
+    /// cannot be executed, the node is deleted.
     pub fn execute(
         &mut self,
         s: &mut Storage,
@@ -364,17 +365,20 @@ fn execute_tree_ed(
     }
 
     match cmd {
-        Insert(node) => match cursor.insert(s, node) {
-            Ok(None) => Ok(vec![(*cursor, Backspace.into())]),
-            Ok(Some(detached_node)) => Ok(vec![(*cursor, Insert(detached_node).into())]),
-            Err(()) => Err(EditError::CannotPlaceNode),
-        },
+        Insert(node) => insert_node(s, cursor, node, true),
         Replace(new_node) => {
-            let old_node = cursor.at_node(s).ok_or(EditError::NoNodeHere)?;
+            let old_node = match cursor.at_node(s) {
+                Some(old_node) => old_node,
+                None => {
+                    new_node.delete_root(s);
+                    return Err(EditError::NoNodeHere);
+                }
+            };
             if old_node.swap(s, new_node) {
                 *cursor = Location::at(s, new_node);
                 Ok(vec![(*cursor, Replace(old_node).into())])
             } else {
+                new_node.delete_root(s);
                 Err(EditError::CannotPlaceNode)
             }
         }
@@ -385,6 +389,26 @@ fn execute_tree_ed(
         Delete => {
             let (old_node, undo_location) = cursor.delete(s, false).ok_or(EditError::NoNodeHere)?;
             Ok(vec![(undo_location, Insert(old_node).into())])
+        }
+    }
+}
+
+fn insert_node(
+    s: &mut Storage,
+    cursor: &mut Location,
+    node: Node,
+    delete_on_error: bool,
+) -> Result<Vec<(Location, EdCommand)>, EditError> {
+    use TreeEdCommand::*;
+
+    match cursor.insert(s, node) {
+        Ok(None) => Ok(vec![(*cursor, Backspace.into())]),
+        Ok(Some(detached_node)) => Ok(vec![(*cursor, Insert(detached_node).into())]),
+        Err(()) => {
+            if delete_on_error {
+                node.delete_root(s);
+            }
+            Err(EditError::CannotPlaceNode)
         }
     }
 }
@@ -440,7 +464,7 @@ fn execute_clipboard(
         }
         Paste => {
             let node = clipboard.pop().ok_or(EditError::EmptyClipboard)?;
-            let result = execute_tree_ed(s, TreeEdCommand::Insert(node), cursor);
+            let result = insert_node(s, cursor, node, false);
             if result.is_err() {
                 clipboard.push(node);
             }

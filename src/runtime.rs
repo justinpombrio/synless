@@ -1,6 +1,9 @@
+use crate::engine::command::{
+    BookmarkCommand, ClipboardCommand, SearchCommand,
+    TextEdCommand, TextNavCommand, TreeEdCommand, TreeNavCommand,
+};
 use crate::engine::{
-    BookmarkCommand, ClipboardCommand, DocDisplayLabel, DocName, Engine, Search, SearchCommand,
-    Settings, TextEdCommand, TextNavCommand, TreeEdCommand, TreeNavCommand,
+    Settings, DocName, DocDisplayLabel, Engine, Search,
 };
 use crate::frontends::{Event, Frontend, Key};
 use crate::keymap::{

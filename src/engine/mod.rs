@@ -1,19 +1,16 @@
-mod command;
 mod doc;
 mod doc_set;
 mod engine;
 mod search;
 
-use partial_pretty_printer as ppp;
-use std::default::Default;
+pub mod command;
 
-pub use command::{
-    BookmarkCommand, ClipboardCommand, SearchCommand, TextEdCommand, TextNavCommand, TreeEdCommand,
-    TreeNavCommand,
-};
 pub use doc_set::{DocDisplayLabel, DocName};
 pub use engine::Engine;
 pub use search::Search;
+
+use partial_pretty_printer as ppp;
+use std::default::Default;
 
 #[derive(Debug, Clone)]
 pub struct Settings {

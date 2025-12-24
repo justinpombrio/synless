@@ -9,7 +9,7 @@ use crate::parsing::{self, Parse, ParseError};
 use crate::pretty_doc::DocRef;
 use crate::style::Base16Color;
 use crate::tree::{Mode, Node};
-use crate::util::{bug, error, log, SynlessBug, SynlessError};
+use crate::util::{bug, error, SynlessBug, SynlessError};
 use partial_pretty_printer as ppp;
 use partial_pretty_printer::pane;
 use std::collections::HashMap;
@@ -304,7 +304,10 @@ impl Engine {
         Ok(source)
     }
 
-    pub fn get_content<'a>(&'a self, label: DocDisplayLabel) -> Option<(DocRef<'a>, pane::PrintingOptions)> {
+    pub fn get_content<'a>(
+        &'a self,
+        label: DocDisplayLabel,
+    ) -> Option<(DocRef<'a>, pane::PrintingOptions)> {
         self.doc_set
             .get_content(&self.storage, label, &self.settings)
     }
@@ -416,7 +419,7 @@ impl Drop for Engine {
         // Check that there are no remaining nodes.
         let num_nodes = self.storage.num_nodes();
         if num_nodes != 0 {
-            log!(Bug, "Memory leak! Leaked {} nodes", num_nodes);
+            bug!("Memory leak! Leaked {} node(s).", num_nodes);
         }
     }
 }
