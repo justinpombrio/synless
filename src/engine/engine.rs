@@ -304,7 +304,7 @@ impl Engine {
         Ok(source)
     }
 
-    pub fn get_content(&self, label: DocDisplayLabel) -> Option<(DocRef, pane::PrintingOptions)> {
+    pub fn get_content<'a>(&'a self, label: DocDisplayLabel) -> Option<(DocRef<'a>, pane::PrintingOptions)> {
         self.doc_set
             .get_content(&self.storage, label, &self.settings)
     }

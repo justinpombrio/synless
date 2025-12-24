@@ -127,7 +127,7 @@ impl ScreenBuf {
 
     /// Get `ScreenOp` instructions that describe all changes to the screen buffer since the last
     /// time this method was called.
-    pub fn drain_changes(&mut self) -> ScreenBufIter {
+    pub fn drain_changes<'a>(&'a mut self) -> ScreenBufIter<'a> {
         // Swap buffers
         let old_buffer = self.old_buffer.take();
         let new_buffer = mem::replace(
