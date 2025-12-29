@@ -2,9 +2,10 @@ use super::doc::Doc;
 use super::Settings;
 use crate::language::Storage;
 use crate::pretty_doc::DocRef;
+use crate::style::{Style, overflow_behavior_clip, overflow_behavior_wrap};
 use crate::util::bug_assert;
 use partial_pretty_printer as ppp;
-use partial_pretty_printer::pane;
+use partial_pretty_printer::{pane, Width};
 use std::collections::HashMap;
 use std::fmt;
 use std::path::{Path, PathBuf};
@@ -195,13 +196,15 @@ impl DocSet {
         &'s self,
         s: &'s Storage,
         label: DocDisplayLabel,
+        width: Width,
         settings: &Settings,
-    ) -> Option<(DocRef<'s>, pane::PrintingOptions)> {
+    ) -> Option<(DocRef<'s>, pane::PrintingOptions<Style>)> {
         let meta_and_aux_options = pane::PrintingOptions {
             focus_path: vec![],
             focus_target: ppp::FocusTarget::Start,
             focus_height: 0.0,
-            width_strategy: pane::WidthStrategy::Full,
+            printing_width: width,
+            overflow_behavior: overflow_behavior_clip(width),
             set_focus: false,
         };
 
@@ -213,7 +216,8 @@ impl DocSet {
                     focus_path,
                     focus_target,
                     focus_height: settings.focus_height,
-                    width_strategy: pane::WidthStrategy::NoMoreThan(settings.max_display_width),
+                    printing_width: width,
+                    overflow_behavior: overflow_behavior_wrap(width),
                     set_focus: doc.cursor().at_node(s).is_none(),
                 };
                 (doc, options, true)

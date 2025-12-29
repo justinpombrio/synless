@@ -1,6 +1,13 @@
 use crate::util::SynlessBug;
 use partial_pretty_printer as ppp;
+use partial_pretty_printer::pane::OverflowBehavior;
 use serde::{Deserialize, Serialize};
+
+const OVERFLOW_STYLE: Style = Style {
+    fg_color: Some((BG_COLOR, Priority::High)),
+    bg_color: Some((FG_COLOR, Priority::High)),
+    ..Style::const_default()
+};
 
 const HOLE_STYLE: Style = Style {
     fg_color: Some((Base16Color::Base0F, Priority::High)),
@@ -249,6 +256,14 @@ impl Style {
         self.underlined = Some((underlined, priority));
         self
     }
+}
+
+pub fn overflow_behavior_clip(width: ppp::Width) -> OverflowBehavior<Style> {
+    OverflowBehavior::Clip("…", OVERFLOW_STYLE, width)
+}
+
+pub fn overflow_behavior_wrap(width: ppp::Width) -> OverflowBehavior<Style> {
+    OverflowBehavior::Wrap("↳", OVERFLOW_STYLE, width)
 }
 
 impl ColorTheme {

@@ -189,7 +189,7 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
             .start_frame()
             .map_err(|err| error!(Frontend, "{}", err))?;
 
-        let get_content = |doc_label| self.engine.get_content(doc_label);
+        let get_content = |doc_label, width| self.engine.get_content(doc_label, width);
         let note = if self.layers.has_open_menu() {
             &self.menu_pane_notation
         } else {

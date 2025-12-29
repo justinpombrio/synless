@@ -7,7 +7,7 @@ use super::Settings;
 use crate::language::{Language, LanguageSpec, NotationSetSpec, Storage};
 use crate::parsing::{self, Parse, ParseError};
 use crate::pretty_doc::DocRef;
-use crate::style::Base16Color;
+use crate::style::{Base16Color, Style};
 use crate::tree::{Mode, Node};
 use crate::util::{bug, error, SynlessBug, SynlessError};
 use partial_pretty_printer as ppp;
@@ -307,9 +307,10 @@ impl Engine {
     pub fn get_content<'a>(
         &'a self,
         label: DocDisplayLabel,
-    ) -> Option<(DocRef<'a>, pane::PrintingOptions)> {
+        width: ppp::Width,
+    ) -> Option<(DocRef<'a>, pane::PrintingOptions<Style>)> {
         self.doc_set
-            .get_content(&self.storage, label, &self.settings)
+            .get_content(&self.storage, label, width, &self.settings)
     }
 
     pub fn make_string_doc(&mut self, string: String, bg_color: Option<Base16Color>) -> Node {

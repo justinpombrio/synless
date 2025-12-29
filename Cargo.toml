@@ -22,7 +22,7 @@ clap = { version = "4.5.20", features = ["derive"] }
 [dependencies.partial-pretty-printer]
     #path = "../ppp/"
     git = "https://github.com/justinpombrio/partial-pretty-printer"
-    version = "0.9.1"
+    version = "0.10.2"
     features = ["serialization"]
 [dependencies.no-nonsense-flamegraphs]
     version = "0.2.*"
