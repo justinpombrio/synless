@@ -294,8 +294,10 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
 
     fn make_last_log_doc(&mut self) -> (DocName, Option<Node>) {
         let opt_message = self.last_log.as_ref().map(|entry| entry.to_string());
-        let opt_node = opt_message.map(|msg| self.engine.make_string_doc(msg, None));
-        (DocName::Auxilliary(LAST_LOG_LABEL.to_owned()), opt_node)
+        // If there's no message, print an empty string so the log pane is always at least one line
+        // tall.
+        let node = self.engine.make_string_doc(opt_message.unwrap_or_default(), None);
+        (DocName::Auxilliary(LAST_LOG_LABEL.to_owned()), Some(node))
     }
 
     /******************
@@ -707,7 +709,7 @@ fn make_pane_notation(include_menu: bool) -> pane::PaneNotation<DocDisplayLabel,
             ]),
         ),
         (PaneSize::Fixed(1), status_bar),
-        (PaneSize::Fixed(1), log_doc),
+        (PaneSize::Dynamic, log_doc),
     ])
 }
 

@@ -5,22 +5,26 @@ LanguageSpec(
         constructs: [
             ConstructSpec(
                 name: "Root",
-                arity: Fixed([SortSpec(["any"])]),
+                arity: Fixed([SortSpec(["BgBase08", "BgBase0B", "Lines"])]),
             ),
             ConstructSpec(
                 name: "BgBase08",
-                arity: Fixed([SortSpec(["any"])]),
+                arity: Fixed([SortSpec(["Lines"])]),
             ),
             ConstructSpec(
                 name: "BgBase0B",
-                arity: Fixed([SortSpec(["any"])]),
+                arity: Fixed([SortSpec(["Lines"])]),
             ),
             ConstructSpec(
-                name: "String",
+                name: "Line",
                 arity: Texty(None),
             ),
+            ConstructSpec(
+                name: "Lines",
+                arity: Listy(SortSpec(["Line"])),
+            ),
         ],
-        sorts: [("any", SortSpec(["BgBase08", "BgBase0B", "String"]))],
+        sorts: [],
         root_construct: "Root",
     ),
     default_display_notation: "DefaultDisplay",
@@ -32,7 +36,17 @@ LanguageSpec(
                 ("Root", Child(0)),
                 ("BgBase08", Style(Properties(bg_color: Some(Base08)), Child(0))),
                 ("BgBase0B", Style(Properties(bg_color: Some(Base0B)), Child(0))),
-                ("String", Text)
+                ("Line", Text),
+                ("Lines",
+                    Count(
+                        zero: Empty,
+                        one: Child(0),
+                        many: Fold(
+                            first: Child(0),
+                            join: Concat(Left, Concat(Newline, Right)),
+                        ),
+                    ),
+                )
             ],
         )
     ]
