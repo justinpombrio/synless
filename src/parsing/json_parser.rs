@@ -39,6 +39,7 @@ impl JsonParser {
         }
         Ok(self.constructs.as_ref().bug())
     }
+
 }
 
 impl Default for JsonParser {
@@ -58,10 +59,87 @@ impl Parse for JsonParser {
         file_name: &str,
         source: &str,
     ) -> Result<Node, SynlessError> {
-        let tokens = Tokenizer::new(file_name, source);
         let constructs = self.constructs(s)?;
-        let mut builder = JsonBuilder::new(s, constructs, tokens);
-        builder.parse()
+        let tokens = Tokenizer::new(file_name, source);
+        let mut builder = JsonBuilder { tokens };
+        let json = builder.parse()?;
+        let mut converter = JsonConverter {
+            storage: s,
+            constructs,
+        };
+        Ok(converter.json_to_tree(json))
+    }
+}
+
+/******************
+ * JSON Converter *
+ ******************/
+
+enum Json {
+    Null,
+    True,
+    False,
+    Number(String),
+    String(String),
+    Array(Vec<Json>),
+    Object(Vec<(String, Json)>),
+}
+
+struct JsonConverter<'a> {
+    constructs: &'a JsonConstructs,
+    storage: &'a mut Storage,
+}
+
+impl<'a> JsonConverter<'a> {
+    fn json_to_tree(&mut self, json: Json) -> Node {
+        let node = self.convert(json);
+        Node::with_children(self.storage, self.constructs.root, [node])
+            .bug_msg("Wrong arity in json Root")
+    }
+
+    fn convert(&mut self, json: Json) -> Node {
+        let c = self.constructs;
+
+        match json {
+            Json::Null => Node::new(self.storage, c.null),
+            Json::True => Node::new(self.storage, c.c_true),
+            Json::False => Node::new(self.storage, c.c_false),
+            Json::Number(string) => {
+                let node = Node::new(self.storage, c.number);
+                node.text_mut(self.storage).bug().set(string);
+                node
+            }
+            Json::String(string) => {
+                let node = Node::new(self.storage, c.string);
+                node.text_mut(self.storage).bug().set(string);
+                node
+            }
+            Json::Array(elems) => {
+                let array = Node::new(self.storage, c.array);
+                for elem in elems {
+                    let node = self.convert(elem);
+                    bug_assert!(
+                        array.insert_last_child(self.storage, node),
+                        "Wrong arity in json Array");
+                }
+                array
+            }
+            Json::Object(pairs) => {
+                let object = Node::new(self.storage, c.object);
+                for (key, val) in pairs {
+                    let key_node = Node::new(self.storage, c.key);
+                    key_node.text_mut(self.storage).bug().set(key);
+                    let val_node = self.convert(val);
+                    let pair_node =
+                        Node::with_children(self.storage, c.pair, [key_node, val_node])
+                            .bug_msg("Wrong arity in json ObjectPair");
+                    bug_assert!(
+                       object.insert_last_child(self.storage, pair_node),
+                     "Wrong arity in json Object");
+                }
+                object
+            }
+        }
     }
 }
 
@@ -173,30 +251,16 @@ impl JsonError {
  * Builder *
  ***********/
 
-/// Converts a token stream into a JSON value.
+/// Converts a token stream into a `Json` value.
 // TODO: This parses recursively, and thus will overflow the stack on deeply nested arrays/objects.
 // This is true of many JSON parsers, but we should aim higher.
 struct JsonBuilder<'a> {
-    storage: &'a mut Storage,
-    constructs: &'a JsonConstructs,
     tokens: Tokenizer<'a>,
 }
 
 impl<'a> JsonBuilder<'a> {
-    fn new(
-        s: &'a mut Storage,
-        constructs: &'a JsonConstructs,
-        tokens: Tokenizer<'a>,
-    ) -> JsonBuilder<'a> {
-        JsonBuilder {
-            storage: s,
-            constructs,
-            tokens,
-        }
-    }
-
     /// Parse a JSON value, and ensure the file ends afterwards.
-    fn parse(&mut self) -> Result<Node, SynlessError> {
+    fn parse(&mut self) -> Result<Json, SynlessError> {
         use JsonError::*;
 
         let token = match self.tokens.next() {
@@ -207,29 +271,22 @@ impl<'a> JsonBuilder<'a> {
         if self.tokens.next().transpose()?.is_some() {
             return Err(self.error(ExtraToken));
         }
-        let root = Node::with_children(self.storage, self.constructs.root, [json])
-            .bug_msg("Wrong arity in json Root");
-        Ok(root)
+        Ok(json)
     }
 
     /// Parse a key value pair (like `"key" : 17`) that starts with the given token.
-    fn parse_key_value_pair(&mut self, token: Token) -> Result<Node, SynlessError> {
+    fn parse_key_value_pair(&mut self, token: Token) -> Result<(String, Json), SynlessError> {
         use JsonError::*;
         use Token::*;
 
-        let key = Node::new(self.storage, self.constructs.key);
-        match token {
+        let key = match token {
             // "key"
-            PlainString(token) => {
-                key.text_mut(self.storage).bug().set(token.to_owned());
-            }
+            PlainString(token) => token.to_owned(),
             // "key"
-            EscapedString(token) => {
-                key.text_mut(self.storage).bug().set(token);
-            }
+            EscapedString(token) => token,
             // 17
             _ => return Err(self.error(NotAKey)),
-        }
+        };
 
         if let Some(token) = self.tokens.next().transpose()? {
             if token == Colon {
@@ -237,10 +294,7 @@ impl<'a> JsonBuilder<'a> {
                 if let Some(token) = self.tokens.next().transpose()? {
                     // "key" : 17
                     let value = self.parse_value(token)?;
-                    let pair =
-                        Node::with_children(self.storage, self.constructs.pair, [key, value])
-                            .bug_msg("Wrong arity in json ObjectPair");
-                    Ok(pair)
+                    Ok((key, value))
                 } else {
                     // "key": EOF
                     Err(self.error(IncompletePair))
@@ -256,32 +310,20 @@ impl<'a> JsonBuilder<'a> {
     }
 
     /// Parse a JSON value that starts with the given token.
-    fn parse_value(&mut self, token: Token) -> Result<Node, SynlessError> {
+    fn parse_value(&mut self, token: Token) -> Result<Json, SynlessError> {
         use JsonError::*;
         use Token::*;
 
         match token {
-            Null => Ok(Node::new(self.storage, self.constructs.null)),
-            True => Ok(Node::new(self.storage, self.constructs.c_true)),
-            False => Ok(Node::new(self.storage, self.constructs.c_false)),
-            Number(token) => {
-                let node = Node::new(self.storage, self.constructs.number);
-                node.text_mut(self.storage).bug().set(token.to_owned());
-                Ok(node)
-            }
-            PlainString(string) => {
-                let node = Node::new(self.storage, self.constructs.string);
-                node.text_mut(self.storage).bug().set(string.to_owned());
-                Ok(node)
-            }
-            EscapedString(string) => {
-                let node = Node::new(self.storage, self.constructs.string);
-                node.text_mut(self.storage).bug().set(string);
-                Ok(node)
-            }
+            Null => Ok(Json::Null),
+            True => Ok(Json::True),
+            False => Ok(Json::False),
+            Number(token) => Ok(Json::Number(token.to_owned())),
+            PlainString(string) => Ok(Json::String(string.to_owned())),
+            EscapedString(string) => Ok(Json::String(string)),
             StartArray => {
                 // [
-                let array = Node::new(self.storage, self.constructs.array);
+                let mut array = Vec::new();
                 let token = match self.tokens.next().transpose()? {
                     Some(token) => token,
                     // [ EOF
@@ -289,18 +331,15 @@ impl<'a> JsonBuilder<'a> {
                 };
                 if token == EndArray {
                     // [ ]
-                    return Ok(array);
+                    return Ok(Json::Array(array));
                 }
                 // [ 5
                 let elem = self.parse_value(token)?;
-                bug_assert!(
-                    array.insert_last_child(self.storage, elem),
-                    "Wrong arity in json Array"
-                );
+                array.push(elem);
                 while let Some(token) = self.tokens.next().transpose()? {
                     if token == EndArray {
                         // [ 5 ]
-                        return Ok(array);
+                        return Ok(Json::Array(array));
                     }
                     if token != Comma {
                         // [ 5 6
@@ -318,17 +357,14 @@ impl<'a> JsonBuilder<'a> {
                     }
                     // [ 5 , 6
                     let elem = self.parse_value(token)?;
-                    bug_assert!(
-                        array.insert_last_child(self.storage, elem),
-                        "Wrong arity in json Array"
-                    );
+                    array.push(elem);
                 }
                 // [ 5 EOF
                 Err(self.error(UnclosedArray))
             }
             StartObject => {
                 // {
-                let object = Node::new(self.storage, self.constructs.object);
+                let mut object = Vec::new();
                 let token = match self.tokens.next().transpose()? {
                     Some(token) => token,
                     // { EOF
@@ -336,18 +372,15 @@ impl<'a> JsonBuilder<'a> {
                 };
                 if token == EndObject {
                     // { }
-                    return Ok(object);
+                    return Ok(Json::Object(object));
                 }
                 // { "key" : "value"
                 let pair = self.parse_key_value_pair(token)?;
-                bug_assert!(
-                    object.insert_last_child(self.storage, pair),
-                    "Wrong arity in json Object"
-                );
+                object.push(pair);
                 while let Some(token) = self.tokens.next().transpose()? {
                     if token == EndObject {
                         // { "key" : "value" }
-                        return Ok(object);
+                        return Ok(Json::Object(object));
                     }
                     if token != Comma {
                         // { "key" : "value" 17
@@ -365,10 +398,7 @@ impl<'a> JsonBuilder<'a> {
                     }
                     // { "key" : "value", "key2" : "value2"
                     let pair = self.parse_key_value_pair(token)?;
-                    bug_assert!(
-                        object.insert_last_child(self.storage, pair),
-                        "Wrong arity in json Object"
-                    );
+                    object.push(pair);
                 }
                 // { "key" : "value" EOF
                 Err(self.error(UnclosedObject))
