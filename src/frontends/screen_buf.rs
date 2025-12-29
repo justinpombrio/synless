@@ -208,10 +208,7 @@ impl Iterator for ScreenBufIter<'_> {
 
     fn next(&mut self) -> Option<ScreenOp> {
         loop {
-            let pos = match self.buffer_pos {
-                None => return None,
-                Some(pos) => pos,
-            };
+            let pos = self.buffer_pos?;
             let new_cell = self.new_buffer.get(pos).unwrap();
             let old_cell = self
                 .old_buffer
