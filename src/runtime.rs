@@ -47,7 +47,7 @@ impl<F: Frontend<Style = Style> + 'static> Runtime<F> {
         let mut engine = Engine::new(settings);
 
         // Magic initialization
-        engine.add_parser("json", crate::parsing::JsonParser);
+        engine.add_parser("json", crate::parsing::JsonParser::new());
 
         Runtime {
             engine,

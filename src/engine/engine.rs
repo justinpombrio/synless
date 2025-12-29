@@ -65,7 +65,7 @@ impl Engine {
         language_spec_ron: &str,
     ) -> Result<String, SynlessError> {
         let language_spec = ron::from_str::<LanguageSpec>(language_spec_ron)
-            .map_err(|err| ParseError::from_ron_error(filepath, err))?;
+            .map_err(|err| ParseError::from_ron_error(filepath, language_spec_ron, err))?;
         let language_name = language_spec.name.clone();
         self.storage.add_language(language_spec)?;
         Ok(language_name)
@@ -78,7 +78,7 @@ impl Engine {
         notation_ron: &str,
     ) -> Result<String, SynlessError> {
         let notation_spec = ron::from_str::<NotationSetSpec>(notation_ron)
-            .map_err(|err| ParseError::from_ron_error(filepath, err))?;
+            .map_err(|err| ParseError::from_ron_error(filepath, notation_ron, err))?;
         let notation_name = notation_spec.name.clone();
         let lang = self.storage.language(language_name)?;
         lang.add_notation(&mut self.storage, notation_spec)?;
@@ -172,7 +172,7 @@ impl Engine {
     }
 
     pub fn delete_doc(&mut self, doc_name: &DocName) -> Result<(), SynlessError> {
-        if self.doc_set.delete_doc(&mut self.storage, doc_name) {
+        if !self.doc_set.delete_doc(&mut self.storage, doc_name) {
             Err(DocError::DocNotFound(doc_name.to_owned()))?;
         }
         Ok(())

@@ -1,4 +1,5 @@
 mod json_parser;
+mod json_tokenizer;
 
 use crate::language::{Arity, Storage};
 use crate::tree::Node;
@@ -52,47 +53,131 @@ pub fn postprocess(s: &mut Storage, root: Node, hole_text: &str) {
     });
 }
 
+/// An error while parsing a file. If a location is given, labels the line it's on. For example:
+///
+/// ```
+/// # use synless::parsing::ParseError;
+/// # use partial_pretty_printer::Pos;
+/// let error_without_location =
+///     ParseError::without_location("git-references.md".to_owned(), "Bad writing.".to_owned());
+/// assert_eq!(
+///     error_without_location.to_string(),
+///     "In git-references.md: Bad writing."
+/// );
+/// ```
+///
+/// ```
+/// # use synless::parsing::ParseError;
+/// # use partial_pretty_printer::Pos;
+/// let file_contents = "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nOh shit, git!\n\n";
+/// let error_with_location = ParseError::with_location(
+///     "git-references.md".to_owned(),
+///     "Profanity is unprofessional.".to_owned(),
+///     file_contents,
+///     Pos { row: 16, col: 3 },
+///     "profane".to_owned(),
+/// );
+/// assert_eq!(
+///     error_with_location.to_string(),
+///     [
+///         "In git-references.md at 17:4: Profanity is unprofessional.",
+///         "17 |Oh shit, git!",
+///         "       ^ profane",
+///     ]
+///     .join("\n"),
+/// );
+/// ```
 #[derive(Debug)]
 pub struct ParseError {
-    pub pos: Option<ppp::Pos>,
-    pub file_name: String,
-    pub message: String,
+    file_name: String,
+    message: String,
+    location: Option<ParseErrorLocation>,
+}
+
+#[derive(Debug)]
+pub struct ParseErrorLocation {
+    pos: ppp::Pos,
+    line: String,
+    label: String,
 }
 
 impl ParseError {
-    pub fn from_ron_error(filepath: &Path, error: ron::error::SpannedError) -> ParseError {
+    pub fn without_location(file_name: String, message: String) -> ParseError {
+        ParseError {
+            file_name,
+            message,
+            location: None,
+        }
+    }
+
+    pub fn with_location(
+        file_name: String,
+        message: String,
+        file_contents: &str,
+        pos: ppp::Pos,
+        label: String,
+    ) -> ParseError {
+        let line = file_contents
+            .lines()
+            .nth(pos.row as usize)
+            .unwrap_or("")
+            .to_owned();
+        ParseError {
+            file_name,
+            message,
+            location: Some(ParseErrorLocation { pos, line, label }),
+        }
+    }
+
+    pub fn from_ron_error(
+        filepath: &Path,
+        file_contents: &str,
+        error: ron::error::SpannedError,
+    ) -> ParseError {
         // Serde ron uses 1-indexed positions, with 0,0 as a sentinel value.
         // We use 0-indexed positions.
-        let (row, col) = (
-            error.position.line as ppp::Row,
-            error.position.col as ppp::Col,
-        );
-        let pos = if row == 0 || col == 0 {
+        let pos = if error.position.line == 0 || error.position.col == 0 {
             None
         } else {
             Some(ppp::Pos {
-                row: row - 1,
-                col: col - 1,
+                row: error.position.line as ppp::Row - 1,
+                col: error.position.col as ppp::Col - 1,
             })
         };
-        ParseError {
-            file_name: filepath.to_string_lossy().into_owned(),
-            pos,
-            message: format!("{}", error.code),
+
+        let file_name = filepath.to_string_lossy().into_owned();
+        let message = format!("{}", error.code);
+        match pos {
+            None => ParseError::without_location(file_name, message),
+            Some(pos) => {
+                ParseError::with_location(file_name, message, file_contents, pos, "here".to_owned())
+            }
+        }
+    }
+}
+
+impl fmt::Display for ParseError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let file = &self.file_name;
+        let message = &self.message;
+        match &self.location {
+            None => write!(f, "In {file}: {message}"),
+            Some(loc) => {
+                let row = loc.pos.row + 1;
+                let col = loc.pos.col + 1;
+                writeln!(f, "In {file} at {row}:{col}: {message}")?;
+                let line = &loc.line;
+                let spacing = row.to_string().len() + col as usize;
+                let label = &loc.label;
+                writeln!(f, "{row} |{line}")?;
+                write!(f, "{:>spacing$} ^ {label}", "", spacing = spacing)
+            }
         }
     }
 }
 
 impl From<ParseError> for SynlessError {
     fn from(error: ParseError) -> SynlessError {
-        let doc = error.file_name;
-        let message = error.message;
-        if let Some(ppp::Pos { row, col }) = error.pos {
-            let line = row + 1;
-            let col = col + 1;
-            error!(Parse, "In {doc} at {line}:{col}: {message}")
-        } else {
-            error!(Parse, "In {doc}: {message}")
-        }
+        error!(Parse, "{}", error)
     }
 }
