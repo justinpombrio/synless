@@ -1,13 +1,8 @@
 # Synless Walkthrough
 
-**This whole project is in a pre-alpha stage. Even the design
-  documents are under construction at best. Synless does not yet
-  exist.**
-
 What will it be like to work with Synless, once it's done? I'll try to describe the experience.
 
-(To be extra clear, this is hypothetical. Ain't none of this exists yet 'cept plans.)
-
+(To be very clear, this is hypothetical. None of this exists yet.)
 
 ## Adding Support for a bit of Rust
 

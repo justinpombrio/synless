@@ -1,3 +1,6 @@
+Some old notes on planned keyboard shortcuts. Thank god we didn't go with this
+approach, needing four different hole insertion commands.
+
 ~~~~~~~~~ OVERVIEW ~~~~~~~~~~
 
 Navigation      h, H - left, first sibling

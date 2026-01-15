@@ -4,9 +4,6 @@
     A poem lovely as a tree.
     - Joyce Kilmer
 
-**This whole project is in a pre-alpha stage. Even the design documents are under construction at
-best. Synless does not yet exist.**
-
 ## The Status Quo
 
 Code is normally saved as, and edited as, text. Why is that?

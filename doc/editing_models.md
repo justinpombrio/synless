@@ -51,7 +51,32 @@ Display is hard. Some options:
   square, maybe with a cdot.
 
 **Advantages:** fewer required operations, no holes needed.
+
 **Disadvantages:** hard to display, what does down do.
+
+## On-Or-Before
+
+The cursor can be on a node (typical), or before the first element of a listy
+node. Insertion on a fixed node replaces it with a hole; deletion on a fixed
+node overwrites it; insertion on a listy node inserts a new element after;
+deletion on a listy node removes the current element and shifts left.
+
+Since the cursor can be before the first element of a listy sequence, you only
+need one basic insertion operation. (A fixed node has N children, N insertion
+points, and N allowed cursor locations. A listy node has N children, N+1
+insertion points, and N+1 allowed cursor locations.)
+
+Display is annoying in that you need to have some way of indicating that you're
+before the first element, it needs to work even in an empty list, and it needs
+to be visually distinct from a text cursor.
+
+**Advantages:** fewer required operations, no holes needed.
+
+**Disadvantages:** hard to visually display "you're at the start of this list,
+before any of its elements".
+
+This design is what we ultimately went with. The Between approach was clever but
+proved really hard to use when actually implemented.
 
 ## Comparison of edits
 

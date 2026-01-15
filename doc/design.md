@@ -1,8 +1,8 @@
 # Design of Synless
 
-**This whole project is in a pre-alpha stage. Even the design
-  documents are under construction at best. Synless does not yet
-  exist.**
+**This is a planned architecture document. Most of it is unimplemented, and the
+parts that are implemented don't necessarily match this document. Keeping this
+around until it's replaced by a proper architecture document.**
 
 Synless will be built on a client-server architecture. Let's look at
 the design from the inside-out. Inside the Server is the Engine. The
